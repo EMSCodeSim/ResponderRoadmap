@@ -3,6 +3,17 @@ import { PrismaClient } from "@prisma/client";
 import { STARTER_TEMPLATES } from "../src/server/starters";
 import { computeAssignmentProgress } from "../src/lib/progress";
 
+function refuseProductionSeed() {
+  if (process.env.ALLOW_DEMO_SEED === "true") return;
+  const url = process.env.DATABASE_URL || "";
+  if (process.env.NODE_ENV === "production" || process.env.NETLIFY === "true" || /neon\.tech/i.test(url)) {
+    console.error("Refusing to seed demo Metro Fire data into production.");
+    process.exit(1);
+  }
+}
+
+refuseProductionSeed();
+
 const prisma = new PrismaClient();
 
 const DAYS = 86_400_000;

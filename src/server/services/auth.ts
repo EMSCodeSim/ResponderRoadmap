@@ -32,6 +32,7 @@ function toSession(user: {
 async function loadUser(email: string) {
   return prisma.user.findUnique({
     where: { email: email.toLowerCase() },
+    omit: { passwordHash: false },
     include: {
       memberships: {
         include: { department: true },

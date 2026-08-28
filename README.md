@@ -8,54 +8,56 @@ The mobile ResponderRoadmap app remains the primary interface for individual res
 
 Personal Career Road records stay with the member. Joining a department never grants unrestricted access to personal history.
 
-## MVP included
+## Production
 
-- Login and department creation
-- Training officer dashboard
-- Member roster and member profile
-- Department roles (Member, Evaluator, Training Officer, Department Administrator)
-- Task Book library, builder, versioning, and publish
-- Assignments and evaluator sign-off with an append-only audit trail
-- Certification tracking and expiration windows
-- Activity history
-- Reports with CSV and print export
-- Join code and email invitations
-- REST API under `/api/v1` for later Flutter integration
+Live site: [https://responderroadmap.com](https://responderroadmap.com)
 
-## Demo (development seed)
+Production uses **Neon PostgreSQL** through `DATABASE_URL`. Prisma migrations run on each Netlify build (`prisma migrate deploy`). Production builds do not seed demo users.
+
+Set these in Netlify (never commit them):
+
+- `DATABASE_URL` — Neon pooled connection string (`sslmode=require`)
+- `DIRECT_URL` — optional Neon direct/unpooled URI for migrations
+- `AUTH_SECRET` — session signing secret
+
+Do not use SQLite, Netlify Database, or `@netlify/database`.
+
+## Local development
 
 ```bash
+cp .env.example .env
+# Point DATABASE_URL at a local or Neon Postgres database
 npm install
-npm run db:setup
+npx prisma migrate deploy
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Optional Metro Fire demo data (disposable databases only):
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Training Officer | riley.chen@metrofire.gov | demo |
-| Department Administrator | morgan.hale@metrofire.gov | demo |
-| Evaluator | sam.lee@metrofire.gov | demo |
+```bash
+ALLOW_DEMO_SEED=true npm run db:seed
+NEXT_PUBLIC_DEMO_LOGIN=true npm run dev
+```
 
-Department: **Metro Fire & Rescue**  
-Join code: **NFR-4821**
+`npm run db:reset` and demo seed refuse to run against Neon/Netlify/production.
 
 ## Architecture
 
 - Next.js App Router UI
 - Tenant-scoped services in `src/server/services`
 - Permissions enforced in services, not only in navigation
-- SQLite via Prisma for local/dev (`DATABASE_URL=file:./dev.db`)
+- PostgreSQL via Prisma (`DATABASE_URL`)
 - Task Book templates are independent from assignments; assignments pin a published version
 - Credentials are independent from Task Books
 - `PersonalCredential` / `PersonalCareerLog` are never returned by department APIs
+- Sign-off history is append-only
 
 ## API
 
 Authenticated JSON API:
 
 `/api/v1/auth/login`  
+`/api/v1/auth/register`  
 `/api/v1/dashboard`  
 `/api/v1/members`  
 `/api/v1/task-books`  
