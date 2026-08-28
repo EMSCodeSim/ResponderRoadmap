@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bumpVersion } from "@/lib/constants";
 import { credentialStatus, daysUntil, worstCredentialHealth } from "@/lib/dates";
 import { computeAssignmentProgress } from "@/lib/progress";
+import { approvalsSinceSubmission, reviewStageForRequirement } from "@/lib/signoff";
 import { hasPermission } from "@/server/permissions";
 
 describe("bumpVersion", () => {
@@ -124,6 +125,67 @@ describe("assignment progress", () => {
       now: new Date("2026-08-28"),
     });
     expect(summary.status).toBe("OVERDUE");
+  });
+});
+
+describe("sign-off stages", () => {
+  const submittedAt = new Date("2026-08-28T12:00:00Z");
+
+  it("starts with evaluator review when both levels are required", () => {
+    expect(
+      reviewStageForRequirement({
+        evaluatorSignOffRequired: true,
+        supervisorApprovalRequired: true,
+        signOffs: [],
+        submittedAt,
+      }),
+    ).toBe("EVALUATOR");
+  });
+
+  it("moves to supervisor after evaluator approval", () => {
+    expect(
+      reviewStageForRequirement({
+        evaluatorSignOffRequired: true,
+        supervisorApprovalRequired: true,
+        signOffs: [{ result: "APPROVED", signedAt: new Date("2026-08-28T12:05:00Z") }],
+        submittedAt,
+      }),
+    ).toBe("SUPERVISOR");
+  });
+
+  it("ignores approvals from an earlier submission attempt", () => {
+    const signOffs = [{ result: "APPROVED", signedAt: new Date("2026-08-28T11:00:00Z") }];
+    expect(approvalsSinceSubmission(signOffs, submittedAt)).toBe(0);
+    expect(
+      reviewStageForRequirement({
+        evaluatorSignOffRequired: true,
+        supervisorApprovalRequired: true,
+        signOffs,
+        submittedAt,
+      }),
+    ).toBe("EVALUATOR");
+  });
+
+  it("goes directly to supervisor when evaluator sign-off is not required", () => {
+    expect(
+      reviewStageForRequirement({
+        evaluatorSignOffRequired: false,
+        supervisorApprovalRequired: true,
+        signOffs: [],
+        submittedAt,
+      }),
+    ).toBe("SUPERVISOR");
+  });
+
+  it("is final when only one evaluator approval is required", () => {
+    expect(
+      reviewStageForRequirement({
+        evaluatorSignOffRequired: true,
+        supervisorApprovalRequired: false,
+        signOffs: [{ result: "APPROVED", signedAt: new Date("2026-08-28T12:05:00Z") }],
+        submittedAt,
+      }),
+    ).toBe("FINAL");
   });
 });
 
