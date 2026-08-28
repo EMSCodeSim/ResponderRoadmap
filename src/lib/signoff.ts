@@ -1,4 +1,5 @@
 export type ReviewStage = "EVALUATOR" | "SUPERVISOR" | "FINAL";
+export type ReviewResult = "APPROVED" | "RETURNED";
 
 export type SignOffLike = {
   result: string;
@@ -33,6 +34,44 @@ export function reviewStageForRequirement(input: {
     if (evaluatorDone) return "SUPERVISOR";
   }
   return "FINAL";
+}
+
+export function nextReviewState(input: {
+  result: ReviewResult;
+  stage: ReviewStage;
+  supervisorApprovalRequired: boolean;
+  currentApprovedRepetitions: number;
+  repetitionsRequired: number;
+}) {
+  const repetitionsRequired = Math.max(1, input.repetitionsRequired);
+  const currentApprovedRepetitions = Math.max(0, input.currentApprovedRepetitions);
+
+  if (input.result === "RETURNED") {
+    return {
+      status: "RETURNED" as const,
+      approvedRepetitions: currentApprovedRepetitions,
+      completed: false,
+      supervisorPending: false,
+    };
+  }
+
+  const supervisorPending = input.stage === "EVALUATOR" && input.supervisorApprovalRequired;
+  if (supervisorPending) {
+    return {
+      status: "SUBMITTED" as const,
+      approvedRepetitions: currentApprovedRepetitions,
+      completed: false,
+      supervisorPending: true,
+    };
+  }
+
+  const approvedRepetitions = Math.min(repetitionsRequired, currentApprovedRepetitions + 1);
+  return {
+    status: "APPROVED" as const,
+    approvedRepetitions,
+    completed: approvedRepetitions >= repetitionsRequired,
+    supervisorPending: false,
+  };
 }
 
 export function reviewStageLabel(stage: ReviewStage) {
