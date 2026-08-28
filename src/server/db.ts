@@ -25,8 +25,6 @@ function resolveDatabaseUrl(raw = process.env.DATABASE_URL) {
   }
 }
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-
 function createClient() {
   const url = process.env.DATABASE_URL ? resolveDatabaseUrl(process.env.DATABASE_URL) : undefined;
   return new PrismaClient({
@@ -37,6 +35,8 @@ function createClient() {
     ...(url ? { datasources: { db: { url } } } : {}),
   });
 }
+
+const globalForPrisma = globalThis as unknown as { prisma?: ReturnType<typeof createClient> };
 
 export const prisma = globalForPrisma.prisma ?? createClient();
 
