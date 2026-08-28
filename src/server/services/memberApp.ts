@@ -163,8 +163,12 @@ export async function submitRequirement(
   if (!requirement) throw new HttpError(404, "Requirement not found in this assigned Task Book.");
 
   const existing = assignment.completions.find((item) => item.requirementId === requirement.id) ?? null;
-  if (existing?.status === "APPROVED") {
-    throw new HttpError(409, "This requirement is already approved and cannot be overwritten.");
+  const repetitionsRequired = Math.max(1, requirement.repetitionsRequired);
+  if (existing?.status === "APPROVED" && existing.repetitionCount >= repetitionsRequired) {
+    throw new HttpError(409, "This requirement is fully approved and cannot be overwritten.");
+  }
+  if (existing?.status === "SUBMITTED") {
+    throw new HttpError(409, "This requirement is already awaiting evaluator review.");
   }
 
   const prerequisites = parseStringArray(requirement.prerequisitesJson);
@@ -179,11 +183,11 @@ export async function submitRequirement(
   }
 
   const nextRepetitionCount = Math.min(
-    Math.max(1, requirement.repetitionsRequired),
+    repetitionsRequired,
     Math.max(0, existing?.repetitionCount ?? 0) + 1,
   );
   const needsReview = requirement.evaluatorSignOffRequired || requirement.supervisorApprovalRequired;
-  const fullyRepeated = nextRepetitionCount >= Math.max(1, requirement.repetitionsRequired);
+  const fullyRepeated = nextRepetitionCount >= repetitionsRequired;
   const nextStatus = !needsReview && fullyRepeated ? "APPROVED" : "SUBMITTED";
   const now = new Date();
 
@@ -229,6 +233,7 @@ export async function submitRequirement(
     assignmentId: assignment.id,
     requirementId: requirement.id,
     repetitionCount: nextRepetitionCount,
+    repetitionsRequired,
     status: nextStatus,
   });
   await writeActivity(ctx.departmentId, nextStatus === "APPROVED" ? "REQUIREMENT_COMPLETED" : "REQUIREMENT_SUBMITTED", {
@@ -239,6 +244,8 @@ export async function submitRequirement(
       memberName: ctx.name,
       requirement: requirement.title,
       taskBook: assignment.version.template.title,
+      repetitionCount: nextRepetitionCount,
+      repetitionsRequired,
     },
   });
 
