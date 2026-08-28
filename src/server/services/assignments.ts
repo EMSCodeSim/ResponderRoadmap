@@ -2,7 +2,7 @@ import { prisma } from "@/server/db";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress } from "@/lib/progress";
-import { approvalsSinceSubmission, reviewStageForRequirement } from "@/lib/signoff";
+import { nextReviewState, reviewStageForRequirement } from "@/lib/signoff";
 import type { SignOffResult } from "@/lib/constants";
 
 const REVIEWER_ROLES = ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"];
@@ -130,6 +130,7 @@ export async function createAssignments(
     rank?: string;
     station?: string;
     shift?: string;
+    allMembers?: boolean;
     dueDate?: string | null;
     evaluatorId?: string | null;
     supervisorId?: string | null;
@@ -164,6 +165,19 @@ export async function createAssignments(
   await validateReviewer(ctx, input.evaluatorId, "Evaluator");
   await validateReviewer(ctx, input.supervisorId, "Supervisor");
 
+  const hasIndividualTargets = Boolean(input.membershipIds?.length);
+  const hasGroupTargets = Boolean(input.rank || input.station || input.shift);
+  const targetsEntireDepartment = input.allMembers === true;
+  if (!hasIndividualTargets && !hasGroupTargets && !targetsEntireDepartment) {
+    throw new HttpError(
+      400,
+      "Choose individual members, a rank/station/shift group, or explicitly select the entire department.",
+    );
+  }
+  if (targetsEntireDepartment && (hasIndividualTargets || hasGroupTargets)) {
+    throw new HttpError(400, "Entire-department assignment cannot be combined with member or group filters.");
+  }
+
   const where: {
     departmentId: string;
     status: string;
@@ -172,10 +186,13 @@ export async function createAssignments(
     station?: string;
     shift?: string;
   } = { departmentId: ctx.departmentId, status: "ACTIVE" };
-  if (input.membershipIds?.length) where.id = { in: input.membershipIds };
-  if (input.rank) where.rank = input.rank;
-  if (input.station) where.station = input.station;
-  if (input.shift) where.shift = input.shift;
+  if (hasIndividualTargets) {
+    where.id = { in: input.membershipIds! };
+  } else if (!targetsEntireDepartment) {
+    if (input.rank) where.rank = input.rank;
+    if (input.station) where.station = input.station;
+    if (input.shift) where.shift = input.shift;
+  }
 
   const members = await prisma.departmentMembership.findMany({
     where,
@@ -226,6 +243,7 @@ export async function createAssignments(
     version: version.version,
     evaluatorId: input.evaluatorId || null,
     supervisorId: input.supervisorId || null,
+    targetMode: targetsEntireDepartment ? "ALL" : hasIndividualTargets ? "INDIVIDUAL" : "GROUP",
   });
   return { created: created.length, skipped: members.length - created.length };
 }
@@ -360,31 +378,20 @@ export async function reviewSignOff(
   });
 
   const repetitionsRequired = Math.max(1, completion.requirement.repetitionsRequired);
-  const currentRepetitions = Math.max(0, completion.repetitionCount);
-  const evaluatorApprovedButSupervisorPending =
-    input.result === "APPROVED" &&
-    stage === "EVALUATOR" &&
-    completion.requirement.supervisorApprovalRequired;
-
-  let approvedRepetitions = currentRepetitions;
-  let nextStatus = "SUBMITTED";
-  let completedAt: Date | null = null;
-
-  if (input.result === "RETURNED") {
-    nextStatus = "RETURNED";
-  } else if (evaluatorApprovedButSupervisorPending) {
-    nextStatus = "SUBMITTED";
-  } else {
-    approvedRepetitions = Math.min(repetitionsRequired, currentRepetitions + 1);
-    nextStatus = "APPROVED";
-    if (approvedRepetitions >= repetitionsRequired) completedAt = new Date();
-  }
+  const transition = nextReviewState({
+    result: input.result,
+    stage,
+    supervisorApprovalRequired: completion.requirement.supervisorApprovalRequired,
+    currentApprovedRepetitions: completion.repetitionCount,
+    repetitionsRequired,
+  });
+  const completedAt = transition.completed ? new Date() : null;
 
   await prisma.requirementCompletion.update({
     where: { id: completion.id },
     data: {
-      status: nextStatus,
-      repetitionCount: approvedRepetitions,
+      status: transition.status,
+      repetitionCount: transition.approvedRepetitions,
       completedAt,
     },
   });
@@ -395,14 +402,14 @@ export async function reviewSignOff(
     stage,
     requirement: completion.requirement.title,
     memberId: completion.membershipId,
-    approvedRepetitions,
+    approvedRepetitions: transition.approvedRepetitions,
     repetitionsRequired,
   });
 
   const activityType =
     input.result === "RETURNED"
       ? "REQUIREMENT_RETURNED"
-      : evaluatorApprovedButSupervisorPending
+      : transition.supervisorPending
         ? "REQUIREMENT_EVALUATOR_APPROVED"
         : "REQUIREMENT_SIGNED";
   await writeActivity(ctx.departmentId, activityType, {
@@ -414,15 +421,15 @@ export async function reviewSignOff(
       requirement: completion.requirement.title,
       taskBook: completion.requirement.section.version.template.title,
       reviewStage: stage,
-      approvedRepetitions,
+      approvedRepetitions: transition.approvedRepetitions,
       repetitionsRequired,
     },
   });
   return {
     ...signOff,
     reviewStage: stage,
-    supervisorPending: evaluatorApprovedButSupervisorPending,
-    approvedRepetitions,
+    supervisorPending: transition.supervisorPending,
+    approvedRepetitions: transition.approvedRepetitions,
     repetitionsRequired,
   };
 }
