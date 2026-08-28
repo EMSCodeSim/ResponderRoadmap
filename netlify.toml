@@ -8,5 +8,8 @@
   AUTH_SECRET = "responder-roadmap-netlify-demo"
   NEXT_PUBLIC_APP_NAME = "ResponderRoadmap"
 
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 [functions]
   included_files = ["prisma/dev.db", "prisma/schema.prisma"]
