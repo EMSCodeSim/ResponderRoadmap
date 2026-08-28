@@ -207,10 +207,10 @@ function AssignmentsInner() {
                   </Field>
                   <div className="mt-3 flex gap-2">
                     <Button variant="success" onClick={() => review("APPROVED")}>
-                      Approve
+                      Approve requirement
                     </Button>
                     <Button variant="danger" onClick={() => review("RETURNED")}>
-                      Return
+                      Return to member
                     </Button>
                   </div>
                 </div>
