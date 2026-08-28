@@ -272,11 +272,18 @@ export async function reviewSignOff(
     },
   });
 
+  const repetitionsRequired = Math.max(1, completion.requirement.repetitionsRequired);
+  const approvedRepetitions = input.result === "APPROVED"
+    ? Math.min(repetitionsRequired, Math.max(0, completion.repetitionCount) + 1)
+    : Math.max(0, completion.repetitionCount);
+  const fullyRepeated = approvedRepetitions >= repetitionsRequired;
+
   await prisma.requirementCompletion.update({
     where: { id: completion.id },
     data: {
       status: input.result === "APPROVED" ? "APPROVED" : "RETURNED",
-      completedAt: input.result === "APPROVED" ? new Date() : null,
+      repetitionCount: approvedRepetitions,
+      completedAt: input.result === "APPROVED" && fullyRepeated ? new Date() : null,
     },
   });
 
@@ -285,6 +292,8 @@ export async function reviewSignOff(
     result: input.result,
     requirement: completion.requirement.title,
     memberId: completion.membershipId,
+    approvedRepetitions,
+    repetitionsRequired,
   });
   await writeActivity(ctx.departmentId, input.result === "APPROVED" ? "REQUIREMENT_SIGNED" : "REQUIREMENT_RETURNED", {
     userId: completion.membership.userId,
@@ -294,6 +303,8 @@ export async function reviewSignOff(
       memberName: completion.membership.user.name,
       requirement: completion.requirement.title,
       taskBook: completion.requirement.section.version.template.title,
+      approvedRepetitions,
+      repetitionsRequired,
     },
   });
   return signOff;
