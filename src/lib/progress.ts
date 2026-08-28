@@ -4,11 +4,13 @@ export type RequirementLike = {
   id: string;
   isRequired: boolean;
   dueOffsetDays?: number | null;
+  repetitionsRequired?: number | null;
 };
 
 export type CompletionLike = {
   requirementId: string;
   status: CompletionStatus | string;
+  repetitionCount?: number | null;
 };
 
 export type ProgressSummary = {
@@ -29,7 +31,7 @@ export function computeAssignmentProgress(input: {
 }): ProgressSummary {
   const now = input.now ?? new Date();
   const required = input.requirements.filter((req) => req.isRequired);
-  const completionByReq = new Map(input.completions.map((item) => [item.requirementId, item.status]));
+  const completionByReq = new Map(input.completions.map((item) => [item.requirementId, item]));
 
   let complete = 0;
   let pendingApproval = 0;
@@ -37,16 +39,21 @@ export function computeAssignmentProgress(input: {
   let anyStarted = false;
 
   for (const req of required) {
-    const status = completionByReq.get(req.id) ?? "NOT_STARTED";
+    const completion = completionByReq.get(req.id);
+    const status = completion?.status ?? "NOT_STARTED";
+    const repetitionsRequired = Math.max(1, req.repetitionsRequired ?? 1);
+    const repetitionsCompleted = Math.max(0, completion?.repetitionCount ?? (status === "APPROVED" ? 1 : 0));
+    const requirementComplete = status === "APPROVED" && repetitionsCompleted >= repetitionsRequired;
+
     if (status !== "NOT_STARTED") anyStarted = true;
-    if (status === "APPROVED") complete += 1;
+    if (requirementComplete) complete += 1;
     if (status === "SUBMITTED") pendingApproval += 1;
 
     const due =
       req.dueOffsetDays != null
         ? new Date(input.assignedDate.getTime() + req.dueOffsetDays * 86_400_000)
         : input.dueDate ?? null;
-    if (due && due.getTime() < now.getTime() && status !== "APPROVED") {
+    if (due && due.getTime() < now.getTime() && !requirementComplete) {
       overdue += 1;
     }
   }
