@@ -43,6 +43,24 @@ export async function getSession(): Promise<SessionPayload | null> {
   return verifySessionToken(token);
 }
 
+/**
+ * Returns the authenticated session for either the browser portal or the
+ * companion Roadmap app. Browser requests continue to use the HttpOnly
+ * session cookie. Native/web companion clients can send the same signed JWT
+ * as an Authorization: Bearer token without changing the portal auth model.
+ */
+export async function getRequestSession(req: Request): Promise<SessionPayload | null> {
+  const authorization = req.headers.get("authorization")?.trim() ?? "";
+  if (authorization.toLowerCase().startsWith("bearer ")) {
+    const token = authorization.slice(7).trim();
+    if (token) {
+      const session = await verifySessionToken(token);
+      if (session) return session;
+    }
+  }
+  return getSession();
+}
+
 export async function setSessionCookie(payload: SessionPayload): Promise<void> {
   const token = await signSession(payload);
   const store = await cookies();
