@@ -228,7 +228,11 @@ function AssignmentsInner() {
   async function review(result: "APPROVED" | "RETURNED") {
     if (!selected) return;
     if (result === "APPROVED" && !attested) {
-      setError("Confirm the electronic attestation before signing this approval.");
+      setError("Tap ‘I verify this completion’ before signing the approval.");
+      document.getElementById("taskbook-attestation")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       return;
     }
     if (result === "RETURNED" && !note.trim()) {
@@ -473,16 +477,33 @@ function AssignmentsInner() {
                       </div>
                     </div>
 
-                    <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md bg-navy-50 p-3 text-sm">
+                    <label
+                      id="taskbook-attestation"
+                      className={`mt-4 flex min-h-20 cursor-pointer items-start gap-4 rounded-lg border-2 p-4 text-sm transition ${
+                        attested
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-amber-300 bg-amber-50"
+                      }`}
+                    >
                       <input
                         type="checkbox"
-                        className="mt-1 h-4 w-4"
+                        className="mt-0.5 h-6 w-6 shrink-0"
                         checked={attested}
-                        onChange={(e) => setAttested(e.target.checked)}
+                        onChange={(e) => {
+                          setAttested(e.target.checked);
+                          if (e.target.checked) setError(null);
+                        }}
                       />
                       <span>
-                        <span className="block font-semibold">I verify this completion.</span>
-                        <span className="mt-1 block text-navy-600">{TASKBOOK_ATTESTATION_TEXT}</span>
+                        <span className="block text-base font-bold">
+                          {attested ? "Verified — ready to sign" : "Tap here to verify this completion"}
+                        </span>
+                        <span className="mt-1 block text-navy-700">{TASKBOOK_ATTESTATION_TEXT}</span>
+                        {!attested ? (
+                          <span className="mt-2 block font-semibold text-amber-800">
+                            Required before approval.
+                          </span>
+                        ) : null}
                       </span>
                     </label>
 
@@ -490,11 +511,12 @@ function AssignmentsInner() {
                       Your authenticated account, approval stage, server timestamp, reviewer note, and this attestation are retained with the sign-off record.
                     </p>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                       <Button
+                        className="min-h-12 w-full sm:w-auto"
                         variant="success"
                         onClick={() => review("APPROVED")}
-                        disabled={!attested || signing}
+                        disabled={signing}
                       >
                         {signing
                           ? "Signing…"
@@ -503,6 +525,7 @@ function AssignmentsInner() {
                             : "Sign & Approve"}
                       </Button>
                       <Button
+                        className="min-h-12 w-full sm:w-auto"
                         variant="danger"
                         onClick={() => review("RETURNED")}
                         disabled={!note.trim() || signing}
