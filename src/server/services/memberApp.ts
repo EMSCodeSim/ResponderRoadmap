@@ -13,6 +13,11 @@ function parseStringArray(value: string): string[] {
   }
 }
 
+function effectiveRepetitionCount(completion: { status: string; repetitionCount: number } | null | undefined) {
+  if (!completion) return 0;
+  return Math.max(0, completion.repetitionCount, completion.status === "APPROVED" ? 1 : 0);
+}
+
 async function loadOwnAssignment(ctx: AuthContext, assignmentId: string) {
   const assignment = await prisma.taskBookAssignment.findFirst({
     where: {
@@ -107,7 +112,7 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
                 id: completion.id,
                 status: completion.status,
                 memberNotes: completion.memberNotes,
-                repetitionCount: completion.repetitionCount,
+                repetitionCount: effectiveRepetitionCount(completion),
                 submittedAt: completion.submittedAt,
                 completedAt: completion.completedAt,
                 evidence: completion.evidence,
@@ -157,38 +162,43 @@ export async function submitRequirement(
   },
 ) {
   const assignment = await loadOwnAssignment(ctx, assignmentId);
-  const requirement = assignment.version.sections
-    .flatMap((section) => section.requirements)
-    .find((item) => item.id === requirementId);
+  const requirements = assignment.version.sections.flatMap((section) => section.requirements);
+  const requirement = requirements.find((item) => item.id === requirementId);
   if (!requirement) throw new HttpError(404, "Requirement not found in this assigned Task Book.");
 
   const existing = assignment.completions.find((item) => item.requirementId === requirement.id) ?? null;
   const repetitionsRequired = Math.max(1, requirement.repetitionsRequired);
-  if (existing?.status === "APPROVED" && existing.repetitionCount >= repetitionsRequired) {
+  const currentRepetitionCount = effectiveRepetitionCount(existing);
+  if (existing?.status === "APPROVED" && currentRepetitionCount >= repetitionsRequired) {
     throw new HttpError(409, "This requirement is fully approved and cannot be overwritten.");
   }
   if (existing?.status === "SUBMITTED") {
     throw new HttpError(409, "This requirement is already awaiting evaluator review.");
   }
 
+  const completionByRequirement = new Map(
+    assignment.completions.map((completion) => [completion.requirementId, completion]),
+  );
+  const requirementById = new Map(requirements.map((item) => [item.id, item]));
   const prerequisites = parseStringArray(requirement.prerequisitesJson);
   if (prerequisites.length) {
-    const approvedIds = new Set(
-      assignment.completions
-        .filter((completion) => completion.status === "APPROVED")
-        .map((completion) => completion.requirementId),
-    );
-    const blocked = prerequisites.some((id) => !approvedIds.has(id));
+    const blocked = prerequisites.some((id) => {
+      const prerequisite = requirementById.get(id);
+      const completion = completionByRequirement.get(id);
+      if (!prerequisite || !completion || completion.status !== "APPROVED") return true;
+      return effectiveRepetitionCount(completion) < Math.max(1, prerequisite.repetitionsRequired);
+    });
     if (blocked) throw new HttpError(409, "Complete the prerequisite requirements before submitting this item.");
   }
 
-  const nextRepetitionCount = Math.min(
-    repetitionsRequired,
-    Math.max(0, existing?.repetitionCount ?? 0) + 1,
-  );
+  const submittedRepetition = Math.min(repetitionsRequired, currentRepetitionCount + 1);
   const needsReview = requirement.evaluatorSignOffRequired || requirement.supervisorApprovalRequired;
-  const fullyRepeated = nextRepetitionCount >= repetitionsRequired;
-  const nextStatus = !needsReview && fullyRepeated ? "APPROVED" : "SUBMITTED";
+  // A submission awaiting evaluation is only an attempt. It becomes a counted
+  // repetition when the evaluator approves it. Auto-approved requirements can
+  // count immediately because no separate review event exists.
+  const storedRepetitionCount = needsReview ? currentRepetitionCount : submittedRepetition;
+  const nextStatus = needsReview ? "SUBMITTED" : "APPROVED";
+  const fullyRepeated = storedRepetitionCount >= repetitionsRequired;
   const now = new Date();
 
   const completion = await prisma.requirementCompletion.upsert({
@@ -205,15 +215,15 @@ export async function submitRequirement(
       status: nextStatus,
       memberNotes: input.memberNotes?.trim() || "",
       submittedAt: now,
-      completedAt: nextStatus === "APPROVED" ? now : null,
-      repetitionCount: nextRepetitionCount,
+      completedAt: !needsReview && fullyRepeated ? now : null,
+      repetitionCount: storedRepetitionCount,
     },
     update: {
       status: nextStatus,
       memberNotes: input.memberNotes?.trim() ?? existing?.memberNotes ?? "",
       submittedAt: now,
-      completedAt: nextStatus === "APPROVED" ? now : null,
-      repetitionCount: nextRepetitionCount,
+      completedAt: !needsReview && fullyRepeated ? now : null,
+      repetitionCount: storedRepetitionCount,
     },
   });
 
@@ -232,11 +242,12 @@ export async function submitRequirement(
   await writeAudit(ctx, "member.requirement.submitted", "RequirementCompletion", completion.id, {
     assignmentId: assignment.id,
     requirementId: requirement.id,
-    repetitionCount: nextRepetitionCount,
+    submittedRepetition,
+    approvedRepetitions: storedRepetitionCount,
     repetitionsRequired,
     status: nextStatus,
   });
-  await writeActivity(ctx.departmentId, nextStatus === "APPROVED" ? "REQUIREMENT_COMPLETED" : "REQUIREMENT_SUBMITTED", {
+  await writeActivity(ctx.departmentId, !needsReview && fullyRepeated ? "REQUIREMENT_COMPLETED" : "REQUIREMENT_SUBMITTED", {
     userId: ctx.userId,
     referenceId: completion.id,
     metadata: {
@@ -244,7 +255,8 @@ export async function submitRequirement(
       memberName: ctx.name,
       requirement: requirement.title,
       taskBook: assignment.version.template.title,
-      repetitionCount: nextRepetitionCount,
+      submittedRepetition,
+      approvedRepetitions: storedRepetitionCount,
       repetitionsRequired,
     },
   });
