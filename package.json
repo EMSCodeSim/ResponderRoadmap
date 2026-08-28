@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/ensure-dev.mjs",
     "dev": "next dev --turbopack --hostname 0.0.0.0 --port 3000",
     "build": "prisma generate && next build",
     "start": "next start --hostname 0.0.0.0 --port 3000",
