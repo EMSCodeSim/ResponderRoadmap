@@ -1,0 +1,361 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships          DepartmentMembership[]
+  createdDepartments   Department[]             @relation("DepartmentCreator")
+  ownedTaskBooks       TaskBookTemplate[]       @relation("TaskBookOwner")
+  assignmentsCreated   TaskBookAssignment[]     @relation("AssignedBy")
+  assignmentsEvaluating TaskBookAssignment[]    @relation("AssignmentEvaluator")
+  assignmentsSupervising TaskBookAssignment[]   @relation("AssignmentSupervisor")
+  signOffs             SignOff[]
+  activityEvents       ActivityEvent[]
+  auditLogs            AuditLog[]               @relation("AuditActor")
+  notesAuthored        MemberNote[]             @relation("NoteAuthor")
+  invitationsSent      Invitation[]             @relation("InvitationSender")
+  personalCredentials  PersonalCredential[]
+  personalLogs         PersonalCareerLog[]
+}
+
+/// Department-controlled organization. Tenant root for all department queries.
+model Department {
+  id               String   @id @default(cuid())
+  name             String
+  publicId         String   @unique
+  joinCode         String   @unique
+  logoUrl          String?
+  address          String?
+  city             String?
+  state            String?
+  zip              String?
+  timezone         String   @default("America/Chicago")
+  contactName      String?
+  contactEmail     String?
+  contactPhone     String?
+  requireApproval  Boolean  @default(true)
+  createdById      String
+  createdBy        User     @relation("DepartmentCreator", fields: [createdById], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  memberships     DepartmentMembership[]
+  taskBooks       TaskBookTemplate[]
+  assignments     TaskBookAssignment[]
+  credentials     Credential[]
+  credentialTypes CredentialType[]
+  activityEvents  ActivityEvent[]
+  auditLogs       AuditLog[]
+  invitations     Invitation[]
+  memberNotes     MemberNote[]
+}
+
+model DepartmentMembership {
+  id             String     @id @default(cuid())
+  departmentId   String
+  department     Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  status         String
+  rank           String?
+  position       String?
+  station        String?
+  shift          String?
+  employeeNumber String?
+  joinedAt       DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  notes        MemberNote[]
+  assignments  TaskBookAssignment[]
+  credentials  Credential[]
+  completions  RequirementCompletion[]
+
+  @@unique([departmentId, userId])
+  @@index([departmentId, status])
+  @@index([departmentId, role])
+}
+
+/// Department training notes. Not part of the member's personal Career Road.
+model MemberNote {
+  id           String               @id @default(cuid())
+  membershipId String
+  membership   DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User                 @relation("NoteAuthor", fields: [authorId], references: [id])
+  body         String
+  createdAt    DateTime             @default(now())
+
+  @@index([departmentId, membershipId])
+}
+
+model Invitation {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  email        String?
+  token        String     @unique
+  role         String
+  rank         String?
+  station      String?
+  shift        String?
+  invitedById  String
+  invitedBy    User       @relation("InvitationSender", fields: [invitedById], references: [id])
+  status       String
+  createdAt    DateTime   @default(now())
+  expiresAt    DateTime
+
+  @@index([departmentId, status])
+}
+
+model TaskBookTemplate {
+  id                    String     @id @default(cuid())
+  departmentId          String
+  department            Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  title                 String
+  description           String     @default("")
+  category              String
+  status                String
+  ownerId               String
+  owner                 User       @relation("TaskBookOwner", fields: [ownerId], references: [id])
+  estimatedDurationDays Int?
+  dueDateRule           String?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  versions TaskBookVersion[]
+
+  @@index([departmentId, status])
+}
+
+model TaskBookVersion {
+  id            String           @id @default(cuid())
+  templateId    String
+  template      TaskBookTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version       String
+  status        String
+  changelog     String?
+  publishedAt   DateTime?
+  publishedById String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  sections    TaskBookSection[]
+  assignments TaskBookAssignment[]
+
+  @@unique([templateId, version])
+}
+
+model TaskBookSection {
+  id          String          @id @default(cuid())
+  versionId   String
+  version     TaskBookVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  title       String
+  description String          @default("")
+  sortOrder   Int
+
+  requirements TaskBookRequirement[]
+}
+
+model TaskBookRequirement {
+  id                         String          @id @default(cuid())
+  sectionId                  String
+  section                    TaskBookSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  title                      String
+  description                String          @default("")
+  instructions               String          @default("")
+  sortOrder                  Int
+  isRequired                 Boolean         @default(true)
+  dueOffsetDays              Int?
+  referenceDocument          String?
+  referenceUrl               String?
+  evidenceType               String          @default("NONE")
+  memberNotesAllowed         Boolean         @default(true)
+  evaluatorNotesEnabled      Boolean         @default(true)
+  supervisorApprovalRequired Boolean         @default(false)
+  evaluatorSignOffRequired   Boolean         @default(true)
+  repetitionsRequired        Int             @default(1)
+  prerequisitesJson          String          @default("[]")
+  estimatedMinutes           Int?
+  tagsJson                   String          @default("[]")
+  internalNotes              String          @default("")
+  objectivesJson             String          @default("[]")
+
+  completions RequirementCompletion[]
+}
+
+model TaskBookAssignment {
+  id           String               @id @default(cuid())
+  departmentId String
+  department   Department           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  versionId    String
+  version      TaskBookVersion      @relation(fields: [versionId], references: [id])
+  membershipId String
+  membership   DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User                 @relation("AssignedBy", fields: [assignedById], references: [id])
+  assignedDate DateTime
+  dueDate      DateTime?
+  evaluatorId  String?
+  evaluator    User?                @relation("AssignmentEvaluator", fields: [evaluatorId], references: [id])
+  supervisorId String?
+  supervisor   User?                @relation("AssignmentSupervisor", fields: [supervisorId], references: [id])
+  notes        String               @default("")
+  status       String
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  completions RequirementCompletion[]
+
+  @@index([departmentId, status])
+  @@index([membershipId])
+  @@unique([versionId, membershipId])
+}
+
+model RequirementCompletion {
+  id              String               @id @default(cuid())
+  assignmentId    String
+  assignment      TaskBookAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  requirementId   String
+  requirement     TaskBookRequirement  @relation(fields: [requirementId], references: [id])
+  membershipId    String
+  membership      DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  status          String
+  memberNotes     String               @default("")
+  submittedAt     DateTime?
+  completedAt     DateTime?
+  repetitionCount Int                  @default(0)
+
+  evidence Evidence[]
+  signOffs SignOff[]
+
+  @@unique([assignmentId, requirementId])
+}
+
+model Evidence {
+  id           String                 @id @default(cuid())
+  completionId String
+  completion   RequirementCompletion  @relation(fields: [completionId], references: [id], onDelete: Cascade)
+  type         String
+  fileUrl      String?
+  description  String                 @default("")
+  uploadedAt   DateTime               @default(now())
+}
+
+/// Append-only. Completed sign-off history is never overwritten.
+model SignOff {
+  id           String                @id @default(cuid())
+  completionId String
+  completion   RequirementCompletion @relation(fields: [completionId], references: [id], onDelete: Cascade)
+  evaluatorId  String
+  evaluator    User                  @relation(fields: [evaluatorId], references: [id])
+  result       String
+  notes        String                @default("")
+  signedAt     DateTime              @default(now())
+}
+
+model CredentialType {
+  id                  String     @id @default(cuid())
+  departmentId        String
+  department          Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                String
+  issuerDefault       String?
+  isCustom            Boolean    @default(false)
+  alertThresholdsJson String     @default("[180,90,60,30,14,7,0]")
+
+  credentials Credential[]
+
+  @@unique([departmentId, name])
+}
+
+/// Department-managed credential. Distinct from PersonalCredential.
+model Credential {
+  id                 String                @id @default(cuid())
+  membershipId       String
+  membership         DepartmentMembership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  departmentId       String
+  department         Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  credentialTypeId   String?
+  credentialType     CredentialType?       @relation(fields: [credentialTypeId], references: [id])
+  credentialName     String
+  issuer             String                @default("")
+  credentialNumber   String?
+  issueDate          DateTime?
+  expirationDate     DateTime?
+  verificationStatus String
+  attachmentUrl      String?
+  notes              String                @default("")
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([departmentId, expirationDate])
+  @@index([membershipId])
+}
+
+model ActivityEvent {
+  id           String      @id @default(cuid())
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id])
+  departmentId String
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  type         String
+  referenceId  String?
+  timestamp    DateTime    @default(now())
+  metadataJson String      @default("{}")
+
+  @@index([departmentId, timestamp])
+}
+
+model AuditLog {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  actorId      String
+  actor        User       @relation("AuditActor", fields: [actorId], references: [id])
+  action       String
+  entityType   String
+  entityId     String
+  timestamp    DateTime   @default(now())
+  detailsJson  String     @default("{}")
+
+  @@index([departmentId, timestamp])
+}
+
+/// Personal Career Road credential. Never returned by department-scoped APIs.
+model PersonalCredential {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  issuer         String    @default("")
+  issueDate      DateTime?
+  expirationDate DateTime?
+  notes          String    @default("")
+  createdAt      DateTime  @default(now())
+}
+
+/// Personal Career Road log entry. Never returned by department-scoped APIs.
+model PersonalCareerLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  detail    String   @default("")
+  occurredAt DateTime
+  createdAt DateTime @default(now())
+}
