@@ -2,7 +2,10 @@ import { prisma } from "@/server/db";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress } from "@/lib/progress";
+import { approvalsSinceSubmission, reviewStageForRequirement } from "@/lib/signoff";
 import type { SignOffResult } from "@/lib/constants";
+
+const REVIEWER_ROLES = ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"];
 
 async function assignmentWithGraph(id: string, departmentId: string) {
   return prisma.taskBookAssignment.findFirst({
@@ -18,7 +21,12 @@ async function assignmentWithGraph(id: string, departmentId: string) {
           sections: { include: { requirements: true } },
         },
       },
-      completions: { include: { evidence: true, signOffs: { include: { evaluator: true }, orderBy: { signedAt: "asc" } } } },
+      completions: {
+        include: {
+          evidence: true,
+          signOffs: { include: { evaluator: true }, orderBy: { signedAt: "asc" } },
+        },
+      },
     },
   });
 }
@@ -91,7 +99,26 @@ export async function listAssignments(ctx: AuthContext) {
     },
     orderBy: { assignedDate: "desc" },
   });
-  return assignments.map((assignment) => toRow(assignment as unknown as NonNullable<Awaited<ReturnType<typeof assignmentWithGraph>>>));
+  return assignments.map((assignment) =>
+    toRow(assignment as unknown as NonNullable<Awaited<ReturnType<typeof assignmentWithGraph>>>),
+  );
+}
+
+async function validateReviewer(ctx: AuthContext, userId: string | null | undefined, label: string) {
+  if (!userId) return null;
+  const membership = await prisma.departmentMembership.findFirst({
+    where: {
+      departmentId: ctx.departmentId,
+      userId,
+      status: "ACTIVE",
+      role: { in: REVIEWER_ROLES },
+    },
+    include: { user: true },
+  });
+  if (!membership) {
+    throw new HttpError(400, `${label} must be an active department reviewer.`);
+  }
+  return membership;
 }
 
 export async function createAssignments(
@@ -113,7 +140,11 @@ export async function createAssignments(
   let versionId = input.versionId;
   if (!versionId && input.templateId) {
     const version = await prisma.taskBookVersion.findFirst({
-      where: { templateId: input.templateId, template: { departmentId: ctx.departmentId }, status: "PUBLISHED" },
+      where: {
+        templateId: input.templateId,
+        template: { departmentId: ctx.departmentId },
+        status: "PUBLISHED",
+      },
       orderBy: { publishedAt: "desc" },
     });
     if (!version) throw new HttpError(400, "Publish a Task Book version before assigning it.");
@@ -129,6 +160,9 @@ export async function createAssignments(
   if (version.status !== "PUBLISHED") {
     throw new HttpError(400, "Only published Task Book versions can be assigned.");
   }
+
+  await validateReviewer(ctx, input.evaluatorId, "Evaluator");
+  await validateReviewer(ctx, input.supervisorId, "Supervisor");
 
   const where: {
     departmentId: string;
@@ -150,6 +184,10 @@ export async function createAssignments(
   if (members.length === 0) throw new HttpError(400, "No matching members to assign.");
 
   const dueDate = input.dueDate ? new Date(input.dueDate) : null;
+  if (dueDate && Number.isNaN(dueDate.getTime())) {
+    throw new HttpError(400, "Due date is invalid.");
+  }
+
   const created = [];
   for (const member of members) {
     const existing = await prisma.taskBookAssignment.findUnique({
@@ -186,8 +224,22 @@ export async function createAssignments(
     count: created.length,
     template: version.template.title,
     version: version.version,
+    evaluatorId: input.evaluatorId || null,
+    supervisorId: input.supervisorId || null,
   });
   return { created: created.length, skipped: members.length - created.length };
+}
+
+function canReviewStage(
+  ctx: AuthContext,
+  stage: "EVALUATOR" | "SUPERVISOR" | "FINAL",
+  assignment: { evaluatorId: string | null; supervisorId: string | null },
+) {
+  if (ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") return true;
+  if (ctx.role !== "EVALUATOR") return false;
+  if (stage === "SUPERVISOR") return assignment.supervisorId === ctx.userId;
+  if (stage === "EVALUATOR") return !assignment.evaluatorId || assignment.evaluatorId === ctx.userId;
+  return !assignment.evaluatorId || assignment.evaluatorId === ctx.userId;
 }
 
 export async function listSignOffQueue(ctx: AuthContext) {
@@ -202,19 +254,28 @@ export async function listSignOffQueue(ctx: AuthContext) {
       requirement: { include: { section: { include: { version: { include: { template: true } } } } } },
       evidence: true,
       signOffs: { include: { evaluator: true }, orderBy: { signedAt: "asc" } },
-      assignment: { include: { evaluator: true } },
+      assignment: { include: { evaluator: true, supervisor: true } },
     },
     orderBy: { submittedAt: "asc" },
   });
 
   return completions
-    .filter((item) => {
-      if (ctx.role === "EVALUATOR" && item.assignment.evaluatorId && item.assignment.evaluatorId !== ctx.userId) {
-        return false;
-      }
-      return true;
+    .map((item) => {
+      const stage = reviewStageForRequirement({
+        evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+        supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
+        signOffs: item.signOffs,
+        submittedAt: item.submittedAt,
+      });
+      const approvedRepetitions = Math.max(
+        0,
+        item.repetitionCount,
+        item.status === "APPROVED" ? 1 : 0,
+      );
+      return { item, stage, approvedRepetitions };
     })
-    .map((item) => ({
+    .filter(({ item, stage }) => canReviewStage(ctx, stage, item.assignment))
+    .map(({ item, stage, approvedRepetitions }) => ({
       id: item.id,
       memberName: item.membership.user.name,
       memberId: item.membershipId,
@@ -228,6 +289,15 @@ export async function listSignOffQueue(ctx: AuthContext) {
       submittedAt: item.submittedAt,
       memberNotes: item.memberNotes,
       evidence: item.evidence,
+      reviewStage: stage,
+      approvedRepetitions,
+      repetitionsRequired: Math.max(1, item.requirement.repetitionsRequired),
+      nextRepetition: Math.min(
+        Math.max(1, item.requirement.repetitionsRequired),
+        approvedRepetitions + 1,
+      ),
+      evaluatorName: item.assignment.evaluator?.name ?? null,
+      supervisorName: item.assignment.supervisor?.name ?? null,
       history: item.signOffs.map((sign) => ({
         id: sign.id,
         result: sign.result,
@@ -247,20 +317,37 @@ export async function reviewSignOff(
   if (input.result !== "APPROVED" && input.result !== "RETURNED") {
     throw new HttpError(400, "Result must be APPROVED or RETURNED.");
   }
+  if (input.result === "RETURNED" && !input.notes?.trim()) {
+    throw new HttpError(400, "Add a return note so the member knows what to correct.");
+  }
+
   const completion = await prisma.requirementCompletion.findFirst({
     where: { id: completionId, assignment: { departmentId: ctx.departmentId } },
     include: {
       assignment: true,
       membership: { include: { user: true } },
+      signOffs: { orderBy: { signedAt: "asc" } },
       requirement: { include: { section: { include: { version: { include: { template: true } } } } } },
     },
   });
   if (!completion) throw new HttpError(404, "Submission not found.");
-  if (completion.status === "APPROVED") {
-    throw new HttpError(409, "This requirement is already approved. History cannot be overwritten.");
+  if (completion.status !== "SUBMITTED") {
+    throw new HttpError(409, "This submission is no longer waiting for review.");
   }
-  if (ctx.role === "EVALUATOR" && completion.assignment.evaluatorId && completion.assignment.evaluatorId !== ctx.userId) {
-    throw new HttpError(403, "This submission is assigned to another evaluator.");
+
+  const stage = reviewStageForRequirement({
+    evaluatorSignOffRequired: completion.requirement.evaluatorSignOffRequired,
+    supervisorApprovalRequired: completion.requirement.supervisorApprovalRequired,
+    signOffs: completion.signOffs,
+    submittedAt: completion.submittedAt,
+  });
+  if (!canReviewStage(ctx, stage, completion.assignment)) {
+    throw new HttpError(
+      403,
+      stage === "SUPERVISOR"
+        ? "This submission is waiting for its assigned supervisor."
+        : "This submission is assigned to another evaluator.",
+    );
   }
 
   const signOff = await prisma.signOff.create({
@@ -273,29 +360,52 @@ export async function reviewSignOff(
   });
 
   const repetitionsRequired = Math.max(1, completion.requirement.repetitionsRequired);
-  const approvedRepetitions = input.result === "APPROVED"
-    ? Math.min(repetitionsRequired, Math.max(0, completion.repetitionCount) + 1)
-    : Math.max(0, completion.repetitionCount);
-  const fullyRepeated = approvedRepetitions >= repetitionsRequired;
+  const currentRepetitions = Math.max(0, completion.repetitionCount);
+  const evaluatorApprovedButSupervisorPending =
+    input.result === "APPROVED" &&
+    stage === "EVALUATOR" &&
+    completion.requirement.supervisorApprovalRequired;
+
+  let approvedRepetitions = currentRepetitions;
+  let nextStatus = "SUBMITTED";
+  let completedAt: Date | null = null;
+
+  if (input.result === "RETURNED") {
+    nextStatus = "RETURNED";
+  } else if (evaluatorApprovedButSupervisorPending) {
+    nextStatus = "SUBMITTED";
+  } else {
+    approvedRepetitions = Math.min(repetitionsRequired, currentRepetitions + 1);
+    nextStatus = "APPROVED";
+    if (approvedRepetitions >= repetitionsRequired) completedAt = new Date();
+  }
 
   await prisma.requirementCompletion.update({
     where: { id: completion.id },
     data: {
-      status: input.result === "APPROVED" ? "APPROVED" : "RETURNED",
+      status: nextStatus,
       repetitionCount: approvedRepetitions,
-      completedAt: input.result === "APPROVED" && fullyRepeated ? new Date() : null,
+      completedAt,
     },
   });
 
   await refreshAssignmentStatus(completion.assignmentId);
   await writeAudit(ctx, "signoff.recorded", "SignOff", signOff.id, {
     result: input.result,
+    stage,
     requirement: completion.requirement.title,
     memberId: completion.membershipId,
     approvedRepetitions,
     repetitionsRequired,
   });
-  await writeActivity(ctx.departmentId, input.result === "APPROVED" ? "REQUIREMENT_SIGNED" : "REQUIREMENT_RETURNED", {
+
+  const activityType =
+    input.result === "RETURNED"
+      ? "REQUIREMENT_RETURNED"
+      : evaluatorApprovedButSupervisorPending
+        ? "REQUIREMENT_EVALUATOR_APPROVED"
+        : "REQUIREMENT_SIGNED";
+  await writeActivity(ctx.departmentId, activityType, {
     userId: completion.membership.userId,
     referenceId: signOff.id,
     metadata: {
@@ -303,11 +413,18 @@ export async function reviewSignOff(
       memberName: completion.membership.user.name,
       requirement: completion.requirement.title,
       taskBook: completion.requirement.section.version.template.title,
+      reviewStage: stage,
       approvedRepetitions,
       repetitionsRequired,
     },
   });
-  return signOff;
+  return {
+    ...signOff,
+    reviewStage: stage,
+    supervisorPending: evaluatorApprovedButSupervisorPending,
+    approvedRepetitions,
+    repetitionsRequired,
+  };
 }
 
 export async function getAssignment(ctx: AuthContext, assignmentId: string) {
