@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bumpVersion } from "@/lib/constants";
 import { credentialStatus, daysUntil, worstCredentialHealth } from "@/lib/dates";
 import { computeAssignmentProgress } from "@/lib/progress";
+import { approvalsSinceSubmission, nextReviewState, reviewStageForRequirement } from "@/lib/signoff";
 import { hasPermission } from "@/server/permissions";
 
 describe("bumpVersion", () => {
@@ -86,13 +87,7 @@ describe("assignment progress", () => {
   it("does not complete a repeated skill after the first approved repetition", () => {
     const summary = computeAssignmentProgress({
       requirements: [{ id: "drive", isRequired: true, repetitionsRequired: 5 }],
-      completions: [
-        {
-          requirementId: "drive",
-          status: "APPROVED",
-          repetitionCount: 1,
-        },
-      ],
+      completions: [{ requirementId: "drive", status: "APPROVED", repetitionCount: 1 }],
       assignedDate: new Date("2026-01-01"),
     });
     expect(summary.percent).toBe(0);
@@ -102,13 +97,7 @@ describe("assignment progress", () => {
   it("completes a repeated skill only when all repetitions are approved", () => {
     const summary = computeAssignmentProgress({
       requirements: [{ id: "drive", isRequired: true, repetitionsRequired: 5 }],
-      completions: [
-        {
-          requirementId: "drive",
-          status: "APPROVED",
-          repetitionCount: 5,
-        },
-      ],
+      completions: [{ requirementId: "drive", status: "APPROVED", repetitionCount: 5 }],
       assignedDate: new Date("2026-01-01"),
     });
     expect(summary.percent).toBe(100);
@@ -124,6 +113,119 @@ describe("assignment progress", () => {
       now: new Date("2026-08-28"),
     });
     expect(summary.status).toBe("OVERDUE");
+  });
+});
+
+describe("sign-off stages", () => {
+  const submittedAt = new Date("2026-08-28T12:00:00Z");
+
+  it("starts with evaluator review when both levels are required", () => {
+    expect(reviewStageForRequirement({
+      evaluatorSignOffRequired: true,
+      supervisorApprovalRequired: true,
+      signOffs: [],
+      submittedAt,
+    })).toBe("EVALUATOR");
+  });
+
+  it("moves to supervisor after evaluator approval", () => {
+    expect(reviewStageForRequirement({
+      evaluatorSignOffRequired: true,
+      supervisorApprovalRequired: true,
+      signOffs: [{ result: "APPROVED", signedAt: new Date("2026-08-28T12:05:00Z") }],
+      submittedAt,
+    })).toBe("SUPERVISOR");
+  });
+
+  it("ignores approvals from an earlier submission attempt", () => {
+    const signOffs = [{ result: "APPROVED", signedAt: new Date("2026-08-28T11:00:00Z") }];
+    expect(approvalsSinceSubmission(signOffs, submittedAt)).toBe(0);
+    expect(reviewStageForRequirement({
+      evaluatorSignOffRequired: true,
+      supervisorApprovalRequired: true,
+      signOffs,
+      submittedAt,
+    })).toBe("EVALUATOR");
+  });
+
+  it("goes directly to supervisor when evaluator sign-off is not required", () => {
+    expect(reviewStageForRequirement({
+      evaluatorSignOffRequired: false,
+      supervisorApprovalRequired: true,
+      signOffs: [],
+      submittedAt,
+    })).toBe("SUPERVISOR");
+  });
+
+  it("is final when only one evaluator approval is required", () => {
+    expect(reviewStageForRequirement({
+      evaluatorSignOffRequired: true,
+      supervisorApprovalRequired: false,
+      signOffs: [{ result: "APPROVED", signedAt: new Date("2026-08-28T12:05:00Z") }],
+      submittedAt,
+    })).toBe("FINAL");
+  });
+});
+
+describe("sign-off transitions", () => {
+  it("keeps a repetition pending after evaluator approval when supervisor approval is required", () => {
+    expect(nextReviewState({
+      result: "APPROVED",
+      stage: "EVALUATOR",
+      supervisorApprovalRequired: true,
+      currentApprovedRepetitions: 2,
+      repetitionsRequired: 5,
+    })).toEqual({
+      status: "SUBMITTED",
+      approvedRepetitions: 2,
+      completed: false,
+      supervisorPending: true,
+    });
+  });
+
+  it("increments the approved repetition at supervisor approval", () => {
+    expect(nextReviewState({
+      result: "APPROVED",
+      stage: "SUPERVISOR",
+      supervisorApprovalRequired: true,
+      currentApprovedRepetitions: 2,
+      repetitionsRequired: 5,
+    })).toEqual({
+      status: "APPROVED",
+      approvedRepetitions: 3,
+      completed: false,
+      supervisorPending: false,
+    });
+  });
+
+  it("does not increment repetitions when an attempt is returned", () => {
+    expect(nextReviewState({
+      result: "RETURNED",
+      stage: "EVALUATOR",
+      supervisorApprovalRequired: true,
+      currentApprovedRepetitions: 2,
+      repetitionsRequired: 5,
+    })).toEqual({
+      status: "RETURNED",
+      approvedRepetitions: 2,
+      completed: false,
+      supervisorPending: false,
+    });
+  });
+
+  it("marks the final required repetition complete", () => {
+    expect(nextReviewState({
+      result: "APPROVED",
+      stage: "SUPERVISOR",
+      supervisorApprovalRequired: true,
+      currentApprovedRepetitions: 4,
+      repetitionsRequired: 5,
+    })).toEqual({
+      status: "APPROVED",
+      approvedRepetitions: 5,
+      completed: true,
+      supervisorPending: false,
+    });
   });
 });
 

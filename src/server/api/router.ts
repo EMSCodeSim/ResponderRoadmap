@@ -12,6 +12,7 @@ import * as memberApp from "@/server/services/memberApp";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
+import { taskBookAttestationRecord } from "@/lib/taskbook-attestation";
 import type { Role } from "@/lib/constants";
 
 function match(path: string[], pattern: string) {
@@ -173,7 +174,24 @@ export async function handleApi(req: Request, path: string[]) {
     const so = match(path, "sign-offs/:id");
     if (method === "POST" && so) {
       const body = await readBody(req);
-      return jsonOk(await assignments.reviewSignOff(ctx, so.id, body));
+      if (body.result === "APPROVED" && body.attested !== true) {
+        return jsonError("Confirm the electronic attestation before approving this requirement.", 400);
+      }
+      const notes =
+        body.result === "APPROVED"
+          ? [
+              String(body.notes || "").trim(),
+              taskBookAttestationRecord({ reviewerName: ctx.name, reviewerRole: ctx.role }),
+            ]
+              .filter(Boolean)
+              .join("\n\n")
+          : body.notes;
+      const signed = await assignments.reviewSignOff(ctx, so.id, { ...body, notes });
+      return jsonOk({
+        ...signed,
+        attested: body.result === "APPROVED",
+        signedByName: ctx.name,
+      });
     }
 
     if (method === "GET" && match(path, "credentials")) return jsonOk(await credentials.listCredentials(ctx, q));

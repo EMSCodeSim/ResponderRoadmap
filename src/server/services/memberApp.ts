@@ -1,4 +1,5 @@
 import { computeAssignmentProgress } from "@/lib/progress";
+import { reviewStageForRequirement } from "@/lib/signoff";
 import { prisma } from "@/server/db";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import type { AuthContext } from "@/server/permissions";
@@ -18,7 +19,20 @@ function effectiveRepetitionCount(completion: { status: string; repetitionCount:
   return Math.max(0, completion.repetitionCount, completion.status === "APPROVED" ? 1 : 0);
 }
 
+async function assertActiveMembership(ctx: AuthContext) {
+  const membership = await prisma.departmentMembership.findFirst({
+    where: {
+      id: ctx.membershipId,
+      userId: ctx.userId,
+      departmentId: ctx.departmentId,
+      status: "ACTIVE",
+    },
+  });
+  if (!membership) throw new HttpError(403, "Your department membership is not active.");
+}
+
 async function loadOwnAssignment(ctx: AuthContext, assignmentId: string) {
+  await assertActiveMembership(ctx);
   const assignment = await prisma.taskBookAssignment.findFirst({
     where: {
       id: assignmentId,
@@ -60,6 +74,23 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
   const completionByRequirement = new Map(
     assignment.completions.map((completion) => [completion.requirementId, completion]),
   );
+  const requirementById = new Map(requirements.map((requirement) => [requirement.id, requirement]));
+
+  function prerequisiteState(requirement: (typeof requirements)[number]) {
+    const prerequisiteIds = parseStringArray(requirement.prerequisitesJson);
+    const blockedTitles: string[] = [];
+    for (const id of prerequisiteIds) {
+      const prerequisite = requirementById.get(id);
+      const completion = completionByRequirement.get(id);
+      const complete = Boolean(
+        prerequisite &&
+          completion?.status === "APPROVED" &&
+          effectiveRepetitionCount(completion) >= Math.max(1, prerequisite.repetitionsRequired),
+      );
+      if (!complete) blockedTitles.push(prerequisite?.title ?? "Required prerequisite");
+    }
+    return { prerequisiteIds, blockedTitles };
+  }
 
   return {
     id: assignment.id,
@@ -87,6 +118,16 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
       sortOrder: section.sortOrder,
       requirements: section.requirements.map((requirement) => {
         const completion = completionByRequirement.get(requirement.id);
+        const prerequisites = prerequisiteState(requirement);
+        const reviewStage =
+          completion?.status === "SUBMITTED"
+            ? reviewStageForRequirement({
+                evaluatorSignOffRequired: requirement.evaluatorSignOffRequired,
+                supervisorApprovalRequired: requirement.supervisorApprovalRequired,
+                signOffs: completion.signOffs,
+                submittedAt: completion.submittedAt,
+              })
+            : null;
         return {
           id: requirement.id,
           title: requirement.title,
@@ -103,7 +144,10 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
           supervisorApprovalRequired: requirement.supervisorApprovalRequired,
           evaluatorSignOffRequired: requirement.evaluatorSignOffRequired,
           repetitionsRequired: requirement.repetitionsRequired,
-          prerequisites: parseStringArray(requirement.prerequisitesJson),
+          prerequisites: prerequisites.prerequisiteIds,
+          blockedByPrerequisites: prerequisites.blockedTitles.length > 0,
+          prerequisiteTitles: prerequisites.blockedTitles,
+          reviewStage,
           estimatedMinutes: requirement.estimatedMinutes,
           tags: parseStringArray(requirement.tagsJson),
           objectives: parseStringArray(requirement.objectivesJson),
@@ -132,6 +176,7 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
 }
 
 export async function listMyAssignments(ctx: AuthContext) {
+  await assertActiveMembership(ctx);
   const rows = await prisma.taskBookAssignment.findMany({
     where: {
       departmentId: ctx.departmentId,
@@ -173,7 +218,7 @@ export async function submitRequirement(
     throw new HttpError(409, "This requirement is fully approved and cannot be overwritten.");
   }
   if (existing?.status === "SUBMITTED") {
-    throw new HttpError(409, "This requirement is already awaiting evaluator review.");
+    throw new HttpError(409, "This requirement is already waiting for department review.");
   }
 
   const completionByRequirement = new Map(
@@ -193,9 +238,6 @@ export async function submitRequirement(
 
   const submittedRepetition = Math.min(repetitionsRequired, currentRepetitionCount + 1);
   const needsReview = requirement.evaluatorSignOffRequired || requirement.supervisorApprovalRequired;
-  // A submission awaiting evaluation is only an attempt. It becomes a counted
-  // repetition when the evaluator approves it. Auto-approved requirements can
-  // count immediately because no separate review event exists.
   const storedRepetitionCount = needsReview ? currentRepetitionCount : submittedRepetition;
   const nextStatus = needsReview ? "SUBMITTED" : "APPROVED";
   const fullyRepeated = storedRepetitionCount >= repetitionsRequired;
@@ -213,14 +255,16 @@ export async function submitRequirement(
       requirementId: requirement.id,
       membershipId: ctx.membershipId,
       status: nextStatus,
-      memberNotes: input.memberNotes?.trim() || "",
+      memberNotes: requirement.memberNotesAllowed ? input.memberNotes?.trim() || "" : "",
       submittedAt: now,
       completedAt: !needsReview && fullyRepeated ? now : null,
       repetitionCount: storedRepetitionCount,
     },
     update: {
       status: nextStatus,
-      memberNotes: input.memberNotes?.trim() ?? existing?.memberNotes ?? "",
+      memberNotes: requirement.memberNotesAllowed
+        ? input.memberNotes?.trim() ?? existing?.memberNotes ?? ""
+        : existing?.memberNotes ?? "",
       submittedAt: now,
       completedAt: !needsReview && fullyRepeated ? now : null,
       repetitionCount: storedRepetitionCount,
@@ -247,19 +291,23 @@ export async function submitRequirement(
     repetitionsRequired,
     status: nextStatus,
   });
-  await writeActivity(ctx.departmentId, !needsReview && fullyRepeated ? "REQUIREMENT_COMPLETED" : "REQUIREMENT_SUBMITTED", {
-    userId: ctx.userId,
-    referenceId: completion.id,
-    metadata: {
-      actorName: ctx.name,
-      memberName: ctx.name,
-      requirement: requirement.title,
-      taskBook: assignment.version.template.title,
-      submittedRepetition,
-      approvedRepetitions: storedRepetitionCount,
-      repetitionsRequired,
+  await writeActivity(
+    ctx.departmentId,
+    !needsReview && fullyRepeated ? "REQUIREMENT_COMPLETED" : "REQUIREMENT_SUBMITTED",
+    {
+      userId: ctx.userId,
+      referenceId: completion.id,
+      metadata: {
+        actorName: ctx.name,
+        memberName: ctx.name,
+        requirement: requirement.title,
+        taskBook: assignment.version.template.title,
+        submittedRepetition,
+        approvedRepetitions: storedRepetitionCount,
+        repetitionsRequired,
+      },
     },
-  });
+  );
 
   return getMyAssignment(ctx, assignment.id);
 }
