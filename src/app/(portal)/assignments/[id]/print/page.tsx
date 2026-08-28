@@ -95,7 +95,7 @@ export default function PrintRecordPage() {
           <div>{data.evaluatorName || "—"}</div>
         </div>
       </section>
-      {data.sections.map((section) => (
+      {data.sections.filter((section) => section.requirements.length > 0).map((section) => (
         <section key={section.title} className="mt-8">
           <h2 className="border-b border-navy-300 pb-1 text-lg font-bold uppercase">{section.title}</h2>
           <table className="mt-2 w-full text-sm">

@@ -787,35 +787,60 @@ export default function TaskBookBuilderPage() {
                   <Field label="Repetitions required" hint="Each attempt keeps its own date, evaluator, notes, and result.">
                     <Input type="number" min={1} value={currentReq.repetitionsRequired} disabled={draftLocked} onChange={(e) => updateReq({ repetitionsRequired: Number(e.target.value) })} />
                   </Field>
-                  <Field label="Evaluation steps" hint="One checklist item per line. Evaluators mark Meets / Needs Improvement / Not Performed.">
-                    <TextArea
-                      value={currentReq.evaluationSteps.map((step) => step.text).join("\n")}
-                      disabled={draftLocked}
-                      onChange={(e) =>
-                        updateReq({
-                          evaluationSteps: e.target.value
-                            .split("\n")
-                            .map((text) => text.trim())
-                            .filter(Boolean)
-                            .map((text, index) => ({ id: currentReq.evaluationSteps[index]?.id || uid(), text })),
-                        })
-                      }
-                    />
+                  <Field label="Evaluation steps" hint="Evaluators mark Meets / Needs Improvement / Not Performed on each step.">
+                    <div className="space-y-2">
+                      {currentReq.evaluationSteps.map((step, index) => (
+                        <div key={step.id} className="flex gap-2">
+                          <Input
+                            value={step.text}
+                            disabled={draftLocked}
+                            placeholder={`Step ${index + 1}`}
+                            onChange={(e) =>
+                              updateReq({
+                                evaluationSteps: currentReq.evaluationSteps.map((item) => (item.id === step.id ? { ...item, text: e.target.value } : item)),
+                              })
+                            }
+                          />
+                          {!draftLocked ? (
+                            <Button variant="ghost" onClick={() => updateReq({ evaluationSteps: currentReq.evaluationSteps.filter((item) => item.id !== step.id) })}>
+                              Remove
+                            </Button>
+                          ) : null}
+                        </div>
+                      ))}
+                      {!draftLocked ? (
+                        <Button variant="secondary" onClick={() => updateReq({ evaluationSteps: [...currentReq.evaluationSteps, { id: uid(), text: "" }] })}>
+                          Add evaluation step
+                        </Button>
+                      ) : null}
+                    </div>
                   </Field>
                   <Field label="Critical failures" hint="If any of these occur, the attempt does not pass.">
-                    <TextArea
-                      value={currentReq.criticalFailures.map((item) => item.text).join("\n")}
-                      disabled={draftLocked}
-                      onChange={(e) =>
-                        updateReq({
-                          criticalFailures: e.target.value
-                            .split("\n")
-                            .map((text) => text.trim())
-                            .filter(Boolean)
-                            .map((text, index) => ({ id: currentReq.criticalFailures[index]?.id || uid(), text })),
-                        })
-                      }
-                    />
+                    <div className="space-y-2">
+                      {currentReq.criticalFailures.map((item) => (
+                        <div key={item.id} className="flex gap-2">
+                          <Input
+                            value={item.text}
+                            disabled={draftLocked}
+                            onChange={(e) =>
+                              updateReq({
+                                criticalFailures: currentReq.criticalFailures.map((row) => (row.id === item.id ? { ...row, text: e.target.value } : row)),
+                              })
+                            }
+                          />
+                          {!draftLocked ? (
+                            <Button variant="ghost" onClick={() => updateReq({ criticalFailures: currentReq.criticalFailures.filter((row) => row.id !== item.id) })}>
+                              Remove
+                            </Button>
+                          ) : null}
+                        </div>
+                      ))}
+                      {!draftLocked ? (
+                        <Button variant="secondary" onClick={() => updateReq({ criticalFailures: [...currentReq.criticalFailures, { id: uid(), text: "" }] })}>
+                          Add critical fail
+                        </Button>
+                      ) : null}
+                    </div>
                   </Field>
                   <Field label="Evidence">
                     <div className="grid max-h-40 gap-1 overflow-auto rounded-md border border-navy-200 p-2">

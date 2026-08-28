@@ -63,7 +63,11 @@ export default function DashboardPage() {
       <PageHeader
         kicker="Today"
         title="What needs attention"
-        description="Live department training status. Personal Career Road records stay with the member and are not shown here."
+        description={
+          data.personal
+            ? "Your assigned Task Books, sign-offs, and what to work on next. Personal Career Road records stay with you."
+            : "Live department training status. Personal Career Road records stay with the member and are not shown here."
+        }
       />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {(data.personal
