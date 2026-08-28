@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bumpVersion } from "@/lib/constants";
 import { credentialStatus, daysUntil, worstCredentialHealth } from "@/lib/dates";
 import { computeAssignmentProgress } from "@/lib/progress";
+import { computeUpNext, evaluationPasses, reviewTaskBook } from "@/lib/taskbook";
 import { hasPermission } from "@/server/permissions";
 
 describe("bumpVersion", () => {
@@ -93,11 +94,63 @@ describe("assignment progress", () => {
     });
     expect(summary.status).toBe("OVERDUE");
   });
+
+  it("counts a requirement complete only after required repetitions", () => {
+    const summary = computeAssignmentProgress({
+      requirements: [{ id: "a", isRequired: true, repetitionsRequired: 3 }],
+      completions: [{ requirementId: "a", status: "IN_PROGRESS", repetitionCount: 2 }],
+      assignedDate: new Date("2026-01-01"),
+    });
+    expect(summary.complete).toBe(0);
+    expect(summary.percent).toBe(0);
+  });
+});
+
+describe("task book quality and evaluation", () => {
+  it("warns about empty sections and missing instructions", () => {
+    const review = reviewTaskBook({
+      title: "Driver/Operator Pumper",
+      sections: [
+        { title: "Pump Operations", requirements: [] },
+        { title: "Driving", requirements: [{ title: "Spot apparatus", instructions: "Use a spotter." }] },
+      ],
+    });
+    expect(review.sectionCount).toBe(2);
+    expect(review.requirementCount).toBe(1);
+    expect(review.issues.some((issue) => issue.code === "empty-section")).toBe(true);
+  });
+
+  it("fails an attempt when a critical failure is marked", () => {
+    expect(evaluationPasses({ result: "APPROVED", criticalFailuresTriggered: ["ppe"] })).toEqual({
+      passed: false,
+      result: "CRITICAL_FAIL",
+    });
+    expect(evaluationPasses({ result: "APPROVED" }).passed).toBe(true);
+  });
+
+  it("surfaces the next unlocked requirement", () => {
+    const next = computeUpNext({
+      sections: [
+        {
+          title: "Apparatus",
+          requirements: [
+            { id: "a", title: "Orientation", isRequired: true, prerequisites: [] },
+            { id: "b", title: "Emergency driving", isRequired: true, prerequisites: ["a"] },
+          ],
+        },
+      ],
+      completions: [],
+    });
+    expect(next[0].title).toBe("Orientation");
+    expect(next[1].locked).toBe(true);
+    expect(next[1].lockReason).toContain("Orientation");
+  });
 });
 
 describe("permissions", () => {
   it("does not let members manage task books", () => {
     expect(hasPermission("MEMBER", "taskbooks.write")).toBe(false);
+    expect(hasPermission("MEMBER", "assignments.write")).toBe(true);
     expect(hasPermission("TRAINING_OFFICER", "taskbooks.write")).toBe(true);
     expect(hasPermission("EVALUATOR", "signoff.review")).toBe(true);
     expect(hasPermission("TRAINING_OFFICER", "roles.write")).toBe(false);

@@ -17,7 +17,7 @@ export function Button({
     secondary: "bg-white text-navy-800 border border-navy-200 hover:bg-navy-50",
     ghost: "bg-transparent text-navy-700 hover:bg-navy-100",
     danger: "bg-danger text-white hover:bg-red-800",
-    success: "bg-current text-white hover:bg-emerald-800",
+    success: "bg-ok text-white hover:bg-emerald-800",
   }[variant];
   return (
     <button
@@ -40,7 +40,7 @@ export function Badge({
 }) {
   const styles = {
     neutral: "bg-navy-100 text-navy-700",
-    current: "bg-current-soft text-current",
+    current: "bg-ok-soft text-ok",
     warn: "bg-warn-soft text-warn",
     danger: "bg-danger-soft text-danger",
     info: "bg-navy-100 text-navy-700",
@@ -93,7 +93,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
 
 export function ProgressBar({ value }: { value: number }) {
   const safe = Math.max(0, Math.min(100, value));
-  const color = safe >= 100 ? "bg-current" : safe >= 50 ? "bg-navy-700" : "bg-fire";
+  const color = safe >= 100 ? "bg-ok" : safe >= 50 ? "bg-navy-700" : "bg-fire";
   return (
     <div className="flex items-center gap-2">
       <div className="h-2 w-24 overflow-hidden rounded-full bg-navy-100">
@@ -170,7 +170,7 @@ export function Flash({ message, tone = "info" }: { message: string | null; tone
   const styles = {
     info: "border-navy-200 bg-navy-50 text-navy-800",
     danger: "border-danger/30 bg-danger-soft text-danger",
-    current: "border-current/30 bg-current-soft text-current",
+    current: "border-ok/30 bg-ok-soft text-ok",
   }[tone];
   return <div className={cx("rounded-md border px-3 py-2 text-sm", styles)}>{message}</div>;
 }

@@ -23,6 +23,7 @@ model User {
   assignmentsEvaluating TaskBookAssignment[]    @relation("AssignmentEvaluator")
   assignmentsSupervising TaskBookAssignment[]   @relation("AssignmentSupervisor")
   signOffs             SignOff[]
+  evaluationAttempts   EvaluationAttempt[]
   activityEvents       ActivityEvent[]
   auditLogs            AuditLog[]               @relation("AuditActor")
   notesAuthored        MemberNote[]             @relation("NoteAuthor")
@@ -135,6 +136,10 @@ model TaskBookTemplate {
   owner                 User       @relation("TaskBookOwner", fields: [ownerId], references: [id])
   estimatedDurationDays Int?
   dueDateRule           String?
+  /// Intended rank, certification, or promotional target, e.g. "Firefighter I".
+  intendedPosition      String     @default("")
+  /// DEPARTMENT templates are created locally. VERIFIED is reserved for sourced Responder Roadmap content.
+  templateKind          String     @default("DEPARTMENT")
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
@@ -195,6 +200,22 @@ model TaskBookRequirement {
   tagsJson                   String          @default("[]")
   internalNotes              String          @default("")
   objectivesJson             String          @default("[]")
+  /// SKILL_DEMONSTRATION, KNOWLEDGE_VERIFICATION, OBSERVATION, TRAINING_ATTENDANCE, COURSE_COMPLETION, CERTIFICATION, DRIVING_TIME, APPARATUS_OPERATION, CALL_EXPERIENCE, REPETITION, DOCUMENT_UPLOAD, SUPERVISOR_VERIFICATION, CUSTOM
+  completionType             String          @default("SKILL_DEMONSTRATION")
+  /// COMPLETE_INCOMPLETE, PASS_FAIL, MEETS_NEEDS_IMPROVEMENT, NUMERIC, RUBRIC, CHECKLIST, EVALUATOR_JUDGMENT
+  scoringMethod              String          @default("PASS_FAIL")
+  evaluationStepsJson        String          @default("[]")
+  criticalFailuresJson       String          @default("[]")
+  evidenceTypesJson          String          @default("[]")
+  maxAttempts                Int?
+  retryWaitHours             Int?
+  remediationRequired        Boolean         @default(false)
+  supervisorReviewOnFail     Boolean         @default(false)
+  /// JSON array of approval levels, e.g. ["EVALUATOR"] or ["EVALUATOR","SUPERVISOR"]
+  approvalPathJson           String          @default("[\"EVALUATOR\"]")
+  /// Structured standards/JPR references. Never fabricate these in product content.
+  standardsJson              String          @default("[]")
+  retryPolicy                String          @default("UNLIMITED")
 
   completions RequirementCompletion[]
 }
@@ -240,11 +261,15 @@ model RequirementCompletion {
   submittedAt     DateTime?
   completedAt     DateTime?
   repetitionCount Int                  @default(0)
+  hoursLogged     Float                @default(0)
+  requestedEvaluatorId String?
 
-  evidence Evidence[]
-  signOffs SignOff[]
+  evidence  Evidence[]
+  signOffs  SignOff[]
+  attempts  EvaluationAttempt[]
 
   @@unique([assignmentId, requirementId])
+  @@index([status])
 }
 
 model Evidence {
@@ -259,14 +284,38 @@ model Evidence {
 
 /// Append-only. Completed sign-off history is never overwritten.
 model SignOff {
-  id           String                @id @default(cuid())
-  completionId String
-  completion   RequirementCompletion @relation(fields: [completionId], references: [id], onDelete: Cascade)
-  evaluatorId  String
-  evaluator    User                  @relation(fields: [evaluatorId], references: [id])
-  result       String
-  notes        String                @default("")
-  signedAt     DateTime              @default(now())
+  id              String                @id @default(cuid())
+  completionId    String
+  completion      RequirementCompletion @relation(fields: [completionId], references: [id], onDelete: Cascade)
+  evaluatorId     String
+  evaluator       User                  @relation(fields: [evaluatorId], references: [id])
+  result          String
+  notes           String                @default("")
+  signedAt        DateTime              @default(now())
+  approvalLevel   String                @default("EVALUATOR")
+  repetitionIndex Int                   @default(1)
+  attemptId       String?
+}
+
+/// Append-only evaluation attempt. Failed and prior attempts are never erased.
+model EvaluationAttempt {
+  id                     String                @id @default(cuid())
+  departmentId           String
+  completionId           String
+  completion             RequirementCompletion @relation(fields: [completionId], references: [id], onDelete: Cascade)
+  repetitionIndex        Int                   @default(1)
+  evaluatorId            String
+  evaluator              User                  @relation(fields: [evaluatorId], references: [id])
+  result                 String
+  stepResultsJson        String                @default("[]")
+  criticalFailuresJson   String                @default("[]")
+  comments               String                @default("")
+  evidenceJson           String                @default("[]")
+  numericScore           Float?
+  signedAt               DateTime              @default(now())
+  createdAt              DateTime              @default(now())
+
+  @@index([departmentId, completionId])
 }
 
 model CredentialType {

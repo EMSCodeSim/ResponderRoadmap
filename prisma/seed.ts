@@ -54,6 +54,7 @@ const EXTRA_FIRST = ["Morgan", "Kelly", "Shawn", "Robin", "Elliott", "Finley", "
 const EXTRA_LAST = ["Brooks", "Nguyen", "Cole", "Diaz", "Bennett", "Hughes", "Price", "Foster"];
 
 async function reset() {
+  await prisma.evaluationAttempt.deleteMany();
   await prisma.signOff.deleteMany();
   await prisma.evidence.deleteMany();
   await prisma.requirementCompletion.deleteMany();

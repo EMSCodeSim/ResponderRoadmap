@@ -7,6 +7,8 @@ export function activityText(type: string, metadata: Record<string, unknown>, ac
   switch (type) {
     case "REQUIREMENT_COMPLETED":
       return `${member || actor} completed ${requirement || "a requirement"}`;
+    case "REQUIREMENT_SUBMITTED":
+      return `${member || actor} requested evaluation for ${requirement || "a requirement"}`;
     case "REQUIREMENT_SIGNED":
       return `${actor} signed ${requirement}${title ? ` (${title})` : ""}`;
     case "REQUIREMENT_RETURNED":

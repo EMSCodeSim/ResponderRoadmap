@@ -9,6 +9,9 @@ export type StarterRequirement = {
   estimatedMinutes?: number;
   objectives?: string[];
   tags?: string[];
+  evaluationSteps?: Array<{ id: string; text: string }>;
+  criticalFailures?: Array<{ id: string; text: string }>;
+  repetitionsRequired?: number;
 };
 
 export type StarterSection = {
@@ -113,6 +116,19 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
           estimatedMinutes: 25,
           objectives: ["Select appropriate line", "Deploy line correctly", "Advance charged line", "Demonstrate nozzle control"],
           tags: ["engine", "hose"],
+          evaluationSteps: [
+            { id: "s1", text: "Select the correct hose line" },
+            { id: "s2", text: "Remove hose correctly" },
+            { id: "s3", text: "Advance the line safely" },
+            { id: "s4", text: "Bleed the nozzle" },
+            { id: "s5", text: "Verify stream pattern" },
+            { id: "s6", text: "Maintain nozzle control" },
+            { id: "s7", text: "Communicate with the crew" },
+          ],
+          criticalFailures: [
+            { id: "c1", text: "Fails to use required PPE" },
+            { id: "c2", text: "Creates an unsafe hose operation" },
+          ],
         }),
         req("Identify pump panel discharges and intakes", {
           evidenceType: "SKILL_EVALUATION",

@@ -15,6 +15,10 @@ type Dashboard = {
     awaitingSignOff: number;
     expiringSoon: number;
     overdueRequirements: number;
+    stalledOver30?: number;
+    completedThisMonth?: number;
+    membersAssigned?: number;
+    averageCompletion?: number;
   };
   attention: Array<{ tone: string; text: string; href: string }>;
   taskBookProgress: Array<{
@@ -38,7 +42,7 @@ type Dashboard = {
 const CARDS = [
   { key: "activeMembers", label: "Active Members", href: "/members" },
   { key: "activeTaskBooks", label: "Active Task Books", href: "/task-books" },
-  { key: "awaitingSignOff", label: "Awaiting Sign-Off", href: "/assignments?tab=sign-off" },
+  { key: "awaitingSignOff", label: "Awaiting Sign-Off", href: "/evaluate" },
   { key: "expiringSoon", label: "Expiring Soon", href: "/certifications?window=60" },
   { key: "overdueRequirements", label: "Overdue Requirements", href: "/assignments?status=OVERDUE" },
 ] as const;
@@ -62,7 +66,14 @@ export default function DashboardPage() {
         description="Live department training status. Personal Career Road records stay with the member and are not shown here."
       />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {CARDS.map((card) => {
+        {(data.personal
+          ? [
+              { key: "activeTaskBooks" as const, label: "Active Task Books", href: "/my-task-books" },
+              { key: "awaitingSignOff" as const, label: "Awaiting Sign-Off", href: "/my-task-books" },
+              { key: "overdueRequirements" as const, label: "Overdue Requirements", href: "/my-task-books" },
+            ]
+          : CARDS
+        ).map((card) => {
           const value = data.summary[card.key];
           const warn = (card.key === "awaitingSignOff" || card.key === "expiringSoon") && value > 0;
           const danger = card.key === "overdueRequirements" && value > 0;
@@ -78,6 +89,30 @@ export default function DashboardPage() {
           );
         })}
       </div>
+      {!data.personal ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="p-4">
+            <div className="kicker">Members assigned</div>
+            <div className="mt-2 display text-3xl font-bold">{data.summary.membersAssigned ?? 0}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="kicker">Average completion</div>
+            <div className="mt-2 display text-3xl font-bold">{data.summary.averageCompletion ?? 0}%</div>
+          </Card>
+          <Link href="/assignments?stalled=30">
+            <Card className="p-4 hover:border-navy-400">
+              <div className="kicker">Stalled &gt; 30 days</div>
+              <div className={`mt-2 display text-3xl font-bold ${(data.summary.stalledOver30 ?? 0) > 0 ? "text-warn" : ""}`}>
+                {data.summary.stalledOver30 ?? 0}
+              </div>
+            </Card>
+          </Link>
+          <Card className="p-4">
+            <div className="kicker">Completed this month</div>
+            <div className="mt-2 display text-3xl font-bold">{data.summary.completedThisMonth ?? 0}</div>
+          </Card>
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <Card className="p-5 xl:col-span-1">
@@ -125,7 +160,11 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {data.taskBookProgress.map((row) => (
-                    <tr key={row.id} className="clickable" onClick={() => (window.location.href = `/task-books/${row.id}`)}>
+                    <tr
+                      key={row.id}
+                      className="clickable"
+                      onClick={() => (window.location.href = data.personal ? `/my-task-books/${row.id}` : `/task-books/${row.id}`)}
+                    >
                       <td className="font-semibold">{row.title}</td>
                       <td>{row.assignedMembers}</td>
                       <td>

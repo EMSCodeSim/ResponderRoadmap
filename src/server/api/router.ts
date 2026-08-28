@@ -110,12 +110,16 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk(await members.approveMembership(ctx, memberApprove.id, body.approve !== false));
     }
 
-    if (method === "GET" && match(path, "task-books")) return jsonOk(await taskbooks.listTaskBooks(ctx));
+    if (method === "GET" && match(path, "task-books")) return jsonOk(await taskbooks.listTaskBooks(ctx, q));
     if (method === "GET" && match(path, "task-books/starters")) return jsonOk(taskbooks.listStarters());
     if (method === "POST" && match(path, "task-books")) {
       const body = await readBody(req);
       return jsonOk(await taskbooks.createTaskBook(ctx, body), 201);
     }
+    const tbDup = match(path, "task-books/:id/duplicate");
+    if (method === "POST" && tbDup) return jsonOk(await taskbooks.duplicateTaskBook(ctx, tbDup.id), 201);
+    const tbReview = match(path, "task-books/:id/review");
+    if (method === "GET" && tbReview) return jsonOk(await taskbooks.getTaskBookReview(ctx, tbReview.id));
     const tb = match(path, "task-books/:id");
     if (method === "GET" && tb) return jsonOk(await taskbooks.getTaskBook(ctx, tb.id));
     if (method === "PATCH" && tb) {
@@ -128,7 +132,10 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk(await taskbooks.saveDraftStructure(ctx, tbDraft.id, body.sections || []));
     }
     const tbPublish = match(path, "task-books/:id/publish");
-    if (method === "POST" && tbPublish) return jsonOk(await taskbooks.publishTaskBook(ctx, tbPublish.id));
+    if (method === "POST" && tbPublish) {
+      const body = await readBody(req);
+      return jsonOk(await taskbooks.publishTaskBook(ctx, tbPublish.id, { force: Boolean(body.force) }));
+    }
     const tbVersion = match(path, "task-books/:id/new-version");
     if (method === "POST" && tbVersion) return jsonOk(await taskbooks.startNewVersion(ctx, tbVersion.id));
 
@@ -137,10 +144,20 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await assignments.createAssignments(ctx, body), 201);
     }
+    if (method === "GET" && match(path, "evaluators")) return jsonOk(await assignments.listEvaluators(ctx));
+    const asgPrint = match(path, "assignments/:id/print");
+    if (method === "GET" && asgPrint) return jsonOk(await assignments.getPrintRecord(ctx, asgPrint.id));
+    const asgDetail = match(path, "assignments/:id/detail");
+    if (method === "GET" && asgDetail) return jsonOk(await assignments.getAssignmentDetail(ctx, asgDetail.id));
+    const asgSubmit = match(path, "assignments/:id/requirements/:reqId/submit");
+    if (method === "POST" && asgSubmit) {
+      const body = await readBody(req);
+      return jsonOk(await assignments.submitRequirement(ctx, asgSubmit.id, asgSubmit.reqId, body));
+    }
     const asg = match(path, "assignments/:id");
-    if (method === "GET" && asg) return jsonOk(await assignments.getAssignment(ctx, asg.id));
+    if (method === "GET" && asg) return jsonOk(await assignments.getAssignmentDetail(ctx, asg.id));
 
-    if (method === "GET" && match(path, "sign-offs")) return jsonOk(await assignments.listSignOffQueue(ctx));
+    if (method === "GET" && match(path, "sign-offs")) return jsonOk(await assignments.listSignOffQueue(ctx, q));
     const so = match(path, "sign-offs/:id");
     if (method === "POST" && so) {
       const body = await readBody(req);

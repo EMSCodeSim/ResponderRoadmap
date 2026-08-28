@@ -20,7 +20,7 @@ export type Permission =
   | "notes.write";
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  MEMBER: ["dashboard.read"],
+  MEMBER: ["dashboard.read", "assignments.read", "assignments.write"],
   EVALUATOR: [
     "dashboard.read",
     "members.read",
@@ -101,9 +101,15 @@ export function assertSameDepartment(ctx: AuthContext, departmentId: string): vo
 
 export function navItemsForRole(role: Role): string[] {
   const items = ["dashboard"];
+  if (role === "MEMBER") {
+    items.push("my-task-books");
+    items.push("settings");
+    return items;
+  }
   if (hasPermission(role, "members.read")) items.push("members");
   if (hasPermission(role, "taskbooks.read")) items.push("task-books");
   if (hasPermission(role, "assignments.read")) items.push("assignments");
+  if (hasPermission(role, "signoff.review")) items.push("evaluate");
   if (hasPermission(role, "credentials.read")) items.push("certifications");
   if (hasPermission(role, "reports.read")) items.push("reports");
   if (hasPermission(role, "department.read") || hasPermission(role, "department.write")) {

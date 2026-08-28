@@ -58,6 +58,17 @@ export async function getDashboard(ctx: AuthContext) {
   });
 
   const overdueAssignments = assignmentRows.filter((row) => row.progress.status === "OVERDUE");
+  const stalled = assignmentRows.filter((row) => {
+    if (row.progress.status === "COMPLETE") return false;
+    const last = row.assignment.updatedAt || row.assignment.assignedDate;
+    return Date.now() - last.getTime() > 30 * 86_400_000;
+  });
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const completedThisMonth = assignmentRows.filter(
+    (row) => row.progress.status === "COMPLETE" && row.assignment.updatedAt >= monthStart,
+  ).length;
   const credentialRows = credentials.map((item) => ({ item, status: credentialStatus(item.expirationDate) }));
   const expiringSoon = credentialRows.filter((row) => row.status.health === "expiring");
   const expired = credentialRows.filter((row) => row.status.health === "expired");
@@ -74,7 +85,7 @@ export async function getDashboard(ctx: AuthContext) {
     attention.push({
       tone: "info",
       text: `${completions.length} Task Book requirement${completions.length === 1 ? "" : "s"} awaiting evaluator approval`,
-      href: "/assignments?tab=sign-off",
+      href: "/evaluate",
     });
   }
   const overdueMembers = new Set(overdueAssignments.map((row) => row.assignment.membershipId));
@@ -83,6 +94,13 @@ export async function getDashboard(ctx: AuthContext) {
       tone: "danger",
       text: `${overdueMembers.size} member${overdueMembers.size === 1 ? " has" : "s have"} overdue requirements`,
       href: "/assignments?status=OVERDUE",
+    });
+  }
+  if (stalled.length) {
+    attention.push({
+      tone: "warn",
+      text: `${stalled.length} assignment${stalled.length === 1 ? " is" : "s are"} stalled more than 30 days`,
+      href: "/assignments?stalled=30",
     });
   }
   if (expired.length) {
@@ -114,6 +132,12 @@ export async function getDashboard(ctx: AuthContext) {
       awaitingSignOff: completions.length,
       expiringSoon: expiringSoon.length,
       overdueRequirements: overdueAssignments.reduce((sum, row) => sum + row.progress.overdue, 0),
+      stalledOver30: stalled.length,
+      completedThisMonth,
+      membersAssigned: assignmentRows.length,
+      averageCompletion: assignmentRows.length
+        ? Math.round(assignmentRows.reduce((sum, row) => sum + row.progress.percent, 0) / assignmentRows.length)
+        : 0,
     },
     attention,
     taskBookProgress,
@@ -168,13 +192,19 @@ async function getMemberDashboard(ctx: AuthContext) {
       awaitingSignOff: assignmentRows.reduce((sum, row) => sum + row.progress.pendingApproval, 0),
       expiringSoon: credentialRows.filter((row) => row.status.health === "expiring").length,
       overdueRequirements: assignmentRows.reduce((sum, row) => sum + row.progress.overdue, 0),
+      stalledOver30: 0,
+      completedThisMonth: assignmentRows.filter((row) => row.progress.status === "COMPLETE").length,
+      membersAssigned: assignmentRows.length,
+      averageCompletion: assignmentRows.length
+        ? Math.round(assignmentRows.reduce((sum, row) => sum + row.progress.percent, 0) / assignmentRows.length)
+        : 0,
     },
     attention: assignmentRows
       .filter((row) => row.progress.status === "OVERDUE" || row.progress.pendingApproval > 0)
       .map((row) => ({
         tone: row.progress.status === "OVERDUE" ? "danger" : "info",
         text: `${row.assignment.version.template.title} — ${row.progress.percent}%`,
-        href: `/members/${ctx.membershipId}`,
+        href: `/my-task-books/${row.assignment.id}`,
       })),
     taskBookProgress: assignmentRows.map((row) => ({
       id: row.assignment.id,

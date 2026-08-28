@@ -32,6 +32,8 @@ type Assignment = {
   pendingApproval: number;
   dueDate: string | null;
   status: string;
+  stalledDays?: number;
+  version?: string;
 };
 
 type QueueItem = {
@@ -54,6 +56,7 @@ function AssignmentsInner() {
   const router = useRouter();
   const tab = search.get("tab") || "all";
   const statusFilter = search.get("status") || "";
+  const stalled = search.get("stalled") || "";
   const [rows, setRows] = useState<Assignment[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [members, setMembers] = useState<Array<{ id: string; name: string; rank: string | null; station: string | null; shift: string | null }>>([]);
@@ -63,7 +66,19 @@ function AssignmentsInner() {
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ templateId: "", membershipIds: [] as string[], rank: "", station: "", shift: "", dueDate: "" });
+  const [form, setForm] = useState({
+    templateId: "",
+    membershipIds: [] as string[],
+    rank: "",
+    station: "",
+    shift: "",
+    dueDate: "",
+    assignedDate: "",
+    evaluatorId: "",
+    supervisorId: "",
+    notes: "",
+  });
+  const [evaluators, setEvaluators] = useState<Array<{ id: string; name: string }>>([]);
 
   async function load() {
     const [assignmentRows, signOffs, memberPayload] = await Promise.all([
@@ -75,6 +90,7 @@ function AssignmentsInner() {
     setQueue(signOffs);
     setMembers(memberPayload.members);
     setBooks(await api("task-books"));
+    api<Array<{ id: string; name: string }>>("evaluators").then(setEvaluators).catch(() => undefined);
   }
 
   useEffect(() => {
@@ -82,8 +98,12 @@ function AssignmentsInner() {
   }, []);
 
   const filtered = useMemo(() => {
-    return statusFilter ? rows.filter((row) => row.status === statusFilter) : rows;
-  }, [rows, statusFilter]);
+    return rows.filter((row) => {
+      if (statusFilter && row.status !== statusFilter) return false;
+      if (stalled === "30" && (row.stalledDays || 0) < 30) return false;
+      return true;
+    });
+  }, [rows, statusFilter, stalled]);
 
   async function createAssignment() {
     try {
@@ -121,8 +141,11 @@ function AssignmentsInner() {
         <Link href="/assignments" className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "all" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
           All assignments
         </Link>
-        <Link href="/assignments?tab=sign-off" className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "sign-off" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
-          Awaiting my review ({queue.length})
+        <Link href="/evaluate" className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "sign-off" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
+          Needs evaluation ({queue.length})
+        </Link>
+        <Link href="/assignments?stalled=30" className={`rounded-md px-3 py-2 text-sm font-semibold ${stalled === "30" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
+          Stalled &gt; 30 days
         </Link>
       </div>
       <Flash message={error} tone="danger" />
@@ -236,6 +259,7 @@ function AssignmentsInner() {
                     <th>Due date</th>
                     <th>Days remaining</th>
                     <th>Status</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -251,6 +275,11 @@ function AssignmentsInner() {
                       <td>{daysRemainingLabel(row.dueDate)}</td>
                       <td>
                         <Badge tone={assignmentTone(row.status)}>{assignmentStatusLabel(row.status)}</Badge>
+                      </td>
+                      <td>
+                        <Link href={`/assignments/${row.id}/print`} className="text-sm font-semibold text-navy-700" onClick={(e) => e.stopPropagation()}>
+                          Record
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -277,6 +306,29 @@ function AssignmentsInner() {
           </Field>
           <Field label="Due date">
             <Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+          </Field>
+          <Field label="Assigned date">
+            <Input type="date" value={form.assignedDate} onChange={(e) => setForm({ ...form, assignedDate: e.target.value })} />
+          </Field>
+          <Field label="Evaluator">
+            <Select value={form.evaluatorId} onChange={(e) => setForm({ ...form, evaluatorId: e.target.value })}>
+              <option value="">No assigned evaluator</option>
+              {evaluators.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Supervisor">
+            <Select value={form.supervisorId} onChange={(e) => setForm({ ...form, supervisorId: e.target.value })}>
+              <option value="">No assigned supervisor</option>
+              {evaluators.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Entire rank">
             <Select value={form.rank} onChange={(e) => setForm({ ...form, rank: e.target.value })}>
@@ -325,6 +377,9 @@ function AssignmentsInner() {
             ))}
           </div>
         </div>
+        <Field label="Notes">
+          <TextArea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        </Field>
         <Button className="mt-4" onClick={createAssignment} disabled={!form.templateId}>
           Assign
         </Button>

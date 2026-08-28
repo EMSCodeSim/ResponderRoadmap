@@ -4,11 +4,13 @@ export type RequirementLike = {
   id: string;
   isRequired: boolean;
   dueOffsetDays?: number | null;
+  repetitionsRequired?: number | null;
 };
 
 export type CompletionLike = {
   requirementId: string;
   status: CompletionStatus | string;
+  repetitionCount?: number | null;
 };
 
 export type ProgressSummary = {
@@ -20,6 +22,13 @@ export type ProgressSummary = {
   status: AssignmentStatus;
 };
 
+export function requirementIsComplete(requirement: RequirementLike, completion?: CompletionLike | null): boolean {
+  if (!completion) return false;
+  if (completion.status === "APPROVED") return true;
+  const needed = Math.max(1, requirement.repetitionsRequired ?? 1);
+  return (completion.repetitionCount ?? 0) >= needed;
+}
+
 export function computeAssignmentProgress(input: {
   requirements: RequirementLike[];
   completions: CompletionLike[];
@@ -29,7 +38,7 @@ export function computeAssignmentProgress(input: {
 }): ProgressSummary {
   const now = input.now ?? new Date();
   const required = input.requirements.filter((req) => req.isRequired);
-  const completionByReq = new Map(input.completions.map((item) => [item.requirementId, item.status]));
+  const completionByReq = new Map(input.completions.map((item) => [item.requirementId, item]));
 
   let complete = 0;
   let pendingApproval = 0;
@@ -37,16 +46,17 @@ export function computeAssignmentProgress(input: {
   let anyStarted = false;
 
   for (const req of required) {
-    const status = completionByReq.get(req.id) ?? "NOT_STARTED";
+    const completion = completionByReq.get(req.id);
+    const status = completion?.status ?? "NOT_STARTED";
     if (status !== "NOT_STARTED") anyStarted = true;
-    if (status === "APPROVED") complete += 1;
-    if (status === "SUBMITTED") pendingApproval += 1;
+    if (requirementIsComplete(req, completion)) complete += 1;
+    else if (status === "SUBMITTED") pendingApproval += 1;
 
     const due =
       req.dueOffsetDays != null
         ? new Date(input.assignedDate.getTime() + req.dueOffsetDays * 86_400_000)
         : input.dueDate ?? null;
-    if (due && due.getTime() < now.getTime() && status !== "APPROVED") {
+    if (due && due.getTime() < now.getTime() && !requirementIsComplete(req, completion)) {
       overdue += 1;
     }
   }
@@ -86,4 +96,11 @@ export function assignmentStatusLabel(status: AssignmentStatus | string): string
     default:
       return status;
   }
+}
+
+export function daysStalled(input: { updatedAt?: Date | string | null; submittedAt?: Date | string | null; assignedDate: Date | string; now?: Date }): number {
+  const now = input.now ?? new Date();
+  const last = input.updatedAt || input.submittedAt || input.assignedDate;
+  const date = last instanceof Date ? last : new Date(last);
+  return Math.max(0, Math.floor((now.getTime() - date.getTime()) / 86_400_000));
 }

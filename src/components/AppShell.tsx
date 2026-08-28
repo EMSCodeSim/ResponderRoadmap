@@ -35,6 +35,8 @@ const ITEMS = [
   { href: "/members", key: "members", label: "Members", icon: Users },
   { href: "/task-books", key: "task-books", label: "Task Books", icon: BookOpen },
   { href: "/assignments", key: "assignments", label: "Assignments", icon: ClipboardList },
+  { href: "/evaluate", key: "evaluate", label: "Needs Evaluation", icon: ClipboardList },
+  { href: "/my-task-books", key: "my-task-books", label: "My Task Books", icon: BookOpen },
   { href: "/certifications", key: "certifications", label: "Certifications", icon: Award },
   { href: "/reports", key: "reports", label: "Reports", icon: BarChart3 },
   { href: "/department", key: "department", label: "Department", icon: Building2 },
