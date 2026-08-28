@@ -7,6 +7,10 @@ import { api, ApiError } from "@/lib/api";
 import { daysRemainingLabel, formatDate, relativeTime } from "@/lib/dates";
 import { assignmentStatusLabel } from "@/lib/progress";
 import {
+  TASKBOOK_ATTESTATION_TEXT,
+  TASKBOOK_ATTESTATION_VERSION,
+} from "@/lib/taskbook-attestation";
+import {
   Badge,
   Button,
   Card,
@@ -66,7 +70,17 @@ type QueueItem = {
   history: Array<{ id: string; result: string; notes: string; signedAt: string; evaluatorName: string }>;
 };
 
-type SessionInfo = { role: string | null };
+type SessionInfo = {
+  role: string | null;
+  name: string;
+};
+
+type ReviewReceipt = {
+  supervisorPending?: boolean;
+  signedAt?: string;
+  signedByName?: string;
+  attested?: boolean;
+};
 
 const REVIEWER_ROLES = new Set(["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"]);
 const ASSIGNER_ROLES = new Set(["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"]);
@@ -77,19 +91,41 @@ function reviewStageLabel(stage: QueueItem["reviewStage"]) {
   return "Final approval";
 }
 
+function roleLabel(role: string | null) {
+  if (!role) return "Authorized reviewer";
+  return role
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function historyNote(notes: string) {
+  if (!notes) return "";
+  const marker = `[${TASKBOOK_ATTESTATION_VERSION}]`;
+  const markerIndex = notes.indexOf(marker);
+  if (markerIndex < 0) return notes;
+  const reviewerNote = notes.slice(0, markerIndex).trim();
+  return reviewerNote ? `${reviewerNote} · Electronic attestation recorded` : "Electronic attestation recorded";
+}
+
 function AssignmentsInner() {
   const search = useSearchParams();
   const router = useRouter();
   const tab = search.get("tab") || "all";
   const statusFilter = search.get("status") || "";
+
   const [rows, setRows] = useState<Assignment[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [books, setBooks] = useState<Array<{ id: string; title: string; status: string }>>([]);
   const [sessionRole, setSessionRole] = useState<string | null>(null);
+  const [sessionName, setSessionName] = useState("");
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<QueueItem | null>(null);
   const [note, setNote] = useState("");
+  const [attested, setAttested] = useState(false);
+  const [signing, setSigning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -118,6 +154,7 @@ function AssignmentsInner() {
     setMembers(memberPayload.members);
     setBooks(taskBooks);
     setSessionRole(session.role);
+    setSessionName(session.name || "Authorized reviewer");
   }
 
   useEffect(() => {
@@ -135,11 +172,7 @@ function AssignmentsInner() {
 
   const canAssign = Boolean(sessionRole && ASSIGNER_ROLES.has(sessionRole));
   const hasTarget = Boolean(
-    form.allMembers ||
-      form.membershipIds.length ||
-      form.rank ||
-      form.station ||
-      form.shift,
+    form.allMembers || form.membershipIds.length || form.rank || form.station || form.shift,
   );
 
   function resetForm() {
@@ -155,6 +188,13 @@ function AssignmentsInner() {
       notes: "",
       allMembers: false,
     });
+  }
+
+  function selectForReview(item: QueueItem) {
+    setSelected(item);
+    setNote("");
+    setAttested(false);
+    setError(null);
   }
 
   async function createAssignment() {
@@ -187,28 +227,47 @@ function AssignmentsInner() {
 
   async function review(result: "APPROVED" | "RETURNED") {
     if (!selected) return;
+    if (result === "APPROVED" && !attested) {
+      setError("Confirm the electronic attestation before signing this approval.");
+      return;
+    }
     if (result === "RETURNED" && !note.trim()) {
       setError("Add a return note so the member knows exactly what to correct.");
       return;
     }
+
     try {
+      setSigning(true);
       setError(null);
-      const reviewed = await api<{ supervisorPending?: boolean }>(`sign-offs/${selected.id}`, {
+      const reviewed = await api<ReviewReceipt>(`sign-offs/${selected.id}`, {
         method: "POST",
-        body: JSON.stringify({ result, notes: note }),
+        body: JSON.stringify({ result, notes: note, attested: result === "APPROVED" ? attested : false }),
       });
+
       if (result === "RETURNED") {
         setMessage("Returned to the member with correction notes.");
-      } else if (reviewed.supervisorPending) {
-        setMessage("Evaluator approval recorded. This item is now waiting for supervisor approval.");
       } else {
-        setMessage("Approval recorded. Task Book progress updated.");
+        const signedBy = reviewed.signedByName || sessionName;
+        const signedAt = reviewed.signedAt ? new Date(reviewed.signedAt).toLocaleString() : "now";
+        if (reviewed.supervisorPending) {
+          setMessage(
+            `Electronically signed by ${signedBy} on ${signedAt}. This item is now waiting for supervisor approval.`,
+          );
+        } else {
+          setMessage(
+            `Electronically signed by ${signedBy} on ${signedAt}. Task Book progress has been updated.`,
+          );
+        }
       }
+
       setSelected(null);
       setNote("");
+      setAttested(false);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to record sign-off.");
+    } finally {
+      setSigning(false);
     }
   }
 
@@ -217,9 +276,10 @@ function AssignmentsInner() {
       <PageHeader
         kicker="Assignments"
         title="Task Book assignments"
-        description="Assign published Task Books, name the reviewers, and work the sign-off queue. Sign-off history is append-only."
+        description="Assign published Task Books, name reviewers, and complete documented electronic sign-offs. Sign-off history is append-only."
         actions={canAssign ? <Button onClick={() => setOpen(true)}>Assign Task Book</Button> : undefined}
       />
+
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
           href="/assignments"
@@ -238,6 +298,7 @@ function AssignmentsInner() {
           Awaiting my review ({queue.length})
         </Link>
       </div>
+
       <Flash message={error} tone="danger" />
       <div className="mb-3">
         <Flash message={message} tone="current" />
@@ -247,7 +308,7 @@ function AssignmentsInner() {
         queue.length === 0 ? (
           <EmptyState title="You're caught up" body="No Task Book requirements are waiting for your approval." />
         ) : (
-          <div className="grid gap-4 xl:grid-cols-[1fr_440px]">
+          <div className="grid gap-4 xl:grid-cols-[1fr_460px]">
             <Card>
               <div className="table-wrap">
                 <table className="table">
@@ -262,7 +323,7 @@ function AssignmentsInner() {
                   </thead>
                   <tbody>
                     {queue.map((item) => (
-                      <tr key={item.id} className="clickable" onClick={() => setSelected(item)}>
+                      <tr key={item.id} className="clickable" onClick={() => selectForReview(item)}>
                         <td className="font-semibold">{item.memberName}</td>
                         <td>{item.taskBookTitle}</td>
                         <td>
@@ -281,6 +342,7 @@ function AssignmentsInner() {
                 </table>
               </div>
             </Card>
+
             <Card className="p-5">
               {selected ? (
                 <div>
@@ -289,33 +351,41 @@ function AssignmentsInner() {
                   <p className="text-sm text-navy-500">
                     {selected.memberName} · {selected.taskBookTitle} · {selected.sectionTitle}
                   </p>
+
                   {selected.repetitionsRequired > 1 ? (
                     <div className="mt-3 rounded-md bg-navy-50 p-3 text-sm font-semibold text-navy-800">
                       Reviewing repetition {selected.nextRepetition} of {selected.repetitionsRequired} · {selected.approvedRepetitions} already approved
                     </div>
                   ) : null}
+
                   {selected.reviewStage === "EVALUATOR" && selected.supervisorName ? (
                     <p className="mt-2 text-xs text-navy-500">
-                      Evaluator approval will route this item to {selected.supervisorName} for final supervisor approval.
+                      Your evaluator signature will route this item to {selected.supervisorName} for supervisor approval.
                     </p>
                   ) : null}
                   {selected.reviewStage === "SUPERVISOR" ? (
                     <p className="mt-2 text-xs text-navy-500">
-                      Evaluator review is complete. This is the supervisor approval step.
+                      Evaluator review is complete. Your signature is the supervisor approval for this attempt.
                     </p>
                   ) : null}
-                  {selected.requirementDescription ? <p className="mt-3 text-sm">{selected.requirementDescription}</p> : null}
+
+                  {selected.requirementDescription ? (
+                    <p className="mt-3 text-sm">{selected.requirementDescription}</p>
+                  ) : null}
+
                   {selected.objectives.length ? (
                     <ul className="mt-2 list-disc pl-5 text-sm">
-                      {selected.objectives.map((item) => (
-                        <li key={item}>{item}</li>
+                      {selected.objectives.map((objective) => (
+                        <li key={objective}>{objective}</li>
                       ))}
                     </ul>
                   ) : null}
+
                   <div className="mt-4">
                     <div className="kicker">Member notes</div>
                     <p className="mt-1 text-sm">{selected.memberNotes || "No notes."}</p>
                   </div>
+
                   <div className="mt-4">
                     <div className="kicker">Evidence</div>
                     {selected.evidence.length ? (
@@ -323,7 +393,17 @@ function AssignmentsInner() {
                         {selected.evidence.map((item) => (
                           <li key={item.id} className="rounded-md bg-navy-50 p-3 text-sm">
                             <div className="text-xs font-semibold uppercase text-navy-400">{item.type}</div>
-                            {item.description || "Evidence recorded."}
+                            <div>{item.description || "Evidence recorded."}</div>
+                            {item.fileUrl ? (
+                              <a
+                                className="mt-1 inline-block text-sm font-semibold underline"
+                                href={item.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Open evidence
+                              </a>
+                            ) : null}
                           </li>
                         ))}
                       </ul>
@@ -331,19 +411,21 @@ function AssignmentsInner() {
                       <p className="mt-1 text-sm text-navy-500">No separate evidence was attached.</p>
                     )}
                   </div>
+
                   {selected.history.length ? (
                     <div className="mt-4">
-                      <div className="kicker">Audit trail</div>
+                      <div className="kicker">Prior sign-off history</div>
                       <ul className="mt-2 space-y-1 text-xs text-navy-500">
                         {selected.history.map((item) => (
                           <li key={item.id}>
                             {item.evaluatorName} {item.result.toLowerCase()} · {formatDate(item.signedAt)}
-                            {item.notes ? ` · ${item.notes}` : ""}
+                            {historyNote(item.notes) ? ` · ${historyNote(item.notes)}` : ""}
                           </li>
                         ))}
                       </ul>
                     </div>
                   ) : null}
+
                   <Field label={selected.reviewStage === "SUPERVISOR" ? "Supervisor note" : "Evaluator note"}>
                     <TextArea
                       value={note}
@@ -351,17 +433,89 @@ function AssignmentsInner() {
                       placeholder="Optional when approving. Required when returning an item."
                     />
                   </Field>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button variant="success" onClick={() => review("APPROVED")}>
-                      {selected.reviewStage === "SUPERVISOR" ? "Approve as Supervisor" : "Approve"}
-                    </Button>
-                    <Button variant="danger" onClick={() => review("RETURNED")} disabled={!note.trim()}>
-                      Return with Note
-                    </Button>
+
+                  <div className="mt-4 rounded-lg border-2 border-navy-200 bg-white p-4">
+                    <div className="kicker">Electronic sign-off</div>
+                    <div className="mt-3 grid gap-2 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-navy-500">Member</span>
+                        <span className="text-right font-semibold">{selected.memberName}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-navy-500">Task Book</span>
+                        <span className="text-right font-semibold">{selected.taskBookTitle}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-navy-500">Requirement</span>
+                        <span className="text-right font-semibold">{selected.requirementTitle}</span>
+                      </div>
+                      {selected.repetitionsRequired > 1 ? (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-navy-500">Repetition</span>
+                          <span className="text-right font-semibold">
+                            {selected.nextRepetition} of {selected.repetitionsRequired}
+                          </span>
+                        </div>
+                      ) : null}
+                      <div className="flex justify-between gap-4">
+                        <span className="text-navy-500">Approval stage</span>
+                        <span className="text-right font-semibold">{reviewStageLabel(selected.reviewStage)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-navy-500">Signing as</span>
+                        <span className="text-right font-semibold">
+                          {sessionName} · {roleLabel(sessionRole)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-navy-500">Date/time</span>
+                        <span className="text-right font-semibold">Recorded by server when signed</span>
+                      </div>
+                    </div>
+
+                    <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md bg-navy-50 p-3 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={attested}
+                        onChange={(e) => setAttested(e.target.checked)}
+                      />
+                      <span>
+                        <span className="block font-semibold">I verify this completion.</span>
+                        <span className="mt-1 block text-navy-600">{TASKBOOK_ATTESTATION_TEXT}</span>
+                      </span>
+                    </label>
+
+                    <p className="mt-2 text-xs text-navy-500">
+                      Your authenticated account, approval stage, server timestamp, reviewer note, and this attestation are retained with the sign-off record.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button
+                        variant="success"
+                        onClick={() => review("APPROVED")}
+                        disabled={!attested || signing}
+                      >
+                        {signing
+                          ? "Signing…"
+                          : selected.reviewStage === "SUPERVISOR"
+                            ? "Sign & Approve as Supervisor"
+                            : "Sign & Approve"}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        onClick={() => review("RETURNED")}
+                        disabled={!note.trim() || signing}
+                      >
+                        Return with Note
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-navy-500">Select a submission to review its evidence and approval stage.</p>
+                <p className="text-sm text-navy-500">
+                  Select a submission to review its evidence and complete the electronic sign-off.
+                </p>
               )}
             </Card>
           </div>
@@ -390,7 +544,11 @@ function AssignmentsInner() {
                 </thead>
                 <tbody>
                   {filtered.map((row) => (
-                    <tr key={row.id} className="clickable" onClick={() => router.push(`/members/${row.memberId}?tab=task-books`)}>
+                    <tr
+                      key={row.id}
+                      className="clickable"
+                      onClick={() => router.push(`/members/${row.memberId}?tab=task-books`)}
+                    >
                       <td className="font-semibold">{row.memberName}</td>
                       <td>{row.taskBookTitle}</td>
                       <td>
@@ -425,9 +583,15 @@ function AssignmentsInner() {
                 ))}
             </Select>
           </Field>
+
           <Field label="Due date">
-            <Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+            <Input
+              type="date"
+              value={form.dueDate}
+              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+            />
           </Field>
+
           <Field label="Evaluator">
             <Select value={form.evaluatorId} onChange={(e) => setForm({ ...form, evaluatorId: e.target.value })}>
               <option value="">Any authorized evaluator</option>
@@ -438,8 +602,12 @@ function AssignmentsInner() {
               ))}
             </Select>
           </Field>
+
           <Field label="Supervisor / final approver">
-            <Select value={form.supervisorId} onChange={(e) => setForm({ ...form, supervisorId: e.target.value })}>
+            <Select
+              value={form.supervisorId}
+              onChange={(e) => setForm({ ...form, supervisorId: e.target.value })}
+            >
               <option value="">Training Officer / Administrator</option>
               {reviewers.map((reviewer) => (
                 <option key={reviewer.userId} value={reviewer.userId}>
@@ -448,6 +616,7 @@ function AssignmentsInner() {
               ))}
             </Select>
           </Field>
+
           <Field label="Entire rank">
             <Select
               value={form.rank}
@@ -461,6 +630,7 @@ function AssignmentsInner() {
               ))}
             </Select>
           </Field>
+
           <Field label="Station">
             <Select
               value={form.station}
@@ -474,6 +644,7 @@ function AssignmentsInner() {
               ))}
             </Select>
           </Field>
+
           <Field label="Shift">
             <Select
               value={form.shift}
@@ -487,13 +658,20 @@ function AssignmentsInner() {
               <option>C</option>
             </Select>
           </Field>
+
           <Field label="Assignment note">
-            <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional expectations or instructions" />
+            <Input
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              placeholder="Optional expectations or instructions"
+            />
           </Field>
         </div>
+
         <div className="mt-4 rounded-md bg-navy-50 p-3 text-sm text-navy-600">
           Evaluator and supervisor selections control who sees each approval step. Training Officers and Department Administrators can still cover the queue when needed.
         </div>
+
         <div className="mt-4">
           <div className="text-sm font-semibold">Or select individual members</div>
           <div className="mt-2 grid max-h-48 gap-1 overflow-auto md:grid-cols-2">
@@ -522,6 +700,7 @@ function AssignmentsInner() {
               ))}
           </div>
         </div>
+
         <label className="mt-4 flex items-start gap-2 rounded-md border border-navy-200 p-3 text-sm">
           <input
             type="checkbox"
@@ -539,14 +718,18 @@ function AssignmentsInner() {
           />
           <span>
             <span className="block font-semibold">Assign to every active department member</span>
-            <span className="text-navy-500">This is intentionally separate so a department-wide assignment cannot happen by accident.</span>
+            <span className="text-navy-500">
+              This is intentionally separate so a department-wide assignment cannot happen by accident.
+            </span>
           </span>
         </label>
+
         {!hasTarget ? (
           <p className="mt-3 text-sm font-semibold text-amber-700">
             Choose at least one member/group target, or explicitly select the entire department.
           </p>
         ) : null}
+
         <Button className="mt-4" onClick={createAssignment} disabled={!form.templateId || !hasTarget}>
           Assign
         </Button>
