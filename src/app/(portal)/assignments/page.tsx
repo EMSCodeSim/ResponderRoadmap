@@ -66,7 +66,10 @@ type QueueItem = {
   history: Array<{ id: string; result: string; notes: string; signedAt: string; evaluatorName: string }>;
 };
 
+type SessionInfo = { role: string | null };
+
 const REVIEWER_ROLES = new Set(["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"]);
+const ASSIGNER_ROLES = new Set(["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"]);
 
 function reviewStageLabel(stage: QueueItem["reviewStage"]) {
   if (stage === "SUPERVISOR") return "Supervisor approval";
@@ -83,6 +86,7 @@ function AssignmentsInner() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [books, setBooks] = useState<Array<{ id: string; title: string; status: string }>>([]);
+  const [sessionRole, setSessionRole] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<QueueItem | null>(null);
   const [note, setNote] = useState("");
@@ -98,19 +102,22 @@ function AssignmentsInner() {
     evaluatorId: "",
     supervisorId: "",
     notes: "",
+    allMembers: false,
   });
 
   async function load() {
-    const [assignmentRows, signOffs, memberPayload, taskBooks] = await Promise.all([
+    const [assignmentRows, signOffs, memberPayload, taskBooks, session] = await Promise.all([
       api<Assignment[]>("assignments"),
       api<QueueItem[]>("sign-offs"),
       api<{ members: MemberOption[] }>("members"),
       api<Array<{ id: string; title: string; status: string }>>("task-books"),
+      api<SessionInfo>("auth/me"),
     ]);
     setRows(assignmentRows);
     setQueue(signOffs);
     setMembers(memberPayload.members);
     setBooks(taskBooks);
+    setSessionRole(session.role);
   }
 
   useEffect(() => {
@@ -126,7 +133,35 @@ function AssignmentsInner() {
     [members],
   );
 
+  const canAssign = Boolean(sessionRole && ASSIGNER_ROLES.has(sessionRole));
+  const hasTarget = Boolean(
+    form.allMembers ||
+      form.membershipIds.length ||
+      form.rank ||
+      form.station ||
+      form.shift,
+  );
+
+  function resetForm() {
+    setForm({
+      templateId: "",
+      membershipIds: [],
+      rank: "",
+      station: "",
+      shift: "",
+      dueDate: "",
+      evaluatorId: "",
+      supervisorId: "",
+      notes: "",
+      allMembers: false,
+    });
+  }
+
   async function createAssignment() {
+    if (!hasTarget) {
+      setError("Choose individual members, a rank/station/shift group, or explicitly select the entire department.");
+      return;
+    }
     try {
       setError(null);
       const result = await api<{ created: number; skipped: number }>("assignments", {
@@ -143,17 +178,7 @@ function AssignmentsInner() {
         }.`,
       );
       setOpen(false);
-      setForm({
-        templateId: "",
-        membershipIds: [],
-        rank: "",
-        station: "",
-        shift: "",
-        dueDate: "",
-        evaluatorId: "",
-        supervisorId: "",
-        notes: "",
-      });
+      resetForm();
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to assign.");
@@ -193,7 +218,7 @@ function AssignmentsInner() {
         kicker="Assignments"
         title="Task Book assignments"
         description="Assign published Task Books, name the reviewers, and work the sign-off queue. Sign-off history is append-only."
-        actions={<Button onClick={() => setOpen(true)}>Assign Task Book</Button>}
+        actions={canAssign ? <Button onClick={() => setOpen(true)}>Assign Task Book</Button> : undefined}
       />
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
@@ -347,7 +372,7 @@ function AssignmentsInner() {
             <EmptyState
               title="No assignments"
               body="Assign a published Task Book to a member, rank, station, or shift."
-              action={<Button onClick={() => setOpen(true)}>Assign Task Book</Button>}
+              action={canAssign ? <Button onClick={() => setOpen(true)}>Assign Task Book</Button> : undefined}
             />
           ) : (
             <div className="table-wrap">
@@ -386,7 +411,7 @@ function AssignmentsInner() {
         </Card>
       )}
 
-      <Modal open={open} title="Assign Task Book" onClose={() => setOpen(false)} wide>
+      <Modal open={open && canAssign} title="Assign Task Book" onClose={() => setOpen(false)} wide>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Task Book">
             <Select value={form.templateId} onChange={(e) => setForm({ ...form, templateId: e.target.value })}>
@@ -424,7 +449,12 @@ function AssignmentsInner() {
             </Select>
           </Field>
           <Field label="Entire rank">
-            <Select value={form.rank} onChange={(e) => setForm({ ...form, rank: e.target.value })}>
+            <Select
+              value={form.rank}
+              onChange={(e) =>
+                setForm({ ...form, rank: e.target.value, membershipIds: [], allMembers: false })
+              }
+            >
               <option value="">No rank filter</option>
               {[...new Set(members.map((item) => item.rank).filter(Boolean))].map((item) => (
                 <option key={item as string}>{item}</option>
@@ -432,7 +462,12 @@ function AssignmentsInner() {
             </Select>
           </Field>
           <Field label="Station">
-            <Select value={form.station} onChange={(e) => setForm({ ...form, station: e.target.value })}>
+            <Select
+              value={form.station}
+              onChange={(e) =>
+                setForm({ ...form, station: e.target.value, membershipIds: [], allMembers: false })
+              }
+            >
               <option value="">No station filter</option>
               {[...new Set(members.map((item) => item.station).filter(Boolean))].map((item) => (
                 <option key={item as string}>{item}</option>
@@ -440,7 +475,12 @@ function AssignmentsInner() {
             </Select>
           </Field>
           <Field label="Shift">
-            <Select value={form.shift} onChange={(e) => setForm({ ...form, shift: e.target.value })}>
+            <Select
+              value={form.shift}
+              onChange={(e) =>
+                setForm({ ...form, shift: e.target.value, membershipIds: [], allMembers: false })
+              }
+            >
               <option value="">No shift filter</option>
               <option>A</option>
               <option>B</option>
@@ -467,6 +507,10 @@ function AssignmentsInner() {
                     onChange={(e) =>
                       setForm({
                         ...form,
+                        allMembers: false,
+                        rank: "",
+                        station: "",
+                        shift: "",
                         membershipIds: e.target.checked
                           ? [...form.membershipIds, member.id]
                           : form.membershipIds.filter((id) => id !== member.id),
@@ -478,7 +522,32 @@ function AssignmentsInner() {
               ))}
           </div>
         </div>
-        <Button className="mt-4" onClick={createAssignment} disabled={!form.templateId}>
+        <label className="mt-4 flex items-start gap-2 rounded-md border border-navy-200 p-3 text-sm">
+          <input
+            type="checkbox"
+            checked={form.allMembers}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                allMembers: e.target.checked,
+                membershipIds: [],
+                rank: "",
+                station: "",
+                shift: "",
+              })
+            }
+          />
+          <span>
+            <span className="block font-semibold">Assign to every active department member</span>
+            <span className="text-navy-500">This is intentionally separate so a department-wide assignment cannot happen by accident.</span>
+          </span>
+        </label>
+        {!hasTarget ? (
+          <p className="mt-3 text-sm font-semibold text-amber-700">
+            Choose at least one member/group target, or explicitly select the entire department.
+          </p>
+        ) : null}
+        <Button className="mt-4" onClick={createAssignment} disabled={!form.templateId || !hasTarget}>
           Assign
         </Button>
       </Modal>
