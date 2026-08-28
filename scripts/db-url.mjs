@@ -34,7 +34,23 @@ export function isProductionDatabase(url = process.env.DATABASE_URL || "") {
   );
 }
 
-export function resolveDatabaseUrl(raw = process.env.DATABASE_URL, { forMigrate = false } = {}) {
+export function rawDatabaseUrl() {
+  const keys = [
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "POSTGRES_URL",
+    "POSTGRES_PRISMA_URL",
+    "POSTGRES_DATABASE_URL",
+    "NETLIFY_DATABASE_URL",
+  ];
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value && !isSqliteUrl(value)) return value;
+  }
+  return "";
+}
+
+export function resolveDatabaseUrl(raw = rawDatabaseUrl(), { forMigrate = false } = {}) {
   const source = forMigrate && process.env.DIRECT_URL ? process.env.DIRECT_URL : raw;
   if (!source) {
     throw new Error("DATABASE_URL is required. Use a PostgreSQL connection string (Neon pooled URI in production).");

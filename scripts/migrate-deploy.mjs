@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { isSqliteUrl, resolveDatabaseUrl } from "./db-url.mjs";
+import { isSqliteUrl, rawDatabaseUrl, resolveDatabaseUrl } from "./db-url.mjs";
 
 function run(args, env) {
   return spawnSync("npx", ["prisma", ...args], {
@@ -9,7 +9,7 @@ function run(args, env) {
   });
 }
 
-const raw = process.env.DIRECT_URL || process.env.DATABASE_URL;
+const raw = rawDatabaseUrl();
 if (!raw || isSqliteUrl(raw)) {
   console.warn(
     "Skipping prisma migrate deploy: DATABASE_URL is missing or not PostgreSQL.\n" +
@@ -18,7 +18,7 @@ if (!raw || isSqliteUrl(raw)) {
   process.exit(0);
 }
 
-const url = resolveDatabaseUrl(process.env.DATABASE_URL, { forMigrate: true });
+const url = resolveDatabaseUrl(raw, { forMigrate: true });
 const env = { ...process.env, DATABASE_URL: url };
 
 console.log("Running prisma migrate deploy against PostgreSQL.");

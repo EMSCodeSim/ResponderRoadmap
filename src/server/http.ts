@@ -73,9 +73,12 @@ export function handleError(error: unknown) {
   }
   const status = typeof error === "object" && error && "status" in error ? Number(error.status) : 500;
   const message = error instanceof Error ? error.message : "Unexpected error";
-  if (status === 401 || status === 403 || status === 404) {
-    return jsonError(message, status);
+  if (/DATABASE_URL|Environment variable not found/i.test(message)) {
+    return jsonError(
+      "The database is not connected. In Netlify, add DATABASE_URL (Neon pooled PostgreSQL URI) for Builds and Functions, then redeploy.",
+      503,
+    );
   }
   console.error(error);
-  return jsonError(message || "Unexpected error", status >= 400 && status < 600 ? status : 500);
+  return jsonError("Unexpected error", status >= 400 && status < 600 ? status : 500);
 }
