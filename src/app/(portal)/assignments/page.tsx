@@ -34,6 +34,17 @@ type Assignment = {
   status: string;
 };
 
+type MemberOption = {
+  id: string;
+  userId: string;
+  name: string;
+  role: string;
+  status: string;
+  rank: string | null;
+  station: string | null;
+  shift: string | null;
+};
+
 type QueueItem = {
   id: string;
   memberName: string;
@@ -45,9 +56,23 @@ type QueueItem = {
   objectives: string[];
   submittedAt: string | null;
   memberNotes: string;
+  reviewStage: "EVALUATOR" | "SUPERVISOR" | "FINAL";
+  approvedRepetitions: number;
+  repetitionsRequired: number;
+  nextRepetition: number;
+  evaluatorName: string | null;
+  supervisorName: string | null;
   evidence: Array<{ id: string; type: string; description: string; fileUrl: string | null }>;
   history: Array<{ id: string; result: string; notes: string; signedAt: string; evaluatorName: string }>;
 };
+
+const REVIEWER_ROLES = new Set(["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"]);
+
+function reviewStageLabel(stage: QueueItem["reviewStage"]) {
+  if (stage === "SUPERVISOR") return "Supervisor approval";
+  if (stage === "EVALUATOR") return "Evaluator review";
+  return "Final approval";
+}
 
 function AssignmentsInner() {
   const search = useSearchParams();
@@ -56,25 +81,36 @@ function AssignmentsInner() {
   const statusFilter = search.get("status") || "";
   const [rows, setRows] = useState<Assignment[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [members, setMembers] = useState<Array<{ id: string; name: string; rank: string | null; station: string | null; shift: string | null }>>([]);
+  const [members, setMembers] = useState<MemberOption[]>([]);
   const [books, setBooks] = useState<Array<{ id: string; title: string; status: string }>>([]);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<QueueItem | null>(null);
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ templateId: "", membershipIds: [] as string[], rank: "", station: "", shift: "", dueDate: "" });
+  const [form, setForm] = useState({
+    templateId: "",
+    membershipIds: [] as string[],
+    rank: "",
+    station: "",
+    shift: "",
+    dueDate: "",
+    evaluatorId: "",
+    supervisorId: "",
+    notes: "",
+  });
 
   async function load() {
-    const [assignmentRows, signOffs, memberPayload] = await Promise.all([
+    const [assignmentRows, signOffs, memberPayload, taskBooks] = await Promise.all([
       api<Assignment[]>("assignments"),
       api<QueueItem[]>("sign-offs"),
-      api<{ members: Array<{ id: string; name: string; rank: string | null; station: string | null; shift: string | null }> }>("members"),
+      api<{ members: MemberOption[] }>("members"),
+      api<Array<{ id: string; title: string; status: string }>>("task-books"),
     ]);
     setRows(assignmentRows);
     setQueue(signOffs);
     setMembers(memberPayload.members);
-    setBooks(await api("task-books"));
+    setBooks(taskBooks);
   }
 
   useEffect(() => {
@@ -85,11 +121,39 @@ function AssignmentsInner() {
     return statusFilter ? rows.filter((row) => row.status === statusFilter) : rows;
   }, [rows, statusFilter]);
 
+  const reviewers = useMemo(
+    () => members.filter((member) => member.status === "ACTIVE" && REVIEWER_ROLES.has(member.role)),
+    [members],
+  );
+
   async function createAssignment() {
     try {
-      const result = await api<{ created: number; skipped: number }>("assignments", { method: "POST", body: JSON.stringify(form) });
-      setMessage(`Assigned to ${result.created} member${result.created === 1 ? "" : "s"}${result.skipped ? ` (${result.skipped} already had this version)` : ""}.`);
+      setError(null);
+      const result = await api<{ created: number; skipped: number }>("assignments", {
+        method: "POST",
+        body: JSON.stringify({
+          ...form,
+          evaluatorId: form.evaluatorId || null,
+          supervisorId: form.supervisorId || null,
+        }),
+      });
+      setMessage(
+        `Assigned to ${result.created} member${result.created === 1 ? "" : "s"}${
+          result.skipped ? ` (${result.skipped} already had this version)` : ""
+        }.`,
+      );
       setOpen(false);
+      setForm({
+        templateId: "",
+        membershipIds: [],
+        rank: "",
+        station: "",
+        shift: "",
+        dueDate: "",
+        evaluatorId: "",
+        supervisorId: "",
+        notes: "",
+      });
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to assign.");
@@ -98,9 +162,23 @@ function AssignmentsInner() {
 
   async function review(result: "APPROVED" | "RETURNED") {
     if (!selected) return;
+    if (result === "RETURNED" && !note.trim()) {
+      setError("Add a return note so the member knows exactly what to correct.");
+      return;
+    }
     try {
-      await api(`sign-offs/${selected.id}`, { method: "POST", body: JSON.stringify({ result, notes: note }) });
-      setMessage(result === "APPROVED" ? "Requirement approved. Progress updated." : "Returned to the member with notes.");
+      setError(null);
+      const reviewed = await api<{ supervisorPending?: boolean }>(`sign-offs/${selected.id}`, {
+        method: "POST",
+        body: JSON.stringify({ result, notes: note }),
+      });
+      if (result === "RETURNED") {
+        setMessage("Returned to the member with correction notes.");
+      } else if (reviewed.supervisorPending) {
+        setMessage("Evaluator approval recorded. This item is now waiting for supervisor approval.");
+      } else {
+        setMessage("Approval recorded. Task Book progress updated.");
+      }
       setSelected(null);
       setNote("");
       await load();
@@ -114,14 +192,24 @@ function AssignmentsInner() {
       <PageHeader
         kicker="Assignments"
         title="Task Book assignments"
-        description="Assign a published version to people, a rank, a station, or a shift. Sign-off history is append-only."
+        description="Assign published Task Books, name the reviewers, and work the sign-off queue. Sign-off history is append-only."
         actions={<Button onClick={() => setOpen(true)}>Assign Task Book</Button>}
       />
       <div className="mb-4 flex flex-wrap gap-2">
-        <Link href="/assignments" className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "all" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
+        <Link
+          href="/assignments"
+          className={`rounded-md px-3 py-2 text-sm font-semibold ${
+            tab === "all" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"
+          }`}
+        >
           All assignments
         </Link>
-        <Link href="/assignments?tab=sign-off" className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "sign-off" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
+        <Link
+          href="/assignments?tab=sign-off"
+          className={`rounded-md px-3 py-2 text-sm font-semibold ${
+            tab === "sign-off" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"
+          }`}
+        >
           Awaiting my review ({queue.length})
         </Link>
       </div>
@@ -132,9 +220,9 @@ function AssignmentsInner() {
 
       {tab === "sign-off" ? (
         queue.length === 0 ? (
-          <EmptyState title="You're caught up" body="No Task Book requirements are waiting for evaluator approval." />
+          <EmptyState title="You're caught up" body="No Task Book requirements are waiting for your approval." />
         ) : (
-          <div className="grid gap-4 xl:grid-cols-[1fr_420px]">
+          <div className="grid gap-4 xl:grid-cols-[1fr_440px]">
             <Card>
               <div className="table-wrap">
                 <table className="table">
@@ -143,6 +231,7 @@ function AssignmentsInner() {
                       <th>Member</th>
                       <th>Task Book</th>
                       <th>Requirement</th>
+                      <th>Stage</th>
                       <th>Submitted</th>
                     </tr>
                   </thead>
@@ -151,7 +240,15 @@ function AssignmentsInner() {
                       <tr key={item.id} className="clickable" onClick={() => setSelected(item)}>
                         <td className="font-semibold">{item.memberName}</td>
                         <td>{item.taskBookTitle}</td>
-                        <td>{item.requirementTitle}</td>
+                        <td>
+                          <div>{item.requirementTitle}</div>
+                          {item.repetitionsRequired > 1 ? (
+                            <div className="text-xs text-navy-500">
+                              Repetition {item.nextRepetition} of {item.repetitionsRequired}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td>{reviewStageLabel(item.reviewStage)}</td>
                         <td>{relativeTime(item.submittedAt)}</td>
                       </tr>
                     ))}
@@ -162,12 +259,27 @@ function AssignmentsInner() {
             <Card className="p-5">
               {selected ? (
                 <div>
-                  <div className="kicker">Review</div>
+                  <div className="kicker">{reviewStageLabel(selected.reviewStage)}</div>
                   <h2 className="display text-3xl font-bold">{selected.requirementTitle}</h2>
                   <p className="text-sm text-navy-500">
                     {selected.memberName} · {selected.taskBookTitle} · {selected.sectionTitle}
                   </p>
-                  {selected.requirementDescription ? <p className="mt-2 text-sm">{selected.requirementDescription}</p> : null}
+                  {selected.repetitionsRequired > 1 ? (
+                    <div className="mt-3 rounded-md bg-navy-50 p-3 text-sm font-semibold text-navy-800">
+                      Reviewing repetition {selected.nextRepetition} of {selected.repetitionsRequired} · {selected.approvedRepetitions} already approved
+                    </div>
+                  ) : null}
+                  {selected.reviewStage === "EVALUATOR" && selected.supervisorName ? (
+                    <p className="mt-2 text-xs text-navy-500">
+                      Evaluator approval will route this item to {selected.supervisorName} for final supervisor approval.
+                    </p>
+                  ) : null}
+                  {selected.reviewStage === "SUPERVISOR" ? (
+                    <p className="mt-2 text-xs text-navy-500">
+                      Evaluator review is complete. This is the supervisor approval step.
+                    </p>
+                  ) : null}
+                  {selected.requirementDescription ? <p className="mt-3 text-sm">{selected.requirementDescription}</p> : null}
                   {selected.objectives.length ? (
                     <ul className="mt-2 list-disc pl-5 text-sm">
                       {selected.objectives.map((item) => (
@@ -181,41 +293,50 @@ function AssignmentsInner() {
                   </div>
                   <div className="mt-4">
                     <div className="kicker">Evidence</div>
-                    <ul className="mt-2 space-y-2">
-                      {selected.evidence.map((item) => (
-                        <li key={item.id} className="rounded-md bg-navy-50 p-3 text-sm">
-                          <div className="text-xs font-semibold uppercase text-navy-400">{item.type}</div>
-                          {item.description}
-                        </li>
-                      ))}
-                    </ul>
+                    {selected.evidence.length ? (
+                      <ul className="mt-2 space-y-2">
+                        {selected.evidence.map((item) => (
+                          <li key={item.id} className="rounded-md bg-navy-50 p-3 text-sm">
+                            <div className="text-xs font-semibold uppercase text-navy-400">{item.type}</div>
+                            {item.description || "Evidence recorded."}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-sm text-navy-500">No separate evidence was attached.</p>
+                    )}
                   </div>
                   {selected.history.length ? (
                     <div className="mt-4">
                       <div className="kicker">Audit trail</div>
-                      <ul className="mt-2 text-xs text-navy-500">
+                      <ul className="mt-2 space-y-1 text-xs text-navy-500">
                         {selected.history.map((item) => (
                           <li key={item.id}>
-                            {item.evaluatorName} {item.result.toLowerCase()} · {formatDate(item.signedAt)} · {item.notes}
+                            {item.evaluatorName} {item.result.toLowerCase()} · {formatDate(item.signedAt)}
+                            {item.notes ? ` · ${item.notes}` : ""}
                           </li>
                         ))}
                       </ul>
                     </div>
                   ) : null}
-                  <Field label="Evaluator note">
-                    <TextArea value={note} onChange={(e) => setNote(e.target.value)} />
+                  <Field label={selected.reviewStage === "SUPERVISOR" ? "Supervisor note" : "Evaluator note"}>
+                    <TextArea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="Optional when approving. Required when returning an item."
+                    />
                   </Field>
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Button variant="success" onClick={() => review("APPROVED")}>
-                      Approve
+                      {selected.reviewStage === "SUPERVISOR" ? "Approve as Supervisor" : "Approve"}
                     </Button>
-                    <Button variant="danger" onClick={() => review("RETURNED")}>
-                      Return
+                    <Button variant="danger" onClick={() => review("RETURNED")} disabled={!note.trim()}>
+                      Return with Note
                     </Button>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-navy-500">Select a submission to review evidence and sign off.</p>
+                <p className="text-sm text-navy-500">Select a submission to review its evidence and approval stage.</p>
               )}
             </Card>
           </div>
@@ -223,7 +344,11 @@ function AssignmentsInner() {
       ) : (
         <Card>
           {filtered.length === 0 ? (
-            <EmptyState title="No assignments" body="Assign a published Task Book to a member, rank, station, or shift." action={<Button onClick={() => setOpen(true)}>Assign Task Book</Button>} />
+            <EmptyState
+              title="No assignments"
+              body="Assign a published Task Book to a member, rank, station, or shift."
+              action={<Button onClick={() => setOpen(true)}>Assign Task Book</Button>}
+            />
           ) : (
             <div className="table-wrap">
               <table className="table">
@@ -278,6 +403,26 @@ function AssignmentsInner() {
           <Field label="Due date">
             <Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
           </Field>
+          <Field label="Evaluator">
+            <Select value={form.evaluatorId} onChange={(e) => setForm({ ...form, evaluatorId: e.target.value })}>
+              <option value="">Any authorized evaluator</option>
+              {reviewers.map((reviewer) => (
+                <option key={reviewer.userId} value={reviewer.userId}>
+                  {reviewer.name}{reviewer.rank ? ` · ${reviewer.rank}` : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Supervisor / final approver">
+            <Select value={form.supervisorId} onChange={(e) => setForm({ ...form, supervisorId: e.target.value })}>
+              <option value="">Training Officer / Administrator</option>
+              {reviewers.map((reviewer) => (
+                <option key={reviewer.userId} value={reviewer.userId}>
+                  {reviewer.name}{reviewer.rank ? ` · ${reviewer.rank}` : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Entire rank">
             <Select value={form.rank} onChange={(e) => setForm({ ...form, rank: e.target.value })}>
               <option value="">No rank filter</option>
@@ -302,27 +447,35 @@ function AssignmentsInner() {
               <option>C</option>
             </Select>
           </Field>
+          <Field label="Assignment note">
+            <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional expectations or instructions" />
+          </Field>
+        </div>
+        <div className="mt-4 rounded-md bg-navy-50 p-3 text-sm text-navy-600">
+          Evaluator and supervisor selections control who sees each approval step. Training Officers and Department Administrators can still cover the queue when needed.
         </div>
         <div className="mt-4">
           <div className="text-sm font-semibold">Or select individual members</div>
           <div className="mt-2 grid max-h-48 gap-1 overflow-auto md:grid-cols-2">
-            {members.map((member) => (
-              <label key={member.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.membershipIds.includes(member.id)}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      membershipIds: e.target.checked
-                        ? [...form.membershipIds, member.id]
-                        : form.membershipIds.filter((id) => id !== member.id),
-                    })
-                  }
-                />
-                {member.name}
-              </label>
-            ))}
+            {members
+              .filter((member) => member.status === "ACTIVE")
+              .map((member) => (
+                <label key={member.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.membershipIds.includes(member.id)}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        membershipIds: e.target.checked
+                          ? [...form.membershipIds, member.id]
+                          : form.membershipIds.filter((id) => id !== member.id),
+                      })
+                    }
+                  />
+                  {member.name}
+                </label>
+              ))}
           </div>
         </div>
         <Button className="mt-4" onClick={createAssignment} disabled={!form.templateId}>
