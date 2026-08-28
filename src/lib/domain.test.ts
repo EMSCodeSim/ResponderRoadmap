@@ -83,6 +83,38 @@ describe("assignment progress", () => {
     expect(summary.status).toBe("COMPLETE");
   });
 
+  it("does not complete a repeated skill after the first approved repetition", () => {
+    const summary = computeAssignmentProgress({
+      requirements: [{ id: "drive", isRequired: true, repetitionsRequired: 5 }],
+      completions: [
+        {
+          requirementId: "drive",
+          status: "APPROVED",
+          repetitionCount: 1,
+        },
+      ],
+      assignedDate: new Date("2026-01-01"),
+    });
+    expect(summary.percent).toBe(0);
+    expect(summary.status).toBe("IN_PROGRESS");
+  });
+
+  it("completes a repeated skill only when all repetitions are approved", () => {
+    const summary = computeAssignmentProgress({
+      requirements: [{ id: "drive", isRequired: true, repetitionsRequired: 5 }],
+      completions: [
+        {
+          requirementId: "drive",
+          status: "APPROVED",
+          repetitionCount: 5,
+        },
+      ],
+      assignedDate: new Date("2026-01-01"),
+    });
+    expect(summary.percent).toBe(100);
+    expect(summary.status).toBe("COMPLETE");
+  });
+
   it("marks overdue when due date has passed", () => {
     const summary = computeAssignmentProgress({
       requirements,
