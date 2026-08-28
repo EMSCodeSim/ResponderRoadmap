@@ -26,11 +26,14 @@ Personal Career Road records stay with the member. Joining a department never gr
 
 ```bash
 npm install
-npm run db:setup
 npm run dev
 ```
 
+`npm run dev` creates `.env` from `.env.example`, pushes the SQLite schema, and seeds Metro Fire if `prisma/dev.db` is missing. To reset demo data: `npm run db:reset`.
+
 Open [http://localhost:3000](http://localhost:3000).
+
+This portal is a local/dev app. It is not published on GitHub Pages or Vercel. If you are looking at the Cloud Agent on cursor.com, `localhost:3000` is inside the agent VM — use Cursor Desktop (Agents Window → port 3000) or a tunnel URL from the agent, not the GitHub repository page.
 
 | Role | Email | Password |
 | --- | --- | --- |

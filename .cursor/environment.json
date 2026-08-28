@@ -1,0 +1,18 @@
+{
+  "name": "ResponderRoadmap Portal",
+  "install": "npm install",
+  "start": "node scripts/ensure-dev.mjs",
+  "terminals": [
+    {
+      "name": "Next.js portal",
+      "command": "npm run dev",
+      "description": "Department portal web server. Open http://localhost:3000 (port 3000)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "Department portal",
+      "port": 3000
+    }
+  ]
+}
