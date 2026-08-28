@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("NETLIFY_DB_URL")
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -248,13 +248,13 @@ model RequirementCompletion {
 }
 
 model Evidence {
-  id           String                 @id @default(cuid())
+  id           String                @id @default(cuid())
   completionId String
-  completion   RequirementCompletion  @relation(fields: [completionId], references: [id], onDelete: Cascade)
+  completion   RequirementCompletion @relation(fields: [completionId], references: [id], onDelete: Cascade)
   type         String
   fileUrl      String?
-  description  String                 @default("")
-  uploadedAt   DateTime               @default(now())
+  description  String                @default("")
+  uploadedAt   DateTime              @default(now())
 }
 
 /// Append-only. Completed sign-off history is never overwritten.
@@ -285,38 +285,38 @@ model CredentialType {
 
 /// Department-managed credential. Distinct from PersonalCredential.
 model Credential {
-  id                 String                @id @default(cuid())
+  id                 String               @id @default(cuid())
   membershipId       String
-  membership         DepartmentMembership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  membership         DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
   departmentId       String
-  department         Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department         Department           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   credentialTypeId   String?
-  credentialType     CredentialType?       @relation(fields: [credentialTypeId], references: [id])
+  credentialType     CredentialType?      @relation(fields: [credentialTypeId], references: [id])
   credentialName     String
-  issuer             String                @default("")
+  issuer             String               @default("")
   credentialNumber   String?
   issueDate          DateTime?
   expirationDate     DateTime?
   verificationStatus String
   attachmentUrl      String?
-  notes              String                @default("")
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  notes              String               @default("")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 
   @@index([departmentId, expirationDate])
   @@index([membershipId])
 }
 
 model ActivityEvent {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   userId       String?
-  user         User?       @relation(fields: [userId], references: [id])
+  user         User?      @relation(fields: [userId], references: [id])
   departmentId String
-  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   type         String
   referenceId  String?
-  timestamp    DateTime    @default(now())
-  metadataJson String      @default("{}")
+  timestamp    DateTime   @default(now())
+  metadataJson String     @default("{}")
 
   @@index([departmentId, timestamp])
 }
@@ -338,24 +338,24 @@ model AuditLog {
 
 /// Personal Career Road credential. Never returned by department-scoped APIs.
 model PersonalCredential {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
-  issuer         String    @default("")
+  issuer         String   @default("")
   issueDate      DateTime?
   expirationDate DateTime?
-  notes          String    @default("")
-  createdAt      DateTime  @default(now())
+  notes          String   @default("")
+  createdAt      DateTime @default(now())
 }
 
 /// Personal Career Road log entry. Never returned by department-scoped APIs.
 model PersonalCareerLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  detail    String   @default("")
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  detail     String   @default("")
   occurredAt DateTime
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 }
