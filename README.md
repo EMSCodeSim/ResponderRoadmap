@@ -33,7 +33,9 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-This portal is a local/dev app. It is not published on GitHub Pages or Vercel. If you are looking at the Cloud Agent on cursor.com, `localhost:3000` is inside the agent VM — use Cursor Desktop (Agents Window → port 3000) or a tunnel URL from the agent, not the GitHub repository page.
+This portal is a Next.js app. The GitHub repository page is not the portal. If Netlify is connected, the site builds from `netlify.toml` (SQLite demo database is created at build time).
+
+If you are looking at the Cloud Agent on cursor.com, `localhost:3000` is inside the agent VM — use Cursor Desktop (Agents Window → port 3000) or a tunnel URL from the agent.
 
 | Role | Email | Password |
 | --- | --- | --- |

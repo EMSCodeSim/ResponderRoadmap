@@ -1,0 +1,12 @@
+[build]
+  command = "node scripts/ensure-dev.mjs && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  DATABASE_URL = "file:./dev.db"
+  AUTH_SECRET = "responder-roadmap-netlify-demo"
+  NEXT_PUBLIC_APP_NAME = "ResponderRoadmap"
+
+[functions]
+  included_files = ["prisma/dev.db", "prisma/schema.prisma"]
