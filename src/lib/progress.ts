@@ -42,7 +42,13 @@ export function computeAssignmentProgress(input: {
     const completion = completionByReq.get(req.id);
     const status = completion?.status ?? "NOT_STARTED";
     const repetitionsRequired = Math.max(1, req.repetitionsRequired ?? 1);
-    const repetitionsCompleted = Math.max(0, completion?.repetitionCount ?? (status === "APPROVED" ? 1 : 0));
+    // Older records predate repetition tracking and may be APPROVED with a
+    // stored count of 0. Preserve those approvals as one successful repetition.
+    const repetitionsCompleted = Math.max(
+      0,
+      completion?.repetitionCount ?? 0,
+      status === "APPROVED" ? 1 : 0,
+    );
     const requirementComplete = status === "APPROVED" && repetitionsCompleted >= repetitionsRequired;
 
     if (status !== "NOT_STARTED") anyStarted = true;
