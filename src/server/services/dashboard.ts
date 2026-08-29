@@ -29,7 +29,9 @@ export async function getDashboard(ctx: AuthContext) {
       include: {
         membership: { include: { user: true } },
         requirement: { include: { section: { include: { version: { include: { template: true } } } } } },
+        assignment: true,
       },
+      orderBy: { submittedAt: "asc" },
     }),
     prisma.credential.findMany({
       where: { departmentId },
@@ -92,7 +94,7 @@ export async function getDashboard(ctx: AuthContext) {
   if (overdueMembers.size) {
     attention.push({
       tone: "danger",
-      text: `${overdueMembers.size} member${overdueMembers.size === 1 ? " has" : "s have"} overdue requirements`,
+      text: `${overdueMembers.size} member${overdueMembers.size === 1 ? " has" : "s have"} overdue Task Book work`,
       href: "/assignments?status=OVERDUE",
     });
   }
@@ -125,6 +127,62 @@ export async function getDashboard(ctx: AuthContext) {
     };
   });
 
+  const now = Date.now();
+  const week = 7 * 86_400_000;
+  const followUpSeen = new Set<string>();
+  const followUp = [...overdueAssignments, ...stalled]
+    .filter((row) => {
+      const key = row.assignment.id;
+      if (followUpSeen.has(key)) return false;
+      followUpSeen.add(key);
+      return true;
+    })
+    .slice(0, 8)
+    .map((row) => {
+      const last = row.assignment.updatedAt || row.assignment.assignedDate;
+      const idleDays = Math.max(0, Math.floor((now - last.getTime()) / 86_400_000));
+      const overdueDays =
+        row.assignment.dueDate && row.assignment.dueDate.getTime() < now
+          ? Math.ceil((now - row.assignment.dueDate.getTime()) / 86_400_000)
+          : 0;
+      return {
+        assignmentId: row.assignment.id,
+        memberId: row.assignment.membershipId,
+        memberName: row.assignment.membership.user.name,
+        station: row.assignment.membership.station,
+        shift: row.assignment.membership.shift,
+        taskBookTitle: row.assignment.version.template.title,
+        percent: row.progress.percent,
+        reason:
+          overdueDays > 0
+            ? `${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`
+            : `No movement in ${idleDays} days`,
+        href: `/members/${row.assignment.membershipId}?tab=task-books`,
+      };
+    });
+
+  const followUpIds = new Set(followUp.map((item) => item.assignmentId));
+  const dueSoon = assignmentRows
+    .filter((row) => {
+      if (row.progress.status === "COMPLETE") return false;
+      if (!row.assignment.dueDate) return false;
+      const due = row.assignment.dueDate.getTime();
+      return due >= now && due - now <= week && !followUpIds.has(row.assignment.id);
+    })
+    .sort((a, b) => (a.assignment.dueDate?.getTime() || 0) - (b.assignment.dueDate?.getTime() || 0))
+    .slice(0, 6)
+    .map((row) => ({
+      assignmentId: row.assignment.id,
+      memberId: row.assignment.membershipId,
+      memberName: row.assignment.membership.user.name,
+      station: row.assignment.membership.station,
+      shift: row.assignment.membership.shift,
+      taskBookTitle: row.assignment.version.template.title,
+      percent: row.progress.percent,
+      dueDate: row.assignment.dueDate,
+      href: `/members/${row.assignment.membershipId}?tab=task-books`,
+    }));
+
   return {
     summary: {
       activeMembers: members.length,
@@ -132,12 +190,29 @@ export async function getDashboard(ctx: AuthContext) {
       awaitingSignOff: completions.length,
       expiringSoon: expiringSoon.length,
       overdueRequirements: overdueAssignments.reduce((sum, row) => sum + row.progress.overdue, 0),
+      overdueMembers: overdueMembers.size,
       stalledOver30: stalled.length,
       completedThisMonth,
       membersAssigned: assignmentRows.length,
       averageCompletion: assignmentRows.length
         ? Math.round(assignmentRows.reduce((sum, row) => sum + row.progress.percent, 0) / assignmentRows.length)
         : 0,
+    },
+    today: {
+      signOffs: completions.slice(0, 8).map((item) => ({
+        id: item.id,
+        memberId: item.membershipId,
+        memberName: item.membership.user.name,
+        station: item.membership.station,
+        shift: item.membership.shift,
+        requirementTitle: item.requirement.title,
+        taskBookTitle: item.requirement.section.version.template.title,
+        submittedAt: item.submittedAt,
+        href: `/evaluate?focus=${item.id}`,
+      })),
+      signOffTotal: completions.length,
+      followUp,
+      dueSoon,
     },
     attention,
     taskBookProgress,

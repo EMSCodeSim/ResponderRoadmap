@@ -34,6 +34,7 @@ type QueueItem = {
 function EvaluateInner() {
   const search = useSearchParams();
   const view = search.get("view") || "queue";
+  const focus = search.get("focus");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [selected, setSelected] = useState<QueueItem | null>(null);
   const [note, setNote] = useState("");
@@ -46,13 +47,13 @@ function EvaluateInner() {
   async function load() {
     const rows = await api<QueueItem[]>(`sign-offs?view=${view === "recent" ? "recent" : view === "remediation" ? "remediation" : ""}`);
     setQueue(rows);
-    setSelected((current) => rows.find((row) => row.id === current?.id) || rows[0] || null);
+    setSelected((current) => rows.find((row) => row.id === focus) || rows.find((row) => row.id === current?.id) || rows[0] || null);
   }
 
   useEffect(() => {
     load().catch((err) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
+  }, [view, focus]);
 
   useEffect(() => {
     if (!selected) return;

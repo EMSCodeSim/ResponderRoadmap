@@ -79,6 +79,7 @@ function AssignmentsInner() {
     notes: "",
   });
   const [evaluators, setEvaluators] = useState<Array<{ id: string; name: string }>>([]);
+  const [memberQuery, setMemberQuery] = useState("");
 
   async function load() {
     const [assignmentRows, signOffs, memberPayload] = await Promise.all([
@@ -95,6 +96,8 @@ function AssignmentsInner() {
 
   useEffect(() => {
     load().catch((err) => setError(err.message));
+    if (search.get("assign") === "1") setOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -356,25 +359,43 @@ function AssignmentsInner() {
           </Field>
         </div>
         <div className="mt-4">
-          <div className="text-sm font-semibold">Or select individual members</div>
+          <Field label="Find members" hint={form.membershipIds.length ? `${form.membershipIds.length} selected` : "Search by name, station, or shift"}>
+            <Input placeholder="Alex, Station 1, A…" value={memberQuery} onChange={(e) => setMemberQuery(e.target.value)} />
+          </Field>
           <div className="mt-2 grid max-h-48 gap-1 overflow-auto md:grid-cols-2">
-            {members.map((member) => (
-              <label key={member.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.membershipIds.includes(member.id)}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      membershipIds: e.target.checked
-                        ? [...form.membershipIds, member.id]
-                        : form.membershipIds.filter((id) => id !== member.id),
-                    })
-                  }
-                />
-                {member.name}
-              </label>
-            ))}
+            {members
+              .filter((member) => {
+                if (!memberQuery.trim()) return true;
+                const q = memberQuery.toLowerCase();
+                return (
+                  member.name.toLowerCase().includes(q) ||
+                  (member.station || "").toLowerCase().includes(q) ||
+                  (member.shift || "").toLowerCase().includes(q) ||
+                  (member.rank || "").toLowerCase().includes(q)
+                );
+              })
+              .map((member) => (
+                <label key={member.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.membershipIds.includes(member.id)}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        membershipIds: e.target.checked
+                          ? [...form.membershipIds, member.id]
+                          : form.membershipIds.filter((id) => id !== member.id),
+                      })
+                    }
+                  />
+                  <span>
+                    {member.name}
+                    <span className="text-navy-400">
+                      {member.station || member.shift ? ` · ${[member.station, member.shift].filter(Boolean).join(" ")}` : ""}
+                    </span>
+                  </span>
+                </label>
+              ))}
           </div>
         </div>
         <Field label="Notes">
