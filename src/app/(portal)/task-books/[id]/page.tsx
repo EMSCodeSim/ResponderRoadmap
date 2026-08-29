@@ -717,12 +717,43 @@ export default function TaskBookBuilderPage() {
                   <Field label="Detailed instructions">
                     <TextArea value={currentReq.instructions} disabled={draftLocked} onChange={(e) => updateReq({ instructions: e.target.value })} />
                   </Field>
-                  <Field label="Objectives (one per line)">
-                    <TextArea
-                      value={currentReq.objectives.join("\n")}
-                      disabled={draftLocked}
-                      onChange={(e) => updateReq({ objectives: e.target.value.split("\n").map((item) => item.trim()).filter(Boolean) })}
-                    />
+                  <Field label="Objectives" hint="What the member must demonstrate. Spaces and new objectives are kept as you type.">
+                    <div className="space-y-2">
+                      {(currentReq.objectives.length ? currentReq.objectives : [""]).map((item, index) => (
+                        <div key={`objective-${index}`} className="flex gap-2">
+                          <Input
+                            value={item}
+                            disabled={draftLocked}
+                            placeholder={`Objective ${index + 1}`}
+                            onChange={(e) => {
+                              const rows = currentReq.objectives.length ? [...currentReq.objectives] : [""];
+                              rows[index] = e.target.value;
+                              updateReq({ objectives: rows });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key !== "Enter" || draftLocked) return;
+                              e.preventDefault();
+                              const rows = currentReq.objectives.length ? [...currentReq.objectives] : [item];
+                              rows.splice(index + 1, 0, "");
+                              updateReq({ objectives: rows });
+                            }}
+                          />
+                          {!draftLocked && (currentReq.objectives.length > 1 || item) ? (
+                            <Button
+                              variant="ghost"
+                              onClick={() => updateReq({ objectives: currentReq.objectives.filter((_, i) => i !== index) })}
+                            >
+                              Remove
+                            </Button>
+                          ) : null}
+                        </div>
+                      ))}
+                      {!draftLocked ? (
+                        <Button variant="secondary" onClick={() => updateReq({ objectives: [...(currentReq.objectives.length ? currentReq.objectives : [""]), ""] })}>
+                          Add objective
+                        </Button>
+                      ) : null}
+                    </div>
                   </Field>
                   <Field label="Completion type">
                     <Select value={currentReq.completionType} disabled={draftLocked} onChange={(e) => updateReq({ completionType: e.target.value })}>

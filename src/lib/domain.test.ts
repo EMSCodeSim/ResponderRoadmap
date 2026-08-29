@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bumpVersion } from "@/lib/constants";
 import { credentialStatus, daysUntil, worstCredentialHealth } from "@/lib/dates";
 import { computeAssignmentProgress } from "@/lib/progress";
-import { computeUpNext, evaluationPasses, reviewTaskBook } from "@/lib/taskbook";
+import { computeUpNext, evaluationPasses, reviewTaskBook, serializeRequirement } from "@/lib/taskbook";
 import { hasPermission } from "@/server/permissions";
 
 describe("bumpVersion", () => {
@@ -144,6 +144,15 @@ describe("task book quality and evaluation", () => {
     expect(next[0].title).toBe("Orientation");
     expect(next[1].locked).toBe(true);
     expect(next[1].lockReason).toContain("Orientation");
+  });
+
+  it("keeps spaces in objectives and drops blank rows only when saving", () => {
+    const saved = serializeRequirement({
+      title: "Pump panel",
+      sortOrder: 0,
+      objectives: ["Identify tank-to-pump", "  ", "Identify discharges"],
+    });
+    expect(JSON.parse(saved.objectivesJson)).toEqual(["Identify tank-to-pump", "Identify discharges"]);
   });
 });
 

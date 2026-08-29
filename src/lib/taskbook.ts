@@ -133,7 +133,7 @@ export function serializeRequirement(input: RequirementFields) {
     estimatedMinutes: input.estimatedMinutes ?? null,
     tagsJson: JSON.stringify(input.tags ?? []),
     internalNotes: input.internalNotes ?? "",
-    objectivesJson: JSON.stringify(input.objectives ?? []),
+    objectivesJson: JSON.stringify((input.objectives ?? []).map((item) => item.trim()).filter(Boolean)),
     completionType: input.completionType || defaultCompletionType(input.evidenceType),
     scoringMethod: input.scoringMethod || "PASS_FAIL",
     evaluationStepsJson: JSON.stringify((input.evaluationSteps ?? []).filter((step) => step.text.trim())),
