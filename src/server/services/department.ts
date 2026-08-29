@@ -171,7 +171,7 @@ export async function updateAccount(
   userId: string,
   input: { name?: string; phone?: string | null; currentPassword?: string; newPassword?: string },
 ) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, omit: { passwordHash: false } });
   if (!user) throw new HttpError(401, "Authentication required.");
   const data: { name?: string; phone?: string | null; passwordHash?: string } = {};
   if (input.name?.trim()) data.name = input.name.trim();

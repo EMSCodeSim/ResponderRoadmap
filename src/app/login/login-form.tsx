@@ -6,6 +6,8 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { Button, Field, Flash, Input } from "@/components/ui";
 
+const DEMO_LOGIN = process.env.NEXT_PUBLIC_DEMO_LOGIN === "true";
+
 const DEMOS = [
   { label: "Training Officer", email: "riley.chen@metrofire.gov", name: "Capt. Riley Chen" },
   { label: "Department Administrator", email: "morgan.hale@metrofire.gov", name: "BC Morgan Hale" },
@@ -15,8 +17,8 @@ const DEMOS = [
 export default function LoginForm() {
   const router = useRouter();
   const next = useSearchParams().get("next") || "/dashboard";
-  const [email, setEmail] = useState("riley.chen@metrofire.gov");
-  const [password, setPassword] = useState("demo");
+  const [email, setEmail] = useState(DEMO_LOGIN ? "riley.chen@metrofire.gov" : "");
+  const [password, setPassword] = useState(DEMO_LOGIN ? "demo" : "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -52,7 +54,11 @@ export default function LoginForm() {
             manages assignments, sign-off, and expiration without taking ownership of that record.
           </p>
         </div>
-        <div className="text-sm text-white/50">Metro Fire & Rescue demonstration department included.</div>
+        {DEMO_LOGIN ? (
+          <div className="text-sm text-white/50">Metro Fire & Rescue demonstration department included.</div>
+        ) : (
+          <div className="text-sm text-white/50">Department Task Books, qualifications, and credential readiness.</div>
+        )}
       </div>
       <div className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
@@ -71,6 +77,7 @@ export default function LoginForm() {
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
+          {DEMO_LOGIN ? (
           <div className="mt-6 rounded-md border border-navy-200 bg-navy-50 p-4">
             <div className="text-xs font-bold uppercase tracking-wide text-navy-500">Demonstration accounts</div>
             <p className="mt-1 text-xs text-navy-500">
@@ -96,6 +103,7 @@ export default function LoginForm() {
               ))}
             </div>
           </div>
+          ) : null}
           <p className="mt-6 text-sm text-navy-500">
             Need a new department?{" "}
             <Link href="/register" className="font-semibold text-fire">

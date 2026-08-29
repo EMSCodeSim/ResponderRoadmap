@@ -4,17 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack --hostname 0.0.0.0 --port 3000",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && node scripts/migrate-deploy.mjs && next build",
     "start": "next start --hostname 0.0.0.0 --port 3000",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
+    "db:migrate": "node scripts/migrate-deploy.mjs",
+    "db:push": "node scripts/refuse-production-reset.mjs && prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
-    "db:setup": "prisma generate && prisma db push && tsx prisma/seed.ts"
+    "db:reset": "node scripts/refuse-production-reset.mjs && prisma migrate reset --force",
+    "db:setup": "prisma generate && node scripts/migrate-deploy.mjs && tsx prisma/seed.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
