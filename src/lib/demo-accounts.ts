@@ -1,7 +1,4 @@
 export const DEMO_DEPARTMENT_ID = "dept_metro";
-export const DEMO_PASSWORD = "demo";
-export const DEMO_READ_ONLY_MESSAGE =
-  "Metro Fire is a read-only demo workspace. Explore the workflow, then join the Founding Department List if you want department access.";
 
 export const DEMO_WALKS = {
   to: {
