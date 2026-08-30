@@ -42,8 +42,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Apply database schema
+      - name: Apply production database schema
         run: npx prisma db push
+
+      - name: Provision isolated demo database
+        run: npm run db:demo:setup
 
       - name: Run tests
         run: npm test
