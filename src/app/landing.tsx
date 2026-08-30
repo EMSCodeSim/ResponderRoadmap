@@ -75,7 +75,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
                       Evaluator View
                     </WalkDemoButton>
                   </div>
-                  <p className="text-sm text-white/50">No signup. Sample Metro Fire data. Read-only so every visitor sees a clean demo.</p>
+                  <p className="text-sm text-white/50">No signup. Use the real ResponderRoadmap workflow with Metro Fire sample data.</p>
                 </>
               ) : (
                 <>
@@ -143,7 +143,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <Pitch
               step="02"
               title="Open the field workflow"
-              body="Move from a member to the exact requirement and evaluation record an officer would use at the station. The demo keeps sample records locked so the workflow stays predictable."
+              body="Move from a member to the exact requirement and evaluation record an officer would use at the station. Use the same controls and workflow available to a department."
             />
             <Pitch
               step="03"
