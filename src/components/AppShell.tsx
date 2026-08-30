@@ -20,6 +20,7 @@ import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID } from "@/lib/demo-accounts";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
 import { BrandMark } from "@/components/brand";
+import { WalkDemoButton } from "@/components/walk-demo";
 import { cx } from "@/components/ui";
 
 type Session = {
@@ -185,6 +186,7 @@ function DemoGuide({ role }: { role: Role | null }) {
           Interested in your department?
         </Link>
       </div>
+
       <div className="mt-3 flex flex-wrap gap-2">
         {steps.map(([number, label, href]) => (
           <Link
@@ -195,6 +197,15 @@ function DemoGuide({ role }: { role: Role | null }) {
             <span className="mr-1 text-fire">{number}.</span> {label}
           </Link>
         ))}
+      </div>
+
+      <div className="mt-4 border-t border-fire/15 pt-3">
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-navy-500">Switch perspective</div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <WalkDemoButton walk="to" variant={role === "TRAINING_OFFICER" ? "primary" : "secondary"}>Training Officer</WalkDemoButton>
+          <WalkDemoButton walk="member" variant={role === "MEMBER" ? "primary" : "secondary"}>Firefighter</WalkDemoButton>
+          <WalkDemoButton walk="evaluator" variant={role === "EVALUATOR" ? "primary" : "secondary"}>Evaluator</WalkDemoButton>
+        </div>
       </div>
     </div>
   );
