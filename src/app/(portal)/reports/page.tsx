@@ -81,11 +81,32 @@ function ReportsInner() {
           ["certs", "Certification Status"],
           ["record", "Member Training Record"],
           ["compliance", "Department Compliance"],
-        ].map(([id, label]) => (
-          <Link key={id} href={`/reports?type=${id}`} className={`rounded-md px-3 py-2 text-sm font-semibold ${report === id ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
-            {label}
-          </Link>
-        ))}
+        ].map(([id, label]) => {
+          const active = report === id;
+          return (
+            <Link
+              key={id}
+              href={`/reports?type=${id}`}
+              className={`rounded-md px-3 py-2 text-sm font-semibold ${active ? "bg-navy-900" : "border border-navy-200 bg-white"}`}
+              style={
+                active
+                  ? {
+                      color: "#ffffff",
+                      WebkitTextFillColor: "#ffffff",
+                      backgroundColor: "#0c1524",
+                    }
+                  : {
+                      color: "#0c1524",
+                      WebkitTextFillColor: "#0c1524",
+                      backgroundColor: "#ffffff",
+                    }
+              }
+              aria-current={active ? "page" : undefined}
+            >
+              <span style={{ color: "inherit", WebkitTextFillColor: "inherit" }}>{label}</span>
+            </Link>
+          );
+        })}
       </div>
 
       {report === "progress" && (
