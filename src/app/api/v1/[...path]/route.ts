@@ -1,6 +1,9 @@
 import { handleApi } from "@/server/api/router";
 import { getRequestSession } from "@/server/session";
-import { DEMO_DEPARTMENT_ID, DEMO_READ_ONLY_MESSAGE } from "@/lib/demo-accounts";
+import { handleError, jsonOk } from "@/server/http";
+import * as auth from "@/server/services/auth";
+import { withDemoDatabase } from "@/server/db";
+import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,16 +22,30 @@ function withCors(response: Response) {
   });
 }
 
+async function demoLogin(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const walk = String(body.walk || "") as DemoWalkKey;
+    const account = DEMO_WALKS[walk];
+    if (!account) return Response.json({ error: "Unknown demo perspective." }, { status: 400 });
+    const result = await auth.login(account.email, process.env.DEMO_PASSWORD || "demo");
+    return jsonOk(result);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 async function dispatch(req: Request, params: Promise<{ path: string[] }>) {
   const { path } = await params;
   const route = path.join("/");
-  const allowedDemoWrites = new Set(["auth/login", "auth/app-login", "auth/logout"]);
 
-  if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && !allowedDemoWrites.has(route)) {
-    const session = await getRequestSession(req);
-    if (session?.departmentId === DEMO_DEPARTMENT_ID) {
-      return withCors(Response.json({ error: DEMO_READ_ONLY_MESSAGE }, { status: 403 }));
-    }
+  if (req.method === "POST" && route === "auth/demo-login") {
+    return withCors(await withDemoDatabase(() => demoLogin(req)));
+  }
+
+  const session = await getRequestSession(req);
+  if (session?.departmentId === DEMO_DEPARTMENT_ID) {
+    return withCors(await withDemoDatabase(() => handleApi(req, path)));
   }
 
   return withCors(await handleApi(req, path));
