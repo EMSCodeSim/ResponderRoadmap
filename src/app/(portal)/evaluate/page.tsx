@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { formatDate, relativeTime } from "@/lib/dates";
 import { STEP_RATING_LABELS, STEP_RATINGS } from "@/lib/constants";
+import { TASKBOOK_ATTESTATION_TEXT } from "@/lib/taskbook-attestation";
 import { Button, Card, EmptyState, Field, Flash, PageHeader, TextArea } from "@/components/ui";
 
 type QueueItem = {
@@ -40,6 +41,7 @@ function EvaluateInner() {
   const [note, setNote] = useState("");
   const [steps, setSteps] = useState<Record<string, string>>({});
   const [critical, setCritical] = useState<string[]>([]);
+  const [attested, setAttested] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,12 +62,18 @@ function EvaluateInner() {
     setNote("");
     setSteps({});
     setCritical([]);
+    setAttested(false);
     // Reset field controls when the selected submission changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
 
   async function evaluate(result: "APPROVED" | "NEEDS_REMEDIATION" | "NOT_EVALUATED") {
     if (!selected) return;
+    if (result === "APPROVED" && !attested) {
+      setError("Check ‘I verify this completion’ before signing the approval.");
+      document.getElementById("field-evaluation-attestation")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -77,9 +85,11 @@ function EvaluateInner() {
           notes: note,
           stepResults,
           criticalFailuresTriggered: critical,
+          attested: result === "APPROVED" ? attested : false,
         }),
       });
       setMessage(result === "APPROVED" ? "Signed. This attempt is in the audit history." : result === "NEEDS_REMEDIATION" ? "Returned for remediation. Prior attempts were kept." : "Marked not evaluated.");
+      setAttested(false);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to record evaluation.");
@@ -228,9 +238,26 @@ function EvaluateInner() {
               <Field label="Evaluator comments">
                 <TextArea value={note} onChange={(e) => setNote(e.target.value)} />
               </Field>
+
+              <label
+                id="field-evaluation-attestation"
+                className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-navy-200 bg-navy-50 p-4"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1 h-5 w-5 shrink-0"
+                  checked={attested}
+                  onChange={(e) => setAttested(e.target.checked)}
+                />
+                <span>
+                  <span className="block font-semibold text-navy-900">I verify this completion</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-navy-600">{TASKBOOK_ATTESTATION_TEXT}</span>
+                </span>
+              </label>
+
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Button className="min-h-16 text-base" variant="success" disabled={busy || critical.length > 0} onClick={() => evaluate("APPROVED")}>
-                  PASS
+                <Button className="min-h-16 text-base" variant="success" disabled={busy || critical.length > 0 || !attested} onClick={() => evaluate("APPROVED")}>
+                  PASS & SIGN
                 </Button>
                 <Button className="min-h-16 text-base" variant="danger" disabled={busy} onClick={() => evaluate("NEEDS_REMEDIATION")}>
                   NEEDS REMEDIATION
@@ -240,7 +267,8 @@ function EvaluateInner() {
                 </Button>
               </div>
               {critical.length ? <p className="mt-2 text-sm text-danger">A critical failure is marked. This attempt cannot pass.</p> : null}
-              <p className="mt-3 text-center text-sm font-semibold text-navy-700">Sign Evaluation using the result above. History is append-only.</p>
+              {!attested && !critical.length ? <p className="mt-2 text-sm text-navy-500">Check “I verify this completion” to enable PASS & SIGN.</p> : null}
+              <p className="mt-3 text-center text-sm font-semibold text-navy-700">The signed evaluation is stored in the append-only audit history.</p>
               {queue.length > 1 ? (
                 <Button
                   variant="secondary"
