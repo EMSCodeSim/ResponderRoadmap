@@ -72,6 +72,20 @@ function RegisterContent() {
             <p className="mt-3 text-sm text-navy-500">
               ResponderRoadmap is currently being tested with selected fire and EMS departments. Public department signup is temporarily closed while we validate real Task Book workflows.
             </p>
+
+            <div className="mt-5 rounded-md border border-fire/25 bg-fire-soft/40 p-4">
+              <div className="text-sm font-semibold text-navy-900">Want department access when memberships open?</div>
+              <p className="mt-1 text-sm text-navy-600">
+                Join the Founding Department List. There is no payment or commitment today — it simply lets us contact you when paid department access is ready.
+              </p>
+              <Link
+                href="/department-interest?source=pilot-access"
+                className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold text-white hover:bg-fire-dark"
+              >
+                Join the Founding Department List
+              </Link>
+            </div>
+
             <div className="mt-5 rounded-md border border-navy-200 bg-navy-50 p-4">
               <div className="text-sm font-semibold text-navy-900">How pilot access works</div>
               <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-navy-600">
@@ -82,7 +96,7 @@ function RegisterContent() {
               </ol>
             </div>
             <div className="mt-5 space-y-2">
-              <Link href="/login" className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold text-white hover:bg-fire-dark">
+              <Link href="/login" className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">
                 Sign in
               </Link>
               <Link href="/" className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">
