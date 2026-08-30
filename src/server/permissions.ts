@@ -27,8 +27,6 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "taskbooks.read",
     "assignments.read",
     "signoff.review",
-    "credentials.read",
-    "reports.read",
   ],
   TRAINING_OFFICER: [
     "dashboard.read",
