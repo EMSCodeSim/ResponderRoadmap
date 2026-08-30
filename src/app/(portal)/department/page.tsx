@@ -176,7 +176,7 @@ export default function DepartmentPage() {
         <div className="p-4">
           <h2 className="display text-2xl font-bold">Roles</h2>
           <p className="text-sm text-navy-500">
-            Role changes live on each member&apos;s Role & Permissions page. Training Officers cannot grant administrator access.
+            Current roles are listed here. Only a Department Administrator can change them on the member&apos;s Role & Permissions page.
           </p>
         </div>
         <div className="table-wrap">
