@@ -124,6 +124,15 @@ button, input, select, textarea { font: inherit; }
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Legacy dark active states can render as blank black controls on iOS Safari.
+     Keep mobile interactive states on-brand and force readable labels. */
+  a[class*="bg-navy-900"],
+  button[class*="bg-navy-900"] {
+    background-color: var(--color-fire) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+  }
+
   .input,
   .select {
     min-height: 50px;
