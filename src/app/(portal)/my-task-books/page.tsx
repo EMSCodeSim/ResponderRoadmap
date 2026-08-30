@@ -19,6 +19,12 @@ type Row = {
   evaluatorName: string | null;
 };
 
+function pickNextBook(rows: Row[]) {
+  const open = rows.filter((row) => row.status !== "COMPLETE");
+  if (open.length === 0) return null;
+  return [...open].sort((a, b) => b.progress - a.progress)[0];
+}
+
 export default function MyTaskBooksPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +35,8 @@ export default function MyTaskBooksPage() {
       .catch((err) => setError(err.message));
   }, []);
 
+  const next = rows ? pickNextBook(rows) : null;
+
   return (
     <div>
       <PageHeader
@@ -36,11 +44,14 @@ export default function MyTaskBooksPage() {
         title="Your assigned Task Books"
         description="See what you need to do, what counts as complete, and who signs you off."
       />
-      {rows && rows[0] ? (
+      {next ? (
         <Card className="mb-4 border-fire/20 p-4">
           <div className="kicker">What is next</div>
           <p className="mt-1 text-sm text-navy-700">
-            Open <Link href={`/my-task-books/${rows[0].id}`} className="font-semibold text-navy-900 underline">{rows[0].taskBookTitle}</Link>
+            Open{" "}
+            <Link href={`/my-task-books/${next.id}`} className="font-semibold text-navy-900 underline">
+              {next.taskBookTitle}
+            </Link>
             . The next skill is named on the book. Request evaluation when you are ready — you do not have to hunt a packet.
           </p>
         </Card>
