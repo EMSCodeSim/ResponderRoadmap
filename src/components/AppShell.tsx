@@ -9,6 +9,7 @@ import {
   Building2,
   ClipboardList,
   LayoutDashboard,
+  Mail,
   Menu,
   Settings,
   Users,
@@ -41,6 +42,7 @@ const ITEMS = [
   { href: "/certifications", key: "certifications", label: "Certifications", icon: Award },
   { href: "/reports", key: "reports", label: "Reports", icon: BarChart3 },
   { href: "/department", key: "department", label: "Department", icon: Building2 },
+  { href: "/interest-list", key: "interest-list", label: "Interest List", icon: Mail },
   { href: "/settings", key: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -48,18 +50,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
+  const [platformInterestList, setPlatformInterestList] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     api<Session>("auth/me")
-      .then(setSession)
+      .then((value) => {
+        setSession(value);
+        api<{ interestList: boolean }>("platform-access")
+          .then((access) => setPlatformInterestList(access.interestList))
+          .catch(() => setPlatformInterestList(false));
+      })
       .catch(() => router.push("/login"));
   }, [router]);
 
   const nav = useMemo(() => {
     const allowed = new Set(session?.nav ?? ["dashboard", "settings"]);
+    if (platformInterestList) allowed.add("interest-list");
     return ITEMS.filter((item) => allowed.has(item.key));
-  }, [session]);
+  }, [platformInterestList, session]);
 
   async function logout() {
     await api("auth/logout", { method: "POST" });
@@ -134,4 +143,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
