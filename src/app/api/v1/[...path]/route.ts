@@ -1,4 +1,6 @@
 import { handleApi } from "@/server/api/router";
+import { getRequestSession } from "@/server/session";
+import { DEMO_DEPARTMENT_ID, DEMO_READ_ONLY_MESSAGE } from "@/lib/demo-accounts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,6 +21,16 @@ function withCors(response: Response) {
 
 async function dispatch(req: Request, params: Promise<{ path: string[] }>) {
   const { path } = await params;
+  const route = path.join("/");
+  const allowedDemoWrites = new Set(["auth/login", "auth/app-login", "auth/logout"]);
+
+  if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && !allowedDemoWrites.has(route)) {
+    const session = await getRequestSession(req);
+    if (session?.departmentId === DEMO_DEPARTMENT_ID) {
+      return withCors(Response.json({ error: DEMO_READ_ONLY_MESSAGE }, { status: 403 }));
+    }
+  }
+
   return withCors(await handleApi(req, path));
 }
 
