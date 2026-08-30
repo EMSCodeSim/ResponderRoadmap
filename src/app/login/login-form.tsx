@@ -4,17 +4,9 @@ import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
-import { DEMO_PASSWORD, DEMO_WALKS } from "@/lib/demo-accounts";
 import { WalkDemoButton } from "@/components/walk-demo";
 import { BrandLockup, BrandMark } from "@/components/brand";
 import { Button, Field, Flash, Input } from "@/components/ui";
-
-const DEMOS = [
-  { label: "Training Officer", email: DEMO_WALKS.to.email, name: DEMO_WALKS.to.name },
-  { label: "Department Administrator", email: "morgan.hale@metrofire.gov", name: "BC Morgan Hale" },
-  { label: "Evaluator", email: DEMO_WALKS.evaluator.email, name: DEMO_WALKS.evaluator.name },
-  { label: "Firefighter", email: DEMO_WALKS.member.email, name: DEMO_WALKS.member.name },
-];
 
 export default function LoginForm({ demoAvailable }: { demoAvailable: boolean }) {
   const router = useRouter();
@@ -22,8 +14,8 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
   const next = search.get("next") || "/dashboard";
   const walk = search.get("walk");
   const autoWalk = demoAvailable && (walk === "to" || walk === "member" || walk === "evaluator") ? walk : null;
-  const [email, setEmail] = useState<string>(DEMO_WALKS.to.email);
-  const [password, setPassword] = useState<string>(DEMO_PASSWORD);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -59,7 +51,7 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
           </p>
         </div>
         <div className="text-sm text-white/50">
-          {demoAvailable ? "Metro Fire & Rescue is loaded. Walk the station before you create an account." : "Department access for fire and EMS training divisions."}
+          {demoAvailable ? "Metro Fire & Rescue is loaded. Walk the station without using a demo login." : "Department access for fire and EMS training divisions."}
         </div>
       </div>
       <div className="flex items-center justify-center px-6 py-12">
@@ -104,40 +96,20 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
             </Button>
           </form>
 
-          {demoAvailable ? (
-            <div className="mt-6 rounded-md border border-navy-200 bg-white p-4">
-              <div className="text-xs font-bold uppercase tracking-wide text-navy-500">Or fill the form</div>
-              <p className="mt-1 text-xs text-navy-500">
-                Password for demonstration accounts: <strong>{DEMO_PASSWORD}</strong>
-              </p>
-              <div className="mt-3 space-y-2">
-                {DEMOS.map((demo) => (
-                  <button
-                    key={demo.email}
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-md bg-navy-50 px-3 py-2 text-left text-sm hover:bg-navy-100"
-                    onClick={() => {
-                      setEmail(demo.email);
-                      setPassword(DEMO_PASSWORD);
-                    }}
-                  >
-                    <span>
-                      <span className="font-semibold text-navy-900">{demo.name}</span>
-                      <span className="block text-xs text-navy-500">{demo.label}</span>
-                    </span>
-                    <span className="text-xs text-fire">Use</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <p className="mt-6 text-sm text-navy-500">
-            Need a new department?{" "}
-            <Link href="/register" className="font-semibold text-fire">
-              Create an account
-            </Link>
-          </p>
+          <div className="mt-6 border-t border-navy-200 pt-5 text-sm text-navy-500">
+            <p>
+              Pilot access is currently invite-only.{" "}
+              <Link href="/register" className="font-semibold text-fire">
+                View pilot access
+              </Link>
+            </p>
+            <p className="mt-2">
+              Interested in future department access?{" "}
+              <Link href="/department-interest?source=login" className="font-semibold text-fire">
+                Join the Founding Department List
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
