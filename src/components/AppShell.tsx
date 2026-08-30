@@ -17,10 +17,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { DEMO_DEPARTMENT_ID } from "@/lib/demo-accounts";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
 import { BrandMark } from "@/components/brand";
-import { WalkDemoButton } from "@/components/walk-demo";
 import { cx } from "@/components/ui";
 
 type Session = {
@@ -71,8 +69,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (platformInterestList) allowed.add("interest-list");
     return ITEMS.filter((item) => allowed.has(item.key));
   }, [platformInterestList, session]);
-
-  const demo = session?.departmentId === DEMO_DEPARTMENT_ID;
 
   async function logout() {
     await api("auth/logout", { method: "POST" });
@@ -143,70 +139,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
-        {demo ? <DemoGuide role={session?.role ?? null} /> : null}
-        {children}
-      </main>
-    </div>
-  );
-}
-
-function DemoGuide({ role }: { role: Role | null }) {
-  const steps =
-    role === "MEMBER"
-      ? [
-          ["1", "My Task Books", "/my-task-books"],
-          ["2", "Open a skill", "/my-task-books"],
-        ]
-      : role === "EVALUATOR"
-        ? [
-            ["1", "Evaluation queue", "/evaluate"],
-            ["2", "Dashboard", "/dashboard"],
-          ]
-        : [
-            ["1", "Daily board", "/dashboard"],
-            ["2", "Evaluation queue", "/evaluate"],
-            ["3", "Reports", "/reports"],
-          ];
-
-  return (
-    <div className="mb-6 rounded-lg border border-fire/25 bg-fire-soft/45 p-4 text-navy-900">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.15em] text-fire">Metro Fire demo · Sample data · Read only</div>
-          <div className="mt-1 font-semibold">Explore the real workflow without changing the shared demo.</div>
-          <p className="mt-1 max-w-3xl text-sm text-navy-600">
-            Use the path below as a three-minute walkthrough. Buttons that would change department records are intentionally locked in this demo.
-          </p>
-        </div>
-        <Link
-          href="/department-interest?source=demo-portal"
-          className="inline-flex min-h-10 items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold text-white hover:bg-fire-dark"
-        >
-          Interested in your department?
-        </Link>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {steps.map(([number, label, href]) => (
-          <Link
-            key={`${number}-${label}`}
-            href={href}
-            className="rounded-md border border-navy-200 bg-white px-3 py-2 text-sm font-semibold text-navy-800 hover:border-navy-400"
-          >
-            <span className="mr-1 text-fire">{number}.</span> {label}
-          </Link>
-        ))}
-      </div>
-
-      <div className="mt-4 border-t border-fire/15 pt-3">
-        <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-navy-500">Switch perspective</div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <WalkDemoButton walk="to" variant={role === "TRAINING_OFFICER" ? "primary" : "secondary"}>Training Officer</WalkDemoButton>
-          <WalkDemoButton walk="member" variant={role === "MEMBER" ? "primary" : "secondary"}>Firefighter</WalkDemoButton>
-          <WalkDemoButton walk="evaluator" variant={role === "EVALUATOR" ? "primary" : "secondary"}>Evaluator</WalkDemoButton>
-        </div>
-      </div>
+      <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
     </div>
   );
 }
