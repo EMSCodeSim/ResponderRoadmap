@@ -110,6 +110,154 @@ button, input, select, textarea { font: inherit; }
 .table tbody tr:hover { background: #f7f9fc; }
 .table tbody tr.clickable { cursor: pointer; }
 
+/* Phone interface: desktop/table behavior above is unchanged at md+ widths. */
+@media (max-width: 767px) {
+  body {
+    font-size: 16px;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .input,
+  .select {
+    min-height: 50px;
+  }
+
+  .textarea {
+    min-height: 112px;
+  }
+
+  /* Turn dashboard tables into finger-friendly record cards on phones. */
+  .table-wrap {
+    overflow: visible;
+  }
+
+  .table,
+  .table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .table tbody tr {
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--color-navy-200);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(12, 21, 36, 0.05);
+  }
+
+  .table tbody tr:hover {
+    background: #fff;
+  }
+
+  .table tbody tr.clickable:active {
+    transform: scale(0.995);
+    background: var(--color-navy-50);
+  }
+
+  .table td {
+    display: flex;
+    min-height: 46px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0.72rem 0.9rem;
+    border-bottom: 1px solid var(--color-navy-100);
+    text-align: right;
+  }
+
+  .table td:last-child {
+    border-bottom: 0;
+  }
+
+  .table td:first-child {
+    display: block;
+    min-height: 0;
+    padding-top: 0.95rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 0;
+    text-align: left;
+    font-size: 1rem;
+  }
+
+  /* Assignment review queue labels. */
+  body:has(a[href="/assignments?tab=sign-off"][class*="bg-navy-900"]) .table td:nth-child(2)::before {
+    content: "Task Book";
+  }
+  body:has(a[href="/assignments?tab=sign-off"][class*="bg-navy-900"]) .table td:nth-child(3)::before {
+    content: "Requirement";
+  }
+  body:has(a[href="/assignments?tab=sign-off"][class*="bg-navy-900"]) .table td:nth-child(4)::before {
+    content: "Stage";
+  }
+  body:has(a[href="/assignments?tab=sign-off"][class*="bg-navy-900"]) .table td:nth-child(5)::before {
+    content: "Submitted";
+  }
+
+  /* All-assignment labels. */
+  body:has(a[href="/assignments"][class*="bg-navy-900"]) .table td:nth-child(2)::before {
+    content: "Task Book";
+  }
+  body:has(a[href="/assignments"][class*="bg-navy-900"]) .table td:nth-child(3)::before {
+    content: "Progress";
+  }
+  body:has(a[href="/assignments"][class*="bg-navy-900"]) .table td:nth-child(4)::before {
+    content: "Pending";
+  }
+  body:has(a[href="/assignments"][class*="bg-navy-900"]) .table td:nth-child(5)::before {
+    content: "Due";
+  }
+  body:has(a[href="/assignments"][class*="bg-navy-900"]) .table td:nth-child(6)::before {
+    content: "Remaining";
+  }
+  body:has(a[href="/assignments"][class*="bg-navy-900"]) .table td:nth-child(7)::before {
+    content: "Status";
+  }
+
+  body:has(a[href="/assignments"][class*="bg-navy-900"]) .table td::before,
+  body:has(a[href="/assignments?tab=sign-off"][class*="bg-navy-900"]) .table td::before {
+    flex: 0 0 auto;
+    color: var(--color-navy-400);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Keep the approval controls in reach after the reviewer has read the item. */
+  #taskbook-attestation + p + div {
+    position: sticky;
+    bottom: 8px;
+    z-index: 20;
+    margin-inline: -8px;
+    padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-navy-200);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 -10px 24px rgba(12, 21, 36, 0.08);
+    backdrop-filter: blur(8px);
+  }
+
+  #taskbook-attestation {
+    scroll-margin-bottom: 110px;
+  }
+}
+
 @media print {
   nav, .no-print { display: none !important; }
   body { background: #fff; }

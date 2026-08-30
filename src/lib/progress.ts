@@ -24,9 +24,10 @@ export type ProgressSummary = {
 
 export function requirementIsComplete(requirement: RequirementLike, completion?: CompletionLike | null): boolean {
   if (!completion) return false;
-  if (completion.status === "APPROVED") return true;
   const needed = Math.max(1, requirement.repetitionsRequired ?? 1);
-  return (completion.repetitionCount ?? 0) >= needed;
+  // Older records predate repetition tracking and may be APPROVED with a stored count of 0.
+  const completed = Math.max(0, completion.repetitionCount ?? 0, completion.status === "APPROVED" ? 1 : 0);
+  return completion.status === "APPROVED" && completed >= needed;
 }
 
 export function computeAssignmentProgress(input: {

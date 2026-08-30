@@ -3,6 +3,7 @@ import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress } from "@/lib/progress";
 import { computeUpNext, deserializeRequirement, evaluationPasses, nextApprovalLevel } from "@/lib/taskbook";
+import { reviewStageForRequirement } from "@/lib/signoff";
 import { parseJsonArray, type SignOffResult } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
 
@@ -116,6 +117,25 @@ export async function listAssignments(ctx: AuthContext) {
   return assignments.map((assignment) => toRow(assignment));
 }
 
+const REVIEWER_ROLES = ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"];
+
+async function validateReviewer(ctx: AuthContext, userId: string | null | undefined, label: string) {
+  if (!userId) return null;
+  const membership = await prisma.departmentMembership.findFirst({
+    where: {
+      departmentId: ctx.departmentId,
+      userId,
+      status: "ACTIVE",
+      role: { in: REVIEWER_ROLES },
+    },
+    include: { user: true },
+  });
+  if (!membership) {
+    throw new HttpError(400, `${label} must be an active department reviewer.`);
+  }
+  return membership;
+}
+
 export async function createAssignments(
   ctx: AuthContext,
   input: {
@@ -125,6 +145,7 @@ export async function createAssignments(
     rank?: string;
     station?: string;
     shift?: string;
+    allMembers?: boolean;
     dueDate?: string | null;
     evaluatorId?: string | null;
     supervisorId?: string | null;
@@ -156,6 +177,22 @@ export async function createAssignments(
     throw new HttpError(400, "Only published Task Book versions can be assigned.");
   }
 
+  await validateReviewer(ctx, input.evaluatorId, "Evaluator");
+  await validateReviewer(ctx, input.supervisorId, "Supervisor");
+
+  const hasIndividualTargets = Boolean(input.membershipIds?.length);
+  const hasGroupTargets = Boolean(input.rank || input.station || input.shift);
+  const targetsEntireDepartment = input.allMembers === true;
+  if (!hasIndividualTargets && !hasGroupTargets && !targetsEntireDepartment) {
+    throw new HttpError(
+      400,
+      "Choose individual members, a rank/station/shift group, or explicitly select the entire department.",
+    );
+  }
+  if (targetsEntireDepartment && (hasIndividualTargets || hasGroupTargets)) {
+    throw new HttpError(400, "Entire-department assignment cannot be combined with member or group filters.");
+  }
+
   const where: {
     departmentId: string;
     status: string;
@@ -164,10 +201,13 @@ export async function createAssignments(
     station?: string;
     shift?: string;
   } = { departmentId: ctx.departmentId, status: "ACTIVE" };
-  if (input.membershipIds?.length) where.id = { in: input.membershipIds };
-  if (input.rank) where.rank = input.rank;
-  if (input.station) where.station = input.station;
-  if (input.shift) where.shift = input.shift;
+  if (hasIndividualTargets) {
+    where.id = { in: input.membershipIds! };
+  } else if (!targetsEntireDepartment) {
+    if (input.rank) where.rank = input.rank;
+    if (input.station) where.station = input.station;
+    if (input.shift) where.shift = input.shift;
+  }
 
   const members = await prisma.departmentMembership.findMany({
     where,
@@ -176,6 +216,9 @@ export async function createAssignments(
   if (members.length === 0) throw new HttpError(400, "No matching members to assign.");
 
   const dueDate = input.dueDate ? new Date(input.dueDate) : null;
+  if (dueDate && Number.isNaN(dueDate.getTime())) {
+    throw new HttpError(400, "Due date is invalid.");
+  }
   const assignedDate = input.assignedDate ? new Date(input.assignedDate) : new Date();
   const created = [];
   for (const member of members) {
@@ -214,6 +257,9 @@ export async function createAssignments(
     count: created.length,
     template: version.template.title,
     version: version.version,
+    evaluatorId: input.evaluatorId || null,
+    supervisorId: input.supervisorId || null,
+    targetMode: targetsEntireDepartment ? "ALL" : hasIndividualTargets ? "INDIVIDUAL" : "GROUP",
   });
   return { created: created.length, skipped: members.length - created.length };
 }
@@ -246,7 +292,7 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
       evidence: true,
       signOffs: { include: { evaluator: true }, orderBy: { signedAt: "asc" } },
       attempts: { include: { evaluator: true }, orderBy: { signedAt: "asc" } },
-      assignment: { include: { evaluator: true } },
+      assignment: { include: { evaluator: true, supervisor: true } },
     },
     orderBy: { submittedAt: "asc" },
   });
@@ -263,6 +309,14 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
     })
     .map((item) => {
       const parsed = deserializeRequirement(item.requirement as unknown as Record<string, unknown>);
+      const reviewStage = reviewStageForRequirement({
+        evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+        supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
+        signOffs: item.signOffs,
+        submittedAt: item.submittedAt,
+      });
+      const approvedRepetitions = Math.max(0, item.repetitionCount, item.status === "APPROVED" ? 1 : 0);
+      const repetitionsRequired = Math.max(1, item.requirement.repetitionsRequired);
       return {
         id: item.id,
         assignmentId: item.assignmentId,
@@ -281,7 +335,6 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
         submittedAt: item.submittedAt,
         memberNotes: item.memberNotes,
         evidence: item.evidence,
-        repetitionsRequired: item.requirement.repetitionsRequired,
         repetitionCount: item.repetitionCount,
         evaluationSteps: parsed.evaluationSteps,
         criticalFailures: parsed.criticalFailures,
@@ -290,6 +343,12 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
         standards: parsed.standards,
         approvalPath: parsed.approvalPath,
         evaluatorNotesEnabled: item.requirement.evaluatorNotesEnabled,
+        reviewStage,
+        approvedRepetitions,
+        repetitionsRequired,
+        nextRepetition: Math.min(repetitionsRequired, approvedRepetitions + 1),
+        evaluatorName: item.assignment.evaluator?.name ?? null,
+        supervisorName: item.assignment.supervisor?.name ?? null,
         dueDate: null as string | null,
         history: item.signOffs.map((sign) => ({
           id: sign.id,

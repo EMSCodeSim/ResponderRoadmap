@@ -1,26 +1,47 @@
 import { handleApi } from "@/server/api/router";
 
-export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+};
+
+function withCors(response: Response) {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(corsHeaders)) headers.set(key, value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+async function dispatch(req: Request, params: Promise<{ path: string[] }>) {
   const { path } = await params;
-  return handleApi(req, path);
+  return withCors(await handleApi(req, path));
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  return dispatch(req, params);
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
-  const { path } = await params;
-  return handleApi(req, path);
+  return dispatch(req, params);
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
-  const { path } = await params;
-  return handleApi(req, path);
+  return dispatch(req, params);
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
-  const { path } = await params;
-  return handleApi(req, path);
+  return dispatch(req, params);
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
-  const { path } = await params;
-  return handleApi(req, path);
+  return dispatch(req, params);
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders });
 }

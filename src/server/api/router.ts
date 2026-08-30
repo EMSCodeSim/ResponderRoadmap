@@ -1,4 +1,4 @@
-import { getSession, clearSessionCookie, requireDepartmentSession } from "@/server/session";
+import { clearSessionCookie, getRequestSession, requireDepartmentSession, signSession } from "@/server/session";
 import { handleError, jsonError, jsonOk } from "@/server/http";
 import * as auth from "@/server/services/auth";
 import * as members from "@/server/services/members";
@@ -8,9 +8,11 @@ import * as credentials from "@/server/services/credentials";
 import * as dashboard from "@/server/services/dashboard";
 import * as reports from "@/server/services/reports";
 import * as department from "@/server/services/department";
+import * as memberApp from "@/server/services/memberApp";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
+import { taskBookAttestationRecord } from "@/lib/taskbook-attestation";
 import type { Role } from "@/lib/constants";
 
 function match(path: string[], pattern: string) {
@@ -43,6 +45,12 @@ export async function handleApi(req: Request, path: string[]) {
       const result = await auth.login(body.email || "", body.password || "");
       return jsonOk(result);
     }
+    if (method === "POST" && match(path, "auth/app-login")) {
+      const body = await readBody(req);
+      const result = await auth.login(body.email || "", body.password || "");
+      const token = await signSession(result.session);
+      return jsonOk({ ...result, token });
+    }
     if (method === "POST" && match(path, "auth/register")) {
       const body = await readBody(req);
       const result = await auth.register(body);
@@ -53,7 +61,7 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk({ ok: true });
     }
     if (method === "GET" && match(path, "auth/me")) {
-      const session = await getSession();
+      const session = await getRequestSession(req);
       if (!session) return jsonError("Authentication required.", 401);
       return jsonOk({
         ...session,
@@ -61,7 +69,7 @@ export async function handleApi(req: Request, path: string[]) {
       });
     }
 
-    const session = await getSession();
+    const session = await getRequestSession(req);
     if (!session) return jsonError("Authentication required.", 401);
 
     if (method === "POST" && match(path, "departments")) {
@@ -86,6 +94,28 @@ export async function handleApi(req: Request, path: string[]) {
     }
 
     const ctx = requireDepartmentSession(session);
+
+    // Companion Roadmap app endpoints. These are intentionally scoped to the
+    // authenticated member's own membership and never expose other members or
+    // the user's private, device-local Career Road data.
+    if (method === "GET" && match(path, "app/assignments")) {
+      return jsonOk(await memberApp.listMyAssignments(ctx));
+    }
+    const appAssignment = match(path, "app/assignments/:id");
+    if (method === "GET" && appAssignment) {
+      return jsonOk(await memberApp.getMyAssignment(ctx, appAssignment.id));
+    }
+    const appSubmit = match(path, "app/assignments/:id/requirements/:requirementId/submit");
+    if (method === "POST" && appSubmit) {
+      const body = await readBody(req);
+      return jsonOk(
+        await memberApp.submitRequirement(ctx, appSubmit.id, appSubmit.requirementId, {
+          memberNotes: body.memberNotes,
+          evidenceDescription: body.evidenceDescription,
+          evidenceType: body.evidenceType,
+        }),
+      );
+    }
 
     if (method === "GET" && match(path, "dashboard")) return jsonOk(await dashboard.getDashboard(ctx));
 
@@ -161,7 +191,24 @@ export async function handleApi(req: Request, path: string[]) {
     const so = match(path, "sign-offs/:id");
     if (method === "POST" && so) {
       const body = await readBody(req);
-      return jsonOk(await assignments.reviewSignOff(ctx, so.id, body));
+      if (body.result === "APPROVED" && body.attested !== true) {
+        return jsonError("Confirm the electronic attestation before approving this requirement.", 400);
+      }
+      const notes =
+        body.result === "APPROVED"
+          ? [
+              String(body.notes || "").trim(),
+              taskBookAttestationRecord({ reviewerName: ctx.name, reviewerRole: ctx.role }),
+            ]
+              .filter(Boolean)
+              .join("\n\n")
+          : body.notes;
+      const signed = await assignments.reviewSignOff(ctx, so.id, { ...body, notes });
+      return jsonOk({
+        ...signed,
+        attested: body.result === "APPROVED",
+        signedByName: ctx.name,
+      });
     }
 
     if (method === "GET" && match(path, "credentials")) return jsonOk(await credentials.listCredentials(ctx, q));
