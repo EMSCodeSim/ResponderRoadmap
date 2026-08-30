@@ -1,4 +1,7 @@
+export const DEMO_DEPARTMENT_ID = "dept_metro";
 export const DEMO_PASSWORD = "demo";
+export const DEMO_READ_ONLY_MESSAGE =
+  "Metro Fire is a read-only demo workspace. Explore the workflow, then join the Founding Department List if you want department access.";
 
 export const DEMO_WALKS = {
   to: {
@@ -8,7 +11,7 @@ export const DEMO_WALKS = {
     title: "Training Officer",
     next: "/dashboard",
     cta: "See as Training Officer",
-    after: "Open the training board, review progress, assign Task Books, and manage sign-offs.",
+    after: "Open the training board, review progress, assignments, sign-offs, and department readiness.",
   },
   member: {
     key: "member",
@@ -17,7 +20,7 @@ export const DEMO_WALKS = {
     title: "Firefighter · Station 1",
     next: "/my-task-books",
     cta: "See as Firefighter",
-    after: "Your books, what is next, and who signs you off.",
+    after: "See assigned books, what is next, evidence, and the evaluation path.",
   },
   evaluator: {
     key: "evaluator",
@@ -26,7 +29,7 @@ export const DEMO_WALKS = {
     title: "Evaluator · Engine 1",
     next: "/evaluate",
     cta: "See as Evaluator",
-    after: "Review assigned skills and complete sign-offs from the field.",
+    after: "Open the evaluation queue and review exactly what a field evaluator sees before sign-off.",
   },
 } as const;
 
