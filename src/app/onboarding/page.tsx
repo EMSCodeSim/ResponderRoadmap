@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
+import { BrandMark } from "@/components/brand";
 import { Button, Field, Flash, Input, Select } from "@/components/ui";
 
 export default function OnboardingPage() {
@@ -37,6 +38,7 @@ export default function OnboardingPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-6 py-12">
       <form onSubmit={onSubmit} className="card w-full max-w-2xl space-y-4 p-6">
+        <BrandMark size={56} alt="ResponderRoadmap" />
         <div className="kicker">Department setup</div>
         <h1 className="display text-4xl font-bold">Create your department</h1>
         <p className="text-navy-500">This becomes the tenant boundary for Task Books, assignments, and credentials.</p>

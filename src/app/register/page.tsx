@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
+import { BrandMark } from "@/components/brand";
 import { Button, Field, Flash, Input } from "@/components/ui";
 
 export default function RegisterPage() {
@@ -31,6 +32,9 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-6 py-12">
       <div className="card w-full max-w-md p-6">
+        <Link href="/" className="mb-4 inline-block">
+          <BrandMark size={56} alt="ResponderRoadmap" />
+        </Link>
         <div className="kicker">New department</div>
         <h1 className="display mt-1 text-4xl font-bold">Create your account</h1>
         <p className="mt-2 text-sm text-navy-500">You will create the department next and become its administrator.</p>

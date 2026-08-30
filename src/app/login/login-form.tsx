@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { DEMO_PASSWORD, DEMO_WALKS } from "@/lib/demo-accounts";
 import { WalkDemoButton } from "@/components/walk-demo";
+import { BrandLockup, BrandMark } from "@/components/brand";
 import { Button, Field, Flash, Input } from "@/components/ui";
 
 const DEMOS = [
@@ -47,9 +48,8 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
   return (
     <div className="min-h-screen md:grid md:grid-cols-2">
       <div className="hidden flex-col justify-between bg-navy-900 p-10 text-white md:flex">
-        <Link href="/" className="display text-3xl font-bold">
-          ResponderRoadmap
-          <div className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-white/50">Task Books for Fire &amp; EMS</div>
+        <Link href="/">
+          <BrandLockup size={56} subtitle="Task Books for Fire & EMS" />
         </Link>
         <div>
           <h1 className="display text-5xl font-bold leading-tight">Know who is ready. Prove it on the record.</h1>
@@ -64,8 +64,14 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
       </div>
       <div className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
-          <Link href="/" className="kicker mb-2 inline-block">
-            ResponderRoadmap
+          <Link href="/" className="mb-4 inline-block">
+            <span className="flex items-center gap-3">
+              <BrandMark size={48} />
+              <span>
+                <span className="kicker">ResponderRoadmap</span>
+                <span className="mt-0.5 block text-xs font-semibold text-navy-500">Task Books for Fire &amp; EMS</span>
+              </span>
+            </span>
           </Link>
           <h2 className="display text-4xl font-bold text-navy-900">Department access</h2>
           <p className="mt-2 text-navy-500">

@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
+import { BrandMark } from "@/components/brand";
 import { Button, Field, Flash, Input } from "@/components/ui";
 
 export default function JoinPage() {
@@ -27,6 +28,7 @@ export default function JoinPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-6">
       <form onSubmit={onSubmit} className="card w-full max-w-md space-y-4 p-6">
+        <BrandMark size={56} alt="ResponderRoadmap" />
         <div className="kicker">My Department</div>
         <h1 className="display text-4xl font-bold">Join Department</h1>
         <p className="text-sm text-navy-500">Enter the department code from your training officer. Example: NFR-4821.</p>

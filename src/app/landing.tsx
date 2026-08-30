@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLockup, BrandMark } from "@/components/brand";
 import { WalkDemoButton } from "@/components/walk-demo";
 
 const PREVIEW = [
@@ -36,14 +37,8 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
     <div className="min-h-screen bg-navy-950 text-white">
       <header className="border-b border-white/10">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <Mark />
-            <div>
-              <div className="display text-xl font-bold leading-none">ResponderRoadmap</div>
-              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">
-                Task Books for Fire &amp; EMS
-              </div>
-            </div>
+          <Link href="/">
+            <BrandLockup size={44} subtitle="Task Books for Fire & EMS" />
           </Link>
           <div className="flex items-center gap-2">
             <Link href="/login" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10">
@@ -59,6 +54,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
       <main>
         <section className="mx-auto grid max-w-6xl gap-10 px-5 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:py-16">
           <div>
+            <BrandMark size={148} alt="ResponderRoadmap" className="mb-6 shadow-[0_18px_50px_rgba(0,0,0,0.35)]" />
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Built for the station, not an LMS</p>
             <h1 className="display mt-3 text-5xl font-bold leading-[0.95] sm:text-6xl">
               Know who is ready.
@@ -213,7 +209,10 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
 
       <footer className="border-t border-white/10">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-sm text-white/40">
-          <span>ResponderRoadmap · Department Task Books</span>
+          <span className="flex items-center gap-2">
+            <BrandMark size={28} />
+            ResponderRoadmap · Department Task Books
+          </span>
           <span>Fire · EMS · Training Division</span>
         </div>
       </footer>
@@ -231,11 +230,3 @@ function Pitch({ step, title, body }: { step: string; title: string; body: strin
   );
 }
 
-function Mark() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="4" fill="#C8102E" />
-      <path d="M16 6l2.4 6.2H25l-5.2 3.8 2 6.2L16 18.6 10.2 22.2l2-6.2L7 12.2h6.6L16 6z" fill="white" />
-    </svg>
-  );
-}

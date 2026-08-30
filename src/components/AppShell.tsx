@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
+import { BrandMark } from "@/components/brand";
 import { cx } from "@/components/ui";
 
 type Session = {
@@ -70,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-canvas md:flex">
       <div className="flex items-center justify-between bg-navy-900 px-4 py-3 text-white md:hidden">
         <div className="flex items-center gap-2">
-          <Mark />
+          <BrandMark size={36} />
           <span className="display text-lg font-bold">ResponderRoadmap</span>
         </div>
         <button className="rounded-md p-2 hover:bg-navy-800" onClick={() => setOpen((value) => !value)} aria-label="Menu">
@@ -85,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-          <Mark />
+          <BrandMark size={44} />
           <div>
             <div className="display text-xl font-bold leading-none">ResponderRoadmap</div>
             <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Department Portal</div>
@@ -134,11 +135,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Mark() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="4" fill="#C8102E" />
-      <path d="M16 6l2.4 6.2H25l-5.2 3.8 2 6.2L16 18.6 10.2 22.2l2-6.2L7 12.2h6.6L16 6z" fill="white" />
-    </svg>
-  );
-}
