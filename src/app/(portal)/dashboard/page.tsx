@@ -108,10 +108,28 @@ export default function DashboardPage() {
         }
       />
 
-      <ProofRail data={data} />
+      {data.personal ? <ProofRail data={data} /> : null}
+
+      <div className={`grid gap-3 ${data.personal ? "sm:grid-cols-2 xl:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
+        {data.personal ? (
+          <>
+            <CountCard href="/my-task-books" label="Active Task Books" value={data.summary.activeTaskBooks} />
+            <CountCard href="/my-task-books" label="Awaiting Sign-Off" value={data.summary.awaitingSignOff} warn={data.summary.awaitingSignOff > 0} />
+            <CountCard href="/my-task-books" label="Overdue Requirements" value={data.summary.overdueRequirements} danger={data.summary.overdueRequirements > 0} />
+          </>
+        ) : (
+          <>
+            <CountCard href="/evaluate" label="Waiting on sign-off" value={signCount} warn={signCount > 0} />
+            <CountCard href="/assignments?status=OVERDUE" label="Members overdue" value={overduePeople} danger={overduePeople > 0} />
+            <CountCard href="/assignments?stalled=30" label="Stalled > 30 days" value={data.summary.stalledOver30 ?? 0} warn={(data.summary.stalledOver30 ?? 0) > 0} />
+            <CountCard href="/certifications?window=60" label="Certs expiring" value={data.summary.expiringSoon} warn={data.summary.expiringSoon > 0} />
+            <CountCard href="/task-books" label="Active Task Books" value={data.summary.activeTaskBooks} />
+          </>
+        )}
+      </div>
 
       {!data.personal && today ? (
-        <div className="mb-6 grid gap-4 xl:grid-cols-3">
+        <div className="mt-6 grid gap-4 xl:grid-cols-3">
           <WorkList
             title="Sign these off"
             empty="Nothing waiting on an evaluator."
@@ -160,24 +178,6 @@ export default function DashboardPage() {
           />
         </div>
       ) : null}
-
-      <div className={`grid gap-3 ${data.personal ? "sm:grid-cols-2 xl:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
-        {data.personal ? (
-          <>
-            <CountCard href="/my-task-books" label="Active Task Books" value={data.summary.activeTaskBooks} />
-            <CountCard href="/my-task-books" label="Awaiting Sign-Off" value={data.summary.awaitingSignOff} warn={data.summary.awaitingSignOff > 0} />
-            <CountCard href="/my-task-books" label="Overdue Requirements" value={data.summary.overdueRequirements} danger={data.summary.overdueRequirements > 0} />
-          </>
-        ) : (
-          <>
-            <CountCard href="/evaluate" label="Waiting on sign-off" value={signCount} warn={signCount > 0} />
-            <CountCard href="/assignments?status=OVERDUE" label="Members overdue" value={overduePeople} danger={overduePeople > 0} />
-            <CountCard href="/assignments?stalled=30" label="Stalled > 30 days" value={data.summary.stalledOver30 ?? 0} warn={(data.summary.stalledOver30 ?? 0) > 0} />
-            <CountCard href="/certifications?window=60" label="Certs expiring" value={data.summary.expiringSoon} warn={data.summary.expiringSoon > 0} />
-            <CountCard href="/task-books" label="Active Task Books" value={data.summary.activeTaskBooks} />
-          </>
-        )}
-      </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <Card className="p-5 xl:col-span-1">
@@ -264,54 +264,20 @@ export default function DashboardPage() {
 }
 
 function ProofRail({ data }: { data: Dashboard }) {
-  if (data.personal) {
-    const book = data.taskBookProgress[0];
-    return (
-      <Card className="mb-6 border-navy-200 p-5">
-        <div className="kicker">Your next move</div>
-        <h2 className="display mt-1 text-3xl font-bold">Finish the book. Request the sign-off.</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <ProofStep
-            n="1"
-            href={book ? `/my-task-books/${book.id}` : "/my-task-books"}
-            title="Open your Task Book"
-            detail={book ? book.title : "Your assigned books"}
-          />
-          <ProofStep n="2" href={book ? `/my-task-books/${book.id}` : "/my-task-books"} title="See what is next" detail="The next skill is already named." />
-          <ProofStep n="3" href={book ? `/my-task-books/${book.id}` : "/my-task-books"} title="Request evaluation" detail="When you are ready, ask for a sign-off." />
-        </div>
-      </Card>
-    );
-  }
-
-  const today = data.today;
-  const sign = today?.signOffs[0];
-  const follow = today?.followUp[0];
-  const printId = sign?.assignmentId || follow?.assignmentId;
-
+  const book = data.taskBookProgress[0];
   return (
-    <Card className="mb-6 border-fire/20 p-5">
-      <div className="kicker">Three-minute proof</div>
-      <h2 className="display mt-1 text-3xl font-bold">Do the job, then decide if you want this for your department.</h2>
+    <Card className="mb-6 border-navy-200 p-5">
+      <div className="kicker">Your next move</div>
+      <h2 className="display mt-1 text-3xl font-bold">Finish the book. Request the sign-off.</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <ProofStep
           n="1"
-          href={sign?.href || "/evaluate"}
-          title="Sign a skill"
-          detail={sign ? `${sign.memberName} · ${sign.requirementTitle}` : "Open the evaluation queue"}
+          href={book ? `/my-task-books/${book.id}` : "/my-task-books"}
+          title="Open your Task Book"
+          detail={book ? book.title : "Your assigned books"}
         />
-        <ProofStep
-          n="2"
-          href={follow?.href || "/assignments?status=OVERDUE"}
-          title="Follow up a name"
-          detail={follow ? `${follow.memberName} · ${follow.reason}` : "See who is stalled or overdue"}
-        />
-        <ProofStep
-          n="3"
-          href={printId ? `/assignments/${printId}/print` : "/assignments"}
-          title="Print the official record"
-          detail="What was signed, by whom, and at which level."
-        />
+        <ProofStep n="2" href={book ? `/my-task-books/${book.id}` : "/my-task-books"} title="See what is next" detail="The next skill is already named." />
+        <ProofStep n="3" href={book ? `/my-task-books/${book.id}` : "/my-task-books"} title="Request evaluation" detail="When you are ready, ask for a sign-off." />
       </div>
     </Card>
   );
