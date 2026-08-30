@@ -36,16 +36,21 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
   return (
     <div className="min-h-screen bg-navy-950 text-white">
       <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4">
           <Link href="/">
             <BrandLockup size={44} subtitle="Task Books for Fire & EMS" />
           </Link>
-          <div className="flex items-center gap-2">
-            <Link href="/login" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10">
-              Sign in
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {demoAvailable ? (
+              <Link href="/demo" className="rounded-md bg-fire px-3 py-2 text-sm font-semibold text-white hover:bg-fire-dark">
+                Start Demo
+              </Link>
+            ) : null}
+            <Link href="/department-interest?source=header" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white">
+              Founding Department List
             </Link>
-            <Link href="/register" className="rounded-md bg-fire px-3 py-2 text-sm font-semibold text-white hover:bg-fire-dark">
-              Pilot Access
+            <Link href="/login" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white">
+              Sign In
             </Link>
           </div>
         </div>
@@ -66,26 +71,13 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <div className="mt-8 flex flex-col gap-3 sm:max-w-md">
               {demoAvailable ? (
                 <>
-                  <WalkDemoButton walk="to">Start Training Officer Demo</WalkDemoButton>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <WalkDemoButton walk="member" variant="secondary" className="[&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-white [&_button]:hover:bg-white/10">
-                      Firefighter View
-                    </WalkDemoButton>
-                    <WalkDemoButton walk="evaluator" variant="secondary" className="[&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-white [&_button]:hover:bg-white/10">
-                      Evaluator View
-                    </WalkDemoButton>
-                  </div>
-                  <p className="text-sm text-white/50">No signup. Use the real ResponderRoadmap workflow with Metro Fire sample data.</p>
+                  <WalkDemoButton walk="to">Start Live Demo</WalkDemoButton>
+                  <p className="text-sm text-white/50">No signup. Start in the Training Officer view and use the real ResponderRoadmap workflow with Metro Fire sample data.</p>
                 </>
               ) : (
-                <>
-                  <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold hover:bg-fire-dark">
-                    Pilot Access
-                  </Link>
-                  <Link href="/department-interest?source=landing-no-demo" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-sm font-semibold text-white hover:bg-white/10">
-                    Join Founding Department List
-                  </Link>
-                </>
+                <Link href="/department-interest?source=landing-no-demo" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold hover:bg-fire-dark">
+                  Join Founding Department List
+                </Link>
               )}
             </div>
           </div>
@@ -128,7 +120,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               ))}
             </div>
             <p className="mt-3 text-xs text-white/40">
-              Start as the Training Officer. The demo opens directly to this operational board with realistic members, Task Books, sign-offs, expirations, and reports.
+              The live demo opens as the Training Officer with realistic members, Task Books, sign-offs, expirations, and reports.
             </p>
           </div>
         </section>
@@ -193,12 +185,12 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               </p>
             </div>
             <div className="flex w-full max-w-sm flex-col gap-3">
-              {demoAvailable ? <WalkDemoButton walk="to">Start the Demo</WalkDemoButton> : null}
+              {demoAvailable ? <WalkDemoButton walk="to">Start Live Demo</WalkDemoButton> : null}
               <Link href="/department-interest?source=landing-bottom" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-center text-sm font-semibold text-white hover:bg-white/10">
                 Join the Founding Department List
               </Link>
-              <Link href="/register" className="text-center text-sm font-semibold text-white/60 hover:text-white">
-                Pilot access is invite-only
+              <Link href="/login" className="text-center text-sm font-semibold text-white/60 hover:text-white">
+                Already invited? Sign in
               </Link>
             </div>
           </div>
