@@ -45,7 +45,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               Sign in
             </Link>
             <Link href="/register" className="rounded-md bg-fire px-3 py-2 text-sm font-semibold text-white hover:bg-fire-dark">
-              Create a department
+              Pilot Access
             </Link>
           </div>
         </div>
@@ -74,7 +74,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               ) : (
                 <>
                   <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold hover:bg-fire-dark">
-                    Create a department
+                    Join the Pilot
                   </Link>
                   <Link href="/login" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-sm font-semibold text-white hover:bg-white/10">
                     Sign in
@@ -194,12 +194,12 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
                 <>
                   <WalkDemoButton walk="to" />
                   <Link href="/register" className="text-center text-sm font-semibold text-white/70 hover:text-white">
-                    Or create your own department
+                    Join the founding pilot
                   </Link>
                 </>
               ) : (
                 <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold hover:bg-fire-dark">
-                  Create a department
+                  Join the Pilot
                 </Link>
               )}
             </div>
@@ -229,4 +229,3 @@ function Pitch({ step, title, body }: { step: string; title: string; body: strin
     </div>
   );
 }
-
