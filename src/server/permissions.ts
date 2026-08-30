@@ -23,7 +23,6 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   MEMBER: ["dashboard.read", "assignments.read", "assignments.write"],
   EVALUATOR: [
     "dashboard.read",
-    "members.read",
     "signoff.review",
   ],
   TRAINING_OFFICER: [
