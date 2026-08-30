@@ -8,36 +8,74 @@ import { Button, Field, Input, Select, TextArea } from "@/components/ui";
 
 const ROLES = ["Chief", "Training Officer", "Captain / Company Officer", "Department Administrator", "Instructor / FTO", "Other"];
 
+type InterestPayload = {
+  name: FormDataEntryValue | null;
+  email: FormDataEntryValue | null;
+  departmentName: FormDataEntryValue | null;
+  role: FormDataEntryValue | null;
+  memberCount: FormDataEntryValue | null;
+  buyingIntent: FormDataEntryValue | null;
+  comments: FormDataEntryValue | null;
+  consent: boolean;
+  source: string;
+};
+
 export default function DepartmentInterestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
+  const [submitted, setSubmitted] = useState<InterestPayload | null>(null);
+  const [walkthroughBusy, setWalkthroughBusy] = useState(false);
+  const [walkthroughRequested, setWalkthroughRequested] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setSubmitting(true);
     const form = new FormData(event.currentTarget);
+    const payload: InterestPayload = {
+      name: form.get("name"),
+      email: form.get("email"),
+      departmentName: form.get("departmentName"),
+      role: form.get("role"),
+      memberCount: form.get("memberCount"),
+      buyingIntent: form.get("buyingIntent"),
+      comments: form.get("comments"),
+      consent: form.get("consent") === "on",
+      source: typeof window === "undefined" ? "department-interest" : new URLSearchParams(window.location.search).get("source") || "department-interest",
+    };
     try {
       await api("interest", {
         method: "POST",
-        body: JSON.stringify({
-          name: form.get("name"),
-          email: form.get("email"),
-          departmentName: form.get("departmentName"),
-          role: form.get("role"),
-          memberCount: form.get("memberCount"),
-          buyingIntent: form.get("buyingIntent"),
-          comments: form.get("comments"),
-          consent: form.get("consent") === "on",
-          source: typeof window === "undefined" ? "department-interest" : new URLSearchParams(window.location.search).get("source") || "department-interest",
-        }),
+        body: JSON.stringify(payload),
       });
+      setSubmitted(payload);
       setComplete(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save your interest right now.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function requestWalkthrough() {
+    if (!submitted || walkthroughRequested) return;
+    setWalkthroughBusy(true);
+    setError(null);
+    try {
+      await api("interest", {
+        method: "POST",
+        body: JSON.stringify({
+          ...submitted,
+          requestWalkthrough: true,
+          source: "department-interest-walkthrough",
+        }),
+      });
+      setWalkthroughRequested(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to request a walkthrough right now.");
+    } finally {
+      setWalkthroughBusy(false);
     }
   }
 
@@ -57,7 +95,7 @@ export default function DepartmentInterestPage() {
       <main className="mx-auto grid max-w-5xl gap-10 px-5 py-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start lg:py-16">
         <section>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Founding Department List</p>
-          <h1 className="display mt-3 text-5xl font-bold leading-[0.98]">Interested when department memberships launch?</h1>
+          <h1 className="display mt-3 text-5xl font-bold leading-[0.98]">Interested in using this at your department?</h1>
           <p className="mt-5 text-lg text-white/70">
             Join the list and we will contact you when paid department access is ready. No account, payment, or commitment is required today.
           </p>
@@ -83,9 +121,24 @@ export default function DepartmentInterestPage() {
               <p className="mx-auto mt-2 max-w-md text-navy-600">
                 We will contact you when ResponderRoadmap department memberships are ready. There is no commitment and no payment required today.
               </p>
-              <Link href="/" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-navy-900 px-5 text-sm font-semibold text-white hover:bg-navy-800">
-                Back to ResponderRoadmap
-              </Link>
+
+              {error ? <div className="mx-auto mt-4 max-w-md rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div> : null}
+
+              {walkthroughRequested ? (
+                <div className="mx-auto mt-5 max-w-md rounded-md border border-ok/25 bg-ok-soft p-4 text-left text-sm text-navy-700">
+                  <div className="font-semibold text-navy-900">15-minute walkthrough requested.</div>
+                  <p className="mt-1">We’ll use your work email to arrange a time and focus the walkthrough on your department’s Task Book workflow.</p>
+                </div>
+              ) : null}
+
+              <div className="mx-auto mt-6 grid max-w-md gap-3 sm:grid-cols-2">
+                <Link href="/demo" className="inline-flex min-h-11 items-center justify-center rounded-md border border-navy-200 bg-white px-5 text-sm font-semibold text-navy-800 hover:bg-navy-50">
+                  Return to Demo
+                </Link>
+                <Button type="button" onClick={() => void requestWalkthrough()} disabled={walkthroughBusy || walkthroughRequested}>
+                  {walkthroughRequested ? "Walkthrough Requested" : walkthroughBusy ? "Requesting…" : "Request 15-Min Walkthrough"}
+                </Button>
+              </div>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
