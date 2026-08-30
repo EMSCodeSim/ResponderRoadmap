@@ -22,5 +22,6 @@ jobs:
       - run: npm run build
         env:
           AUTH_SECRET: ci-only-not-production
+          # Placeholder only. Public pages must not require a live database at build time.
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
           NEXT_TELEMETRY_DISABLED: "1"
