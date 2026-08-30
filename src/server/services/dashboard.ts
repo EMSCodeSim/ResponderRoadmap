@@ -201,6 +201,7 @@ export async function getDashboard(ctx: AuthContext) {
     today: {
       signOffs: completions.slice(0, 8).map((item) => ({
         id: item.id,
+        assignmentId: item.assignmentId,
         memberId: item.membershipId,
         memberName: item.membership.user.name,
         station: item.membership.station,

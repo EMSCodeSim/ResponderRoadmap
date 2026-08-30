@@ -1,12 +1,12 @@
-"use client";
-
 import { Suspense } from "react";
+import { isDemoAvailable } from "@/server/demo";
 import LoginForm from "./login-form";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const demoAvailable = await isDemoAvailable();
   return (
     <Suspense>
-      <LoginForm />
+      <LoginForm demoAvailable={demoAvailable} />
     </Suspense>
   );
 }

@@ -62,7 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     await api("auth/logout", { method: "POST" });
-    router.push("/login");
+    router.push("/");
     router.refresh();
   }
 

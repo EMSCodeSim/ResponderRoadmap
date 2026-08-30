@@ -55,6 +55,12 @@ export default function RegisterPage() {
             Sign in
           </Link>
         </p>
+        <p className="mt-2 text-sm text-navy-500">
+          Want to see a live station first?{" "}
+          <Link className="font-semibold text-fire" href="/">
+            Walk Metro Fire
+          </Link>
+        </p>
       </div>
     </div>
   );

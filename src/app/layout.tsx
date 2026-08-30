@@ -15,8 +15,9 @@ const barlow = Barlow_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: "ResponderRoadmap Department Portal",
-  description: "Department Task Books, qualifications, and credential readiness for fire and EMS.",
+  title: "ResponderRoadmap — Task Books for Fire & EMS",
+  description:
+    "Build a qualification Task Book in minutes. Evaluate on a phone. Print an official record. Know who is stalled before the shift starts.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

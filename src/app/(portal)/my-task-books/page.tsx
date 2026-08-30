@@ -36,6 +36,15 @@ export default function MyTaskBooksPage() {
         title="Your assigned Task Books"
         description="See what you need to do, what counts as complete, and who signs you off."
       />
+      {rows && rows[0] ? (
+        <Card className="mb-4 border-fire/20 p-4">
+          <div className="kicker">What is next</div>
+          <p className="mt-1 text-sm text-navy-700">
+            Open <Link href={`/my-task-books/${rows[0].id}`} className="font-semibold text-navy-900 underline">{rows[0].taskBookTitle}</Link>
+            . The next skill is named on the book. Request evaluation when you are ready — you do not have to hunt a packet.
+          </p>
+        </Card>
+      ) : null}
       {error ? <p className="text-danger">{error}</p> : null}
       {!rows ? (
         <p className="text-navy-500">Loading your Task Books…</p>
