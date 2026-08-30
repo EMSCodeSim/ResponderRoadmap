@@ -7,8 +7,8 @@ export const DEMO_WALKS = {
     name: "Capt. Riley Chen",
     title: "Training Officer",
     next: "/dashboard",
-    cta: "Walk Metro Fire as Training Officer",
-    after: "Names first. Sign a skill. Print the record.",
+    cta: "See as Training Officer",
+    after: "Open the training board, review progress, assign Task Books, and manage sign-offs.",
   },
   member: {
     key: "member",
@@ -16,7 +16,7 @@ export const DEMO_WALKS = {
     name: "Alex Morgan",
     title: "Firefighter · Station 1",
     next: "/my-task-books",
-    cta: "See it as a firefighter",
+    cta: "See as Firefighter",
     after: "Your books, what is next, and who signs you off.",
   },
   evaluator: {
@@ -25,8 +25,8 @@ export const DEMO_WALKS = {
     name: "Lt. Sam Lee",
     title: "Evaluator · Engine 1",
     next: "/evaluate",
-    cta: "Walk as an evaluator",
-    after: "PASS or NEEDS REMEDIATION on a phone.",
+    cta: "See as Evaluator",
+    after: "Review assigned skills and complete sign-offs from the field.",
   },
 } as const;
 
