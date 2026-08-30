@@ -67,21 +67,17 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
           <h2 className="display text-4xl font-bold text-navy-900">Department access</h2>
           <p className="mt-2 text-navy-500">
             {demoAvailable
-              ? "Explore ResponderRoadmap with Metro Fire sample data, or sign in with your department account."
+              ? "Start the live demo as a Training Officer, or sign in with your department account."
               : "Use your department account. Members complete work in their Task Books."}
           </p>
 
           {demoAvailable ? (
             <div className="mt-6 space-y-3 rounded-md border border-navy-200 bg-navy-50 p-4">
               <div>
-                <div className="text-xs font-bold uppercase tracking-wide text-navy-500">Explore Metro Fire Demo</div>
-                <p className="mt-1 text-xs text-navy-500">Use the same workflows a department would use with sample Metro Fire records.</p>
+                <div className="text-xs font-bold uppercase tracking-wide text-navy-500">Try ResponderRoadmap</div>
+                <p className="mt-1 text-xs text-navy-500">Open the Metro Fire workspace as the Training Officer. You can switch perspectives inside the demo.</p>
               </div>
-              {autoWalk ? <WalkDemoButton walk={autoWalk} auto /> : <WalkDemoButton walk="to">Training Officer Demo</WalkDemoButton>}
-              <div className="grid gap-2 sm:grid-cols-2">
-                <WalkDemoButton walk="member" variant="secondary">Firefighter View</WalkDemoButton>
-                <WalkDemoButton walk="evaluator" variant="secondary">Evaluator View</WalkDemoButton>
-              </div>
+              {autoWalk ? <WalkDemoButton walk={autoWalk} auto /> : <WalkDemoButton walk="to">Start Live Demo</WalkDemoButton>}
             </div>
           ) : null}
 
@@ -100,13 +96,10 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
 
           <div className="mt-6 border-t border-navy-200 pt-5 text-sm text-navy-500">
             <p>
-              Pilot access is currently invite-only.{" "}
-              <Link href="/register" className="font-semibold text-fire">
-                View pilot access
-              </Link>
+              Have a pilot invitation? Use the invitation link sent by your department, then sign in here.
             </p>
             <p className="mt-2">
-              Interested in future department access?{" "}
+              Interested in department access?{" "}
               <Link href="/department-interest?source=login" className="font-semibold text-fire">
                 Join the Founding Department List
               </Link>
