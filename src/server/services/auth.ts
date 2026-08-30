@@ -57,39 +57,63 @@ export async function login(email: string, password: string) {
   return { session, needsDepartment: !session.departmentId };
 }
 
-export async function register(input: { name: string; email: string; password: string }) {
+export async function register(input: { name: string; email: string; password: string; invitationToken?: string }) {
   const email = input.email.trim().toLowerCase();
+  const token = input.invitationToken?.trim() || "";
   if (!input.name.trim() || !email || input.password.length < 8) {
     throw new HttpError(400, "Name, email, and a password of at least 8 characters are required.");
   }
+  if (!token) {
+    throw new HttpError(403, "ResponderRoadmap is invite-only during the pilot program. Use the invitation link sent by your department.");
+  }
+
+  const invitation = await prisma.invitation.findUnique({ where: { token }, include: { department: true } });
+  if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt < new Date()) {
+    throw new HttpError(400, "This invitation is invalid or has expired.");
+  }
+  if (invitation.email && invitation.email !== email) {
+    throw new HttpError(403, "This invitation was issued to a different email address.");
+  }
+
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) throw new HttpError(409, "An account with that email already exists.");
+  if (existing) throw new HttpError(409, "An account with that email already exists. Sign in to accept your invitation.");
+
   const passwordHash = await bcrypt.hash(input.password, 10);
-  const user = await prisma.user.create({
-    data: { name: input.name.trim(), email, passwordHash },
-    include: { memberships: { include: { department: true } } },
+  const userId = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({ data: { name: input.name.trim(), email, passwordHash } });
+    await tx.departmentMembership.create({
+      data: {
+        departmentId: invitation.departmentId,
+        userId: user.id,
+        role: invitation.role,
+        status: "ACTIVE",
+        rank: invitation.rank,
+        station: invitation.station,
+        shift: invitation.shift,
+      },
+    });
+    await tx.invitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } });
+    return user.id;
   });
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { memberships: { include: { department: true }, orderBy: { joinedAt: "desc" } } },
+  });
+  if (!user) throw new HttpError(500, "Account was created but could not be loaded.");
   const session = toSession(user);
   await setSessionCookie(session);
-  return { session, needsDepartment: true };
+  return { session, needsDepartment: false };
 }
 
 function makeJoinCode(name: string) {
-  const letters = name
-    .replace(/[^A-Za-z]/g, "")
-    .slice(0, 3)
-    .toUpperCase()
-    .padEnd(3, "X");
+  const letters = name.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase().padEnd(3, "X");
   const digits = String(Math.floor(1000 + Math.random() * 9000));
   return `${letters}-${digits}`;
 }
 
 function makePublicId(name: string) {
-  const letters = name
-    .replace(/[^A-Za-z]/g, "")
-    .slice(0, 3)
-    .toUpperCase()
-    .padEnd(3, "X");
+  const letters = name.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase().padEnd(3, "X");
   return `${letters}-${String(Math.floor(100 + Math.random() * 900))}`;
 }
 
@@ -113,13 +137,9 @@ export async function createDepartment(
   if (!user) throw new HttpError(401, "Authentication required.");
 
   let joinCode = makeJoinCode(name);
-  while (await prisma.department.findUnique({ where: { joinCode } })) {
-    joinCode = makeJoinCode(name);
-  }
+  while (await prisma.department.findUnique({ where: { joinCode } })) joinCode = makeJoinCode(name);
   let publicId = makePublicId(name);
-  while (await prisma.department.findUnique({ where: { publicId } })) {
-    publicId = makePublicId(name);
-  }
+  while (await prisma.department.findUnique({ where: { publicId } })) publicId = makePublicId(name);
 
   const department = await prisma.department.create({
     data: {
@@ -135,14 +155,7 @@ export async function createDepartment(
       contactEmail: input.contactEmail?.trim() || user.email,
       contactPhone: input.contactPhone?.trim() || null,
       createdById: user.id,
-      memberships: {
-        create: {
-          userId: user.id,
-          role: "DEPARTMENT_ADMINISTRATOR",
-          status: "ACTIVE",
-          rank: "Fire Chief",
-        },
-      },
+      memberships: { create: { userId: user.id, role: "DEPARTMENT_ADMINISTRATOR", status: "ACTIVE", rank: "Fire Chief" } },
       credentialTypes: {
         create: [
           { name: "EMT", issuerDefault: "State EMS Office" },
@@ -176,7 +189,6 @@ export async function createDepartment(
     role: "DEPARTMENT_ADMINISTRATOR",
     rank: membership.rank,
   });
-
   return department;
 }
 
