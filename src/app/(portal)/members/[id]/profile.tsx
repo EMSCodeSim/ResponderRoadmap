@@ -80,15 +80,17 @@ type Member = {
   activity: Array<{ id: string; type: string; timestamp: string; metadata: Record<string, unknown>; actorName: string | null }>;
   evidence: Array<{ id: string; type: string; description: string; uploadedAt: string; requirementTitle: string; taskBookTitle: string }>;
   notes: Array<{ id: string; body: string; createdAt: string; authorName: string }>;
+  overallProgress?: number | null;
 };
 
-const TABS = [
+const ALL_TABS = [
   ["overview", "Overview"],
   ["task-books", "Task Books"],
-  ["certifications", "Certifications"],
+  ["certifications", "Credentials"],
   ["activity", "Activity"],
   ["evidence", "Evidence"],
-  ["notes", "Notes"],
+  ["notes", "Department Notes"],
+  ["permissions", "Role & Permissions"],
 ] as const;
 
 export default function MemberProfile() {
@@ -101,6 +103,7 @@ export default function MemberProfile() {
   const [books, setBooks] = useState<Array<{ id: string; title: string; status: string }>>([]);
   const [assignId, setAssignId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<string[]>([]);
 
   async function load() {
     const data = await api<Member>(`members/${params.id}`);
@@ -109,7 +112,15 @@ export default function MemberProfile() {
 
   useEffect(() => {
     load().catch((err) => setError(err.message));
-    api<Array<{ id: string; title: string; status: string }>>("task-books").then(setBooks).catch(() => undefined);
+    api<{ permissions?: string[] }>("auth/me")
+      .then((session) => {
+        const next = session.permissions ?? [];
+        setPermissions(next);
+        if (next.includes("taskbooks.read") && next.includes("assignments.write")) {
+          api<Array<{ id: string; title: string; status: string }>>("task-books").then(setBooks).catch(() => undefined);
+        }
+      })
+      .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
@@ -147,10 +158,16 @@ export default function MemberProfile() {
     }
   }
 
-  async function updateRole(role: Role) {
-    await api(`members/${params.id}`, { method: "PATCH", body: JSON.stringify({ role }) });
-    await load();
-  }
+  const canAssign = permissions.includes("assignments.write");
+  const canSeeCredentials = permissions.includes("credentials.read") || member?.id === params.id;
+  const canSeeNotes = permissions.includes("notes.write");
+  const canManageRoles = permissions.includes("roles.write");
+  const tabs = ALL_TABS.filter(([id]) => {
+    if (id === "certifications") return canSeeCredentials;
+    if (id === "notes") return canSeeNotes;
+    if (id === "permissions") return canManageRoles;
+    return true;
+  });
 
   if (error) return <p className="text-danger">{error}</p>;
   if (!member) return <p className="text-navy-500">Loading member…</p>;
@@ -160,15 +177,16 @@ export default function MemberProfile() {
       <PageHeader
         kicker="Member profile"
         title={member.name}
-        description={`${member.rank ?? "Unranked"} · ${member.station ?? "No station"} · ${member.shift ? `${member.shift} Shift` : "No shift"}`}
+        description={`${member.rank ?? "Unranked"} · ${member.station ?? "No station"} · ${member.shift ? `${member.shift} Shift` : "No shift"} · ${ROLE_LABELS[member.role]}`}
         actions={<Badge tone={member.status === "ACTIVE" ? "current" : "neutral"}>{member.status.toLowerCase()}</Badge>}
       />
-      <div className="mb-4 flex flex-wrap gap-2">
-        {TABS.map(([id, label]) => (
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Member profile sections">
+        {tabs.map(([id, label]) => (
           <Link
             key={id}
-            href={`/members/${member.id}?tab=${id}`}
-            className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === id ? "bg-navy-900 text-white" : "bg-white text-navy-700 border border-navy-200"}`}
+            href={id === "permissions" ? `/members/${member.id}/permissions` : `/members/${member.id}?tab=${id}`}
+            className={`min-h-11 rounded-md px-3 py-2 text-sm font-semibold ${tab === id ? "bg-navy-900 text-white" : "bg-white text-navy-700 border border-navy-200"}`}
+            aria-current={tab === id ? "page" : undefined}
           >
             {label}
           </Link>
@@ -178,6 +196,26 @@ export default function MemberProfile() {
 
       {tab === "overview" && (
         <div className="grid gap-6 xl:grid-cols-3">
+          <Card className="p-5 xl:col-span-3">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div>
+                <div className="kicker">Overall progress</div>
+                <div className="display mt-1 text-3xl font-bold">{member.overallProgress ?? 0}%</div>
+              </div>
+              <div>
+                <div className="kicker">Waiting sign-offs</div>
+                <div className="display mt-1 text-3xl font-bold">{member.assignments.reduce((sum, item) => sum + item.pendingApproval, 0)}</div>
+              </div>
+              <div>
+                <div className="kicker">Overdue</div>
+                <div className="display mt-1 text-3xl font-bold">{member.assignments.reduce((sum, item) => sum + item.overdue, 0)}</div>
+              </div>
+              <div>
+                <div className="kicker">Credentials</div>
+                <div className="display mt-1 text-3xl font-bold">{member.credentialDetails.length}</div>
+              </div>
+            </div>
+          </Card>
           <Card className="p-5 xl:col-span-2">
             <h2 className="display text-2xl font-bold">Current Task Books</h2>
             {member.assignments.length === 0 ? (
@@ -232,23 +270,25 @@ export default function MemberProfile() {
 
       {tab === "task-books" && (
         <div className="space-y-4">
-          <Card className="flex flex-wrap items-end gap-3 p-4">
-            <Field label="Assign a published Task Book">
-              <Select value={assignId} onChange={(e) => setAssignId(e.target.value)}>
-                <option value="">Select Task Book</option>
-                {books
-                  .filter((book) => book.status === "ACTIVE")
-                  .map((book) => (
-                    <option key={book.id} value={book.id}>
-                      {book.title}
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-            <Button type="button" onClick={assignBook} disabled={!assignId}>
-              Assign
-            </Button>
-          </Card>
+          {canAssign ? (
+            <Card className="flex flex-wrap items-end gap-3 p-4">
+              <Field label="Assign a published Task Book">
+                <Select value={assignId} onChange={(e) => setAssignId(e.target.value)}>
+                  <option value="">Select Task Book</option>
+                  {books
+                    .filter((book) => book.status === "ACTIVE")
+                    .map((book) => (
+                      <option key={book.id} value={book.id}>
+                        {book.title}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+              <Button type="button" onClick={assignBook} disabled={!assignId}>
+                Assign
+              </Button>
+            </Card>
+          ) : null}
           {member.assignmentDetails.map((assignment) => (
             <Card key={assignment.id} className="p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -394,17 +434,15 @@ export default function MemberProfile() {
               </Field>
               <Button type="submit">Save note</Button>
             </form>
-            <div className="mt-6">
-              <Field label="Department role">
-                <Select value={member.role} onChange={(e) => updateRole(e.target.value as Role)}>
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
+            {canManageRoles ? (
+              <p className="mt-6 text-sm text-navy-500">
+                Role changes live on the{" "}
+                <Link href={`/members/${member.id}/permissions`} className="font-semibold text-navy-800">
+                  Role & Permissions
+                </Link>{" "}
+                page.
+              </p>
+            ) : null}
           </Card>
         </div>
       )}

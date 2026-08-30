@@ -89,7 +89,14 @@ type Book = {
     status: string;
     sections: Array<{ id?: string; title: string; description: string; sortOrder: number; requirements: Array<Requirement & { id?: string }> }>;
   } | null;
-  versions: Array<{ id: string; version: string; status: string }>;
+  versions: Array<{
+    id: string;
+    version: string;
+    status: string;
+    publishedAt?: string | null;
+    publishedById?: string | null;
+    _count?: { assignments: number };
+  }>;
   review?: { issues: QualityIssue[]; sectionCount: number; requirementCount: number; ready: boolean };
 };
 
@@ -187,8 +194,11 @@ export default function TaskBookBuilderPage() {
   const [preview, setPreview] = useState<"member" | "evaluator" | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved" | "failed">("saved");
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editorTab, setEditorTab] = useState<"basics" | "evaluation" | "signoff" | "standards">("basics");
   const [quickEntry, setQuickEntry] = useState("");
   const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
@@ -200,7 +210,10 @@ export default function TaskBookBuilderPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const markDirty = useCallback(() => setDirty(true), []);
+  const markDirty = useCallback(() => {
+    setDirty(true);
+    setSaveStatus("unsaved");
+  }, []);
 
   function mapSections(data: Book): Section[] {
     return (
@@ -226,6 +239,7 @@ export default function TaskBookBuilderPage() {
     setSections(mapped);
     setSelectedSection((current) => current || mapped[0]?.clientId || null);
     setDirty(false);
+    setSaveStatus("saved");
     snapshot.current = JSON.stringify({ title: data.title, sections: mapped });
   }
 
@@ -262,6 +276,18 @@ export default function TaskBookBuilderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, description, category, sections]);
 
+  useEffect(() => {
+    if (!dirty || draftLocked) return;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      void saveDraft({ silent: true });
+    }, 1600);
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, title, description, category, intendedPosition, estimatedDurationDays, sections]);
+
   const current = sections.find((section) => section.clientId === selectedSection) ?? null;
   const currentReq = current?.requirements.find((req) => req.clientId === selectedReq) ?? null;
   const draftLocked = book?.workingVersion?.status === "PUBLISHED";
@@ -278,8 +304,9 @@ export default function TaskBookBuilderPage() {
     [title, sections],
   );
 
-  async function saveDraft() {
+  async function saveDraft(opts: { silent?: boolean } = {}) {
     setBusy(true);
+    setSaveStatus("saving");
     setError(null);
     try {
       await api(`task-books/${params.id}`, {
@@ -303,11 +330,13 @@ export default function TaskBookBuilderPage() {
           })),
         }),
       });
-      setMessage("Draft saved.");
+      if (!opts.silent) setMessage("Draft saved.");
       setDirty(false);
-      await load();
+      setSaveStatus("saved");
+      if (!opts.silent) await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to save.");
+      setSaveStatus("failed");
+      setError(err instanceof ApiError ? err.message : "Failed to save. Try again.");
     } finally {
       setBusy(false);
     }
@@ -447,14 +476,19 @@ export default function TaskBookBuilderPage() {
                   Create New Version
                 </Button>
                 {book.status === "ACTIVE" ? (
-                  <Button variant="secondary" onClick={() => setAssignOpen(true)}>
-                    Assign
-                  </Button>
+                  <>
+                    <Button variant="secondary" onClick={() => setAssignOpen(true)}>
+                      Assign
+                    </Button>
+                    <Button variant="danger" onClick={() => setArchiveOpen(true)}>
+                      Archive
+                    </Button>
+                  </>
                 ) : null}
               </>
             ) : (
               <>
-                <Button variant="secondary" onClick={saveDraft} disabled={busy}>
+                <Button variant="secondary" onClick={() => void saveDraft()} disabled={busy}>
                   Save draft
                 </Button>
                 <Button onClick={() => setReviewOpen(true)} disabled={busy}>
@@ -465,7 +499,20 @@ export default function TaskBookBuilderPage() {
           </>
         }
       />
-      {dirty ? <p className="mb-3 text-sm font-semibold text-warn">Unsaved changes. Save before leaving this page.</p> : null}
+      <p
+        className={`mb-3 text-sm font-semibold ${
+          saveStatus === "failed" ? "text-danger" : saveStatus === "unsaved" ? "text-warn" : saveStatus === "saving" ? "text-navy-600" : "text-ok"
+        }`}
+        aria-live="polite"
+      >
+        {saveStatus === "saving"
+          ? "Saving…"
+          : saveStatus === "unsaved"
+            ? "Unsaved changes"
+            : saveStatus === "failed"
+              ? "Failed to save"
+              : "Saved"}
+      </p>
       <Flash message={error} tone="danger" />
       <div className="mb-3">
         <Flash message={message} tone="current" />
@@ -474,6 +521,8 @@ export default function TaskBookBuilderPage() {
         {book.versions.map((version) => (
           <Badge key={version.id} tone={version.status === "PUBLISHED" ? "current" : version.status === "DRAFT" ? "warn" : "neutral"}>
             v{version.version} {version.status.toLowerCase()}
+            {version._count ? ` · ${version._count.assignments} assigned` : ""}
+            {version.publishedAt ? ` · published ${new Date(version.publishedAt).toLocaleDateString()}` : ""}
           </Badge>
         ))}
       </div>
@@ -1179,9 +1228,39 @@ export default function TaskBookBuilderPage() {
             </Select>
           </Field>
         </div>
+        <p className="mt-3 text-sm font-semibold text-navy-800">
+          You are assigning {title || "this Task Book"} to {assignForm.membershipIds.length} member
+          {assignForm.membershipIds.length === 1 ? "" : "s"}.
+        </p>
         <Button className="mt-4" onClick={assign} disabled={!assignForm.membershipIds.length}>
           Assign selected members
         </Button>
+      </Modal>
+
+      <Modal open={archiveOpen} title="Archive this Task Book?" onClose={() => setArchiveOpen(false)}>
+        <p className="text-sm text-navy-600">
+          Existing assignments stay on their published version. The book will no longer appear as active for new assignments.
+        </p>
+        <div className="mt-4 flex gap-2">
+          <Button
+            variant="danger"
+            onClick={async () => {
+              try {
+                await api(`task-books/${params.id}/archive`, { method: "POST" });
+                setArchiveOpen(false);
+                setMessage("Task Book archived.");
+                await load();
+              } catch (err) {
+                setError(err instanceof ApiError ? err.message : "Unable to archive.");
+              }
+            }}
+          >
+            Archive Task Book
+          </Button>
+          <Button variant="secondary" onClick={() => setArchiveOpen(false)}>
+            Cancel
+          </Button>
+        </div>
       </Modal>
 
       <div className="mt-4">

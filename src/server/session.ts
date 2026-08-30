@@ -15,7 +15,13 @@ export type SessionPayload = {
 };
 
 function secretKey() {
-  const secret = process.env.AUTH_SECRET || "responder-roadmap-dev-secret-change-in-production";
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET must be set in production.");
+    }
+    return new TextEncoder().encode("responder-roadmap-dev-secret-change-in-production");
+  }
   return new TextEncoder().encode(secret);
 }
 

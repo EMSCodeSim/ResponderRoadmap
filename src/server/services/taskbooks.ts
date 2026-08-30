@@ -404,3 +404,18 @@ export async function getTaskBookReview(ctx: AuthContext, templateId: string) {
   const book = await getTaskBook(ctx, templateId);
   return book.review;
 }
+
+export async function archiveTaskBook(ctx: AuthContext, templateId: string) {
+  assertPermission(ctx, "taskbooks.write");
+  const template = await getTemplateForDept(ctx, templateId);
+  if (template.status === "ARCHIVED") return getTaskBook(ctx, templateId);
+  await prisma.taskBookTemplate.update({
+    where: { id: template.id },
+    data: { status: "ARCHIVED" },
+  });
+  await writeAudit(ctx, "taskbook.archived", "TaskBookTemplate", template.id, {
+    title: template.title,
+    previousStatus: template.status,
+  });
+  return getTaskBook(ctx, template.id);
+}

@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
+import { shortRoleLabel } from "@/lib/role-capabilities";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select } from "@/components/ui";
 
 type Department = {
@@ -31,6 +33,8 @@ export default function DepartmentPage() {
   const [role, setRole] = useState<Role>("MEMBER");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [canWriteDept, setCanWriteDept] = useState(false);
+  const [canManageRoles, setCanManageRoles] = useState(false);
   const origin = typeof window === "undefined" ? "" : window.location.origin;
 
   async function load() {
@@ -38,6 +42,9 @@ export default function DepartmentPage() {
     setInvites(await api<Invitation[]>("invitations"));
     const payload = await api<{ members: Member[] }>("members");
     setMembers(payload.members);
+    const session = await api<{ permissions?: string[] }>("auth/me");
+    setCanWriteDept(Boolean(session.permissions?.includes("department.write")));
+    setCanManageRoles(Boolean(session.permissions?.includes("roles.write")));
   }
 
   useEffect(() => {
@@ -65,11 +72,6 @@ export default function DepartmentPage() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to invite.");
     }
-  }
-
-  async function changeRole(id: string, nextRole: Role) {
-    await api(`members/${id}`, { method: "PATCH", body: JSON.stringify({ role: nextRole }) });
-    await load();
   }
 
   if (!dept) return <p className="text-navy-500">Loading department…</p>;
@@ -115,7 +117,7 @@ export default function DepartmentPage() {
               <input type="checkbox" checked={dept.requireApproval} onChange={(e) => setDept({ ...dept, requireApproval: e.target.checked })} />
               Require approval when members join by code
             </label>
-            <Button type="submit">Save department</Button>
+            {canWriteDept ? <Button type="submit">Save department</Button> : <p className="text-sm text-navy-500 md:col-span-2">Department settings can only be changed by a Department Administrator.</p>}
           </form>
         </Card>
         <Card className="p-5">
@@ -140,11 +142,13 @@ export default function DepartmentPage() {
             </Field>
             <Field label="Role">
               <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-                {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
+                {(Object.entries(ROLE_LABELS) as Array<[Role, string]>)
+                  .filter(([value]) => canManageRoles || value !== "DEPARTMENT_ADMINISTRATOR")
+                  .map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
               </Select>
             </Field>
             <Button type="submit">Create invitation</Button>
@@ -171,7 +175,9 @@ export default function DepartmentPage() {
       <Card className="mt-6">
         <div className="p-4">
           <h2 className="display text-2xl font-bold">Roles</h2>
-          <p className="text-sm text-navy-500">Member, Evaluator, Training Officer, and Department Administrator are enforced on the server, not only in the UI.</p>
+          <p className="text-sm text-navy-500">
+            Current roles are listed here. Only a Department Administrator can change them on the member&apos;s Role & Permissions page.
+          </p>
         </div>
         <div className="table-wrap">
           <table className="table">
@@ -192,13 +198,14 @@ export default function DepartmentPage() {
                     <Badge tone={member.status === "ACTIVE" ? "current" : "warn"}>{member.status.toLowerCase()}</Badge>
                   </td>
                   <td>
-                    <Select value={member.role} onChange={(e) => changeRole(member.id, e.target.value as Role)}>
-                      {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </Select>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="neutral">{shortRoleLabel(member.role)}</Badge>
+                      {canManageRoles ? (
+                        <Link href={`/members/${member.id}/permissions`} className="text-sm font-semibold text-navy-700">
+                          Manage
+                        </Link>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

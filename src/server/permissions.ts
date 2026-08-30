@@ -74,6 +74,10 @@ export type AuthContext = {
   rank: string | null;
 };
 
+export function permissionsForRole(role: Role): Permission[] {
+  return [...(ROLE_PERMISSIONS[role] ?? [])];
+}
+
 export function hasPermission(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
 }

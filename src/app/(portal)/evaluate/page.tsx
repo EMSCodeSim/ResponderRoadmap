@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { formatDate, relativeTime } from "@/lib/dates";
 import { STEP_RATING_LABELS, STEP_RATINGS } from "@/lib/constants";
+import { TASKBOOK_ATTESTATION_TEXT } from "@/lib/taskbook-attestation";
 import { Button, Card, EmptyState, Field, Flash, PageHeader, TextArea } from "@/components/ui";
 
 type QueueItem = {
@@ -43,6 +44,8 @@ function EvaluateInner() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [attested, setAttested] = useState(false);
+  const [confirming, setConfirming] = useState<"APPROVED" | "NEEDS_REMEDIATION" | "NOT_EVALUATED" | null>(null);
 
   async function load() {
     const rows = await api<QueueItem[]>(`sign-offs?view=${view === "recent" ? "recent" : view === "remediation" ? "remediation" : ""}`);
@@ -60,15 +63,31 @@ function EvaluateInner() {
     setNote("");
     setSteps({});
     setCritical([]);
+    setAttested(false);
+    setConfirming(null);
     // Reset field controls when the selected submission changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
 
   async function evaluate(result: "APPROVED" | "NEEDS_REMEDIATION" | "NOT_EVALUATED") {
     if (!selected) return;
+    if (result === "APPROVED" && !attested) {
+      setError("Confirm the electronic attestation before passing this requirement.");
+      document.getElementById("evaluate-attestation")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (result === "NEEDS_REMEDIATION" && !note.trim()) {
+      setError("Add a note so the member knows what to correct.");
+      return;
+    }
+    if (!confirming) {
+      setConfirming(result);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
+      const currentId = selected.id;
       const stepResults = selected.evaluationSteps.map((step) => ({ id: step.id, rating: steps[step.id] || "MEETS" }));
       await api(`sign-offs/${selected.id}`, {
         method: "POST",
@@ -77,10 +96,21 @@ function EvaluateInner() {
           notes: note,
           stepResults,
           criticalFailuresTriggered: critical,
+          attested: result === "APPROVED" ? attested : false,
         }),
       });
-      setMessage(result === "APPROVED" ? "Signed. This attempt is in the audit history." : result === "NEEDS_REMEDIATION" ? "Returned for remediation. Prior attempts were kept." : "Marked not evaluated.");
-      await load();
+      setMessage(
+        result === "APPROVED"
+          ? "Passed. Opening the next pending evaluation."
+          : result === "NEEDS_REMEDIATION"
+            ? "Returned for remediation. Prior attempts were kept."
+            : "Marked not evaluated.",
+      );
+      setConfirming(null);
+      const remaining = queue.filter((item) => item.id !== currentId);
+      const rows = await api<QueueItem[]>(`sign-offs?view=${view === "recent" ? "recent" : view === "remediation" ? "remediation" : ""}`);
+      setQueue(rows);
+      setSelected(rows.find((row) => row.id === remaining[0]?.id) || rows[0] || null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to record evaluation.");
     } finally {
@@ -228,19 +258,51 @@ function EvaluateInner() {
               <Field label="Evaluator comments">
                 <TextArea value={note} onChange={(e) => setNote(e.target.value)} />
               </Field>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Button className="min-h-16 text-base" variant="success" disabled={busy || critical.length > 0} onClick={() => evaluate("APPROVED")}>
-                  PASS
-                </Button>
-                <Button className="min-h-16 text-base" variant="danger" disabled={busy} onClick={() => evaluate("NEEDS_REMEDIATION")}>
-                  NEEDS REMEDIATION
-                </Button>
-                <Button className="min-h-16 text-base" variant="secondary" disabled={busy} onClick={() => evaluate("NOT_EVALUATED")}>
-                  NOT EVALUATED
-                </Button>
-              </div>
+              <label id="evaluate-attestation" className="mt-4 flex items-start gap-3 rounded-md border border-navy-200 bg-navy-50 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-5 w-5"
+                  checked={attested}
+                  onChange={(e) => setAttested(e.target.checked)}
+                />
+                <span>
+                  <span className="block font-semibold">I verify this completion</span>
+                  <span className="text-navy-600">{TASKBOOK_ATTESTATION_TEXT}</span>
+                </span>
+              </label>
+              {confirming ? (
+                <div className="mt-4 rounded-md border border-warn bg-warn-soft p-4">
+                  <p className="font-semibold">
+                    {confirming === "APPROVED"
+                      ? "Submit this PASS? The sign-off becomes part of the official record."
+                      : confirming === "NEEDS_REMEDIATION"
+                        ? "Return this requirement for remediation?"
+                        : "Mark this requirement as not evaluated?"}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button disabled={busy} onClick={() => evaluate(confirming)}>
+                      {busy ? "Submitting…" : "Confirm and submit"}
+                    </Button>
+                    <Button variant="secondary" disabled={busy} onClick={() => setConfirming(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <Button className="min-h-16 text-base" variant="success" disabled={busy || critical.length > 0} onClick={() => evaluate("APPROVED")}>
+                    PASS
+                  </Button>
+                  <Button className="min-h-16 text-base" variant="danger" disabled={busy} onClick={() => evaluate("NEEDS_REMEDIATION")}>
+                    NEEDS REMEDIATION
+                  </Button>
+                  <Button className="min-h-16 text-base" variant="secondary" disabled={busy} onClick={() => evaluate("NOT_EVALUATED")}>
+                    NOT OBSERVED
+                  </Button>
+                </div>
+              )}
               {critical.length ? <p className="mt-2 text-sm text-danger">A critical failure is marked. This attempt cannot pass.</p> : null}
-              <p className="mt-3 text-center text-sm font-semibold text-navy-700">Sign Evaluation using the result above. History is append-only.</p>
+              <p className="mt-3 text-center text-sm font-semibold text-navy-700">Confirm before the result is recorded. History is append-only.</p>
               {queue.length > 1 ? (
                 <Button
                   variant="secondary"

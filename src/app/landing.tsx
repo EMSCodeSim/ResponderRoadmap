@@ -68,6 +68,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               {demoAvailable ? (
                 <>
                   <WalkDemoButton walk="to" />
+                  <WalkDemoButton walk="evaluator" variant="secondary" className="[&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-white [&_button]:hover:bg-white/10" />
                   <WalkDemoButton walk="member" variant="secondary" className="[&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-white [&_button]:hover:bg-white/10" />
                   <p className="text-sm text-white/50">Live Metro Fire &amp; Rescue station. No signup. Training officer first.</p>
                 </>
@@ -213,7 +214,23 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <BrandMark size={28} />
             ResponderRoadmap · Department Task Books
           </span>
-          <span>Fire · EMS · Training Division</span>
+          <nav className="flex flex-wrap gap-3 text-white/50">
+            <Link href="/firefighter-task-book-software" className="hover:text-white">
+              Firefighter Task Books
+            </Link>
+            <Link href="/fire-department-training-records" className="hover:text-white">
+              Training records
+            </Link>
+            <Link href="/probationary-firefighter-task-books" className="hover:text-white">
+              Probationary books
+            </Link>
+            <Link href="/driver-operator-task-books" className="hover:text-white">
+              Driver / Operator
+            </Link>
+            <Link href="/ems-training-records" className="hover:text-white">
+              EMS records
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>

@@ -2,7 +2,7 @@ import { prisma } from "@/server/db";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress } from "@/lib/progress";
 import { credentialStatus } from "@/lib/dates";
-import { parseMetadata } from "@/server/http";
+import { HttpError, parseMetadata } from "@/server/http";
 
 export async function taskBookProgressReport(
   ctx: AuthContext,
@@ -35,6 +35,13 @@ export async function taskBookProgressReport(
       assignedDate: assignment.assignedDate,
       dueDate: assignment.dueDate,
     });
+    const lastTouch = assignment.completions.reduce((latest, item) => {
+      const stamp = item.submittedAt || item.completedAt;
+      if (!stamp) return latest;
+      return !latest || stamp > latest ? stamp : latest;
+    }, null as Date | null);
+    const stalledFrom = lastTouch || assignment.assignedDate;
+    const stalledDays = progress.status === "COMPLETE" ? 0 : Math.floor((Date.now() - stalledFrom.getTime()) / 86_400_000);
     return {
       memberName: assignment.membership.user.name,
       memberId: assignment.membershipId,
@@ -48,6 +55,7 @@ export async function taskBookProgressReport(
       totalRequired: progress.totalRequired,
       pendingApproval: progress.pendingApproval,
       overdue: progress.overdue,
+      stalledDays,
       status: progress.status,
       dueDate: assignment.dueDate,
     };
@@ -72,7 +80,7 @@ export async function memberTrainingRecord(ctx: AuthContext, membershipId: strin
     where: { id: membershipId, departmentId: ctx.departmentId },
     include: { user: true },
   });
-  if (!membership) return [];
+  if (!membership) throw new HttpError(404, "Member not found.");
   const events = await prisma.activityEvent.findMany({
     where: { departmentId: ctx.departmentId, userId: membership.userId },
     include: { user: true },

@@ -1,5 +1,5 @@
 [build]
-  command = "npm test && npm run db:push && npm run build"
+  command = "npm test && node scripts/migrate-deploy.mjs && npm run build"
   publish = ".next"
 
 [build.environment]

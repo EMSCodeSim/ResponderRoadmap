@@ -15,9 +15,11 @@ type ProgressRow = {
   station: string | null;
   shift: string | null;
   taskBook: string;
+  version?: string;
   percent: number;
   status: string;
   dueDate: string | null;
+  stalledDays?: number;
 };
 
 type Compliance = {
@@ -36,12 +38,22 @@ function ReportsInner() {
   const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [recordId, setRecordId] = useState("");
   const [record, setRecord] = useState<{ memberName: string; timeline: Array<{ at: string; title: string; kind: string; detail: string }> } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<ProgressRow[]>("reports/task-book-progress").then(setProgress);
-    api<typeof certs>("reports/certifications").then(setCerts);
-    api<Compliance>("reports/compliance").then(setCompliance);
-    api<{ members: Array<{ id: string; name: string }> }>("members").then((payload) => setMembers(payload.members));
+    Promise.all([
+      api<ProgressRow[]>("reports/task-book-progress"),
+      api<typeof certs>("reports/certifications"),
+      api<Compliance>("reports/compliance"),
+      api<{ members: Array<{ id: string; name: string }> }>("members"),
+    ])
+      .then(([progressRows, certRows, complianceRows, memberPayload]) => {
+        setProgress(progressRows);
+        setCerts(certRows);
+        setCompliance(complianceRows);
+        setMembers(memberPayload.members);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "We couldn’t load reports. Please try again."));
   }, []);
 
   useEffect(() => {
@@ -109,8 +121,13 @@ function ReportsInner() {
         })}
       </div>
 
+      {error ? <p className="mb-4 text-sm font-semibold text-danger">{error}</p> : null}
+
       {report === "progress" && (
         <Card>
+          {progress.length === 0 ? (
+            <div className="p-5 text-sm text-navy-500">No Task Book assignments yet. Publish a Task Book and assign it to members to populate this report.</div>
+          ) : (
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -119,9 +136,11 @@ function ReportsInner() {
                   <th>Rank</th>
                   <th>Station / Shift</th>
                   <th>Task Book</th>
+                  <th>Version</th>
                   <th>Progress</th>
                   <th>Status</th>
                   <th>Due</th>
+                  <th>Days stalled</th>
                 </tr>
               </thead>
               <tbody>
@@ -133,21 +152,27 @@ function ReportsInner() {
                       {row.station} {row.shift ? `· ${row.shift}` : ""}
                     </td>
                     <td>{row.taskBook}</td>
+                    <td>{row.version || "—"}</td>
                     <td>{row.percent}%</td>
                     <td>
                       <Badge tone={assignmentTone(row.status)}>{assignmentStatusLabel(row.status)}</Badge>
                     </td>
                     <td>{formatDate(row.dueDate)}</td>
+                    <td>{row.stalledDays ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          )}
         </Card>
       )}
 
       {report === "certs" && (
         <Card>
+          {certs.length === 0 ? (
+            <div className="p-5 text-sm text-navy-500">No department credentials on file. Add certifications from a member profile to track expiration.</div>
+          ) : (
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -172,6 +197,7 @@ function ReportsInner() {
               </tbody>
             </table>
           </div>
+          )}
         </Card>
       )}
 
@@ -192,6 +218,9 @@ function ReportsInner() {
           {record ? (
             <Card className="p-5">
               <h2 className="display text-2xl font-bold">{record.memberName}</h2>
+              {record.timeline.length === 0 ? (
+                <p className="mt-3 text-sm text-navy-500">No department training events for this member yet.</p>
+              ) : (
               <ul className="mt-3 divide-y divide-navy-100">
                 {record.timeline.map((item, index) => (
                   <li key={index} className="py-3">
@@ -201,8 +230,11 @@ function ReportsInner() {
                   </li>
                 ))}
               </ul>
+              )}
             </Card>
-          ) : null}
+          ) : (
+            <p className="text-sm text-navy-500">Select a member to print their department training record, including sign-offs.</p>
+          )}
         </div>
       )}
 

@@ -299,4 +299,10 @@ describe("permissions", () => {
     expect(hasPermission("TRAINING_OFFICER", "roles.write")).toBe(false);
     expect(hasPermission("DEPARTMENT_ADMINISTRATOR", "roles.write")).toBe(true);
   });
+
+  it("blocks evaluator access to reports, books, and roster", () => {
+    expect(hasPermission("EVALUATOR", "reports.read")).toBe(false);
+    expect(hasPermission("EVALUATOR", "taskbooks.write")).toBe(false);
+    expect(hasPermission("EVALUATOR", "members.read")).toBe(false);
+  });
 });
