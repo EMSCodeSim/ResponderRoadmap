@@ -1,6 +1,6 @@
 import { prisma } from "@/server/db";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
-import { assertPermission, type AuthContext } from "@/server/permissions";
+import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { credentialStatus, worstCredentialHealth, type CredentialHealth } from "@/lib/dates";
 import { computeAssignmentProgress } from "@/lib/progress";
 import type { Role, MembershipStatus } from "@/lib/constants";
@@ -107,6 +107,17 @@ export function summarizeMember(
   };
 }
 
+function redactRosterRowForEvaluator<T extends ReturnType<typeof summarizeMember>>(row: T): T {
+  return {
+    ...row,
+    email: "",
+    phone: null,
+    employeeNumber: null,
+    certificationHealth: "restricted" as T["certificationHealth"],
+    credentials: [],
+  };
+}
+
 export async function listMembers(
   ctx: AuthContext,
   filters: {
@@ -142,7 +153,7 @@ export async function listMembers(
     rows = rows.filter(
       (row) =>
         row.name.toLowerCase().includes(q) ||
-        row.email.toLowerCase().includes(q) ||
+        (ctx.role !== "EVALUATOR" && row.email.toLowerCase().includes(q)) ||
         (row.rank || "").toLowerCase().includes(q) ||
         (row.station || "").toLowerCase().includes(q),
     );
@@ -159,8 +170,12 @@ export async function listMembers(
     );
     rows = rows.filter((row) => allowed.has(row.id));
   }
-  if (filters.certStatus) {
+  if (filters.certStatus && hasPermission(ctx.role, "credentials.read")) {
     rows = rows.filter((row) => row.certificationHealth === filters.certStatus);
+  }
+
+  if (ctx.role === "EVALUATOR") {
+    rows = rows.map(redactRosterRowForEvaluator);
   }
 
   return {
@@ -232,14 +247,32 @@ export async function getMember(ctx: AuthContext, membershipId: string) {
     }),
   );
 
+  const isSelf = ctx.membershipId === membershipId;
+  const canSeeCredentials = isSelf || hasPermission(ctx.role, "credentials.read");
+  const canSeeDepartmentNotes = hasPermission(ctx.role, "notes.write");
+  const canSeeFullActivity = ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR" || isSelf;
+  const restrictedSummary =
+    ctx.role === "EVALUATOR" && !isSelf
+      ? {
+          ...summary,
+          email: "",
+          phone: null,
+          employeeNumber: null,
+          certificationHealth: "restricted" as typeof summary.certificationHealth,
+          credentials: [],
+        }
+      : summary;
+
   return {
-    ...summary,
-    notes: membership.notes.map((note) => ({
-      id: note.id,
-      body: note.body,
-      createdAt: note.createdAt,
-      authorName: note.author.name,
-    })),
+    ...restrictedSummary,
+    notes: canSeeDepartmentNotes
+      ? membership.notes.map((note) => ({
+          id: note.id,
+          body: note.body,
+          createdAt: note.createdAt,
+          authorName: note.author.name,
+        }))
+      : [],
     assignmentDetails: membership.assignments.map((assignment) => {
       const requirements = assignment.version.sections.flatMap((section) => section.requirements);
       const progress = computeAssignmentProgress({
@@ -258,7 +291,7 @@ export async function getMember(ctx: AuthContext, membershipId: string) {
         assignedByName: assignment.assignedBy.name,
         evaluatorName: assignment.evaluator?.name ?? null,
         supervisorName: assignment.supervisor?.name ?? null,
-        notes: assignment.notes,
+        notes: ctx.role === "EVALUATOR" && !isSelf ? "" : assignment.notes,
         progress,
         sections: assignment.version.sections.map((section) => ({
           id: section.id,
@@ -268,6 +301,7 @@ export async function getMember(ctx: AuthContext, membershipId: string) {
             const completion = assignment.completions.find((item) => item.requirementId === requirement.id);
             return {
               ...requirement,
+              internalNotes: ctx.role === "DEPARTMENT_ADMINISTRATOR" || ctx.role === "TRAINING_OFFICER" ? requirement.internalNotes : "",
               objectives: JSON.parse(requirement.objectivesJson || "[]"),
               completion: completion
                 ? {
@@ -291,18 +325,22 @@ export async function getMember(ctx: AuthContext, membershipId: string) {
         })),
       };
     }),
-    credentialDetails: membership.credentials.map((credential) => ({
-      ...credential,
-      ...credentialStatus(credential.expirationDate),
-    })),
+    credentialDetails: canSeeCredentials
+      ? membership.credentials.map((credential) => ({
+          ...credential,
+          ...credentialStatus(credential.expirationDate),
+        }))
+      : [],
     evidence,
-    activity: events.map((event) => ({
-      id: event.id,
-      type: event.type,
-      timestamp: event.timestamp,
-      metadata: JSON.parse(event.metadataJson || "{}"),
-      actorName: event.user?.name ?? null,
-    })),
+    activity: canSeeFullActivity
+      ? events.map((event) => ({
+          id: event.id,
+          type: event.type,
+          timestamp: event.timestamp,
+          metadata: JSON.parse(event.metadataJson || "{}"),
+          actorName: event.user?.name ?? null,
+        }))
+      : [],
   };
 }
 
