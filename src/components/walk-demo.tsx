@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { DEMO_PASSWORD, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
+import { DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
 import { Button } from "@/components/ui";
 
 export function WalkDemoButton({
@@ -29,9 +29,9 @@ export function WalkDemoButton({
     setBusy(true);
     setError(null);
     try {
-      const result = await api<{ needsDepartment: boolean }>("auth/login", {
+      const result = await api<{ needsDepartment: boolean }>("auth/demo-login", {
         method: "POST",
-        body: JSON.stringify({ email: account.email, password: DEMO_PASSWORD }),
+        body: JSON.stringify({ walk }),
       });
       router.push(result.needsDepartment ? "/onboarding" : account.next);
       router.refresh();
