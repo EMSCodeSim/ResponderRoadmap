@@ -8,10 +8,10 @@ export const ROLES = [
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
-  MEMBER: "Member",
-  EVALUATOR: "Evaluator",
-  TRAINING_OFFICER: "Training Officer",
-  DEPARTMENT_ADMINISTRATOR: "Department Administrator",
+  MEMBER: "Member — Complete assigned Task Books",
+  EVALUATOR: "Evaluator — Skills check-off / sign-off",
+  TRAINING_OFFICER: "Training Officer — Check-off, create & assign Task Books",
+  DEPARTMENT_ADMINISTRATOR: "Department Administrator — Full department access",
 };
 
 export const MEMBERSHIP_STATUSES = ["PENDING", "ACTIVE", "INACTIVE", "REJECTED"] as const;
