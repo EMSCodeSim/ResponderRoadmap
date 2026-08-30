@@ -73,6 +73,7 @@ export async function submitInterest(input: Record<string, unknown>) {
   const buyingIntent = text(input.buyingIntent, 20).toUpperCase();
   const memberCount = Number.parseInt(String(input.memberCount ?? ""), 10);
   const consent = input.consent === true;
+  const requestWalkthrough = input.requestWalkthrough === true;
 
   if (!name || !email || !departmentName || !role) throw new HttpError(400, "Name, work email, department, and role are required.");
   if (!/^\S+@\S+\.\S+$/.test(email)) throw new HttpError(400, "Enter a valid email address.");
@@ -94,23 +95,32 @@ export async function submitInterest(input: Record<string, unknown>) {
   `;
 
   if (existing[0]) {
+    const status =
+      existing[0].status === "CONVERTED"
+        ? "CONVERTED"
+        : requestWalkthrough
+          ? "DEMO_REQUESTED"
+          : existing[0].status;
     await prisma.$executeRaw`
       UPDATE "DepartmentInterest"
       SET "name" = ${name}, "email" = ${email}, "departmentName" = ${departmentName}, "role" = ${role},
           "memberCount" = ${memberCount}, "buyingIntent" = ${buyingIntent}, "comments" = ${comments},
-          "consent" = TRUE, "consentAt" = ${consentAt}, "source" = ${source}, "updatedAt" = ${new Date()}
+          "consent" = TRUE, "consentAt" = ${consentAt}, "source" = ${source}, "status" = ${status}, "updatedAt" = ${new Date()}
       WHERE "id" = ${existing[0].id}
     `;
-  } else {
-    await prisma.$executeRaw`
-      INSERT INTO "DepartmentInterest"
-        ("id", "name", "email", "departmentName", "role", "memberCount", "buyingIntent", "comments", "consent", "consentAt", "source", "status", "notes", "createdAt", "updatedAt")
-      VALUES
-        (${randomUUID()}, ${name}, ${email}, ${departmentName}, ${role}, ${memberCount}, ${buyingIntent}, ${comments}, TRUE, ${consentAt}, ${source}, 'NEW', '', ${new Date()}, ${new Date()})
-    `;
+    return { ok: true, id: existing[0].id, status };
   }
 
-  return { ok: true };
+  const id = randomUUID();
+  const status = requestWalkthrough ? "DEMO_REQUESTED" : "NEW";
+  await prisma.$executeRaw`
+    INSERT INTO "DepartmentInterest"
+      ("id", "name", "email", "departmentName", "role", "memberCount", "buyingIntent", "comments", "consent", "consentAt", "source", "status", "notes", "createdAt", "updatedAt")
+    VALUES
+      (${id}, ${name}, ${email}, ${departmentName}, ${role}, ${memberCount}, ${buyingIntent}, ${comments}, TRUE, ${consentAt}, ${source}, ${status}, '', ${new Date()}, ${new Date()})
+  `;
+
+  return { ok: true, id, status };
 }
 
 export async function listInterests(email: string, query: Record<string, string>) {
