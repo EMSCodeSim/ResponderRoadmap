@@ -39,7 +39,7 @@ export function WalkDemoButton({
       setError(
         err instanceof ApiError
           ? err.message
-          : "Metro Fire is not loaded in this environment. Create a department instead.",
+          : "The Metro Fire demo is not available in this environment right now.",
       );
       setBusy(false);
     }
