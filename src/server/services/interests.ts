@@ -1,11 +1,54 @@
+import { randomUUID } from "crypto";
 import { prisma } from "@/server/db";
 import { HttpError } from "@/server/http";
 
 const INTEREST_STATUSES = ["NEW", "CONTACTED", "DEMO_REQUESTED", "CONVERTED", "NOT_INTERESTED"] as const;
 const BUYING_INTENTS = ["YES", "MAYBE"] as const;
 
+type InterestRecord = {
+  id: string;
+  name: string;
+  email: string;
+  departmentName: string;
+  role: string;
+  memberCount: number;
+  buyingIntent: string;
+  comments: string;
+  consent: boolean;
+  consentAt: Date;
+  source: string;
+  status: string;
+  notes: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 function text(value: unknown, max: number) {
   return String(value ?? "").trim().slice(0, max);
+}
+
+async function ensureInterestTable() {
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "DepartmentInterest" (
+      "id" TEXT PRIMARY KEY,
+      "name" TEXT NOT NULL,
+      "email" TEXT NOT NULL,
+      "departmentName" TEXT NOT NULL,
+      "role" TEXT NOT NULL,
+      "memberCount" INTEGER NOT NULL,
+      "buyingIntent" TEXT NOT NULL,
+      "comments" TEXT NOT NULL DEFAULT '',
+      "consent" BOOLEAN NOT NULL DEFAULT TRUE,
+      "consentAt" TIMESTAMP(3) NOT NULL,
+      "source" TEXT NOT NULL DEFAULT 'department-interest',
+      "status" TEXT NOT NULL DEFAULT 'NEW',
+      "notes" TEXT NOT NULL DEFAULT '',
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "DepartmentInterest_status_idx" ON "DepartmentInterest" ("status")`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "DepartmentInterest_email_idx" ON "DepartmentInterest" ("email")`);
 }
 
 export function isPlatformAdmin(email: string | null | undefined) {
@@ -41,24 +84,30 @@ export async function submitInterest(input: Record<string, unknown>) {
   }
   if (!consent) throw new HttpError(400, "Permission to contact you is required to join the interest list.");
 
-  const existing = await prisma.departmentInterest.findFirst({ where: { email, departmentName } });
-  const data = {
-    name,
-    email,
-    departmentName,
-    role,
-    memberCount,
-    buyingIntent,
-    comments,
-    consent: true,
-    consentAt: new Date(),
-    source,
-  };
+  await ensureInterestTable();
+  const consentAt = new Date();
+  const existing = await prisma.$queryRaw<InterestRecord[]>`
+    SELECT * FROM "DepartmentInterest"
+    WHERE LOWER("email") = ${email} AND LOWER("departmentName") = ${departmentName.toLowerCase()}
+    ORDER BY "createdAt" DESC
+    LIMIT 1
+  `;
 
-  if (existing) {
-    await prisma.departmentInterest.update({ where: { id: existing.id }, data });
+  if (existing[0]) {
+    await prisma.$executeRaw`
+      UPDATE "DepartmentInterest"
+      SET "name" = ${name}, "email" = ${email}, "departmentName" = ${departmentName}, "role" = ${role},
+          "memberCount" = ${memberCount}, "buyingIntent" = ${buyingIntent}, "comments" = ${comments},
+          "consent" = TRUE, "consentAt" = ${consentAt}, "source" = ${source}, "updatedAt" = ${new Date()}
+      WHERE "id" = ${existing[0].id}
+    `;
   } else {
-    await prisma.departmentInterest.create({ data: { ...data, status: "NEW", notes: "" } });
+    await prisma.$executeRaw`
+      INSERT INTO "DepartmentInterest"
+        ("id", "name", "email", "departmentName", "role", "memberCount", "buyingIntent", "comments", "consent", "consentAt", "source", "status", "notes", "createdAt", "updatedAt")
+      VALUES
+        (${randomUUID()}, ${name}, ${email}, ${departmentName}, ${role}, ${memberCount}, ${buyingIntent}, ${comments}, TRUE, ${consentAt}, ${source}, 'NEW', '', ${new Date()}, ${new Date()})
+    `;
   }
 
   return { ok: true };
@@ -66,29 +115,21 @@ export async function submitInterest(input: Record<string, unknown>) {
 
 export async function listInterests(email: string, query: Record<string, string>) {
   assertPlatformAdmin(email);
+  await ensureInterestTable();
   const status = text(query.status, 30).toUpperCase();
   const buyingIntent = text(query.intent, 20).toUpperCase();
-  const q = text(query.q, 160);
+  const q = text(query.q, 160).toLowerCase();
 
-  const records = await prisma.departmentInterest.findMany({
-    where: {
-      ...(status && INTEREST_STATUSES.includes(status as (typeof INTEREST_STATUSES)[number]) ? { status } : {}),
-      ...(buyingIntent && BUYING_INTENTS.includes(buyingIntent as (typeof BUYING_INTENTS)[number]) ? { buyingIntent } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" as const } },
-              { email: { contains: q, mode: "insensitive" as const } },
-              { departmentName: { contains: q, mode: "insensitive" as const } },
-              { role: { contains: q, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
+  const all = await prisma.$queryRaw<InterestRecord[]>`
+    SELECT * FROM "DepartmentInterest" ORDER BY "createdAt" DESC
+  `;
+  const records = all.filter((item) => {
+    if (status && INTEREST_STATUSES.includes(status as (typeof INTEREST_STATUSES)[number]) && item.status !== status) return false;
+    if (buyingIntent && BUYING_INTENTS.includes(buyingIntent as (typeof BUYING_INTENTS)[number]) && item.buyingIntent !== buyingIntent) return false;
+    if (!q) return true;
+    return [item.name, item.email, item.departmentName, item.role, item.comments, item.notes].some((value) => String(value || "").toLowerCase().includes(q));
   });
 
-  const all = await prisma.departmentInterest.findMany({ select: { status: true, buyingIntent: true, memberCount: true } });
   const statusCounts = Object.fromEntries(INTEREST_STATUSES.map((item) => [item, 0])) as Record<string, number>;
   let yes = 0;
   let maybe = 0;
@@ -109,16 +150,23 @@ export async function listInterests(email: string, query: Record<string, string>
 
 export async function updateInterest(email: string, id: string, input: Record<string, unknown>) {
   assertPlatformAdmin(email);
+  await ensureInterestTable();
   const status = input.status === undefined ? undefined : text(input.status, 30).toUpperCase();
   const notes = input.notes === undefined ? undefined : text(input.notes, 5000);
   if (status && !INTEREST_STATUSES.includes(status as (typeof INTEREST_STATUSES)[number])) {
     throw new HttpError(400, "Invalid interest status.");
   }
 
-  const existing = await prisma.departmentInterest.findUnique({ where: { id } });
+  const rows = await prisma.$queryRaw<InterestRecord[]>`SELECT * FROM "DepartmentInterest" WHERE "id" = ${id} LIMIT 1`;
+  const existing = rows[0];
   if (!existing) throw new HttpError(404, "Interest record not found.");
-  return prisma.departmentInterest.update({
-    where: { id },
-    data: { status, notes },
-  });
+  const nextStatus = status ?? existing.status;
+  const nextNotes = notes ?? existing.notes;
+  await prisma.$executeRaw`
+    UPDATE "DepartmentInterest"
+    SET "status" = ${nextStatus}, "notes" = ${nextNotes}, "updatedAt" = ${new Date()}
+    WHERE "id" = ${id}
+  `;
+  const updated = await prisma.$queryRaw<InterestRecord[]>`SELECT * FROM "DepartmentInterest" WHERE "id" = ${id} LIMIT 1`;
+  return updated[0];
 }
