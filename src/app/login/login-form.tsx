@@ -46,12 +46,11 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
         <div>
           <h1 className="display text-5xl font-bold leading-tight">Know who is ready. Prove it on the record.</h1>
           <p className="mt-4 max-w-md text-white/70">
-            Training officers open a named daily board. Evaluators sign on a phone. Members already know the next skill.
-            The printed record is what the department keeps.
+            Training officers open a named daily board. Evaluators review skills on a phone. Members already know the next requirement. The department keeps the record.
           </p>
         </div>
         <div className="text-sm text-white/50">
-          {demoAvailable ? "Metro Fire & Rescue is loaded. Walk the station without using a demo login." : "Department access for fire and EMS training divisions."}
+          {demoAvailable ? "Metro Fire sample data is ready. No demo credentials required." : "Department access for fire and EMS training divisions."}
         </div>
       </div>
       <div className="flex items-center justify-center px-6 py-12">
@@ -68,17 +67,20 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
           <h2 className="display text-4xl font-bold text-navy-900">Department access</h2>
           <p className="mt-2 text-navy-500">
             {demoAvailable
-              ? "Walk a live station, or sign in with your department account."
+              ? "Explore the read-only Metro Fire workspace, or sign in with your department account."
               : "Use your department account. Members complete work in their Task Books."}
           </p>
 
           {demoAvailable ? (
             <div className="mt-6 space-y-3 rounded-md border border-navy-200 bg-navy-50 p-4">
-              <div className="text-xs font-bold uppercase tracking-wide text-navy-500">Walk Metro Fire</div>
-              {autoWalk ? <WalkDemoButton walk={autoWalk} auto /> : <WalkDemoButton walk="to" />}
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wide text-navy-500">Explore Metro Fire Demo</div>
+                <p className="mt-1 text-xs text-navy-500">Sample data stays read-only so the walkthrough is clean for every visitor.</p>
+              </div>
+              {autoWalk ? <WalkDemoButton walk={autoWalk} auto /> : <WalkDemoButton walk="to">Training Officer Demo</WalkDemoButton>}
               <div className="grid gap-2 sm:grid-cols-2">
-                <WalkDemoButton walk="member" variant="secondary" />
-                <WalkDemoButton walk="evaluator" variant="secondary" />
+                <WalkDemoButton walk="member" variant="secondary">Firefighter View</WalkDemoButton>
+                <WalkDemoButton walk="evaluator" variant="secondary">Evaluator View</WalkDemoButton>
               </div>
             </div>
           ) : null}
