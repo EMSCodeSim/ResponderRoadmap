@@ -67,15 +67,33 @@ export function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
+const SAFE_CLIENT_STATUSES = new Set([400, 401, 403, 404, 409, 429]);
+
+export function isTechnicalErrorMessage(message: string): boolean {
+  return /prisma|sql|econn|etimedout|database|stack|constraint|invalid `|\.findMany|\.update\(|\.create\(/i.test(
+    message,
+  );
+}
+
+export function publicErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {
+  if (error instanceof HttpError) return error.message;
+  if (typeof error === "object" && error && "status" in error && error instanceof Error) {
+    const status = Number((error as Error & { status: number }).status);
+    if (SAFE_CLIENT_STATUSES.has(status) && !isTechnicalErrorMessage(error.message)) {
+      return error.message;
+    }
+  }
+  return fallback;
+}
+
 export function handleError(error: unknown) {
   if (error instanceof HttpError) {
     return jsonError(error.message, error.status);
   }
   const status = typeof error === "object" && error && "status" in error ? Number(error.status) : 500;
-  const message = error instanceof Error ? error.message : "Unexpected error";
-  if (status === 401 || status === 403 || status === 404) {
-    return jsonError(message, status);
+  if (status === 401 || status === 403 || status === 404 || status === 400 || status === 409 || status === 429) {
+    return jsonError(publicErrorMessage(error, "Request could not be completed."), status);
   }
   console.error(error);
-  return jsonError(message || "Unexpected error", status >= 400 && status < 600 ? status : 500);
+  return jsonError("Something went wrong. Please try again.", status >= 400 && status < 600 ? status : 500);
 }

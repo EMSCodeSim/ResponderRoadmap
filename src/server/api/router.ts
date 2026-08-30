@@ -11,8 +11,9 @@ import * as department from "@/server/services/department";
 import * as memberApp from "@/server/services/memberApp";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
-import { navItemsForRole } from "@/server/permissions";
+import { navItemsForRole, permissionsForRole } from "@/server/permissions";
 import { taskBookAttestationRecord } from "@/lib/taskbook-attestation";
+import { rateLimit } from "@/server/rate-limit";
 import type { Role } from "@/lib/constants";
 
 function match(path: string[], pattern: string) {
@@ -41,11 +42,15 @@ export async function handleApi(req: Request, path: string[]) {
     const q = Object.fromEntries(url.searchParams.entries());
 
     if (method === "POST" && match(path, "auth/login")) {
+      const limited = rateLimit(`login:${req.headers.get("x-forwarded-for") || "local"}`, 12, 15 * 60_000);
+      if (!limited.ok) return jsonError("Too many sign-in attempts. Try again in a few minutes.", 429);
       const body = await readBody(req);
       const result = await auth.login(body.email || "", body.password || "");
       return jsonOk(result);
     }
     if (method === "POST" && match(path, "auth/app-login")) {
+      const limited = rateLimit(`app-login:${req.headers.get("x-forwarded-for") || "local"}`, 12, 15 * 60_000);
+      if (!limited.ok) return jsonError("Too many sign-in attempts. Try again in a few minutes.", 429);
       const body = await readBody(req);
       const result = await auth.login(body.email || "", body.password || "");
       const token = await signSession(result.session);
@@ -66,6 +71,7 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk({
         ...session,
         nav: session.role ? navItemsForRole(session.role) : ["dashboard", "settings"],
+        permissions: session.role ? permissionsForRole(session.role) : [],
       });
     }
 
@@ -166,6 +172,8 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await taskbooks.publishTaskBook(ctx, tbPublish.id, { force: Boolean(body.force) }));
     }
+    const tbArchive = match(path, "task-books/:id/archive");
+    if (method === "POST" && tbArchive) return jsonOk(await taskbooks.archiveTaskBook(ctx, tbArchive.id));
     const tbVersion = match(path, "task-books/:id/new-version");
     if (method === "POST" && tbVersion) return jsonOk(await taskbooks.startNewVersion(ctx, tbVersion.id));
 
@@ -215,6 +223,10 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "POST" && match(path, "credentials")) {
       const body = await readBody(req);
       return jsonOk(await credentials.upsertCredential(ctx, body), 201);
+    }
+    const credDelete = match(path, "credentials/:id");
+    if (method === "DELETE" && credDelete) {
+      return jsonOk(await credentials.deleteCredential(ctx, credDelete.id));
     }
     if (method === "GET" && match(path, "credential-types")) return jsonOk(await credentials.listCredentialTypes(ctx));
     if (method === "POST" && match(path, "credential-types")) {

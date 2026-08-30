@@ -64,6 +64,9 @@ export async function createInvitation(
   input: { email?: string; role?: Role; rank?: string; station?: string; shift?: string },
 ) {
   assertPermission(ctx, "invitations.write");
+  if (input.role === "DEPARTMENT_ADMINISTRATOR" && ctx.role !== "DEPARTMENT_ADMINISTRATOR") {
+    throw new HttpError(403, "Only a Department Administrator can invite another administrator.");
+  }
   const token = randomBytes(18).toString("hex");
   const invitation = await prisma.invitation.create({
     data: {
@@ -187,6 +190,7 @@ export async function updateAccount(
 }
 
 export async function listActivity(ctx: AuthContext, limit = 40) {
+  assertPermission(ctx, "department.read");
   return prisma.activityEvent.findMany({
     where: { departmentId: ctx.departmentId },
     include: { user: true },

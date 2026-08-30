@@ -9,9 +9,12 @@ export async function getDashboard(ctx: AuthContext) {
   if (ctx.role === "MEMBER") {
     return getMemberDashboard(ctx);
   }
+  if (ctx.role === "EVALUATOR") {
+    return getEvaluatorDashboard(ctx);
+  }
   const departmentId = ctx.departmentId;
 
-  const [members, assignments, completions, credentials, events, templates] = await Promise.all([
+  const [members, assignments, completions, returned, credentials, events, templates, draftCount] = await Promise.all([
     prisma.departmentMembership.findMany({
       where: { departmentId, status: "ACTIVE" },
       include: { user: true },
@@ -33,6 +36,16 @@ export async function getDashboard(ctx: AuthContext) {
       },
       orderBy: { submittedAt: "asc" },
     }),
+    prisma.requirementCompletion.findMany({
+      where: { status: "RETURNED", assignment: { departmentId } },
+      include: {
+        membership: { include: { user: true } },
+        requirement: { include: { section: { include: { version: { include: { template: true } } } } } },
+        assignment: true,
+      },
+      orderBy: { submittedAt: "desc" },
+      take: 8,
+    }),
     prisma.credential.findMany({
       where: { departmentId },
       include: { membership: { include: { user: true } } },
@@ -47,6 +60,7 @@ export async function getDashboard(ctx: AuthContext) {
       where: { departmentId, status: "ACTIVE" },
       include: { versions: { include: { _count: { select: { assignments: true } } } } },
     }),
+    prisma.taskBookTemplate.count({ where: { departmentId, status: "DRAFT" } }),
   ]);
 
   const assignmentRows = assignments.map((assignment) => {
@@ -112,6 +126,13 @@ export async function getDashboard(ctx: AuthContext) {
       href: "/certifications?window=expired",
     });
   }
+  if (returned.length) {
+    attention.push({
+      tone: "warn",
+      text: `${returned.length} requirement${returned.length === 1 ? " needs" : "s need"} remediation`,
+      href: "/evaluate?view=remediation",
+    });
+  }
 
   const taskBookProgress = templates.map((template) => {
     const rows = assignmentRows.filter((row) => row.assignment.version.template.id === template.id);
@@ -120,6 +141,7 @@ export async function getDashboard(ctx: AuthContext) {
       id: template.id,
       title: template.title,
       assignedMembers: rows.length,
+      inProgress: rows.filter((row) => row.progress.status === "IN_PROGRESS" || row.progress.status === "NOT_STARTED").length,
       averageProgress: avg,
       complete: rows.filter((row) => row.progress.status === "COMPLETE").length,
       overdue: rows.filter((row) => row.progress.status === "OVERDUE").length,
@@ -149,10 +171,13 @@ export async function getDashboard(ctx: AuthContext) {
         assignmentId: row.assignment.id,
         memberId: row.assignment.membershipId,
         memberName: row.assignment.membership.user.name,
+        rank: row.assignment.membership.rank,
         station: row.assignment.membership.station,
         shift: row.assignment.membership.shift,
         taskBookTitle: row.assignment.version.template.title,
         percent: row.progress.percent,
+        dueDate: row.assignment.dueDate,
+        daysStalled: idleDays,
         reason:
           overdueDays > 0
             ? `${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`
@@ -190,6 +215,7 @@ export async function getDashboard(ctx: AuthContext) {
       awaitingSignOff: completions.length,
       expiringSoon: expiringSoon.length,
       overdueRequirements: overdueAssignments.reduce((sum, row) => sum + row.progress.overdue, 0),
+      overdueTaskBooks: overdueAssignments.length,
       overdueMembers: overdueMembers.size,
       stalledOver30: stalled.length,
       completedThisMonth,
@@ -212,8 +238,26 @@ export async function getDashboard(ctx: AuthContext) {
         href: `/evaluate?focus=${item.id}`,
       })),
       signOffTotal: completions.length,
+      returned: returned.map((item) => ({
+        id: item.id,
+        assignmentId: item.assignmentId,
+        memberId: item.membershipId,
+        memberName: item.membership.user.name,
+        station: item.membership.station,
+        shift: item.membership.shift,
+        requirementTitle: item.requirement.title,
+        taskBookTitle: item.requirement.section.version.template.title,
+        href: `/evaluate?view=remediation&focus=${item.id}`,
+      })),
       followUp,
       dueSoon,
+    },
+    onboarding: {
+      departmentCreated: true,
+      membersInvited: members.length > 1,
+      taskBookCreated: templates.length + draftCount > 0,
+      published: templates.length > 0,
+      assigned: assignmentRows.length > 0,
     },
     attention,
     taskBookProgress,
@@ -228,6 +272,77 @@ export async function getDashboard(ctx: AuthContext) {
 }
 
 export { activityText } from "@/lib/activity";
+
+async function getEvaluatorDashboard(ctx: AuthContext) {
+  const completions = await prisma.requirementCompletion.findMany({
+    where: { status: "SUBMITTED", assignment: { departmentId: ctx.departmentId } },
+    include: {
+      membership: { include: { user: true } },
+      requirement: { include: { section: { include: { version: { include: { template: true } } } } } },
+      assignment: true,
+    },
+    orderBy: { submittedAt: "asc" },
+  });
+  const mine = completions.filter((item) => !item.assignment.evaluatorId || item.assignment.evaluatorId === ctx.userId);
+  const events = await prisma.activityEvent.findMany({
+    where: { departmentId: ctx.departmentId, userId: ctx.userId },
+    include: { user: true },
+    orderBy: { timestamp: "desc" },
+    take: 12,
+  });
+
+  return {
+    evaluator: true,
+    summary: {
+      activeMembers: 0,
+      activeTaskBooks: 0,
+      awaitingSignOff: mine.length,
+      expiringSoon: 0,
+      overdueRequirements: 0,
+      overdueTaskBooks: 0,
+      overdueMembers: 0,
+      stalledOver30: 0,
+      completedThisMonth: 0,
+      membersAssigned: 0,
+      averageCompletion: 0,
+    },
+    today: {
+      signOffs: mine.slice(0, 12).map((item) => ({
+        id: item.id,
+        assignmentId: item.assignmentId,
+        memberId: item.membershipId,
+        memberName: item.membership.user.name,
+        station: item.membership.station,
+        shift: item.membership.shift,
+        requirementTitle: item.requirement.title,
+        taskBookTitle: item.requirement.section.version.template.title,
+        submittedAt: item.submittedAt,
+        href: `/evaluate?focus=${item.id}`,
+      })),
+      signOffTotal: mine.length,
+      returned: [],
+      followUp: [],
+      dueSoon: [],
+    },
+    attention: mine.length
+      ? [
+          {
+            tone: "info",
+            text: `${mine.length} skill${mine.length === 1 ? "" : "s"} waiting for your evaluation`,
+            href: "/evaluate",
+          },
+        ]
+      : [],
+    taskBookProgress: [],
+    recentActivity: events.map((event) => ({
+      id: event.id,
+      type: event.type,
+      timestamp: event.timestamp,
+      actorName: event.user?.name ?? null,
+      metadata: parseMeta(event.metadataJson),
+    })),
+  };
+}
 
 async function getMemberDashboard(ctx: AuthContext) {
   const [assignments, credentials, events] = await Promise.all([

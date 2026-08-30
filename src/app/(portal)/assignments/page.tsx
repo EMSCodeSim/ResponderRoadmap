@@ -120,7 +120,7 @@ function AssignmentsInner() {
   const [rows, setRows] = useState<Assignment[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
-  const [books, setBooks] = useState<Array<{ id: string; title: string; status: string }>>([]);
+  const [books, setBooks] = useState<Array<{ id: string; title: string; status: string; version?: string }>>([]);
   const [sessionRole, setSessionRole] = useState<string | null>(null);
   const [sessionName, setSessionName] = useState("");
   const [open, setOpen] = useState(false);
@@ -144,21 +144,24 @@ function AssignmentsInner() {
     allMembers: false,
   });
   const [memberQuery, setMemberQuery] = useState("");
+  const [confirmAssign, setConfirmAssign] = useState(false);
 
   async function load() {
-    const [assignmentRows, signOffs, memberPayload, taskBooks, session] = await Promise.all([
-      api<Assignment[]>("assignments"),
+    const session = await api<SessionInfo & { permissions?: string[] }>("auth/me");
+    setSessionRole(session.role);
+    setSessionName(session.name || "Authorized reviewer");
+    const canLoadRoster = Boolean(session.permissions?.includes("members.read"));
+    const canLoadBooks = Boolean(session.permissions?.includes("taskbooks.read"));
+    const [assignmentRows, signOffs, memberPayload, taskBooks] = await Promise.all([
+      api<Assignment[]>("assignments").catch(() => [] as Assignment[]),
       api<QueueItem[]>("sign-offs"),
-      api<{ members: MemberOption[] }>("members"),
-      api<Array<{ id: string; title: string; status: string }>>("task-books"),
-      api<SessionInfo>("auth/me"),
+      canLoadRoster ? api<{ members: MemberOption[] }>("members") : Promise.resolve({ members: [] as MemberOption[] }),
+      canLoadBooks ? api<Array<{ id: string; title: string; status: string; version?: string }>>("task-books") : Promise.resolve([]),
     ]);
     setRows(assignmentRows);
     setQueue(signOffs);
     setMembers(memberPayload.members);
     setBooks(taskBooks);
-    setSessionRole(session.role);
-    setSessionName(session.name || "Authorized reviewer");
   }
 
   useEffect(() => {
@@ -208,9 +211,26 @@ function AssignmentsInner() {
     setError(null);
   }
 
+  const selectedBook = books.find((book) => book.id === form.templateId);
+  const previewCount = form.allMembers
+    ? members.filter((member) => member.status === "ACTIVE").length
+    : form.membershipIds.length ||
+      members.filter((member) => {
+        if (member.status !== "ACTIVE") return false;
+        if (form.rank && member.rank !== form.rank) return false;
+        if (form.station && member.station !== form.station) return false;
+        if (form.shift && member.shift !== form.shift) return false;
+        return Boolean(form.rank || form.station || form.shift);
+      }).length;
+  const needsConfirm = previewCount >= 5 || form.allMembers;
+
   async function createAssignment() {
     if (!hasTarget) {
       setError("Choose individual members, a rank/station/shift group, or explicitly select the entire department.");
+      return;
+    }
+    if (needsConfirm && !confirmAssign) {
+      setConfirmAssign(true);
       return;
     }
     try {
@@ -229,6 +249,7 @@ function AssignmentsInner() {
         }.`,
       );
       setOpen(false);
+      setConfirmAssign(false);
       resetForm();
       await load();
     } catch (err) {
@@ -790,10 +811,25 @@ function AssignmentsInner() {
           <p className="mt-3 text-sm font-semibold text-amber-700">
             Choose at least one member/group target, or explicitly select the entire department.
           </p>
+        ) : selectedBook ? (
+          <p className="mt-3 text-sm font-semibold text-navy-800">
+            You are assigning {selectedBook.title}
+            {selectedBook.version ? ` v${selectedBook.version}` : ""} to {previewCount} member{previewCount === 1 ? "" : "s"}.
+          </p>
+        ) : null}
+
+        {confirmAssign && needsConfirm ? (
+          <div className="mt-3 rounded-md border border-warn bg-warn-soft p-3 text-sm">
+            <p className="font-semibold">Confirm this group assignment before it is created.</p>
+            <label className="mt-2 flex items-center gap-2">
+              <input type="checkbox" checked={confirmAssign} readOnly />
+              I understand this assigns the published version to {previewCount} members.
+            </label>
+          </div>
         ) : null}
 
         <Button className="mt-4" onClick={createAssignment} disabled={!form.templateId || !hasTarget}>
-          Assign
+          {needsConfirm && !confirmAssign ? "Review assignment" : "Assign Task Book"}
         </Button>
       </Modal>
     </div>

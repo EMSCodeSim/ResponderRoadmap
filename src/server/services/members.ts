@@ -364,6 +364,35 @@ export async function updateMember(
   if (!membership) throw new HttpError(404, "Member not found.");
   if (input.role && input.role !== membership.role) {
     assertPermission(ctx, "roles.write");
+    if (input.role === "DEPARTMENT_ADMINISTRATOR" && ctx.role !== "DEPARTMENT_ADMINISTRATOR") {
+      throw new HttpError(403, "Only a Department Administrator can grant administrator access.");
+    }
+    if (membership.role === "DEPARTMENT_ADMINISTRATOR" && input.role !== "DEPARTMENT_ADMINISTRATOR") {
+      const remainingAdmins = await prisma.departmentMembership.count({
+        where: {
+          departmentId: ctx.departmentId,
+          role: "DEPARTMENT_ADMINISTRATOR",
+          status: "ACTIVE",
+          id: { not: membership.id },
+        },
+      });
+      if (remainingAdmins === 0) {
+        throw new HttpError(400, "A department must keep at least one active Department Administrator.");
+      }
+    }
+  }
+  if (input.status && input.status !== "ACTIVE" && membership.role === "DEPARTMENT_ADMINISTRATOR") {
+    const remainingAdmins = await prisma.departmentMembership.count({
+      where: {
+        departmentId: ctx.departmentId,
+        role: "DEPARTMENT_ADMINISTRATOR",
+        status: "ACTIVE",
+        id: { not: membership.id },
+      },
+    });
+    if (remainingAdmins === 0) {
+      throw new HttpError(400, "A department must keep at least one active Department Administrator.");
+    }
   }
   const updated = await prisma.departmentMembership.update({
     where: { id: membership.id },

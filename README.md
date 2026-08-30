@@ -46,10 +46,16 @@ Join code: **NFR-4821**
 - Next.js App Router UI
 - Tenant-scoped services in `src/server/services`
 - Permissions enforced in services, not only in navigation
-- SQLite via Prisma for local/dev (`DATABASE_URL=file:./dev.db`)
+- PostgreSQL via Prisma (see `docs/DATABASE.md` and `docs/ENVIRONMENT.md`)
 - Task Book templates are independent from assignments; assignments pin a published version
 - Credentials are independent from Task Books
 - `PersonalCredential` / `PersonalCareerLog` are never returned by department APIs
+
+## Database
+
+Development: `npx prisma migrate dev` then `npm run db:seed` (local only).
+
+Production: `node scripts/migrate-deploy.mjs` then build. Do not run seed or `db push --force-reset` against production.
 
 ## API
 

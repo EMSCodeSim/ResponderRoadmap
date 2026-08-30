@@ -106,12 +106,19 @@ export async function upsertCredential(
     notes: input.notes?.trim() || "",
   };
 
-  const record = input.id
-    ? await prisma.credential.update({
-        where: { id: input.id },
-        data,
-      })
-    : await prisma.credential.create({ data });
+  let record;
+  if (input.id) {
+    const existing = await prisma.credential.findFirst({
+      where: { id: input.id, departmentId: ctx.departmentId, membershipId: membership.id },
+    });
+    if (!existing) throw new HttpError(404, "Credential not found.");
+    record = await prisma.credential.update({
+      where: { id: existing.id },
+      data,
+    });
+  } else {
+    record = await prisma.credential.create({ data });
+  }
 
   await writeAudit(ctx, input.id ? "credential.updated" : "credential.created", "Credential", record.id, {
     memberId: membership.id,
@@ -149,4 +156,29 @@ export async function listCredentialTypes(ctx: AuthContext) {
     where: { departmentId: ctx.departmentId },
     orderBy: [{ isCustom: "asc" }, { name: "asc" }],
   });
+}
+
+export async function deleteCredential(ctx: AuthContext, credentialId: string) {
+  assertPermission(ctx, "credentials.write");
+  const existing = await prisma.credential.findFirst({
+    where: { id: credentialId, departmentId: ctx.departmentId },
+    include: { membership: { include: { user: true } } },
+  });
+  if (!existing) throw new HttpError(404, "Credential not found.");
+  await prisma.credential.delete({ where: { id: existing.id } });
+  await writeAudit(ctx, "credential.deleted", "Credential", existing.id, {
+    memberId: existing.membershipId,
+    name: existing.credentialName,
+  });
+  await writeActivity(ctx.departmentId, "CREDENTIAL_UPDATED", {
+    userId: existing.membership.userId,
+    referenceId: existing.id,
+    metadata: {
+      memberName: existing.membership.user.name,
+      credential: existing.credentialName,
+      actorName: ctx.name,
+      deleted: true,
+    },
+  });
+  return { ok: true };
 }

@@ -74,7 +74,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <BrandMark size={36} />
           <span className="display text-lg font-bold">ResponderRoadmap</span>
         </div>
-        <button className="rounded-md p-2 hover:bg-navy-800" onClick={() => setOpen((value) => !value)} aria-label="Menu">
+        <button
+          className="min-h-11 min-w-11 rounded-md p-2 hover:bg-navy-800"
+          onClick={() => setOpen((value) => !value)}
+          aria-label={open ? "Close navigation" : "Open navigation"}
+          aria-expanded={open}
+          aria-controls="department-nav"
+        >
           {open ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
@@ -92,7 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Department Portal</div>
           </div>
         </div>
-        <nav className="flex-1 space-y-1 overflow-auto px-3 py-4">
+        <nav id="department-nav" className="flex-1 space-y-1 overflow-auto px-3 py-4" aria-label="Department">
           {nav.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
@@ -101,6 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
+                aria-current={active ? "page" : undefined}
                 className={cx(
                   "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold",
                   active ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white",
