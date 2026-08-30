@@ -67,7 +67,7 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
           <h2 className="display text-4xl font-bold text-navy-900">Department access</h2>
           <p className="mt-2 text-navy-500">
             {demoAvailable
-              ? "Explore the read-only Metro Fire workspace, or sign in with your department account."
+              ? "Explore ResponderRoadmap with Metro Fire sample data, or sign in with your department account."
               : "Use your department account. Members complete work in their Task Books."}
           </p>
 
@@ -75,7 +75,7 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
             <div className="mt-6 space-y-3 rounded-md border border-navy-200 bg-navy-50 p-4">
               <div>
                 <div className="text-xs font-bold uppercase tracking-wide text-navy-500">Explore Metro Fire Demo</div>
-                <p className="mt-1 text-xs text-navy-500">Sample data stays read-only so the walkthrough is clean for every visitor.</p>
+                <p className="mt-1 text-xs text-navy-500">Use the same workflows a department would use with sample Metro Fire records.</p>
               </div>
               {autoWalk ? <WalkDemoButton walk={autoWalk} auto /> : <WalkDemoButton walk="to">Training Officer Demo</WalkDemoButton>}
               <div className="grid gap-2 sm:grid-cols-2">
