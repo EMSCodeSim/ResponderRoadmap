@@ -4,7 +4,7 @@ import { WalkDemoButton } from "@/components/walk-demo";
 
 const PREVIEW = [
   {
-    title: "Sign these off",
+    title: "Waiting on sign-off",
     count: "4",
     tone: "warn" as const,
     rows: [
@@ -61,23 +61,29 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               <span className="block text-white/80">Prove it on the record.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-white/70">
-              Build a qualification Task Book in minutes. Evaluate on a phone at the bay. Print an official record the
-              chief can stand behind — and see who is stalled before the shift starts.
+              Build qualification Task Books, evaluate skills in the field, track certifications, and keep a department record without turning training into an LMS project.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:max-w-md">
               {demoAvailable ? (
                 <>
-                  <WalkDemoButton walk="to" />
-                  <WalkDemoButton walk="member" variant="secondary" className="[&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-white [&_button]:hover:bg-white/10" />
-                  <p className="text-sm text-white/50">Live Metro Fire &amp; Rescue station. No signup. Training officer first.</p>
+                  <WalkDemoButton walk="to">Start Training Officer Demo</WalkDemoButton>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <WalkDemoButton walk="member" variant="secondary" className="[&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-white [&_button]:hover:bg-white/10">
+                      Firefighter View
+                    </WalkDemoButton>
+                    <WalkDemoButton walk="evaluator" variant="secondary" className="[&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-white [&_button]:hover:bg-white/10">
+                      Evaluator View
+                    </WalkDemoButton>
+                  </div>
+                  <p className="text-sm text-white/50">No signup. Sample Metro Fire data. Read-only so every visitor sees a clean demo.</p>
                 </>
               ) : (
                 <>
                   <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold hover:bg-fire-dark">
-                    Join the Pilot
+                    Pilot Access
                   </Link>
-                  <Link href="/login" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-sm font-semibold text-white hover:bg-white/10">
-                    Sign in
+                  <Link href="/department-interest?source=landing-no-demo" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-sm font-semibold text-white hover:bg-white/10">
+                    Join Founding Department List
                   </Link>
                 </>
               )}
@@ -122,7 +128,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               ))}
             </div>
             <p className="mt-3 text-xs text-white/40">
-              This is the board a training officer opens. Walk Metro Fire and the names become live work.
+              Start as the Training Officer. The demo opens directly to this operational board with realistic members, Task Books, sign-offs, expirations, and reports.
             </p>
           </div>
         </section>
@@ -131,18 +137,18 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-3">
             <Pitch
               step="01"
-              title="Build the book in minutes"
-              body="Start from Probationary Firefighter, Driver / Operator, Officer I, or a blank book. Add JPRs, critical failures, evidence, and a multi-level sign-off path. Duplicate a published book. Assign a shift."
+              title="See the daily board"
+              body="Start with names, not spreadsheet counts. See waiting sign-offs, overdue members, stalled progress, expiring certifications, and active Task Books immediately."
             />
             <Pitch
               step="02"
-              title="Evaluate in the field"
-              body="Large PASS / NEEDS REMEDIATION controls. Checklists a lieutenant can complete on a phone between calls. Attempts stay append-only. Remediation is a path, not a lost row in a spreadsheet."
+              title="Open the field workflow"
+              body="Move from a member to the exact requirement and evaluation record an officer would use at the station. The demo keeps sample records locked so the workflow stays predictable."
             />
             <Pitch
               step="03"
-              title="Prove it on paper"
-              body="Print an official record. Members already know what is next. Training officers see names — not “50 overdue requirements.” The assignment stays pinned to the published version."
+              title="Finish with the record"
+              body="Open reports and printable records to see what the department can retain: progress, certifications, attempts, evaluators, and approval history."
             />
           </div>
         </section>
@@ -153,23 +159,21 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/45">Why departments buy this</p>
               <h2 className="display mt-2 text-4xl font-bold">The binder never told you who was stalled.</h2>
               <p className="mt-4 text-white/70">
-                Neither did the LMS. Fire and EMS qualifications live in Task Books: a member demonstrates a skill, an
-                evaluator signs, a supervisor can countersign, and the department keeps a record that survives audit,
-                grievance, and turnover.
+                Fire and EMS qualifications live in Task Books: a member demonstrates a skill, an evaluator reviews it, a supervisor can countersign, and the department keeps a record that survives turnover.
               </p>
               <blockquote className="mt-6 border-l-4 border-fire pl-4 text-lg text-white/85">
                 If I cannot tell you who is stalled before the shift starts, the book is just a binder.
               </blockquote>
-              <p className="mt-2 text-sm text-white/45">Training officer, Metro Fire demonstration</p>
+              <p className="mt-2 text-sm text-white/45">Metro Fire demonstration workflow</p>
             </div>
             <ul className="space-y-3">
               {[
-                ["Creation speed", "A usable book in a sitting — not a six-week LMS build."],
-                ["Field evaluation", "Phone-sized. Station language. Critical fails stop the attempt."],
-                ["Official record", "Print what was signed, by whom, at which approval level."],
-                ["What’s next", "Members do not hunt the packet. The next skill is already named."],
-                ["Versioned books", "Publish once. Existing assignments stay on that version."],
-                ["Not an LMS", "No course catalog. No SCORM. Task Books, sign-offs, and readiness."],
+                ["Creation speed", "Build a usable Task Book without setting up a course catalog."],
+                ["Field evaluation", "Phone-sized workflow built around the evaluator and the skill."],
+                ["Official record", "Keep what was evaluated, by whom, and at which approval level."],
+                ["What’s next", "Members can see the next requirement without hunting through a packet."],
+                ["Versioned books", "Published assignments stay tied to the version they were issued."],
+                ["Department visibility", "Training officers see people who need action, not just totals."],
               ].map(([title, body]) => (
                 <li key={title} className="rounded-md border border-white/10 bg-navy-900 px-4 py-3">
                   <div className="font-semibold">{title}</div>
@@ -183,25 +187,19 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         <section className="border-t border-white/10">
           <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-5 py-14 md:flex-row md:items-center">
             <div>
-              <h2 className="display text-4xl font-bold">Spend three minutes in a live station.</h2>
+              <h2 className="display text-4xl font-bold">Give it three minutes.</h2>
               <p className="mt-2 max-w-xl text-white/65">
-                Sign someone off. Follow up a stalled firefighter. Print the record. If that is the job you already do,
-                this is the product.
+                Open the daily board. Follow a member into a Task Book. Review the evaluation queue. Finish with the department record. No account setup required.
               </p>
             </div>
             <div className="flex w-full max-w-sm flex-col gap-3">
-              {demoAvailable ? (
-                <>
-                  <WalkDemoButton walk="to" />
-                  <Link href="/register" className="text-center text-sm font-semibold text-white/70 hover:text-white">
-                    Join the founding pilot
-                  </Link>
-                </>
-              ) : (
-                <Link href="/register" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold hover:bg-fire-dark">
-                  Join the Pilot
-                </Link>
-              )}
+              {demoAvailable ? <WalkDemoButton walk="to">Start the Demo</WalkDemoButton> : null}
+              <Link href="/department-interest?source=landing-bottom" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-center text-sm font-semibold text-white hover:bg-white/10">
+                Join the Founding Department List
+              </Link>
+              <Link href="/register" className="text-center text-sm font-semibold text-white/60 hover:text-white">
+                Pilot access is invite-only
+              </Link>
             </div>
           </div>
         </section>
