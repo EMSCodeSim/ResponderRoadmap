@@ -87,23 +87,10 @@ function ReportsInner() {
             <Link
               key={id}
               href={`/reports?type=${id}`}
-              className={`rounded-md px-3 py-2 text-sm font-semibold ${active ? "bg-navy-900" : "border border-navy-200 bg-white"}`}
-              style={
-                active
-                  ? {
-                      color: "#ffffff",
-                      WebkitTextFillColor: "#ffffff",
-                      backgroundColor: "#0c1524",
-                    }
-                  : {
-                      color: "#0c1524",
-                      WebkitTextFillColor: "#0c1524",
-                      backgroundColor: "#ffffff",
-                    }
-              }
+              className={`rounded-md px-3 py-2 text-sm font-semibold ${active ? "bg-fire text-white hover:bg-fire-dark" : "border border-navy-200 bg-white text-navy-900 hover:bg-navy-50"}`}
               aria-current={active ? "page" : undefined}
             >
-              <span style={{ color: "inherit", WebkitTextFillColor: "inherit" }}>{label}</span>
+              {label}
             </Link>
           );
         })}
