@@ -101,15 +101,20 @@ export default function DepartmentInterestPage() {
           </p>
 
           <div className="mt-8 rounded-lg border border-white/10 bg-navy-900 p-5">
-            <div className="text-sm font-semibold text-white/55">Planned department pricing</div>
+            <div className="text-sm font-semibold text-white/55">Founding Department pricing</div>
             <div className="display mt-1 text-3xl font-bold">$500/year</div>
-            <p className="mt-1 text-white/65">Up to 50 active members, then $24 per additional active member per year.</p>
+            <p className="mt-1 text-white/65">Up to 75 active members. No setup fee. No per-user overages.</p>
             <ul className="mt-5 space-y-2 text-sm text-white/70">
-              <li>• Department Task Books and assignments</li>
-              <li>• Field evaluation and sign-off workflow</li>
+              <li>• Unlimited Department Task Books and assignments</li>
+              <li>• Unlimited evaluators and administrators</li>
+              <li>• Field evaluation, sign-off, and electronic attestation workflow</li>
               <li>• Certification and progress oversight</li>
               <li>• Department records, reports, and exports</li>
+              <li>• All current department features included</li>
             </ul>
+            <p className="mt-5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/80">
+              Founding Department pricing stays locked at $500/year while the subscription remains active.
+            </p>
           </div>
         </section>
 
@@ -145,7 +150,7 @@ export default function DepartmentInterestPage() {
               <div>
                 <div className="kicker">20-second signup</div>
                 <h2 className="display mt-1 text-3xl font-bold">Founding Department Interest</h2>
-                <p className="mt-1 text-sm text-navy-500">Tell us enough to know whether the department plan fits your agency.</p>
+                <p className="mt-1 text-sm text-navy-500">Tell us enough to know whether the Founding Department plan fits your agency.</p>
               </div>
 
               {error ? <div className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div> : null}
@@ -176,7 +181,7 @@ export default function DepartmentInterestPage() {
               </div>
 
               <fieldset>
-                <legend className="mb-2 text-sm font-semibold text-navy-800">Would you consider the planned $500/year department plan?</legend>
+                <legend className="mb-2 text-sm font-semibold text-navy-800">Would you consider the $500/year Founding Department plan for up to 75 active members?</legend>
                 <div className="grid grid-cols-2 gap-3">
                   <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-navy-200 px-3 text-sm font-semibold hover:bg-navy-50">
                     <input type="radio" name="buyingIntent" value="YES" required /> Yes
@@ -193,7 +198,7 @@ export default function DepartmentInterestPage() {
 
               <label className="flex items-start gap-3 rounded-md bg-navy-50 p-3 text-sm text-navy-700">
                 <input name="consent" type="checkbox" required className="mt-1" />
-                <span>Yes, contact me when ResponderRoadmap department memberships become available.</span>
+                <span>Yes, contact me about Founding Department access and ResponderRoadmap launch.</span>
               </label>
 
               <Button type="submit" disabled={submitting} className="w-full">
