@@ -82,13 +82,21 @@ export default function DepartmentInterestPage() {
   return (
     <div className="min-h-screen bg-navy-950 text-white">
       <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-4">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4">
           <Link href="/">
             <BrandLockup size={42} subtitle="Task Books for Fire & EMS" />
           </Link>
-          <Link href="/login" className="rounded-md px-3 py-2 text-sm font-semibold text-white/75 hover:bg-white/10 hover:text-white">
-            Sign in
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/" className="rounded-md px-3 py-2 text-sm font-semibold text-white/75 hover:bg-white/10 hover:text-white">
+              Back to ResponderRoadmap
+            </Link>
+            <Link href="/demo" className="rounded-md px-3 py-2 text-sm font-semibold text-white/75 hover:bg-white/10 hover:text-white">
+              Return to Demo
+            </Link>
+            <Link href="/login" className="rounded-md px-3 py-2 text-sm font-semibold text-white/75 hover:bg-white/10 hover:text-white">
+              Sign in
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -99,6 +107,13 @@ export default function DepartmentInterestPage() {
           <p className="mt-5 text-lg text-white/70">
             Join the list and we will contact you when paid department access is ready. No account, payment, or commitment is required today.
           </p>
+
+          <div className="mt-6 rounded-lg border border-fire/30 bg-fire/10 p-4">
+            <div className="text-sm font-semibold text-white">Questions or need more information?</div>
+            <p className="mt-1 text-sm text-white/70">
+              Email <a className="font-semibold text-white underline decoration-fire underline-offset-4" href="mailto:EMSCodeSim@gmail.com?subject=ResponderRoadmap%20Information">EMSCodeSim@gmail.com</a> and we’ll help with pricing, setup, or a department walkthrough.
+            </p>
+          </div>
 
           <div className="mt-8 rounded-lg border border-white/10 bg-navy-900 p-5">
             <div className="text-sm font-semibold text-white/55">Founding Department pricing</div>
@@ -143,6 +158,11 @@ export default function DepartmentInterestPage() {
                 <Button type="button" onClick={() => void requestWalkthrough()} disabled={walkthroughBusy || walkthroughRequested}>
                   {walkthroughRequested ? "Walkthrough Requested" : walkthroughBusy ? "Requesting…" : "Request 15-Min Walkthrough"}
                 </Button>
+              </div>
+              <div className="mx-auto mt-3 max-w-md">
+                <Link href="/" className="inline-flex min-h-10 items-center justify-center px-4 text-sm font-semibold text-navy-600 hover:text-navy-900">
+                  Back to ResponderRoadmap
+                </Link>
               </div>
             </div>
           ) : (
@@ -205,6 +225,11 @@ export default function DepartmentInterestPage() {
                 {submitting ? "Saving…" : "Join the Founding Department List"}
               </Button>
               <p className="text-center text-xs text-navy-400">No marketing newsletter. This list is for department-access launch and follow-up.</p>
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-navy-100 pt-4 text-sm">
+                <Link href="/" className="font-semibold text-navy-600 hover:text-navy-900">Back to ResponderRoadmap</Link>
+                <Link href="/demo" className="font-semibold text-navy-600 hover:text-navy-900">Return to Demo</Link>
+                <a href="mailto:EMSCodeSim@gmail.com?subject=ResponderRoadmap%20Information" className="font-semibold text-fire hover:text-fire-dark">Email EMSCodeSim@gmail.com</a>
+              </div>
             </form>
           )}
         </section>
