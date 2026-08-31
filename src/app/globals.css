@@ -50,6 +50,33 @@ button, input, select, textarea { font: inherit; }
   outline-offset: 2px;
 }
 
+/* Legacy selected/highlighted controls used navy as their active background.
+   Keep every interactive selected state on-brand and guarantee readable text
+   across desktop, tablet, mobile, Safari, and WebKit text rendering. */
+a[class*="bg-navy-900"],
+button[class*="bg-navy-900"],
+[role="button"][class*="bg-navy-900"] {
+  background-color: var(--color-fire) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  border-color: var(--color-fire) !important;
+}
+
+a[class*="bg-navy-900"]:hover,
+button[class*="bg-navy-900"]:hover,
+[role="button"][class*="bg-navy-900"]:hover {
+  background-color: var(--color-fire-dark) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+a[class*="bg-navy-900"] *,
+button[class*="bg-navy-900"] *,
+[role="button"][class*="bg-navy-900"] * {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
 .display {
   font-family: var(--font-barlow), "Barlow Condensed", sans-serif;
   letter-spacing: 0.02em;
@@ -122,15 +149,6 @@ button, input, select, textarea { font: inherit; }
   select,
   textarea {
     -webkit-tap-highlight-color: transparent;
-  }
-
-  /* Legacy dark active states can render as blank black controls on iOS Safari.
-     Keep mobile interactive states on-brand and force readable labels. */
-  a[class*="bg-navy-900"],
-  button[class*="bg-navy-900"] {
-    background-color: var(--color-fire) !important;
-    color: #fff !important;
-    -webkit-text-fill-color: #fff !important;
   }
 
   .input,
