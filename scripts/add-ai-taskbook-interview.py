@@ -163,3 +163,5 @@ s = s.replace(old, new, 1)
 
 p.write_text(s)
 print('AI Task Book personalization interview added')
+
+# Trigger marker: 2026-08-31
