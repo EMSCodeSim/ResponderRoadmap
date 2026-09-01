@@ -1,0 +1,31 @@
+name: Apply focused AI workflow tools
+
+on:
+  push:
+    paths:
+      - "scripts/add-ai-workflow-tools.py"
+      - ".github/workflows/apply-ai-workflow-tools.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply AI workflow tools
+        run: python scripts/add-ai-workflow-tools.py
+      - name: Commit generated AI tools
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/'(portal)'/task-books/'[id]'/page.tsx src/app/'(portal)'/evaluate/page.tsx src/app/'(portal)'/dashboard/page.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Add focused AI task book workflow tools"
+          git push origin main
