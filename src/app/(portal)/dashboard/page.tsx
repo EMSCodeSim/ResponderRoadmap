@@ -7,6 +7,11 @@ import { activityText } from "@/lib/activity";
 import { Badge, Button, Card, PageHeader, ProgressBar } from "@/components/ui";
 import { daysRemainingLabel, relativeTime } from "@/lib/dates";
 
+type AiDraft = {
+  description: string;
+  sections: Array<{ title: string; requirements: Array<{ title?: string; description?: string }> }>;
+};
+
 type TodayItem = {
   id?: string;
   assignmentId?: string;
@@ -70,10 +75,40 @@ function place(item: TodayItem) {
 export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aiBrief, setAiBrief] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
 
   useEffect(() => {
     api<Dashboard>("dashboard").then(setData).catch((err) => setError(err.message));
   }, []);
+
+  async function generateDepartmentBrief() {
+    if (!data || data.personal) return;
+    setAiBusy(true);
+    setError(null);
+    try {
+      const facts = {
+        summary: data.summary,
+        attention: data.attention.map((item) => item.text),
+        today: data.today ? {
+          signOffs: data.today.signOffs.map((item) => ({ member: item.memberName, skill: item.requirementTitle, book: item.taskBookTitle })),
+          followUp: data.today.followUp.map((item) => ({ member: item.memberName, book: item.taskBookTitle, progress: item.percent, reason: item.reason })),
+          dueSoon: data.today.dueSoon.map((item) => ({ member: item.memberName, book: item.taskBookTitle, dueDate: item.dueDate })),
+        } : null,
+        taskBooks: data.taskBookProgress,
+      };
+      const draft = await api<AiDraft>("task-books/ai/draft", {
+        method: "POST",
+        body: JSON.stringify({ prompt: `Write a concise Training Officer department brief using ONLY the facts below. Do not infer performance problems that are not supported. Lead with what needs action today, then identify useful patterns and the next 3 priorities. Put the main brief in the description. Use sections only for Action today, Watch, and Positive movement. Do not create policy or compliance claims.\n\n${JSON.stringify(facts).slice(0, 18000)}` }),
+      });
+      const bullets = draft.sections.flatMap((section) => section.requirements.map((req) => `${section.title}: ${req.title || ""}${req.description ? ` — ${req.description}` : ""}`));
+      setAiBrief([draft.description, ...bullets].filter(Boolean).join("\n"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create department brief.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   if (error) return <p className="text-danger">{error}</p>;
   if (!data) return <p className="text-navy-500">Loading dashboard…</p>;
@@ -109,6 +144,22 @@ export default function DashboardPage() {
       />
 
       {data.personal ? <ProofRail data={data} /> : null}
+
+      {!data.personal ? (
+        <Card className="mb-6 border-fire/30 bg-fire-soft/30 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="kicker text-fire">AI Training Officer Brief</div>
+              <h2 className="display mt-1 text-2xl font-bold text-navy-900">Summarize what needs attention</h2>
+              <p className="mt-1 text-sm text-navy-600">Uses the dashboard facts already calculated by ResponderRoadmap. AI summarizes; it does not determine compliance or change records.</p>
+            </div>
+            <Button variant="secondary" onClick={generateDepartmentBrief} disabled={aiBusy}>
+              {aiBusy ? "Summarizing…" : aiBrief ? "Refresh AI Brief" : "Generate AI Brief"}
+            </Button>
+          </div>
+          {aiBrief ? <div className="mt-4 whitespace-pre-line rounded-md border border-navy-200 bg-white p-4 text-sm leading-6 text-navy-700">{aiBrief}</div> : null}
+        </Card>
+      ) : null}
 
       <div className={`grid gap-3 ${data.personal ? "sm:grid-cols-2 xl:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
         {data.personal ? (

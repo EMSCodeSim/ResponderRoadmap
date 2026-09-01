@@ -75,6 +75,16 @@ type Section = {
   requirements: Requirement[];
 };
 
+type AiDraft = {
+  title: string;
+  description: string;
+  sections: Array<{
+    title: string;
+    description: string;
+    requirements: Array<Partial<Requirement>>;
+  }>;
+};
+
 type Book = {
   id: string;
   title: string;
@@ -188,6 +198,8 @@ export default function TaskBookBuilderPage() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [aiToolBusy, setAiToolBusy] = useState(false);
+  const [aiReviewText, setAiReviewText] = useState("");
   const [dirty, setDirty] = useState(false);
   const [editorTab, setEditorTab] = useState<"basics" | "evaluation" | "signoff" | "standards">("basics");
   const [quickEntry, setQuickEntry] = useState("");
@@ -405,6 +417,92 @@ export default function TaskBookBuilderPage() {
     setMessage(`Updated ${selectedIds.length} requirements.`);
   }
 
+  async function askTaskBookAi(prompt: string) {
+    return api<AiDraft>("task-books/ai/draft", {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    });
+  }
+
+  async function improveRequirementWithAi() {
+    if (!currentReq || !current) return;
+    setAiToolBusy(true);
+    setError(null);
+    try {
+      const draft = await askTaskBookAi(`Improve one Fire/EMS Task Book requirement. Return exactly one section with exactly one requirement. Keep the task's intent but make it measurable, field-friendly, and evaluator-ready. Add concise instructions, 2-5 objectives, useful evaluation steps, and only genuine safety-critical failures. Do not invent standards.
+
+Task Book: ${title}
+Section: ${current.title}
+Task title: ${currentReq.title}
+Description: ${currentReq.description}
+Instructions: ${currentReq.instructions}`);
+      const suggestion = draft.sections[0]?.requirements[0];
+      if (!suggestion) throw new Error("AI did not return a usable requirement.");
+      updateReq({
+        title: suggestion.title || currentReq.title,
+        description: suggestion.description || currentReq.description,
+        instructions: suggestion.instructions || currentReq.instructions,
+        objectives: Array.isArray(suggestion.objectives) ? suggestion.objectives.filter((x): x is string => typeof x === "string") : currentReq.objectives,
+        evaluationSteps: Array.isArray(suggestion.evaluationSteps) ? suggestion.evaluationSteps.map((step, index) => ({ id: typeof step?.id === "string" ? step.id : `ai-step-${index}-${uid()}`, text: typeof step?.text === "string" ? step.text : "" })).filter((step) => step.text) : currentReq.evaluationSteps,
+        criticalFailures: Array.isArray(suggestion.criticalFailures) ? suggestion.criticalFailures.map((item, index) => ({ id: typeof item?.id === "string" ? item.id : `ai-fail-${index}-${uid()}`, text: typeof item?.text === "string" ? item.text : "" })).filter((item) => item.text) : currentReq.criticalFailures,
+      });
+      setMessage("AI improved this task. Review the wording and evaluation criteria before saving.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to improve this task.");
+    } finally {
+      setAiToolBusy(false);
+    }
+  }
+
+  async function generateChecklistWithAi() {
+    if (!currentReq || !current) return;
+    setAiToolBusy(true);
+    setError(null);
+    try {
+      const draft = await askTaskBookAi(`Create an evaluator checklist for exactly one existing Fire/EMS Task Book skill. Return exactly one section with one requirement. Keep the title unchanged. The evaluationSteps must be 4-8 short, observable actions in logical order. Add critical failures only for genuinely unsafe or disqualifying actions. Do not invent standards.
+
+Task Book: ${title}
+Section: ${current.title}
+Skill: ${currentReq.title}
+Description: ${currentReq.description}
+Instructions: ${currentReq.instructions}`);
+      const suggestion = draft.sections[0]?.requirements[0];
+      if (!suggestion || !Array.isArray(suggestion.evaluationSteps)) throw new Error("AI did not return a checklist.");
+      updateReq({
+        evaluationSteps: suggestion.evaluationSteps.map((step, index) => ({ id: typeof step?.id === "string" ? step.id : `ai-step-${index}-${uid()}`, text: typeof step?.text === "string" ? step.text : "" })).filter((step) => step.text),
+        criticalFailures: Array.isArray(suggestion.criticalFailures) ? suggestion.criticalFailures.map((item, index) => ({ id: typeof item?.id === "string" ? item.id : `ai-fail-${index}-${uid()}`, text: typeof item?.text === "string" ? item.text : "" })).filter((item) => item.text) : currentReq.criticalFailures,
+      });
+      setEditorTab("evaluation");
+      setMessage("AI checklist added. Review each evaluation step before saving.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to generate checklist.");
+    } finally {
+      setAiToolBusy(false);
+    }
+  }
+
+  async function reviewBookWithAi() {
+    setAiToolBusy(true);
+    setError(null);
+    setAiReviewText("");
+    try {
+      const compactBook = sections.map((section) => ({
+        section: section.title,
+        tasks: section.requirements.map((req) => ({ title: req.title, description: req.description, instructions: req.instructions, objectives: req.objectives, evaluationSteps: req.evaluationSteps.map((step) => step.text), signOff: req.evaluatorSignOffRequired, approvalPath: req.approvalPath })),
+      }));
+      const draft = await askTaskBookAi(`Act as a Task Book quality reviewer, not a compliance authority. Review the draft below for vague tasks, duplicate tasks, missing or weak evaluation criteria, inconsistent sign-off/approval choices, poor sequencing, and sections that appear incomplete. Do not claim NFPA, legal, state, or department compliance. Put a concise executive review in the Task Book description. Then create sections named High priority, Improve, and Looks good, with each finding represented as a requirement title plus a short description. Do not rewrite the original book.
+
+${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: compactBook }).slice(0, 24000)}`);
+      const findings = draft.sections.flatMap((section) => section.requirements.map((req) => `${section.title}: ${req.title}${req.description ? ` — ${req.description}` : ""}`));
+      setAiReviewText([draft.description, ...findings].filter(Boolean).join("
+"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to review this Task Book.");
+    } finally {
+      setAiToolBusy(false);
+    }
+  }
+
   async function assign() {
     try {
       const result = await api<{ created: number; skipped: number }>("assignments", {
@@ -457,6 +555,9 @@ export default function TaskBookBuilderPage() {
                 <Button variant="secondary" onClick={saveDraft} disabled={busy}>
                   Save draft
                 </Button>
+                <Button variant="secondary" onClick={reviewBookWithAi} disabled={busy || aiToolBusy}>
+                  {aiToolBusy ? "AI working…" : "AI Review"}
+                </Button>
                 <Button onClick={() => setReviewOpen(true)} disabled={busy}>
                   Review & publish
                 </Button>
@@ -470,6 +571,19 @@ export default function TaskBookBuilderPage() {
       <div className="mb-3">
         <Flash message={message} tone="current" />
       </div>
+      {aiReviewText ? (
+        <Card className="mb-4 border-fire/30 bg-fire-soft/40 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="kicker text-fire">AI Task Book Review</div>
+              <h2 className="display mt-1 text-2xl font-bold text-navy-900">Review suggestions</h2>
+            </div>
+            <Button variant="ghost" onClick={() => setAiReviewText("")}>Close</Button>
+          </div>
+          <div className="mt-3 whitespace-pre-line text-sm leading-6 text-navy-700">{aiReviewText}</div>
+          <p className="mt-3 text-xs text-navy-500">AI review is an editing aid, not a compliance determination. A Training Officer must verify all official requirements.</p>
+        </Card>
+      ) : null}
       <div className="mb-4 flex flex-wrap gap-2">
         {book.versions.map((version) => (
           <Badge key={version.id} tone={version.status === "PUBLISHED" ? "current" : version.status === "DRAFT" ? "warn" : "neutral"}>
@@ -684,6 +798,20 @@ export default function TaskBookBuilderPage() {
         <Card className="p-4">
           {currentReq ? (
             <div className="space-y-3">
+              {!draftLocked ? (
+                <div className="rounded-md border border-fire/30 bg-fire-soft/40 p-3">
+                  <div className="text-xs font-bold uppercase tracking-wide text-fire">AI task tools</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={improveRequirementWithAi} disabled={aiToolBusy || !currentReq.title.trim()}>
+                      {aiToolBusy ? "AI working…" : "Improve This Task"}
+                    </Button>
+                    <Button variant="secondary" onClick={generateChecklistWithAi} disabled={aiToolBusy || !currentReq.title.trim()}>
+                      Generate Evaluation Checklist
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-navy-500">Suggestions update the draft only. Review before saving or publishing.</p>
+                </div>
+              ) : null}
               <div className="flex flex-wrap gap-1">
                 {(["basics", "evaluation", "signoff", "standards"] as const).map((tab) => (
                   <button

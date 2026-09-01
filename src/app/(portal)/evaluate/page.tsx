@@ -9,6 +9,11 @@ import { STEP_RATING_LABELS, STEP_RATINGS } from "@/lib/constants";
 import { TASKBOOK_ATTESTATION_TEXT } from "@/lib/taskbook-attestation";
 import { Button, Card, EmptyState, Field, Flash, PageHeader, TextArea } from "@/components/ui";
 
+type AiDraft = {
+  description: string;
+  sections: Array<{ requirements: Array<{ title?: string; description?: string; instructions?: string; objectives?: string[] }> }>;
+};
+
 type QueueItem = {
   id: string;
   assignmentId: string;
@@ -42,6 +47,8 @@ function EvaluateInner() {
   const [steps, setSteps] = useState<Record<string, string>>({});
   const [critical, setCritical] = useState<string[]>([]);
   const [attested, setAttested] = useState(false);
+  const [remediationSuggestion, setRemediationSuggestion] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,6 +73,27 @@ function EvaluateInner() {
     // Reset field controls when the selected submission changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
+
+  async function suggestRemediation() {
+    if (!selected) return;
+    setAiBusy(true);
+    setError(null);
+    try {
+      const draft = await api<AiDraft>("task-books/ai/draft", {
+        method: "POST",
+        body: JSON.stringify({
+          prompt: `Create a short remediation coaching plan for a firefighter/EMS Task Book skill. Do not decide pass/fail and do not invent policy or standards. Base the plan only on the skill, evaluator notes, marked critical failures, and prior attempts below. Put a concise coaching summary in the description and return one requirement whose instructions contain the practice plan and whose objectives contain 2-4 reassessment goals.\n\nMember: ${selected.memberName}\nTask Book: ${selected.taskBookTitle}\nSkill: ${selected.requirementTitle}\nInstructions: ${selected.instructions}\nCurrent evaluator comments: ${note || "None yet"}\nTriggered critical failures: ${critical.join(", ") || "None marked"}\nPrevious attempts: ${JSON.stringify(selected.attempts).slice(0, 8000)}`,
+        }),
+      });
+      const req = draft.sections[0]?.requirements[0];
+      const text = [draft.description, req?.instructions, ...(req?.objectives || []).map((item) => `• ${item}`)].filter(Boolean).join("\n");
+      setRemediationSuggestion(text || "No remediation suggestion was returned.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to create remediation suggestion.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   async function evaluate(result: "APPROVED" | "NEEDS_REMEDIATION" | "NOT_EVALUATED") {
     if (!selected) return;
@@ -235,6 +263,21 @@ function EvaluateInner() {
                   </ul>
                 </div>
               ) : null}
+              <div className="mt-5 rounded-md border border-fire/30 bg-fire-soft/40 p-3">
+                <div className="text-xs font-bold uppercase tracking-wide text-fire">AI Remediation Assistant</div>
+                <p className="mt-1 text-sm text-navy-600">Draft coaching and reassessment ideas from this skill and its recorded attempts. The evaluator remains responsible for the remediation decision.</p>
+                <Button className="mt-3" variant="secondary" onClick={suggestRemediation} disabled={aiBusy}>
+                  {aiBusy ? "Drafting…" : "Suggest Remediation Plan"}
+                </Button>
+                {remediationSuggestion ? (
+                  <div className="mt-3 rounded-md border border-navy-200 bg-white p-3">
+                    <div className="whitespace-pre-line text-sm leading-6 text-navy-700">{remediationSuggestion}</div>
+                    <Button className="mt-3" variant="secondary" onClick={() => setNote((current) => current ? `${current}\n\n${remediationSuggestion}` : remediationSuggestion)}>
+                      Add to Evaluator Comments
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
               <Field label="Evaluator comments">
                 <TextArea value={note} onChange={(e) => setNote(e.target.value)} />
               </Field>
