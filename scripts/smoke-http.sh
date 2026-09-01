@@ -99,10 +99,12 @@ if [[ -n "$SIGNOFF_ID" ]]; then
 fi
 ok 'evaluator role and queue access'
 
-# AI routes must fail cleanly with structured JSON when CI has no OpenAI key.
+# AI tools are Training Officer features. Switch back to an authorized role and verify
+# that the route returns structured JSON even when CI intentionally has no OpenAI key.
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}' | $JQ '.data.session.role == "TRAINING_OFFICER"' >/dev/null
 AI_CODE=$(curl -sS -b "$COOKIE" -c "$COOKIE" -H 'Content-Type: application/json' -o /tmp/rr-ai.json -w '%{http_code}' -X POST "$BASE/api/v1/task-books/ai/draft" -d '{"prompt":"Create a simple QA firefighter task book for smoke testing."}')
 [[ "$AI_CODE" == "503" || "$AI_CODE" == "400" || "$AI_CODE" == "200" ]] || { cat /tmp/rr-ai.json; echo "Unexpected AI route status: $AI_CODE"; exit 1; }
 jq -e 'has("error") or has("data")' /tmp/rr-ai.json >/dev/null
-ok 'AI route returns structured response'
+ok 'AI route permission and structured response'
 
 echo 'ResponderRoadmap HTTP smoke test passed.'
