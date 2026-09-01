@@ -20,7 +20,9 @@ export type AiTaskBookDraft = {
       evaluatorSignOffRequired: boolean;
       supervisorApprovalRequired: boolean;
       repetitionsRequired: number;
+      objectives: string[];
       evaluationSteps: Array<{ id: string; text: string }>;
+      criticalFailures: Array<{ id: string; text: string }>;
       standards: Array<{
         id: string;
         organization: string;
@@ -81,7 +83,20 @@ const schema = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["title", "description", "instructions", "sortOrder", "isRequired", "evaluatorSignOffRequired", "supervisorApprovalRequired", "repetitionsRequired", "evaluationSteps", "standards"],
+              required: [
+                "title",
+                "description",
+                "instructions",
+                "sortOrder",
+                "isRequired",
+                "evaluatorSignOffRequired",
+                "supervisorApprovalRequired",
+                "repetitionsRequired",
+                "objectives",
+                "evaluationSteps",
+                "criticalFailures",
+                "standards",
+              ],
               properties: {
                 title: { type: "string" },
                 description: { type: "string" },
@@ -91,7 +106,20 @@ const schema = {
                 evaluatorSignOffRequired: { type: "boolean" },
                 supervisorApprovalRequired: { type: "boolean" },
                 repetitionsRequired: { type: "integer" },
+                objectives: {
+                  type: "array",
+                  items: { type: "string" },
+                },
                 evaluationSteps: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["id", "text"],
+                    properties: { id: { type: "string" }, text: { type: "string" } },
+                  },
+                },
+                criticalFailures: {
                   type: "array",
                   items: {
                     type: "object",
@@ -178,7 +206,7 @@ async function requestDraft(input: OpenAiInputMessage[]) {
   }
 }
 
-const developerInstruction = `You create editable Fire/EMS department Task Book drafts for ResponderRoadmap. Organize practical sections and requirements that a training officer can review. Do not claim that content is NFPA, NREMT, state, legal, regulatory, or department compliant unless the supplied source explicitly says so. Never invent a standard citation. Any standard reference you cannot verify directly from supplied material must be omitted. Keep all output as a draft for human review. Use evaluator sign-off for skill demonstrations when appropriate and supervisor approval only when a final supervisory check is clearly useful.`;
+const developerInstruction = `You create editable Fire/EMS department Task Book drafts for ResponderRoadmap. Organize practical sections and requirements that a training officer can review. Do not claim that content is NFPA, NREMT, state, legal, regulatory, or department compliant unless the supplied source explicitly says so. Never invent a standard citation. Any standard reference you cannot verify directly from supplied material must be omitted. Keep all output as a draft for human review. Use evaluator sign-off for skill demonstrations when appropriate and supervisor approval only when a final supervisory check is clearly useful. For each requirement, include concise objectives, observable evaluation steps, and critical failures only when an action would be genuinely unsafe or disqualifying.`;
 
 export async function generateTaskBookDraft(ctx: AuthContext, prompt: string) {
   assertPermission(ctx, "taskbooks.write");
@@ -193,7 +221,7 @@ export async function generateTaskBookDraft(ctx: AuthContext, prompt: string) {
       content: [
         {
           type: "input_text",
-          text: `Create a practical department Task Book draft from this request:\n\n${request}\n\nUse concise requirements, actionable instructions, and evaluation steps. This is a draft and must not auto-publish.`,
+          text: `Create a practical department Task Book draft from this request:\n\n${request}\n\nUse concise requirements, actionable instructions, objectives, and evaluation steps. This is a draft and must not auto-publish.`,
         },
       ],
     },
