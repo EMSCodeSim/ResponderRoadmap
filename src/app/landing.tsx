@@ -60,13 +60,13 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         <section className="mx-auto grid max-w-6xl gap-10 px-5 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:py-16">
           <div>
             <BrandMark size={148} alt="ResponderRoadmap" className="mb-6 shadow-[0_18px_50px_rgba(0,0,0,0.35)]" />
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Built for the station, not an LMS</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Built for the station, not a generic training platform</p>
             <h1 className="display mt-3 text-5xl font-bold leading-[0.95] sm:text-6xl">
               Know who is ready.
               <span className="block text-white/80">Prove it on the record.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-white/70">
-              Build qualification Task Books with AI, import existing PDFs into editable drafts, evaluate skills in the field, track certifications, and keep a department record without turning training into an LMS project.
+              Build qualification Task Books with AI, import existing PDFs into editable drafts, evaluate skills in the field, track certifications, and keep a department record without turning training into a complicated software project.
             </p>
             <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-fire/40 bg-fire/10 px-3 py-1.5 text-sm font-semibold text-white/90">
               <span className="text-fire">AI Task Book Creator</span>
