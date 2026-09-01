@@ -1,0 +1,57 @@
+name: ResponderRoadmap smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/smoke-http.sh
+      - .github/workflows/smoke.yml
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: responderroadmap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/responderroadmap
+      AUTH_SECRET: smoke-only-secret-not-for-production
+      PLATFORM_ADMIN_EMAILS: owner@example.com
+      DEMO_PASSWORD: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma db push
+      - run: npm run db:demo:setup
+      - run: npm test
+      - run: npm run build
+      - name: Start production server
+        run: |
+          nohup npm start >/tmp/responderroadmap-next.log 2>&1 &
+          echo $! >/tmp/responderroadmap-next.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/responderroadmap-next.log
+          exit 1
+      - name: Run HTTP workflow smoke test
+        run: bash scripts/smoke-http.sh
+      - name: Server log on failure
+        if: failure()
+        run: cat /tmp/responderroadmap-next.log || true
