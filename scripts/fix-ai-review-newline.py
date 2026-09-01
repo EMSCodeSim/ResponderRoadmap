@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# One-time generated-code repair for the AI Task Book review display.
 p = Path('src/app/(portal)/task-books/[id]/page.tsx')
 s = p.read_text()
 bad = 'setAiReviewText([draft.description, ...findings].filter(Boolean).join("\n"));'
