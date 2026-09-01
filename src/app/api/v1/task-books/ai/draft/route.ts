@@ -4,6 +4,8 @@ import { handleError, jsonError, jsonOk } from "@/server/http";
 import { getRequestSession, requireDepartmentSession } from "@/server/session";
 import { generateTaskBookDraft } from "@/server/services/taskbook-ai";
 
+export const maxDuration = 60;
+
 async function run(req: Request) {
   try {
     const session = await getRequestSession(req);
