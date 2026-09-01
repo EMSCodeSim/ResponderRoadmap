@@ -284,7 +284,8 @@ export default function NewTaskBookPage() {
                 <TextArea
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
-                  className="min-h-36"
+                  className="min-h-64 w-full text-base leading-relaxed"
+                  rows={10}
                   placeholder="Create a 12-month probationary firefighter Task Book for a combination department. Include station orientation, PPE, apparatus, hose, ladders, SCBA, search, forcible entry, EMS operations, driver familiarization, and final company officer review."
                 />
               </Field>
@@ -326,7 +327,8 @@ export default function NewTaskBookPage() {
                         const key = AI_INTERVIEW_QUESTIONS[aiQuestionIndex].key;
                         setAiAnswers((current) => ({ ...current, [key]: event.target.value }));
                       }}
-                      className="min-h-28"
+                      className="min-h-40 w-full text-base leading-relaxed"
+                      rows={6}
                       placeholder={AI_INTERVIEW_QUESTIONS[aiQuestionIndex].placeholder}
                     />
                   </Field>
