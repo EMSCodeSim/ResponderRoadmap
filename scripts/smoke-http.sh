@@ -6,13 +6,18 @@ JQ='jq -e'
 
 ok() { printf '✓ %s\n' "$1"; }
 json() { curl -fsS -b "$COOKIE" -c "$COOKIE" -H 'Content-Type: application/json' "$@"; }
-status() { curl -sS -o /dev/null -w '%{http_code}' "$@"; }
-expect_200() { local code; code=$(status "$1"); [[ "$code" == "200" ]] || { echo "Expected 200 from $1, got $code"; exit 1; }; ok "$1"; }
+expect_page() {
+  local url="$1"
+  local code
+  code=$(curl -sS -L -b "$COOKIE" -c "$COOKIE" -o /dev/null -w '%{http_code}' "$url")
+  [[ "$code" == "200" ]] || { echo "Expected final 200 from $url, got $code"; exit 1; }
+  ok "$url"
+}
 
 rm -f "$COOKIE"
-expect_200 "$BASE/"
-expect_200 "$BASE/login"
-expect_200 "$BASE/department-interest"
+expect_page "$BASE/"
+expect_page "$BASE/login"
+expect_page "$BASE/department-interest"
 
 # Training Officer perspective
 TO=$(json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}')
@@ -28,7 +33,13 @@ json "$BASE/api/v1/reports/compliance" | $JQ '.data != null' >/dev/null
 json "$BASE/api/v1/credentials" | $JQ '.data != null' >/dev/null
 json "$BASE/api/v1/credential-types" | $JQ '.data != null' >/dev/null
 json "$BASE/api/v1/invitations" | $JQ '.data != null' >/dev/null
-ok 'Training Officer read workflows'
+expect_page "$BASE/dashboard"
+expect_page "$BASE/task-books"
+expect_page "$BASE/assignments"
+expect_page "$BASE/certifications"
+expect_page "$BASE/reports"
+expect_page "$BASE/department"
+ok 'Training Officer read workflows and pages'
 
 STARTERS=$(json "$BASE/api/v1/task-books/starters")
 STARTER_ID=$(echo "$STARTERS" | jq -r '.data[0].id')
@@ -41,6 +52,7 @@ json "$BASE/api/v1/task-books/$BOOK_ID/review" | $JQ '.data != null' >/dev/null
 DUP=$(json -X POST "$BASE/api/v1/task-books/$BOOK_ID/duplicate")
 echo "$DUP" | $JQ '.data.id != null' >/dev/null
 json -X POST "$BASE/api/v1/task-books/$BOOK_ID/publish" -d '{"force":true}' | $JQ '.data != null' >/dev/null
+expect_page "$BASE/task-books/$BOOK_ID"
 ok 'Task Book create, review, duplicate, publish'
 
 MEMBERS=$(json "$BASE/api/v1/members")
@@ -56,19 +68,35 @@ if [[ -n "$ASSIGNMENT_ID" ]]; then
 fi
 ok 'Task Book assignment workflow'
 
-# Member perspective
+# Member perspective and a real requirement submission from seeded demo data.
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
 json "$BASE/api/v1/auth/me" | $JQ '.data.role == "MEMBER"' >/dev/null
 MY=$(json "$BASE/api/v1/app/assignments")
 echo "$MY" | $JQ '.data | type == "array"' >/dev/null
-expect_200 "$BASE/my-task-books"
+expect_page "$BASE/my-task-books"
+MEMBER_ASSIGNMENT_ID=$(echo "$MY" | jq -r '.data[0].id // empty')
+if [[ -n "$MEMBER_ASSIGNMENT_ID" ]]; then
+  DETAIL=$(json "$BASE/api/v1/app/assignments/$MEMBER_ASSIGNMENT_ID")
+  REQ_ID=$(echo "$DETAIL" | jq -r '[.data.sections[].requirements[] | select(.blockedByPrerequisites == false and (.completion == null or .completion.status == "NEEDS_REMEDIATION"))][0].id // empty')
+  if [[ -n "$REQ_ID" ]]; then
+    json -X POST "$BASE/api/v1/app/assignments/$MEMBER_ASSIGNMENT_ID/requirements/$REQ_ID/submit" -d '{"memberNotes":"QA smoke submission","evidenceDescription":"Observed during QA smoke workflow","evidenceType":"SKILL_EVALUATION"}' | $JQ '.data != null' >/dev/null
+    ok 'member requirement submission'
+  fi
+fi
 ok 'member role and assignment access'
 
-# Evaluator perspective
+# Evaluator perspective and a real remediation action against disposable demo data.
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | $JQ '.data.session.role == "EVALUATOR"' >/dev/null
 json "$BASE/api/v1/auth/me" | $JQ '.data.role == "EVALUATOR"' >/dev/null
-json "$BASE/api/v1/sign-offs" | $JQ '.data | type == "array"' >/dev/null
-expect_200 "$BASE/evaluate"
+QUEUE=$(json "$BASE/api/v1/sign-offs")
+echo "$QUEUE" | $JQ '.data | type == "array"' >/dev/null
+expect_page "$BASE/evaluate"
+SIGNOFF_ID=$(echo "$QUEUE" | jq -r '.data[0].id // empty')
+if [[ -n "$SIGNOFF_ID" ]]; then
+  json -X POST "$BASE/api/v1/sign-offs/$SIGNOFF_ID" -d '{"result":"NEEDS_REMEDIATION","notes":"QA smoke remediation check","stepResults":[],"criticalFailuresTriggered":[],"attested":false}' | $JQ '.data != null' >/dev/null
+  json "$BASE/api/v1/sign-offs?view=remediation" | $JQ '.data | type == "array"' >/dev/null
+  ok 'evaluator remediation action'
+fi
 ok 'evaluator role and queue access'
 
 # AI routes must fail cleanly with structured JSON when CI has no OpenAI key.
