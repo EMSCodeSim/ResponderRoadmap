@@ -66,8 +66,12 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               <span className="block text-white/80">Prove it on the record.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-white/70">
-              Build qualification Task Books, evaluate skills in the field, track certifications, and keep a department record without turning training into an LMS project.
+              Build qualification Task Books with AI, import existing PDFs into editable drafts, evaluate skills in the field, track certifications, and keep a department record without turning training into an LMS project.
             </p>
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-fire/40 bg-fire/10 px-3 py-1.5 text-sm font-semibold text-white/90">
+              <span className="text-fire">AI Task Book Creator</span>
+              <span className="text-white/55">Guided follow-up questions · PDF import · Human review</span>
+            </div>
             <div className="mt-8 flex flex-col gap-3 sm:max-w-md">
               {demoAvailable ? (
                 <>
@@ -125,6 +129,34 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           </div>
         </section>
 
+        <section className="border-y border-white/10 bg-navy-900/70">
+          <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">AI Task Book Creator</p>
+              <h2 className="display mt-2 text-4xl font-bold">Turn an idea—or your existing PDF—into a working draft.</h2>
+              <p className="mt-4 text-white/70">
+                Describe the program you need and ResponderRoadmap asks focused follow-up questions about your department, members, timeline, sign-off rules, evidence, and local priorities before building the draft.
+              </p>
+              <p className="mt-3 text-sm text-white/50">
+                Already have a paper or PDF Task Book? Upload it and let the AI Import Assistant convert it into editable sections and requirements. Nothing is published automatically; a Training Officer reviews the draft first.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                ["Guided interview", "The builder asks follow-up questions so the Task Book fits the department instead of producing a generic checklist."],
+                ["PDF → editable draft", "Convert an existing Task Book PDF into ResponderRoadmap sections and requirements without rebuilding it by hand."],
+                ["Department-specific", "Use staffing, apparatus, local priorities, evaluator rules, evidence expectations, and program milestones in the draft."],
+                ["Human review first", "AI creates a draft only. Training staff review, edit, approve, publish, and assign the official Task Book."],
+              ].map(([title, body]) => (
+                <div key={title} className="rounded-md border border-white/10 bg-navy-950/70 p-4">
+                  <div className="font-semibold">{title}</div>
+                  <p className="mt-1 text-sm text-white/60">{body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="border-t border-white/10 bg-navy-900">
           <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-3">
             <Pitch
@@ -160,6 +192,8 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             </div>
             <ul className="space-y-3">
               {[
+                ["AI-assisted creation", "Describe the program, answer a few follow-up questions, and start from a personalized editable draft instead of a blank page."],
+                ["PDF import", "Bring an existing department Task Book into the system without manually rebuilding every section and requirement."],
                 ["Creation speed", "Build a usable Task Book without setting up a course catalog."],
                 ["Field evaluation", "Phone-sized workflow built around the evaluator and the skill."],
                 ["Official record", "Keep what was evaluated, by whom, and at which approval level."],
