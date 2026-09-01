@@ -494,8 +494,7 @@ Instructions: ${currentReq.instructions}`);
 
 ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: compactBook }).slice(0, 24000)}`);
       const findings = draft.sections.flatMap((section) => section.requirements.map((req) => `${section.title}: ${req.title}${req.description ? ` — ${req.description}` : ""}`));
-      setAiReviewText([draft.description, ...findings].filter(Boolean).join("
-"));
+      setAiReviewText([draft.description, ...findings].filter(Boolean).join("\n"));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to review this Task Book.");
     } finally {
