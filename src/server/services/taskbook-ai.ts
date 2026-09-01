@@ -81,18 +81,7 @@ const schema = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: [
-                "title",
-                "description",
-                "instructions",
-                "sortOrder",
-                "isRequired",
-                "evaluatorSignOffRequired",
-                "supervisorApprovalRequired",
-                "repetitionsRequired",
-                "evaluationSteps",
-                "standards",
-              ],
+              required: ["title", "description", "instructions", "sortOrder", "isRequired", "evaluatorSignOffRequired", "supervisorApprovalRequired", "repetitionsRequired", "evaluationSteps", "standards"],
               properties: {
                 title: { type: "string" },
                 description: { type: "string" },
@@ -160,6 +149,8 @@ async function requestDraft(input: OpenAiInputMessage[]) {
     body: JSON.stringify({
       model: process.env.OPENAI_TASKBOOK_MODEL || "gpt-5.6-luna",
       store: false,
+      reasoning: { effort: "low" },
+      max_output_tokens: 12000,
       input,
       text: {
         format: {
@@ -174,7 +165,7 @@ async function requestDraft(input: OpenAiInputMessage[]) {
 
   const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
   if (!response.ok) {
-    const message = payload.error?.message || "AI Task Book generation failed.";
+    const message = payload.error?.message || `OpenAI request failed with status ${response.status}.`;
     throw new HttpError(response.status >= 500 ? 503 : 400, message);
   }
 
@@ -209,10 +200,7 @@ export async function generateTaskBookDraft(ctx: AuthContext, prompt: string) {
   ]);
 }
 
-export async function importPdfTaskBookDraft(
-  ctx: AuthContext,
-  input: { filename?: string; fileData?: string; notes?: string },
-) {
+export async function importPdfTaskBookDraft(ctx: AuthContext, input: { filename?: string; fileData?: string; notes?: string }) {
   assertPermission(ctx, "taskbooks.write");
   const filename = String(input.filename || "taskbook.pdf").slice(0, 180);
   const fileData = String(input.fileData || "");
