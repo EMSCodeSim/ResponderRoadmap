@@ -34,6 +34,28 @@ export type AiTaskBookDraft = {
   }>;
 };
 
+type OpenAiOutputPayload = {
+  output_text?: unknown;
+  output?: Array<{
+    content?: Array<{
+      type?: unknown;
+      text?: unknown;
+    }>;
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+type OpenAiInputContent =
+  | { type: "input_text"; text: string }
+  | { type: "input_file"; filename: string; file_data: string };
+
+type OpenAiInputMessage = {
+  role: "developer" | "user";
+  content: OpenAiInputContent[];
+};
+
 const schema = {
   type: "object",
   additionalProperties: false,
@@ -115,17 +137,17 @@ const schema = {
   },
 };
 
-function outputText(payload: any) {
-  if (typeof payload?.output_text === "string") return payload.output_text;
-  for (const item of payload?.output || []) {
-    for (const part of item?.content || []) {
-      if (part?.type === "output_text" && typeof part.text === "string") return part.text;
+function outputText(payload: OpenAiOutputPayload) {
+  if (typeof payload.output_text === "string") return payload.output_text;
+  for (const item of payload.output || []) {
+    for (const part of item.content || []) {
+      if (part.type === "output_text" && typeof part.text === "string") return part.text;
     }
   }
   return "";
 }
 
-async function requestDraft(input: any[]) {
+async function requestDraft(input: OpenAiInputMessage[]) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new HttpError(503, "AI Task Book tools are not configured yet. Add OPENAI_API_KEY to enable them.");
 
@@ -150,9 +172,9 @@ async function requestDraft(input: any[]) {
     }),
   });
 
-  const payload = await response.json().catch(() => ({}));
+  const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
   if (!response.ok) {
-    const message = payload?.error?.message || "AI Task Book generation failed.";
+    const message = payload.error?.message || "AI Task Book generation failed.";
     throw new HttpError(response.status >= 500 ? 503 : 400, message);
   }
 
