@@ -97,6 +97,7 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
     taskBookTitle: assignment.version.template.title,
     description: assignment.version.template.description,
     category: assignment.version.template.category,
+    assignmentKind: assignment.version.template.templateKind === "TRAINING_TASK" ? "TRAINING_TASK" : "TASK_BOOK",
     templateId: assignment.version.template.id,
     versionId: assignment.version.id,
     version: assignment.version.version,
@@ -128,6 +129,15 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
                 submittedAt: completion.submittedAt,
               })
             : null;
+        const reviewHistory = completion?.signOffs.map((signOff) => ({
+          id: signOff.id,
+          result: signOff.result,
+          notes: signOff.notes,
+          signedAt: signOff.signedAt,
+          evaluatorName: signOff.evaluator.name,
+          approvalLevel: signOff.approvalLevel || "EVALUATOR",
+        })) ?? [];
+        const latestReturn = [...reviewHistory].reverse().find((signOff) => signOff.result === "RETURNED") ?? null;
         return {
           id: requirement.id,
           title: requirement.title,
@@ -160,13 +170,14 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
                 submittedAt: completion.submittedAt,
                 completedAt: completion.completedAt,
                 evidence: completion.evidence,
-                signOffs: completion.signOffs.map((signOff) => ({
-                  id: signOff.id,
-                  result: signOff.result,
-                  notes: signOff.notes,
-                  signedAt: signOff.signedAt,
-                  evaluatorName: signOff.evaluator.name,
-                })),
+                correction: completion.status === "RETURNED" && latestReturn
+                  ? {
+                      notes: latestReturn.notes,
+                      returnedAt: latestReturn.signedAt,
+                      returnedByName: latestReturn.evaluatorName,
+                    }
+                  : null,
+                signOffs: reviewHistory,
               }
             : null,
         };
