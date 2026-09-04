@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import type { AuthContext } from "@/server/permissions";
 import { refreshAssignmentStatus } from "@/server/services/assignments";
+import { notifyUser } from "@/server/services/inbox";
 
 function parseStringArray(value: string): string[] {
   try {
@@ -215,6 +216,7 @@ export async function submitRequirement(
     memberNotes?: string;
     evidenceDescription?: string;
     evidenceType?: string;
+    clientRequestId?: string;
   },
 ) {
   const assignment = await loadOwnAssignment(ctx, assignmentId);
@@ -223,6 +225,22 @@ export async function submitRequirement(
   if (!requirement) throw new HttpError(404, "Requirement not found in this assigned Task Book.");
 
   const existing = assignment.completions.find((item) => item.requirementId === requirement.id) ?? null;
+  const clientRequestId = input.clientRequestId?.trim().slice(0, 120) || null;
+  if (clientRequestId && existing?.lastSubmissionRequestId === clientRequestId) {
+    return {
+      assignment: await getMyAssignment(ctx, assignment.id),
+      receipt: {
+        receiptId: existing.id,
+        clientRequestId,
+        assignmentId: assignment.id,
+        requirementId: requirement.id,
+        status: existing.status,
+        recordedAt: existing.submittedAt,
+        recordedByUserId: ctx.userId,
+        recordedByName: ctx.name,
+      },
+    };
+  }
   const repetitionsRequired = Math.max(1, requirement.repetitionsRequired);
   const currentRepetitionCount = effectiveRepetitionCount(existing);
   if (existing?.status === "APPROVED" && currentRepetitionCount >= repetitionsRequired) {
@@ -270,6 +288,7 @@ export async function submitRequirement(
       submittedAt: now,
       completedAt: !needsReview && fullyRepeated ? now : null,
       repetitionCount: storedRepetitionCount,
+      lastSubmissionRequestId: clientRequestId,
     },
     update: {
       status: nextStatus,
@@ -279,6 +298,7 @@ export async function submitRequirement(
       submittedAt: now,
       completedAt: !needsReview && fullyRepeated ? now : null,
       repetitionCount: storedRepetitionCount,
+      lastSubmissionRequestId: clientRequestId,
     },
   });
 
@@ -319,6 +339,40 @@ export async function submitRequirement(
       },
     },
   );
+  if (needsReview) {
+    const assignedReviewerId = requirement.evaluatorSignOffRequired ? assignment.evaluatorId : assignment.supervisorId;
+    const recipients = assignedReviewerId
+      ? [{ userId: assignedReviewerId }]
+      : await prisma.departmentMembership.findMany({
+          where: { departmentId: ctx.departmentId, status: "ACTIVE", role: { in: ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] } },
+          select: { userId: true },
+        });
+    for (const recipient of recipients) {
+      await notifyUser({
+        departmentId: ctx.departmentId,
+        userId: recipient.userId,
+        type: "EVALUATION_REQUESTED",
+        title: "Evaluation requested",
+        body: `${ctx.name} submitted ${requirement.title} for review.`,
+        referenceType: "RequirementCompletion",
+        referenceId: completion.id,
+        actionPath: "/evaluate",
+        dedupeKey: `evaluation-requested:${completion.id}:${now.toISOString()}`,
+      });
+    }
+  }
 
-  return getMyAssignment(ctx, assignment.id);
+  return {
+    assignment: await getMyAssignment(ctx, assignment.id),
+    receipt: {
+      receiptId: completion.id,
+      clientRequestId,
+      assignmentId: assignment.id,
+      requirementId: requirement.id,
+      status: nextStatus,
+      recordedAt: now,
+      recordedByUserId: ctx.userId,
+      recordedByName: ctx.name,
+    },
+  };
 }

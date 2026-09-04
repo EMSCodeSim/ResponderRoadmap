@@ -95,7 +95,7 @@ export function assertSameDepartment(ctx: AuthContext, departmentId: string): vo
 }
 
 export function navItemsForRole(role: Role): string[] {
-  const items = ["dashboard"];
+  const items = ["dashboard", "inbox"];
   if (role === "MEMBER") {
     items.push("my-task-books");
     items.push("settings");

@@ -9,6 +9,7 @@ import * as dashboard from "@/server/services/dashboard";
 import * as reports from "@/server/services/reports";
 import * as department from "@/server/services/department";
 import * as memberApp from "@/server/services/memberApp";
+import * as inbox from "@/server/services/inbox";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
@@ -101,6 +102,18 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && match(path, "app/assignments")) {
       return jsonOk(await memberApp.listMyAssignments(ctx));
     }
+    if (method === "GET" && match(path, "app/inbox")) return jsonOk(await inbox.getInbox(ctx));
+    const inboxRead = match(path, "app/inbox/:id/read");
+    if (method === "POST" && inboxRead) return jsonOk(await inbox.markRead(ctx, inboxRead.id));
+    if (method === "POST" && match(path, "app/inbox/read-all")) return jsonOk(await inbox.markAllRead(ctx));
+    if (method === "POST" && match(path, "app/push-devices")) {
+      const body = await readBody(req);
+      return jsonOk(await inbox.registerDevice(ctx, body), 201);
+    }
+    if (method === "POST" && match(path, "app/push-devices/unregister")) {
+      const body = await readBody(req);
+      return jsonOk(await inbox.unregisterDevice(ctx, body.token || ""));
+    }
     const appAssignment = match(path, "app/assignments/:id");
     if (method === "GET" && appAssignment) {
       return jsonOk(await memberApp.getMyAssignment(ctx, appAssignment.id));
@@ -113,11 +126,16 @@ export async function handleApi(req: Request, path: string[]) {
           memberNotes: body.memberNotes,
           evidenceDescription: body.evidenceDescription,
           evidenceType: body.evidenceType,
+          clientRequestId: body.clientRequestId,
         }),
       );
     }
 
     if (method === "GET" && match(path, "dashboard")) return jsonOk(await dashboard.getDashboard(ctx));
+    if (method === "GET" && match(path, "inbox")) return jsonOk(await inbox.getInbox(ctx));
+    const portalInboxRead = match(path, "inbox/:id/read");
+    if (method === "POST" && portalInboxRead) return jsonOk(await inbox.markRead(ctx, portalInboxRead.id));
+    if (method === "POST" && match(path, "inbox/read-all")) return jsonOk(await inbox.markAllRead(ctx));
 
     if (method === "GET" && match(path, "members")) return jsonOk(await members.listMembers(ctx, q));
     const memberId = match(path, "members/:id");

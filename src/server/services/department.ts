@@ -27,6 +27,7 @@ export async function updateDepartment(
     contactPhone?: string | null;
     requireApproval?: boolean;
     logoUrl?: string | null;
+    evaluationEscalationHours?: number;
   },
 ) {
   assertPermission(ctx, "department.write");
@@ -44,6 +45,9 @@ export async function updateDepartment(
       contactPhone: input.contactPhone === undefined ? undefined : input.contactPhone,
       requireApproval: input.requireApproval,
       logoUrl: input.logoUrl === undefined ? undefined : input.logoUrl,
+      evaluationEscalationHours: input.evaluationEscalationHours === undefined
+        ? undefined
+        : Math.max(1, Math.min(720, Math.round(input.evaluationEscalationHours))),
     },
   });
   await writeAudit(ctx, "department.updated", "Department", department.id, {});

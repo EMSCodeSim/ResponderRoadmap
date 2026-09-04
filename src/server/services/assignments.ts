@@ -6,6 +6,7 @@ import { computeUpNext, deserializeRequirement, evaluationPasses, nextApprovalLe
 import { reviewStageForRequirement } from "@/lib/signoff";
 import { parseJsonArray, type SignOffResult } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
+import { notifyUser } from "@/server/services/inbox";
 
 const assignmentInclude = {
   membership: { include: { user: true } },
@@ -265,6 +266,17 @@ export async function createAssignments(
         version: version.version,
       },
     });
+    await notifyUser({
+      departmentId: ctx.departmentId,
+      userId: member.userId,
+      type: "ASSIGNMENT_CREATED",
+      title: version.template.templateKind === "TRAINING_TASK" ? "New training assignment" : "New Task Book assigned",
+      body: `${ctx.name} assigned ${version.template.title}${dueDate ? `, due ${dueDate.toLocaleDateString()}` : ""}.`,
+      referenceType: "TaskBookAssignment",
+      referenceId: assignment.id,
+      actionPath: `/department/assignments/${assignment.id}`,
+      dedupeKey: `assignment-created:${assignment.id}`,
+    });
   }
 
   await writeAudit(ctx, "assignment.batch_created", "TaskBookVersion", version.id, {
@@ -521,6 +533,42 @@ export async function reviewSignOff(
       result: verdict.result,
     },
   });
+  await notifyUser({
+    departmentId: ctx.departmentId,
+    userId: completion.membership.userId,
+    type: nextStatus === "RETURNED" ? "SUBMISSION_RETURNED" : nextStatus === "APPROVED" ? "SUBMISSION_APPROVED" : "APPROVAL_PROGRESS",
+    title: nextStatus === "RETURNED" ? "Corrections required" : nextStatus === "APPROVED" ? "Requirement approved" : "Approval recorded",
+    body: nextStatus === "RETURNED"
+      ? `${completion.requirement.title}: ${input.notes?.trim()}`
+      : nextStatus === "APPROVED"
+        ? `${completion.requirement.title} received final approval.`
+        : `${completion.requirement.title} advanced to the next approval level.`,
+    referenceType: "RequirementCompletion",
+    referenceId: completion.id,
+    actionPath: `/department/assignments/${completion.assignmentId}`,
+    dedupeKey: `review:${signOff.id}`,
+  });
+  if (nextStatus === "SUBMITTED" && verdict.passed) {
+    const recipients = completion.assignment.supervisorId
+      ? [{ userId: completion.assignment.supervisorId }]
+      : await prisma.departmentMembership.findMany({
+          where: { departmentId: ctx.departmentId, status: "ACTIVE", role: { in: ["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] } },
+          select: { userId: true },
+        });
+    for (const recipient of recipients) {
+      await notifyUser({
+        departmentId: ctx.departmentId,
+        userId: recipient.userId,
+        type: "SUPERVISOR_APPROVAL_REQUESTED",
+        title: "Supervisor approval requested",
+        body: `${completion.membership.user.name}'s ${completion.requirement.title} is ready for final approval.`,
+        referenceType: "RequirementCompletion",
+        referenceId: completion.id,
+        actionPath: "/evaluate",
+        dedupeKey: `supervisor-requested:${signOff.id}`,
+      });
+    }
+  }
   return { signOff, attempt, status: nextStatus, repetitionCount };
 }
 
@@ -634,6 +682,30 @@ export async function submitRequirement(
       taskBook: assignment.version.template.title,
     },
   });
+  if (needsReview) {
+    const recipientId = requirement.evaluatorSignOffRequired
+      ? input.evaluatorId || assignment.evaluatorId
+      : assignment.supervisorId;
+    const recipients = recipientId
+      ? [{ userId: recipientId }]
+      : await prisma.departmentMembership.findMany({
+          where: { departmentId: ctx.departmentId, status: "ACTIVE", role: { in: REVIEWER_ROLES } },
+          select: { userId: true },
+        });
+    for (const recipient of recipients) {
+      await notifyUser({
+        departmentId: ctx.departmentId,
+        userId: recipient.userId,
+        type: "EVALUATION_REQUESTED",
+        title: "Evaluation requested",
+        body: `${assignment.membership.user.name} submitted ${requirement.title} for review.`,
+        referenceType: "RequirementCompletion",
+        referenceId: completion.id,
+        actionPath: "/evaluate",
+        dedupeKey: `evaluation-requested:${completion.id}:${now.toISOString()}`,
+      });
+    }
+  }
   return getAssignmentDetail(ctx, assignmentId);
 }
 
