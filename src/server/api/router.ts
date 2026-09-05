@@ -10,6 +10,7 @@ import * as reports from "@/server/services/reports";
 import * as department from "@/server/services/department";
 import * as memberApp from "@/server/services/memberApp";
 import * as inbox from "@/server/services/inbox";
+import * as classes from "@/server/services/classes";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
@@ -143,6 +144,30 @@ export async function handleApi(req: Request, path: string[]) {
     const portalInboxRead = match(path, "inbox/:id/read");
     if (method === "POST" && portalInboxRead) return jsonOk(await inbox.markRead(ctx, portalInboxRead.id));
     if (method === "POST" && match(path, "inbox/read-all")) return jsonOk(await inbox.markAllRead(ctx));
+
+    if (method === "GET" && match(path, "classes/setup")) return jsonOk(await classes.getClassSetup(ctx));
+    if (method === "GET" && match(path, "classes")) return jsonOk(await classes.listClasses(ctx));
+    if (method === "POST" && match(path, "classes")) {
+      const body = await readBody(req);
+      return jsonOk(await classes.createClass(ctx, body), 201);
+    }
+    const classStatus = match(path, "classes/:id/status");
+    if (method === "POST" && classStatus) {
+      const body = await readBody(req);
+      return jsonOk(await classes.updateClassStatus(ctx, classStatus.id, body.status));
+    }
+    const classEnrollment = match(path, "classes/:id/roster/:enrollmentId");
+    if (method === "POST" && classEnrollment) {
+      const body = await readBody(req);
+      return jsonOk(await classes.updateEnrollment(ctx, classEnrollment.id, classEnrollment.enrollmentId, body));
+    }
+    const classSkill = match(path, "classes/:id/roster/:enrollmentId/skills/:requirementId");
+    if (method === "POST" && classSkill) {
+      const body = await readBody(req);
+      return jsonOk(await classes.recordSkillResult(ctx, classSkill.id, classSkill.enrollmentId, classSkill.requirementId, body));
+    }
+    const classDetail = match(path, "classes/:id");
+    if (method === "GET" && classDetail) return jsonOk(await classes.getClass(ctx, classDetail.id));
 
     if (method === "GET" && match(path, "members")) return jsonOk(await members.listMembers(ctx, q));
     const memberId = match(path, "members/:id");

@@ -27,6 +27,8 @@ export function activityText(type: string, metadata: Record<string, unknown>, ac
       return `${actor} published ${title} v${String(metadata.version || "")}`.trim();
     case "TASKBOOK_CREATED":
       return `${actor} created Task Book ${title}`;
+    case "CLASS_CREATED":
+      return `${actor} created class ${title}${metadata.rosterCount ? ` for ${String(metadata.rosterCount)} students` : ""}`;
     case "NOTE_ADDED":
       return `${actor} added a training note`;
     case "MEMBER_JOINED":

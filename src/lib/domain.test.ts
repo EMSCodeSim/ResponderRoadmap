@@ -13,6 +13,19 @@ describe("bumpVersion", () => {
   });
 });
 
+describe("class roster permissions", () => {
+  it("lets evaluators proctor assigned classes without creating rosters", () => {
+    expect(hasPermission("EVALUATOR", "classes.read")).toBe(true);
+    expect(hasPermission("EVALUATOR", "classes.proctor")).toBe(true);
+    expect(hasPermission("EVALUATOR", "classes.write")).toBe(false);
+  });
+
+  it("lets training officers create rosters and record results", () => {
+    expect(hasPermission("TRAINING_OFFICER", "classes.write")).toBe(true);
+    expect(hasPermission("TRAINING_OFFICER", "classes.proctor")).toBe(true);
+  });
+});
+
 describe("credentialStatus", () => {
   const now = new Date("2026-08-28T12:00:00Z");
 
