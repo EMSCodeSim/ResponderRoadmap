@@ -19,7 +19,7 @@ Pass these values as protected `--dart-define` values during iOS and Android bui
 - `FIREBASE_MESSAGING_SENDER_ID`
 - `FIREBASE_IOS_BUNDLE_ID` (iOS only; defaults to `com.fireopssim.careerroadmap`)
 
-For iOS, upload the APNs authentication key to the Firebase project and enable Push Notifications plus Background Modes / Remote notifications for the App Store identifier. The repository includes the production APNs entitlement and background mode.
+For iOS, upload the APNs authentication key to the Firebase project and enable Push Notifications for the signed App Store target and provisioning profile. The repository includes Background Modes / Remote notifications, but intentionally does not commit a production `aps-environment` entitlement so unsigned CI builds continue to work.
 
 For Android, register the production package name in the same Firebase project. Notification permission is requested by `firebase_messaging` on supported Android versions.
 
