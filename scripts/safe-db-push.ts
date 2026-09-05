@@ -57,6 +57,55 @@ const checks: ConstraintCheck[] = [
       LIMIT 20
     `,
   },
+  {
+    label: "InboxNotification userId/dedupeKey",
+    table: "InboxNotification",
+    requiredColumns: ["userId", "dedupeKey"],
+    duplicateQuery: `
+      SELECT "userId", "dedupeKey", COUNT(*)::int AS "count"
+      FROM "InboxNotification"
+      WHERE "dedupeKey" IS NOT NULL
+      GROUP BY "userId", "dedupeKey"
+      HAVING COUNT(*) > 1
+      LIMIT 20
+    `,
+  },
+  {
+    label: "TrainingClassEnrollment classId/membershipId",
+    table: "TrainingClassEnrollment",
+    requiredColumns: ["classId", "membershipId"],
+    duplicateQuery: `
+      SELECT "classId", "membershipId", COUNT(*)::int AS "count"
+      FROM "TrainingClassEnrollment"
+      GROUP BY "classId", "membershipId"
+      HAVING COUNT(*) > 1
+      LIMIT 20
+    `,
+  },
+  {
+    label: "TrainingClassProctor classId/userId",
+    table: "TrainingClassProctor",
+    requiredColumns: ["classId", "userId"],
+    duplicateQuery: `
+      SELECT "classId", "userId", COUNT(*)::int AS "count"
+      FROM "TrainingClassProctor"
+      GROUP BY "classId", "userId"
+      HAVING COUNT(*) > 1
+      LIMIT 20
+    `,
+  },
+  {
+    label: "TrainingClassSkillResult enrollmentId/requirementId",
+    table: "TrainingClassSkillResult",
+    requiredColumns: ["enrollmentId", "requirementId"],
+    duplicateQuery: `
+      SELECT "enrollmentId", "requirementId", COUNT(*)::int AS "count"
+      FROM "TrainingClassSkillResult"
+      GROUP BY "enrollmentId", "requirementId"
+      HAVING COUNT(*) > 1
+      LIMIT 20
+    `,
+  },
 ];
 
 async function existingColumns(table: string) {
