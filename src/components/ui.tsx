@@ -114,10 +114,22 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
   );
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+export function Field({
+  label,
+  hint,
+  required = false,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  required?: boolean;
+  children: ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-semibold text-navy-800">{label}</span>
+      <span className="mb-1 block text-sm font-semibold text-navy-800">
+        {label}{required ? <span aria-hidden="true"> *</span> : null}
+      </span>
       {children}
       {hint ? <span className="mt-1 block text-xs text-navy-400">{hint}</span> : null}
     </label>
