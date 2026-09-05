@@ -15,6 +15,19 @@ function parseStringArray(value: string): string[] {
   }
 }
 
+function parseEvaluationSteps(value: string): Array<{ id: string; text: string }> {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (step): step is { id: string; text: string } =>
+        Boolean(step) && typeof step.id === "string" && typeof step.text === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
 function effectiveRepetitionCount(completion: { status: string; repetitionCount: number } | null | undefined) {
   if (!completion) return 0;
   return Math.max(0, completion.repetitionCount, completion.status === "APPROVED" ? 1 : 0);
@@ -162,6 +175,7 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
           estimatedMinutes: requirement.estimatedMinutes,
           tags: parseStringArray(requirement.tagsJson),
           objectives: parseStringArray(requirement.objectivesJson),
+          evaluationSteps: parseEvaluationSteps(requirement.evaluationStepsJson),
           completion: completion
             ? {
                 id: completion.id,
@@ -206,6 +220,20 @@ export async function listMyAssignments(ctx: AuthContext) {
 
 export async function getMyAssignment(ctx: AuthContext, assignmentId: string) {
   return serializeAssignment(await loadOwnAssignment(ctx, assignmentId));
+}
+
+export async function listMyEvaluators(ctx: AuthContext) {
+  await assertActiveMembership(ctx);
+  const people = await prisma.departmentMembership.findMany({
+    where: {
+      departmentId: ctx.departmentId,
+      status: "ACTIVE",
+      role: { in: ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
+    },
+    include: { user: true },
+    orderBy: { user: { name: "asc" } },
+  });
+  return people.map((item) => ({ id: item.userId, name: item.user.name, role: item.role }));
 }
 
 type SharedCertificationInput = {
@@ -371,6 +399,9 @@ export async function submitRequirement(
     evidenceDescription?: string;
     evidenceType?: string;
     clientRequestId?: string;
+    evaluatorId?: string;
+    checkedStepIds?: string[];
+    memberAttested?: boolean;
   },
 ) {
   const assignment = await loadOwnAssignment(ctx, assignmentId);
@@ -421,6 +452,28 @@ export async function submitRequirement(
 
   const submittedRepetition = Math.min(repetitionsRequired, currentRepetitionCount + 1);
   const needsReview = requirement.evaluatorSignOffRequired || requirement.supervisorApprovalRequired;
+  const evaluationSteps = parseEvaluationSteps(requirement.evaluationStepsJson);
+  if (input.memberAttested !== true) {
+    throw new HttpError(400, "Confirm that you completed this requirement before requesting evaluation.");
+  }
+  const checkedStepIds = new Set(Array.isArray(input.checkedStepIds) ? input.checkedStepIds : []);
+  if (evaluationSteps.some((step) => !checkedStepIds.has(step.id))) {
+    throw new HttpError(400, "Check off every task step before requesting evaluation.");
+  }
+  let requestedEvaluatorId: string | null = null;
+  if (requirement.evaluatorSignOffRequired) {
+    requestedEvaluatorId = input.evaluatorId?.trim() || "";
+    if (!requestedEvaluatorId) throw new HttpError(400, "Choose an approved evaluator.");
+    const approved = await prisma.departmentMembership.findFirst({
+      where: {
+        departmentId: ctx.departmentId,
+        userId: requestedEvaluatorId,
+        status: "ACTIVE",
+        role: { in: ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
+      },
+    });
+    if (!approved) throw new HttpError(400, "The selected evaluator is not approved for this department.");
+  }
   const storedRepetitionCount = needsReview ? currentRepetitionCount : submittedRepetition;
   const nextStatus = needsReview ? "SUBMITTED" : "APPROVED";
   const fullyRepeated = storedRepetitionCount >= repetitionsRequired;
@@ -443,6 +496,7 @@ export async function submitRequirement(
       completedAt: !needsReview && fullyRepeated ? now : null,
       repetitionCount: storedRepetitionCount,
       lastSubmissionRequestId: clientRequestId,
+      requestedEvaluatorId,
     },
     update: {
       status: nextStatus,
@@ -453,6 +507,7 @@ export async function submitRequirement(
       completedAt: !needsReview && fullyRepeated ? now : null,
       repetitionCount: storedRepetitionCount,
       lastSubmissionRequestId: clientRequestId,
+      requestedEvaluatorId,
     },
   });
 
@@ -475,6 +530,7 @@ export async function submitRequirement(
     approvedRepetitions: storedRepetitionCount,
     repetitionsRequired,
     status: nextStatus,
+    requestedEvaluatorId,
   });
   await writeActivity(
     ctx.departmentId,
@@ -494,7 +550,7 @@ export async function submitRequirement(
     },
   );
   if (needsReview) {
-    const assignedReviewerId = requirement.evaluatorSignOffRequired ? assignment.evaluatorId : assignment.supervisorId;
+    const assignedReviewerId = requirement.evaluatorSignOffRequired ? requestedEvaluatorId : assignment.supervisorId;
     const recipients = assignedReviewerId
       ? [{ userId: assignedReviewerId }]
       : await prisma.departmentMembership.findMany({
