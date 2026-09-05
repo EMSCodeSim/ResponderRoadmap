@@ -103,6 +103,9 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && match(path, "app/assignments")) {
       return jsonOk(await memberApp.listMyAssignments(ctx));
     }
+    if (method === "GET" && match(path, "app/evaluators")) {
+      return jsonOk(await memberApp.listMyEvaluators(ctx));
+    }
     if (method === "GET" && match(path, "app/inbox")) return jsonOk(await inbox.getInbox(ctx));
     const inboxRead = match(path, "app/inbox/:id/read");
     if (method === "POST" && inboxRead) return jsonOk(await inbox.markRead(ctx, inboxRead.id));
@@ -135,6 +138,9 @@ export async function handleApi(req: Request, path: string[]) {
           evidenceDescription: body.evidenceDescription,
           evidenceType: body.evidenceType,
           clientRequestId: body.clientRequestId,
+          evaluatorId: body.evaluatorId,
+          checkedStepIds: body.checkedStepIds,
+          memberAttested: body.memberAttested,
         }),
       );
     }
