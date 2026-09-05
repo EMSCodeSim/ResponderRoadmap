@@ -15,8 +15,8 @@ function schemaConnectionUrl() {
   // operations need a direct connection. Neon direct endpoints use the same
   // URL with the `-pooler` suffix removed from the hostname.
   const url = new URL(pooled);
-  if (url.hostname.endsWith("-pooler.neon.tech")) {
-    url.hostname = url.hostname.replace(/-pooler\.neon\.tech$/, ".neon.tech");
+  if (url.hostname.endsWith(".neon.tech") && url.hostname.includes("-pooler.")) {
+    url.hostname = url.hostname.replace("-pooler.", ".");
     return url.toString();
   }
 
