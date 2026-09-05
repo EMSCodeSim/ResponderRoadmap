@@ -16,52 +16,61 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships          DepartmentMembership[]
-  createdDepartments   Department[]             @relation("DepartmentCreator")
-  ownedTaskBooks       TaskBookTemplate[]       @relation("TaskBookOwner")
-  assignmentsCreated   TaskBookAssignment[]     @relation("AssignedBy")
-  assignmentsEvaluating TaskBookAssignment[]    @relation("AssignmentEvaluator")
+  memberships            DepartmentMembership[]
+  createdDepartments     Department[]           @relation("DepartmentCreator")
+  ownedTaskBooks         TaskBookTemplate[]     @relation("TaskBookOwner")
+  assignmentsCreated     TaskBookAssignment[]   @relation("AssignedBy")
+  assignmentsEvaluating  TaskBookAssignment[]   @relation("AssignmentEvaluator")
   assignmentsSupervising TaskBookAssignment[]   @relation("AssignmentSupervisor")
-  signOffs             SignOff[]
-  evaluationAttempts   EvaluationAttempt[]
-  activityEvents       ActivityEvent[]
-  auditLogs            AuditLog[]               @relation("AuditActor")
-  notesAuthored        MemberNote[]             @relation("NoteAuthor")
-  invitationsSent      Invitation[]             @relation("InvitationSender")
-  personalCredentials  PersonalCredential[]
-  personalLogs         PersonalCareerLog[]
+  signOffs               SignOff[]
+  evaluationAttempts     EvaluationAttempt[]
+  activityEvents         ActivityEvent[]
+  auditLogs              AuditLog[]             @relation("AuditActor")
+  notesAuthored          MemberNote[]           @relation("NoteAuthor")
+  invitationsSent        Invitation[]           @relation("InvitationSender")
+  personalCredentials    PersonalCredential[]
+  personalLogs           PersonalCareerLog[]
+  inboxNotifications     InboxNotification[]
+  pushDevices            PushDevice[]
+  classesCreated         TrainingClass[]          @relation("ClassCreator")
+  classProctorLinks      TrainingClassProctor[]
+  classSkillResults      TrainingClassSkillResult[] @relation("ClassEvaluator")
 }
 
 /// Department-controlled organization. Tenant root for all department queries.
 model Department {
-  id               String   @id @default(cuid())
-  name             String
-  publicId         String   @unique
-  joinCode         String   @unique
-  logoUrl          String?
-  address          String?
-  city             String?
-  state            String?
-  zip              String?
-  timezone         String   @default("America/Chicago")
-  contactName      String?
-  contactEmail     String?
-  contactPhone     String?
-  requireApproval  Boolean  @default(true)
-  createdById      String
-  createdBy        User     @relation("DepartmentCreator", fields: [createdById], references: [id])
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String   @id @default(cuid())
+  name            String
+  publicId        String   @unique
+  joinCode        String   @unique
+  logoUrl         String?
+  address         String?
+  city            String?
+  state           String?
+  zip             String?
+  timezone        String   @default("America/Chicago")
+  contactName     String?
+  contactEmail    String?
+  contactPhone    String?
+  requireApproval Boolean  @default(true)
+  createdById     String
+  createdBy       User     @relation("DepartmentCreator", fields: [createdById], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  memberships     DepartmentMembership[]
-  taskBooks       TaskBookTemplate[]
-  assignments     TaskBookAssignment[]
-  credentials     Credential[]
-  credentialTypes CredentialType[]
-  activityEvents  ActivityEvent[]
-  auditLogs       AuditLog[]
-  invitations     Invitation[]
-  memberNotes     MemberNote[]
+  memberships               DepartmentMembership[]
+  taskBooks                 TaskBookTemplate[]
+  assignments               TaskBookAssignment[]
+  credentials               Credential[]
+  credentialTypes           CredentialType[]
+  activityEvents            ActivityEvent[]
+  auditLogs                 AuditLog[]
+  invitations               Invitation[]
+  memberNotes               MemberNote[]
+  inboxNotifications        InboxNotification[]
+  pushDevices               PushDevice[]
+  evaluationEscalationHours Int                    @default(48)
+  trainingClasses          TrainingClass[]
 }
 
 model DepartmentMembership {
@@ -80,10 +89,11 @@ model DepartmentMembership {
   joinedAt       DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  notes        MemberNote[]
-  assignments  TaskBookAssignment[]
-  credentials  Credential[]
-  completions  RequirementCompletion[]
+  notes       MemberNote[]
+  assignments TaskBookAssignment[]
+  credentials Credential[]
+  completions RequirementCompletion[]
+  classEnrollments TrainingClassEnrollment[]
 
   @@unique([departmentId, userId])
   @@index([departmentId, status])
@@ -162,6 +172,7 @@ model TaskBookVersion {
 
   sections    TaskBookSection[]
   assignments TaskBookAssignment[]
+  trainingClasses TrainingClass[]
 
   @@unique([templateId, version])
 }
@@ -218,6 +229,7 @@ model TaskBookRequirement {
   retryPolicy                String          @default("UNLIMITED")
 
   completions RequirementCompletion[]
+  classSkillResults TrainingClassSkillResult[]
 }
 
 model TaskBookAssignment {
@@ -243,30 +255,31 @@ model TaskBookAssignment {
 
   completions RequirementCompletion[]
 
+  @@unique([versionId, membershipId])
   @@index([departmentId, status])
   @@index([membershipId])
-  @@unique([versionId, membershipId])
 }
 
 model RequirementCompletion {
-  id              String               @id @default(cuid())
-  assignmentId    String
-  assignment      TaskBookAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  requirementId   String
-  requirement     TaskBookRequirement  @relation(fields: [requirementId], references: [id])
-  membershipId    String
-  membership      DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  status          String
-  memberNotes     String               @default("")
-  submittedAt     DateTime?
-  completedAt     DateTime?
-  repetitionCount Int                  @default(0)
-  hoursLogged     Float                @default(0)
-  requestedEvaluatorId String?
+  id                      String               @id @default(cuid())
+  assignmentId            String
+  assignment              TaskBookAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  requirementId           String
+  requirement             TaskBookRequirement  @relation(fields: [requirementId], references: [id])
+  membershipId            String
+  membership              DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  status                  String
+  memberNotes             String               @default("")
+  submittedAt             DateTime?
+  completedAt             DateTime?
+  repetitionCount         Int                  @default(0)
+  hoursLogged             Float                @default(0)
+  requestedEvaluatorId    String?
+  lastSubmissionRequestId String?              @unique
 
-  evidence  Evidence[]
-  signOffs  SignOff[]
-  attempts  EvaluationAttempt[]
+  evidence Evidence[]
+  signOffs SignOff[]
+  attempts EvaluationAttempt[]
 
   @@unique([assignmentId, requirementId])
   @@index([status])
@@ -299,21 +312,21 @@ model SignOff {
 
 /// Append-only evaluation attempt. Failed and prior attempts are never erased.
 model EvaluationAttempt {
-  id                     String                @id @default(cuid())
-  departmentId           String
-  completionId           String
-  completion             RequirementCompletion @relation(fields: [completionId], references: [id], onDelete: Cascade)
-  repetitionIndex        Int                   @default(1)
-  evaluatorId            String
-  evaluator              User                  @relation(fields: [evaluatorId], references: [id])
-  result                 String
-  stepResultsJson        String                @default("[]")
-  criticalFailuresJson   String                @default("[]")
-  comments               String                @default("")
-  evidenceJson           String                @default("[]")
-  numericScore           Float?
-  signedAt               DateTime              @default(now())
-  createdAt              DateTime              @default(now())
+  id                   String                @id @default(cuid())
+  departmentId         String
+  completionId         String
+  completion           RequirementCompletion @relation(fields: [completionId], references: [id], onDelete: Cascade)
+  repetitionIndex      Int                   @default(1)
+  evaluatorId          String
+  evaluator            User                  @relation(fields: [evaluatorId], references: [id])
+  result               String
+  stepResultsJson      String                @default("[]")
+  criticalFailuresJson String                @default("[]")
+  comments             String                @default("")
+  evidenceJson         String                @default("[]")
+  numericScore         Float?
+  signedAt             DateTime              @default(now())
+  createdAt            DateTime              @default(now())
 
   @@index([departmentId, completionId])
 }
@@ -332,6 +345,82 @@ model CredentialType {
   @@unique([departmentId, name])
 }
 
+/// A scheduled class or skills-testing event using a published checklist.
+model TrainingClass {
+  id            String          @id @default(cuid())
+  departmentId  String
+  department    Department      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  title         String
+  classType     String          @default("GENERAL")
+  checklistVersionId String
+  checklistVersion TaskBookVersion @relation(fields: [checklistVersionId], references: [id])
+  startsAt      DateTime
+  endsAt        DateTime?
+  location      String          @default("")
+  status        String          @default("DRAFT")
+  notes         String          @default("")
+  createdById   String
+  createdBy     User            @relation("ClassCreator", fields: [createdById], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  roster        TrainingClassEnrollment[]
+  proctors      TrainingClassProctor[]
+
+  @@index([departmentId, startsAt])
+}
+
+model TrainingClassProctor {
+  id        String        @id @default(cuid())
+  classId   String
+  class     TrainingClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedAt DateTime     @default(now())
+
+  @@unique([classId, userId])
+  @@index([userId, classId])
+}
+
+model TrainingClassEnrollment {
+  id          String               @id @default(cuid())
+  classId     String
+  class       TrainingClass        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  membershipId String
+  membership  DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  attendance  String               @default("REGISTERED")
+  writtenScore Float?
+  ccfScore     Float?
+  finalResult  String               @default("PENDING")
+  notes        String               @default("")
+  enrolledAt   DateTime             @default(now())
+  completedAt  DateTime?
+
+  skillResults TrainingClassSkillResult[]
+
+  @@unique([classId, membershipId])
+  @@index([membershipId, classId])
+}
+
+/// Latest result per student and skill. Every change is also written to AuditLog.
+model TrainingClassSkillResult {
+  id            String                  @id @default(cuid())
+  enrollmentId  String
+  enrollment    TrainingClassEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  requirementId String
+  requirement   TaskBookRequirement     @relation(fields: [requirementId], references: [id])
+  result        String                  @default("NOT_EVALUATED")
+  notes         String                  @default("")
+  stepResultsJson String                @default("[]")
+  evaluatorId   String
+  evaluator     User                    @relation("ClassEvaluator", fields: [evaluatorId], references: [id])
+  evaluatedAt   DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@unique([enrollmentId, requirementId])
+  @@index([evaluatorId, evaluatedAt])
+}
+
 /// Department-managed credential. Distinct from PersonalCredential.
 model Credential {
   id                 String               @id @default(cuid())
@@ -346,14 +435,20 @@ model Credential {
   credentialNumber   String?
   issueDate          DateTime?
   expirationDate     DateTime?
+  doesNotExpire      Boolean              @default(false)
   verificationStatus String
   attachmentUrl      String?
   notes              String               @default("")
+  source             String               @default("DEPARTMENT")
+  sourceExternalId   String?
+  sourceUpdatedAt    DateTime?
+  sharedByMemberAt   DateTime?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
   @@index([departmentId, expirationDate])
   @@index([membershipId])
+  @@unique([membershipId, source, sourceExternalId])
 }
 
 model ActivityEvent {
@@ -385,17 +480,60 @@ model AuditLog {
   @@index([departmentId, timestamp])
 }
 
+/// Durable, per-user assignment inbox. Reading an item never deletes it.
+model InboxNotification {
+  id              String     @id @default(cuid())
+  departmentId    String
+  department      Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String
+  title           String
+  body            String
+  referenceType   String?
+  referenceId     String?
+  actionPath      String?
+  dedupeKey       String?
+  createdAt       DateTime   @default(now())
+  readAt          DateTime?
+  pushStatus      String     @default("PENDING")
+  pushAttemptedAt DateTime?
+  pushError       String?
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt, createdAt])
+  @@index([departmentId, createdAt])
+}
+
+/// FCM registration tokens. A token is moved to the latest authenticated user.
+model PushDevice {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String     @unique
+  platform     String
+  enabled      Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  lastSeenAt   DateTime   @default(now())
+
+  @@index([userId, enabled])
+  @@index([departmentId, enabled])
+}
+
 /// Personal Career Road credential. Never returned by department-scoped APIs.
 model PersonalCredential {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
-  issuer         String   @default("")
+  issuer         String    @default("")
   issueDate      DateTime?
   expirationDate DateTime?
-  notes          String   @default("")
-  createdAt      DateTime @default(now())
+  notes          String    @default("")
+  createdAt      DateTime  @default(now())
 }
 
 /// Personal Career Road log entry. Never returned by department-scoped APIs.

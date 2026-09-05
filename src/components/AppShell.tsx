@@ -11,6 +11,8 @@ import {
   Dumbbell,
   LayoutDashboard,
   Mail,
+  Bell,
+  CalendarCheck,
   Menu,
   Settings,
   Users,
@@ -36,11 +38,13 @@ type Session = {
 
 const ITEMS = [
   { href: "/dashboard", key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/inbox", key: "inbox", label: "Assignment Inbox", icon: Bell },
   { href: "/members", key: "members", label: "Members", icon: Users },
   { href: "/task-books", key: "task-books", label: "Task Books", icon: BookOpen },
   { href: "/training-assignments", key: "training-assignments", label: "Quick Training", icon: Dumbbell },
   { href: "/assignments", key: "assignments", label: "Assignments", icon: ClipboardList },
   { href: "/evaluate", key: "evaluate", label: "Needs Evaluation", icon: ClipboardList },
+  { href: "/classes", key: "classes", label: "Classes & Rosters", icon: CalendarCheck },
   { href: "/my-task-books", key: "my-task-books", label: "My Task Books", icon: BookOpen },
   { href: "/certifications", key: "certifications", label: "Certifications", icon: Award },
   { href: "/reports", key: "reports", label: "Reports", icon: BarChart3 },
@@ -62,11 +66,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [platformInterestList, setPlatformInterestList] = useState(false);
   const [open, setOpen] = useState(false);
   const [demoSwitching, setDemoSwitching] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     api<Session>("auth/me")
       .then((value) => {
         setSession(value);
+        api<{ unreadCount: number }>("inbox")
+          .then((inbox) => setUnreadCount(inbox.unreadCount))
+          .catch(() => setUnreadCount(0));
         api<{ interestList: boolean }>("platform-access")
           .then((access) => setPlatformInterestList(access.interestList))
           .catch(() => setPlatformInterestList(false));
@@ -147,7 +155,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
               >
                 <Icon size={18} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.key === "inbox" && unreadCount > 0 ? (
+                  <span className="min-w-6 rounded-full bg-fire px-2 py-0.5 text-center text-xs font-bold text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
@@ -181,6 +194,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 Interested in using this at your department?
               </Link>
+              <a
+                href="https://apps.apple.com/us/app/repsonder-roadmap/id6800092347"
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-h-10 items-center justify-center rounded-md border border-white/20 px-3 text-center text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+              >
+                Download the iPhone app
+              </a>
             </div>
           ) : null}
 

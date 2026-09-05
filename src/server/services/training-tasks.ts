@@ -56,6 +56,7 @@ export async function createTrainingTask(ctx: AuthContext, input: TrainingTaskIn
     description: String(input.description || "").trim(),
     category: "Training / Skill Practice",
     intendedPosition: "Department Training",
+    templateKind: "TRAINING_TASK",
     sections: [
       {
         title: "Training Assignment",

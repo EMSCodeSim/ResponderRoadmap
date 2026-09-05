@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import type { AuthContext } from "@/server/permissions";
 import { refreshAssignmentStatus } from "@/server/services/assignments";
+import { notifyUser } from "@/server/services/inbox";
 
 function parseStringArray(value: string): string[] {
   try {
@@ -97,6 +98,7 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
     taskBookTitle: assignment.version.template.title,
     description: assignment.version.template.description,
     category: assignment.version.template.category,
+    assignmentKind: assignment.version.template.templateKind === "TRAINING_TASK" ? "TRAINING_TASK" : "TASK_BOOK",
     templateId: assignment.version.template.id,
     versionId: assignment.version.id,
     version: assignment.version.version,
@@ -128,6 +130,15 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
                 submittedAt: completion.submittedAt,
               })
             : null;
+        const reviewHistory = completion?.signOffs.map((signOff) => ({
+          id: signOff.id,
+          result: signOff.result,
+          notes: signOff.notes,
+          signedAt: signOff.signedAt,
+          evaluatorName: signOff.evaluator.name,
+          approvalLevel: signOff.approvalLevel || "EVALUATOR",
+        })) ?? [];
+        const latestReturn = [...reviewHistory].reverse().find((signOff) => signOff.result === "RETURNED") ?? null;
         return {
           id: requirement.id,
           title: requirement.title,
@@ -160,13 +171,14 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
                 submittedAt: completion.submittedAt,
                 completedAt: completion.completedAt,
                 evidence: completion.evidence,
-                signOffs: completion.signOffs.map((signOff) => ({
-                  id: signOff.id,
-                  result: signOff.result,
-                  notes: signOff.notes,
-                  signedAt: signOff.signedAt,
-                  evaluatorName: signOff.evaluator.name,
-                })),
+                correction: completion.status === "RETURNED" && latestReturn
+                  ? {
+                      notes: latestReturn.notes,
+                      returnedAt: latestReturn.signedAt,
+                      returnedByName: latestReturn.evaluatorName,
+                    }
+                  : null,
+                signOffs: reviewHistory,
               }
             : null,
         };
@@ -196,6 +208,160 @@ export async function getMyAssignment(ctx: AuthContext, assignmentId: string) {
   return serializeAssignment(await loadOwnAssignment(ctx, assignmentId));
 }
 
+type SharedCertificationInput = {
+  id?: unknown;
+  name?: unknown;
+  issuer?: unknown;
+  issueDate?: unknown;
+  expirationDate?: unknown;
+  doesNotExpire?: unknown;
+  updatedAt?: unknown;
+};
+
+function optionalDate(value: unknown, field: string): Date | null {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string") throw new HttpError(400, `${field} must be a date.`);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) throw new HttpError(400, `${field} is not a valid date.`);
+  return parsed;
+}
+
+function serializeSharedCredential(record: {
+  id: string;
+  sourceExternalId: string | null;
+  credentialName: string;
+  issuer: string;
+  issueDate: Date | null;
+  expirationDate: Date | null;
+  doesNotExpire: boolean;
+  verificationStatus: string;
+  sourceUpdatedAt: Date | null;
+  sharedByMemberAt: Date | null;
+}) {
+  return {
+    id: record.id,
+    sourceId: record.sourceExternalId,
+    name: record.credentialName,
+    issuer: record.issuer,
+    issueDate: record.issueDate,
+    expirationDate: record.expirationDate,
+    doesNotExpire: record.doesNotExpire,
+    verificationStatus: record.verificationStatus,
+    sourceUpdatedAt: record.sourceUpdatedAt,
+    sharedAt: record.sharedByMemberAt,
+  };
+}
+
+export async function listMySharedCertifications(ctx: AuthContext) {
+  await assertActiveMembership(ctx);
+  const records = await prisma.credential.findMany({
+    where: { membershipId: ctx.membershipId, departmentId: ctx.departmentId, source: "APP_SHARED" },
+    orderBy: { credentialName: "asc" },
+  });
+  return {
+    sharedSourceIds: records.flatMap((record) => record.sourceExternalId ? [record.sourceExternalId] : []),
+    certifications: records.map(serializeSharedCredential),
+    serverTime: new Date(),
+  };
+}
+
+export async function syncMySharedCertifications(ctx: AuthContext, raw: unknown) {
+  await assertActiveMembership(ctx);
+  if (!Array.isArray(raw)) throw new HttpError(400, "certifications must be a list.");
+  if (raw.length > 200) throw new HttpError(400, "No more than 200 certifications can be shared.");
+
+  const desired = raw.map((item, index) => {
+    if (!item || typeof item !== "object") throw new HttpError(400, `Certification ${index + 1} is invalid.`);
+    const input = item as SharedCertificationInput;
+    const sourceId = typeof input.id === "string" ? input.id.trim().slice(0, 160) : "";
+    const name = typeof input.name === "string" ? input.name.trim().slice(0, 160) : "";
+    if (!sourceId || !name) throw new HttpError(400, `Certification ${index + 1} requires an id and name.`);
+    const doesNotExpire = input.doesNotExpire === true;
+    return {
+      sourceId,
+      name,
+      issuer: typeof input.issuer === "string" ? input.issuer.trim().slice(0, 160) : "",
+      issueDate: optionalDate(input.issueDate, "issueDate"),
+      expirationDate: doesNotExpire ? null : optionalDate(input.expirationDate, "expirationDate"),
+      doesNotExpire,
+      sourceUpdatedAt: optionalDate(input.updatedAt, "updatedAt") ?? new Date(),
+    };
+  });
+  if (new Set(desired.map((item) => item.sourceId)).size !== desired.length) {
+    throw new HttpError(400, "Each shared certification must have a unique id.");
+  }
+
+  const existing = await prisma.credential.findMany({
+    where: { membershipId: ctx.membershipId, departmentId: ctx.departmentId, source: "APP_SHARED" },
+  });
+  const existingBySourceId = new Map(existing.map((record) => [record.sourceExternalId, record]));
+  const desiredIds = new Set(desired.map((item) => item.sourceId));
+  const removed = existing.filter((record) => !record.sourceExternalId || !desiredIds.has(record.sourceExternalId));
+  const newlyShared: string[] = [];
+
+  await prisma.$transaction(async (tx) => {
+    if (removed.length > 0) {
+      await tx.credential.deleteMany({ where: { id: { in: removed.map((record) => record.id) } } });
+    }
+    for (const item of desired) {
+      const prior = existingBySourceId.get(item.sourceId);
+      const changed = !prior || prior.sourceUpdatedAt?.getTime() !== item.sourceUpdatedAt.getTime();
+      if (!prior) newlyShared.push(item.name);
+      await tx.credential.upsert({
+        where: {
+          membershipId_source_sourceExternalId: {
+            membershipId: ctx.membershipId,
+            source: "APP_SHARED",
+            sourceExternalId: item.sourceId,
+          },
+        },
+        create: {
+          membershipId: ctx.membershipId,
+          departmentId: ctx.departmentId,
+          credentialName: item.name,
+          issuer: item.issuer,
+          issueDate: item.issueDate,
+          expirationDate: item.expirationDate,
+          doesNotExpire: item.doesNotExpire,
+          verificationStatus: "UNVERIFIED",
+          source: "APP_SHARED",
+          sourceExternalId: item.sourceId,
+          sourceUpdatedAt: item.sourceUpdatedAt,
+          sharedByMemberAt: new Date(),
+        },
+        update: {
+          credentialName: item.name,
+          issuer: item.issuer,
+          issueDate: item.issueDate,
+          expirationDate: item.expirationDate,
+          doesNotExpire: item.doesNotExpire,
+          sourceUpdatedAt: item.sourceUpdatedAt,
+          ...(changed ? { verificationStatus: "UNVERIFIED" } : {}),
+        },
+      });
+    }
+  });
+
+  await writeAudit(ctx, "member.certifications.sharing_synced", "DepartmentMembership", ctx.membershipId, {
+    sharedSourceIds: [...desiredIds],
+    newlyShared: newlyShared.length,
+    revoked: removed.length,
+  });
+  for (const name of newlyShared) {
+    await writeActivity(ctx.departmentId, "CREDENTIAL_SHARED", {
+      userId: ctx.userId,
+      metadata: { actorName: ctx.name, memberName: ctx.name, credential: name },
+    });
+  }
+  for (const record of removed) {
+    await writeActivity(ctx.departmentId, "CREDENTIAL_SHARING_REVOKED", {
+      userId: ctx.userId,
+      metadata: { actorName: ctx.name, memberName: ctx.name, credential: record.credentialName },
+    });
+  }
+  return listMySharedCertifications(ctx);
+}
+
 export async function submitRequirement(
   ctx: AuthContext,
   assignmentId: string,
@@ -204,6 +370,7 @@ export async function submitRequirement(
     memberNotes?: string;
     evidenceDescription?: string;
     evidenceType?: string;
+    clientRequestId?: string;
   },
 ) {
   const assignment = await loadOwnAssignment(ctx, assignmentId);
@@ -212,6 +379,22 @@ export async function submitRequirement(
   if (!requirement) throw new HttpError(404, "Requirement not found in this assigned Task Book.");
 
   const existing = assignment.completions.find((item) => item.requirementId === requirement.id) ?? null;
+  const clientRequestId = input.clientRequestId?.trim().slice(0, 120) || null;
+  if (clientRequestId && existing?.lastSubmissionRequestId === clientRequestId) {
+    return {
+      assignment: await getMyAssignment(ctx, assignment.id),
+      receipt: {
+        receiptId: existing.id,
+        clientRequestId,
+        assignmentId: assignment.id,
+        requirementId: requirement.id,
+        status: existing.status,
+        recordedAt: existing.submittedAt,
+        recordedByUserId: ctx.userId,
+        recordedByName: ctx.name,
+      },
+    };
+  }
   const repetitionsRequired = Math.max(1, requirement.repetitionsRequired);
   const currentRepetitionCount = effectiveRepetitionCount(existing);
   if (existing?.status === "APPROVED" && currentRepetitionCount >= repetitionsRequired) {
@@ -259,6 +442,7 @@ export async function submitRequirement(
       submittedAt: now,
       completedAt: !needsReview && fullyRepeated ? now : null,
       repetitionCount: storedRepetitionCount,
+      lastSubmissionRequestId: clientRequestId,
     },
     update: {
       status: nextStatus,
@@ -268,6 +452,7 @@ export async function submitRequirement(
       submittedAt: now,
       completedAt: !needsReview && fullyRepeated ? now : null,
       repetitionCount: storedRepetitionCount,
+      lastSubmissionRequestId: clientRequestId,
     },
   });
 
@@ -308,6 +493,40 @@ export async function submitRequirement(
       },
     },
   );
+  if (needsReview) {
+    const assignedReviewerId = requirement.evaluatorSignOffRequired ? assignment.evaluatorId : assignment.supervisorId;
+    const recipients = assignedReviewerId
+      ? [{ userId: assignedReviewerId }]
+      : await prisma.departmentMembership.findMany({
+          where: { departmentId: ctx.departmentId, status: "ACTIVE", role: { in: ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] } },
+          select: { userId: true },
+        });
+    for (const recipient of recipients) {
+      await notifyUser({
+        departmentId: ctx.departmentId,
+        userId: recipient.userId,
+        type: "EVALUATION_REQUESTED",
+        title: "Evaluation requested",
+        body: `${ctx.name} submitted ${requirement.title} for review.`,
+        referenceType: "RequirementCompletion",
+        referenceId: completion.id,
+        actionPath: "/evaluate",
+        dedupeKey: `evaluation-requested:${completion.id}:${now.toISOString()}`,
+      });
+    }
+  }
 
-  return getMyAssignment(ctx, assignment.id);
+  return {
+    assignment: await getMyAssignment(ctx, assignment.id),
+    receipt: {
+      receiptId: completion.id,
+      clientRequestId,
+      assignmentId: assignment.id,
+      requirementId: requirement.id,
+      status: nextStatus,
+      recordedAt: now,
+      recordedByUserId: ctx.userId,
+      recordedByName: ctx.name,
+    },
+  };
 }

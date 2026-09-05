@@ -46,6 +46,7 @@ export function summarizeMember(
       id: string;
       credentialName: string;
       expirationDate: Date | null;
+      doesNotExpire: boolean;
       verificationStatus: string;
     }>;
   },
@@ -75,7 +76,7 @@ export function summarizeMember(
 
   const credentialSummaries = membership.credentials.map((credential) => ({
     ...credential,
-    ...credentialStatus(credential.expirationDate),
+    ...credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire),
   }));
 
   const certHealth = worstCredentialHealth(credentialSummaries);
@@ -328,7 +329,7 @@ export async function getMember(ctx: AuthContext, membershipId: string) {
     credentialDetails: canSeeCredentials
       ? membership.credentials.map((credential) => ({
           ...credential,
-          ...credentialStatus(credential.expirationDate),
+          ...credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire),
         }))
       : [],
     evidence,

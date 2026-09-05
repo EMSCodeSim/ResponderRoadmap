@@ -289,4 +289,13 @@ button[class*="bg-navy-900"] *,
   nav, .no-print { display: none !important; }
   body { background: #fff; }
   main { padding: 0 !important; }
+  .print-page {
+    display: block !important;
+    break-after: page;
+    page-break-after: always;
+  }
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
 }

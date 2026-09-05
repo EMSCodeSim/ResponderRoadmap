@@ -13,11 +13,30 @@ describe("bumpVersion", () => {
   });
 });
 
+describe("class roster permissions", () => {
+  it("lets evaluators proctor assigned classes without creating rosters", () => {
+    expect(hasPermission("EVALUATOR", "classes.read")).toBe(true);
+    expect(hasPermission("EVALUATOR", "classes.proctor")).toBe(true);
+    expect(hasPermission("EVALUATOR", "classes.write")).toBe(false);
+  });
+
+  it("lets training officers create rosters and record results", () => {
+    expect(hasPermission("TRAINING_OFFICER", "classes.write")).toBe(true);
+    expect(hasPermission("TRAINING_OFFICER", "classes.proctor")).toBe(true);
+  });
+});
+
 describe("credentialStatus", () => {
-  const now = new Date("2026-08-28T12:00:00");
+  const now = new Date("2026-08-28T12:00:00Z");
 
   it("marks missing expiration", () => {
     expect(credentialStatus(null, now).health).toBe("missing");
+  });
+
+  it("treats credentials marked does not expire as current", () => {
+    const status = credentialStatus(null, now, true);
+    expect(status.health).toBe("current");
+    expect(status.label).toBe("Does not expire");
   });
 
   it("marks expired credentials", () => {
@@ -27,7 +46,7 @@ describe("credentialStatus", () => {
   });
 
   it("marks CPR expiring in 48 days as warning", () => {
-    const exp = new Date("2026-10-15");
+    const exp = new Date("2026-10-15T12:00:00Z");
     const status = credentialStatus(exp, now);
     expect(daysUntil(exp, now)).toBe(48);
     expect(status.health).toBe("expiring");

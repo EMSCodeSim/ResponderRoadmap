@@ -11,6 +11,9 @@ export type Permission =
   | "assignments.read"
   | "assignments.write"
   | "signoff.review"
+  | "classes.read"
+  | "classes.write"
+  | "classes.proctor"
   | "credentials.read"
   | "credentials.write"
   | "reports.read"
@@ -24,6 +27,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   EVALUATOR: [
     "dashboard.read",
     "signoff.review",
+    "classes.read",
+    "classes.proctor",
   ],
   TRAINING_OFFICER: [
     "dashboard.read",
@@ -35,6 +40,9 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "assignments.read",
     "assignments.write",
     "signoff.review",
+    "classes.read",
+    "classes.write",
+    "classes.proctor",
     "credentials.read",
     "credentials.write",
     "reports.read",
@@ -53,6 +61,9 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "assignments.read",
     "assignments.write",
     "signoff.review",
+    "classes.read",
+    "classes.write",
+    "classes.proctor",
     "credentials.read",
     "credentials.write",
     "reports.read",
@@ -95,7 +106,7 @@ export function assertSameDepartment(ctx: AuthContext, departmentId: string): vo
 }
 
 export function navItemsForRole(role: Role): string[] {
-  const items = ["dashboard"];
+  const items = ["dashboard", "inbox"];
   if (role === "MEMBER") {
     items.push("my-task-books");
     items.push("settings");
@@ -106,6 +117,7 @@ export function navItemsForRole(role: Role): string[] {
   if (hasPermission(role, "assignments.write")) items.push("training-assignments");
   if (hasPermission(role, "assignments.read")) items.push("assignments");
   if (hasPermission(role, "signoff.review")) items.push("evaluate");
+  if (hasPermission(role, "classes.read")) items.push("classes");
   if (hasPermission(role, "credentials.read")) items.push("certifications");
   if (hasPermission(role, "reports.read")) items.push("reports");
   if (hasPermission(role, "department.read") || hasPermission(role, "department.write")) {

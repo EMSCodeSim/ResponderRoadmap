@@ -18,6 +18,7 @@ type Department = {
   contactEmail: string | null;
   contactPhone: string | null;
   requireApproval: boolean;
+  evaluationEscalationHours: number;
 };
 
 type Invitation = { id: string; email: string | null; token: string; role: string; status: string };
@@ -110,6 +111,15 @@ export default function DepartmentPage() {
             </Field>
             <Field label="Contact email">
               <Input value={dept.contactEmail ?? ""} onChange={(e) => setDept({ ...dept, contactEmail: e.target.value })} />
+            </Field>
+            <Field label="Escalate pending evaluations after (hours)">
+              <Input
+                type="number"
+                min={1}
+                max={720}
+                value={dept.evaluationEscalationHours}
+                onChange={(e) => setDept({ ...dept, evaluationEscalationHours: Number(e.target.value) || 48 })}
+              />
             </Field>
             <label className="flex items-center gap-2 text-sm md:col-span-2">
               <input type="checkbox" checked={dept.requireApproval} onChange={(e) => setDept({ ...dept, requireApproval: e.target.checked })} />

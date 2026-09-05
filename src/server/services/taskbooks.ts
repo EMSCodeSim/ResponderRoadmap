@@ -48,6 +48,7 @@ export async function listTaskBooks(ctx: AuthContext, query: { q?: string; categ
   const books = await prisma.taskBookTemplate.findMany({
     where: {
       departmentId: ctx.departmentId,
+      templateKind: { not: "TRAINING_TASK" },
       ...(query.status ? { status: query.status } : {}),
       ...(query.category ? { category: query.category } : {}),
     },
@@ -138,6 +139,7 @@ export async function createTaskBook(
     estimatedDurationDays?: number | null;
     dueDateRule?: string | null;
     intendedPosition?: string;
+    templateKind?: "DEPARTMENT" | "TRAINING_TASK";
     starterId?: string;
     sections?: SectionInput[];
   },
@@ -157,7 +159,7 @@ export async function createTaskBook(
       estimatedDurationDays: input.estimatedDurationDays ?? starter?.estimatedDurationDays ?? null,
       dueDateRule: input.dueDateRule ?? null,
       intendedPosition: input.intendedPosition?.trim() || "",
-      templateKind: "DEPARTMENT",
+      templateKind: input.templateKind ?? "DEPARTMENT",
       versions: {
         create: { version: "1.0", status: "DRAFT" },
       },

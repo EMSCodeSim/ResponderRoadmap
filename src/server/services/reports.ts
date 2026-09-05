@@ -125,11 +125,11 @@ export async function complianceSnapshot(ctx: AuthContext) {
   });
   const byName = (name: string) => {
     const records = credentials.filter((item) => item.credentialName === name);
-    const current = records.filter((item) => credentialStatus(item.expirationDate).health === "current").length;
+    const current = records.filter((item) => credentialStatus(item.expirationDate, undefined, item.doesNotExpire).health === "current").length;
     return { name, current, total: members };
   };
-  const expiring = credentials.filter((item) => credentialStatus(item.expirationDate).health === "expiring").length;
-  const expired = credentials.filter((item) => credentialStatus(item.expirationDate).health === "expired").length;
+  const expiring = credentials.filter((item) => credentialStatus(item.expirationDate, undefined, item.doesNotExpire).health === "expiring").length;
+  const expired = credentials.filter((item) => credentialStatus(item.expirationDate, undefined, item.doesNotExpire).health === "expired").length;
   return {
     members,
     credentials: types.map(byName),

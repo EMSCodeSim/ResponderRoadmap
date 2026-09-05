@@ -17,7 +17,19 @@ export function daysUntil(date: Date, now = new Date()): number {
   return Math.round((a - b) / 86_400_000);
 }
 
-export function credentialStatus(expirationDate: Date | null | undefined, now = new Date()): CredentialStatus {
+export function credentialStatus(
+  expirationDate: Date | null | undefined,
+  now = new Date(),
+  doesNotExpire = false,
+): CredentialStatus {
+  if (doesNotExpire) {
+    return {
+      health: "current",
+      daysUntil: null,
+      label: "Does not expire",
+      window: "current",
+    };
+  }
   if (!expirationDate) {
     return {
       health: "missing",
