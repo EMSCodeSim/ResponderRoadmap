@@ -24,7 +24,7 @@ export async function listCredentials(
   });
 
   const rows = records.map((record) => {
-    const status = credentialStatus(record.expirationDate);
+    const status = credentialStatus(record.expirationDate, undefined, record.doesNotExpire);
     return {
       id: record.id,
       memberId: record.membershipId,
@@ -37,9 +37,12 @@ export async function listCredentials(
       credentialNumber: record.credentialNumber,
       issueDate: record.issueDate,
       expirationDate: record.expirationDate,
+      doesNotExpire: record.doesNotExpire,
       verificationStatus: record.verificationStatus,
       attachmentUrl: record.attachmentUrl,
       notes: record.notes,
+      source: record.source,
+      sharedByMemberAt: record.sharedByMemberAt,
       isCustom: record.credentialType?.isCustom ?? false,
       ...status,
     };
@@ -78,6 +81,7 @@ export async function upsertCredential(
     credentialNumber?: string | null;
     issueDate?: string | null;
     expirationDate?: string | null;
+    doesNotExpire?: boolean;
     verificationStatus?: VerificationStatus;
     attachmentUrl?: string | null;
     notes?: string;
@@ -100,7 +104,8 @@ export async function upsertCredential(
     issuer: input.issuer?.trim() || "",
     credentialNumber: input.credentialNumber?.trim() || null,
     issueDate: input.issueDate ? new Date(input.issueDate) : null,
-    expirationDate: input.expirationDate ? new Date(input.expirationDate) : null,
+    expirationDate: input.doesNotExpire ? null : input.expirationDate ? new Date(input.expirationDate) : null,
+    doesNotExpire: input.doesNotExpire === true,
     verificationStatus: input.verificationStatus || "VERIFIED",
     attachmentUrl: input.attachmentUrl || null,
     notes: input.notes?.trim() || "",

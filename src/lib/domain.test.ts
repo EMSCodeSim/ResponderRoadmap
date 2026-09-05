@@ -20,6 +20,12 @@ describe("credentialStatus", () => {
     expect(credentialStatus(null, now).health).toBe("missing");
   });
 
+  it("treats credentials marked does not expire as current", () => {
+    const status = credentialStatus(null, now, true);
+    expect(status.health).toBe("current");
+    expect(status.label).toBe("Does not expire");
+  });
+
   it("marks expired credentials", () => {
     const status = credentialStatus(new Date("2026-08-01"), now);
     expect(status.health).toBe("expired");

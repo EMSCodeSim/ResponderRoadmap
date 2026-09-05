@@ -71,7 +71,7 @@ export async function getDashboard(ctx: AuthContext) {
   const completedThisMonth = assignmentRows.filter(
     (row) => row.progress.status === "COMPLETE" && row.assignment.updatedAt >= monthStart,
   ).length;
-  const credentialRows = credentials.map((item) => ({ item, status: credentialStatus(item.expirationDate) }));
+  const credentialRows = credentials.map((item) => ({ item, status: credentialStatus(item.expirationDate, undefined, item.doesNotExpire) }));
   const expiringSoon = credentialRows.filter((row) => row.status.health === "expiring");
   const expired = credentialRows.filter((row) => row.status.health === "expired");
 
@@ -258,7 +258,7 @@ async function getMemberDashboard(ctx: AuthContext) {
     });
     return { assignment, progress };
   });
-  const credentialRows = credentials.map((item) => ({ item, status: credentialStatus(item.expirationDate) }));
+  const credentialRows = credentials.map((item) => ({ item, status: credentialStatus(item.expirationDate, undefined, item.doesNotExpire) }));
 
   return {
     personal: true,

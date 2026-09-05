@@ -352,14 +352,20 @@ model Credential {
   credentialNumber   String?
   issueDate          DateTime?
   expirationDate     DateTime?
+  doesNotExpire      Boolean              @default(false)
   verificationStatus String
   attachmentUrl      String?
   notes              String               @default("")
+  source             String               @default("DEPARTMENT")
+  sourceExternalId   String?
+  sourceUpdatedAt    DateTime?
+  sharedByMemberAt   DateTime?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
   @@index([departmentId, expirationDate])
   @@index([membershipId])
+  @@unique([membershipId, source, sourceExternalId])
 }
 
 model ActivityEvent {

@@ -208,6 +208,160 @@ export async function getMyAssignment(ctx: AuthContext, assignmentId: string) {
   return serializeAssignment(await loadOwnAssignment(ctx, assignmentId));
 }
 
+type SharedCertificationInput = {
+  id?: unknown;
+  name?: unknown;
+  issuer?: unknown;
+  issueDate?: unknown;
+  expirationDate?: unknown;
+  doesNotExpire?: unknown;
+  updatedAt?: unknown;
+};
+
+function optionalDate(value: unknown, field: string): Date | null {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string") throw new HttpError(400, `${field} must be a date.`);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) throw new HttpError(400, `${field} is not a valid date.`);
+  return parsed;
+}
+
+function serializeSharedCredential(record: {
+  id: string;
+  sourceExternalId: string | null;
+  credentialName: string;
+  issuer: string;
+  issueDate: Date | null;
+  expirationDate: Date | null;
+  doesNotExpire: boolean;
+  verificationStatus: string;
+  sourceUpdatedAt: Date | null;
+  sharedByMemberAt: Date | null;
+}) {
+  return {
+    id: record.id,
+    sourceId: record.sourceExternalId,
+    name: record.credentialName,
+    issuer: record.issuer,
+    issueDate: record.issueDate,
+    expirationDate: record.expirationDate,
+    doesNotExpire: record.doesNotExpire,
+    verificationStatus: record.verificationStatus,
+    sourceUpdatedAt: record.sourceUpdatedAt,
+    sharedAt: record.sharedByMemberAt,
+  };
+}
+
+export async function listMySharedCertifications(ctx: AuthContext) {
+  await assertActiveMembership(ctx);
+  const records = await prisma.credential.findMany({
+    where: { membershipId: ctx.membershipId, departmentId: ctx.departmentId, source: "APP_SHARED" },
+    orderBy: { credentialName: "asc" },
+  });
+  return {
+    sharedSourceIds: records.flatMap((record) => record.sourceExternalId ? [record.sourceExternalId] : []),
+    certifications: records.map(serializeSharedCredential),
+    serverTime: new Date(),
+  };
+}
+
+export async function syncMySharedCertifications(ctx: AuthContext, raw: unknown) {
+  await assertActiveMembership(ctx);
+  if (!Array.isArray(raw)) throw new HttpError(400, "certifications must be a list.");
+  if (raw.length > 200) throw new HttpError(400, "No more than 200 certifications can be shared.");
+
+  const desired = raw.map((item, index) => {
+    if (!item || typeof item !== "object") throw new HttpError(400, `Certification ${index + 1} is invalid.`);
+    const input = item as SharedCertificationInput;
+    const sourceId = typeof input.id === "string" ? input.id.trim().slice(0, 160) : "";
+    const name = typeof input.name === "string" ? input.name.trim().slice(0, 160) : "";
+    if (!sourceId || !name) throw new HttpError(400, `Certification ${index + 1} requires an id and name.`);
+    const doesNotExpire = input.doesNotExpire === true;
+    return {
+      sourceId,
+      name,
+      issuer: typeof input.issuer === "string" ? input.issuer.trim().slice(0, 160) : "",
+      issueDate: optionalDate(input.issueDate, "issueDate"),
+      expirationDate: doesNotExpire ? null : optionalDate(input.expirationDate, "expirationDate"),
+      doesNotExpire,
+      sourceUpdatedAt: optionalDate(input.updatedAt, "updatedAt") ?? new Date(),
+    };
+  });
+  if (new Set(desired.map((item) => item.sourceId)).size !== desired.length) {
+    throw new HttpError(400, "Each shared certification must have a unique id.");
+  }
+
+  const existing = await prisma.credential.findMany({
+    where: { membershipId: ctx.membershipId, departmentId: ctx.departmentId, source: "APP_SHARED" },
+  });
+  const existingBySourceId = new Map(existing.map((record) => [record.sourceExternalId, record]));
+  const desiredIds = new Set(desired.map((item) => item.sourceId));
+  const removed = existing.filter((record) => !record.sourceExternalId || !desiredIds.has(record.sourceExternalId));
+  const newlyShared: string[] = [];
+
+  await prisma.$transaction(async (tx) => {
+    if (removed.length > 0) {
+      await tx.credential.deleteMany({ where: { id: { in: removed.map((record) => record.id) } } });
+    }
+    for (const item of desired) {
+      const prior = existingBySourceId.get(item.sourceId);
+      const changed = !prior || prior.sourceUpdatedAt?.getTime() !== item.sourceUpdatedAt.getTime();
+      if (!prior) newlyShared.push(item.name);
+      await tx.credential.upsert({
+        where: {
+          membershipId_source_sourceExternalId: {
+            membershipId: ctx.membershipId,
+            source: "APP_SHARED",
+            sourceExternalId: item.sourceId,
+          },
+        },
+        create: {
+          membershipId: ctx.membershipId,
+          departmentId: ctx.departmentId,
+          credentialName: item.name,
+          issuer: item.issuer,
+          issueDate: item.issueDate,
+          expirationDate: item.expirationDate,
+          doesNotExpire: item.doesNotExpire,
+          verificationStatus: "UNVERIFIED",
+          source: "APP_SHARED",
+          sourceExternalId: item.sourceId,
+          sourceUpdatedAt: item.sourceUpdatedAt,
+          sharedByMemberAt: new Date(),
+        },
+        update: {
+          credentialName: item.name,
+          issuer: item.issuer,
+          issueDate: item.issueDate,
+          expirationDate: item.expirationDate,
+          doesNotExpire: item.doesNotExpire,
+          sourceUpdatedAt: item.sourceUpdatedAt,
+          ...(changed ? { verificationStatus: "UNVERIFIED" } : {}),
+        },
+      });
+    }
+  });
+
+  await writeAudit(ctx, "member.certifications.sharing_synced", "DepartmentMembership", ctx.membershipId, {
+    sharedSourceIds: [...desiredIds],
+    newlyShared: newlyShared.length,
+    revoked: removed.length,
+  });
+  for (const name of newlyShared) {
+    await writeActivity(ctx.departmentId, "CREDENTIAL_SHARED", {
+      userId: ctx.userId,
+      metadata: { actorName: ctx.name, memberName: ctx.name, credential: name },
+    });
+  }
+  for (const record of removed) {
+    await writeActivity(ctx.departmentId, "CREDENTIAL_SHARING_REVOKED", {
+      userId: ctx.userId,
+      metadata: { actorName: ctx.name, memberName: ctx.name, credential: record.credentialName },
+    });
+  }
+  return listMySharedCertifications(ctx);
+}
+
 export async function submitRequirement(
   ctx: AuthContext,
   assignmentId: string,

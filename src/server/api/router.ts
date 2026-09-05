@@ -114,6 +114,13 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await inbox.unregisterDevice(ctx, body.token || ""));
     }
+    if (method === "GET" && match(path, "app/certifications/sharing")) {
+      return jsonOk(await memberApp.listMySharedCertifications(ctx));
+    }
+    if (method === "POST" && match(path, "app/certifications/sharing")) {
+      const body = await readBody(req);
+      return jsonOk(await memberApp.syncMySharedCertifications(ctx, body.certifications));
+    }
     const appAssignment = match(path, "app/assignments/:id");
     if (method === "GET" && appAssignment) {
       return jsonOk(await memberApp.getMyAssignment(ctx, appAssignment.id));

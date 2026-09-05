@@ -16,7 +16,10 @@ type Credential = {
   credentialNumber: string | null;
   issueDate: string | null;
   expirationDate: string | null;
+  doesNotExpire: boolean;
   verificationStatus: string;
+  source: string;
+  sharedByMemberAt: string | null;
   notes: string;
   health: string;
   label: string;
@@ -144,6 +147,7 @@ function CertificationsInner() {
                   <th>Issued</th>
                   <th>Expiration</th>
                   <th>Verification</th>
+                  <th>Source</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -155,8 +159,15 @@ function CertificationsInner() {
                     <td>{row.issuer || "—"}</td>
                     <td>{row.credentialNumber || "—"}</td>
                     <td>{formatDate(row.issueDate)}</td>
-                    <td>{formatDate(row.expirationDate)}</td>
+                    <td>{row.doesNotExpire ? "Does not expire" : formatDate(row.expirationDate)}</td>
                     <td>{row.verificationStatus.toLowerCase().replaceAll("_", " ")}</td>
+                    <td>
+                      {row.source === "APP_SHARED" ? (
+                        <Badge tone="info">Shared by member</Badge>
+                      ) : (
+                        "Department"
+                      )}
+                    </td>
                     <td>
                       <Badge tone={certTone(row.health)}>{row.label}</Badge>
                     </td>
