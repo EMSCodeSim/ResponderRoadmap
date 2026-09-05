@@ -4,6 +4,25 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+function schemaConnectionUrl() {
+  const configured = process.env.DATABASE_URL_UNPOOLED?.trim();
+  if (configured) return configured;
+
+  const pooled = process.env.DATABASE_URL?.trim();
+  if (!pooled) throw new Error("DATABASE_URL is required for schema updates.");
+
+  // Netlify functions should use Neon's pooled endpoint, but Prisma schema
+  // operations need a direct connection. Neon direct endpoints use the same
+  // URL with the `-pooler` suffix removed from the hostname.
+  const url = new URL(pooled);
+  if (url.hostname.endsWith("-pooler.neon.tech")) {
+    url.hostname = url.hostname.replace(/-pooler\.neon\.tech$/, ".neon.tech");
+    return url.toString();
+  }
+
+  return pooled;
+}
+
 type ConstraintCheck = {
   label: string;
   table: string;
@@ -68,7 +87,13 @@ async function main() {
   if (!(await verifyNoConflictingRows())) return;
   await prisma.$disconnect();
   const executable = path.join(process.cwd(), "node_modules", ".bin", process.platform === "win32" ? "prisma.cmd" : "prisma");
-  const result = spawnSync(executable, ["db", "push", "--accept-data-loss"], { stdio: "inherit" });
+  const result = spawnSync(executable, ["db", "push", "--accept-data-loss"], {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      DATABASE_URL: schemaConnectionUrl(),
+    },
+  });
   if (result.error) throw result.error;
   if (result.status !== 0) process.exitCode = result.status ?? 1;
 }
