@@ -17,5 +17,7 @@ function run(command: string, args: string[]) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-run("npx", ["prisma", "db", "push", "--skip-generate"]);
+// Reuse the guarded schema push so persistent demo data receives the same
+// duplicate checks as production before Prisma accepts constraint changes.
+run("npx", ["tsx", "scripts/safe-db-push.ts"]);
 run("npx", ["tsx", "prisma/seed.ts"]);
