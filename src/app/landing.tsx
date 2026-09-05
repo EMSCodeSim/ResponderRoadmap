@@ -32,6 +32,8 @@ const PREVIEW = [
   },
 ];
 
+const APP_STORE_URL = "https://apps.apple.com/us/app/repsonder-roadmap/id6800092347";
+
 export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
   return (
     <div className="min-h-screen bg-navy-950 text-white">
@@ -41,6 +43,9 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <BrandLockup size={44} subtitle="Task Books for Fire & EMS" />
           </Link>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white">
+              Download iPhone App
+            </a>
             {demoAvailable ? (
               <Link href="/demo" className="rounded-md bg-fire px-3 py-2 text-sm font-semibold text-white hover:bg-fire-dark">
                 Start Demo
@@ -66,7 +71,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               <span className="block text-white/80">Prove it on the record.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-white/70">
-              Build qualification Task Books with AI, import existing PDFs into editable drafts, evaluate skills in the field, track certifications, and keep a department record without turning training into a complicated software project.
+              Build qualification Task Books, create class rosters, assign skills checklists, evaluate members from a phone, track certifications, and keep a department record without turning training into a complicated software project.
             </p>
             <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-fire/40 bg-fire/10 px-3 py-1.5 text-sm font-semibold text-white/90">
               <span className="text-fire">AI Task Book Creator</span>
@@ -76,6 +81,9 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               {demoAvailable ? (
                 <>
                   <WalkDemoButton walk="to">Start Live Demo</WalkDemoButton>
+                  <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-sm font-semibold text-white hover:bg-white/10">
+                    Download Responder Roadmap for iPhone
+                  </a>
                   <p className="text-sm text-white/50">No signup. Start in the Training Officer view and use the real ResponderRoadmap workflow with Metro Fire sample data.</p>
                 </>
               ) : (
@@ -124,8 +132,38 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               ))}
             </div>
             <p className="mt-3 text-xs text-white/40">
-              The live demo opens as the Training Officer with realistic members, Task Books, sign-offs, expirations, and reports.
+              The live demo opens as the Training Officer with realistic members, Task Books, class rosters, inbox alerts, sign-offs, shared certifications, and reports.
             </p>
+          </div>
+        </section>
+
+        <section className="border-y border-white/10 bg-navy-950">
+          <div className="mx-auto max-w-6xl px-5 py-14">
+            <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Dashboard + native app</p>
+                <h2 className="display mt-2 text-4xl font-bold">Plan at the desk. Evaluate at the drill ground.</h2>
+                <p className="mt-4 text-white/70">
+                  The Training Captain builds programs and class rosters in the department dashboard. Members and assigned proctors use the native app without being redirected to a website.
+                </p>
+                <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-5 text-sm font-semibold text-white hover:bg-fire-dark">
+                  Download on the App Store
+                </a>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ["Class rosters", "Create a fire academy, CPR, or skills-testing roster and attach any published checklist."],
+                  ["Proctor mode", "Assigned evaluators select a student and record Pass, Remediation, Fail, or N/A from the app."],
+                  ["Reliable inbox", "Assignments, returned work, approvals, receipts, sync state, and items needing action stay visible."],
+                  ["Private certification sharing", "Members choose which certification names and expiration dates to share; private notes and numbers stay personal."],
+                ].map(([title, body]) => (
+                  <div key={title} className="rounded-md border border-white/10 bg-navy-900 p-4">
+                    <div className="font-semibold">{title}</div>
+                    <p className="mt-1 text-sm text-white/60">{body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -220,6 +258,9 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             </div>
             <div className="flex w-full max-w-sm flex-col gap-3">
               {demoAvailable ? <WalkDemoButton walk="to">Start Live Demo</WalkDemoButton> : null}
+              <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-center text-sm font-semibold text-white hover:bg-white/10">
+                Download the iPhone App
+              </a>
               <Link href="/department-interest?source=landing-bottom" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-center text-sm font-semibold text-white hover:bg-white/10">
                 Join the Founding Department List
               </Link>

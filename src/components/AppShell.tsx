@@ -194,6 +194,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 Interested in using this at your department?
               </Link>
+              <a
+                href="https://apps.apple.com/us/app/repsonder-roadmap/id6800092347"
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-h-10 items-center justify-center rounded-md border border-white/20 px-3 text-center text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+              >
+                Download the iPhone app
+              </a>
             </div>
           ) : null}
 

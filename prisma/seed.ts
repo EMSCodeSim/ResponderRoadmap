@@ -54,6 +54,9 @@ const EXTRA_FIRST = ["Morgan", "Kelly", "Shawn", "Robin", "Elliott", "Finley", "
 const EXTRA_LAST = ["Brooks", "Nguyen", "Cole", "Diaz", "Bennett", "Hughes", "Price", "Foster"];
 
 async function reset() {
+  await prisma.inboxNotification.deleteMany();
+  await prisma.pushDevice.deleteMany();
+  await prisma.trainingClass.deleteMany();
   await prisma.evaluationAttempt.deleteMany();
   await prisma.signOff.deleteMany();
   await prisma.evidence.deleteMany();
@@ -234,6 +237,11 @@ async function addCredential(opts: {
   expiresInDays?: number | null;
   verification?: string;
   notes?: string;
+  doesNotExpire?: boolean;
+  source?: string;
+  sourceExternalId?: string;
+  sourceUpdatedAt?: Date;
+  sharedByMemberAt?: Date;
 }) {
   return prisma.credential.create({
     data: {
@@ -245,8 +253,13 @@ async function addCredential(opts: {
       credentialNumber: opts.number ?? null,
       issueDate: daysAgo(opts.issueDaysAgo),
       expirationDate: opts.expiresInDays == null ? null : daysFromNow(opts.expiresInDays),
+      doesNotExpire: opts.doesNotExpire ?? false,
       verificationStatus: opts.verification ?? "VERIFIED",
       notes: opts.notes ?? "",
+      source: opts.source ?? "DEPARTMENT",
+      sourceExternalId: opts.sourceExternalId ?? null,
+      sourceUpdatedAt: opts.sourceUpdatedAt ?? null,
+      sharedByMemberAt: opts.sharedByMemberAt ?? null,
     },
   });
 }
@@ -346,6 +359,62 @@ async function main() {
   const officer = await createBook(department.id, "usr_riley", "fire-officer-i", "ACTIVE");
   const medic = await createBook(department.id, "usr_riley", "new-paramedic-orientation", "ACTIVE");
   await createBook(department.id, "usr_riley", "department-orientation", "DRAFT");
+
+  const cprTemplate = await prisma.taskBookTemplate.create({
+    data: {
+      id: "tb_cpr-provider-skills",
+      departmentId: department.id,
+      title: "CPR Provider Skills Checklist",
+      description: "Adult and pediatric CPR performance checklist for classroom testing.",
+      category: "EMS",
+      status: "ACTIVE",
+      ownerId: "usr_riley",
+      estimatedDurationDays: 1,
+      versions: {
+        create: {
+          id: "ver_cpr-provider-skills_10",
+          version: "1.0",
+          status: "PUBLISHED",
+          publishedAt: daysAgo(30),
+          publishedById: "usr_riley",
+        },
+      },
+    },
+    include: { versions: true },
+  });
+  const cprVersionId = cprTemplate.versions[0].id;
+  const adultCpr = await prisma.taskBookSection.create({
+    data: {
+      versionId: cprVersionId,
+      title: "Adult CPR Skills",
+      description: "Adult high-quality CPR and AED performance.",
+      sortOrder: 0,
+      requirements: {
+        create: [
+          { title: "Adult compressions", description: "Correct rate, depth, recoil, and interruptions.", instructions: "Evaluate high-quality adult chest compressions.", sortOrder: 0, isRequired: true, evidenceType: "SKILL_EVALUATION", evaluatorSignOffRequired: true },
+          { title: "Adult ventilations", description: "Effective breaths without excessive ventilation.", instructions: "Evaluate mask seal and visible chest rise.", sortOrder: 1, isRequired: true, evidenceType: "SKILL_EVALUATION", evaluatorSignOffRequired: true },
+          { title: "AED operation", description: "Safe pad placement, rhythm analysis, and shock sequence.", instructions: "Evaluate a complete AED sequence.", sortOrder: 2, isRequired: true, evidenceType: "SKILL_EVALUATION", evaluatorSignOffRequired: true },
+        ],
+      },
+    },
+    include: { requirements: true },
+  });
+  const pediatricCpr = await prisma.taskBookSection.create({
+    data: {
+      versionId: cprVersionId,
+      title: "Infant / Child CPR Skills",
+      description: "Pediatric CPR and choking performance.",
+      sortOrder: 1,
+      requirements: {
+        create: [
+          { title: "Child compressions and breaths", description: "Correct child CPR technique and ratios.", instructions: "Evaluate child CPR performance.", sortOrder: 0, isRequired: true, evidenceType: "SKILL_EVALUATION", evaluatorSignOffRequired: true },
+          { title: "Infant compressions and breaths", description: "Correct infant CPR technique and ratios.", instructions: "Evaluate infant CPR performance.", sortOrder: 1, isRequired: true, evidenceType: "SKILL_EVALUATION", evaluatorSignOffRequired: true },
+          { title: "Infant choking", description: "Correct responsive and unresponsive choking sequence.", instructions: "Evaluate the complete infant choking sequence.", sortOrder: 2, isRequired: true, evidenceType: "SKILL_EVALUATION", evaluatorSignOffRequired: true },
+        ],
+      },
+    },
+    include: { requirements: true },
+  });
 
   const probationTitles = probation.sections.flatMap((section) => section.requirements.map((req) => req.title));
   const alexApprove = probationTitles.filter(
@@ -504,10 +573,98 @@ async function main() {
   });
 
   const mem = (userId: string) => membershipIds.get(userId)!;
+
+  const academyClass = await prisma.trainingClass.create({
+    data: {
+      id: "class_fire_academy_skills_day",
+      departmentId: department.id,
+      title: "Fire Academy Skills Testing Day",
+      classType: "FIRE_ACADEMY",
+      checklistVersionId: probation.id,
+      startsAt: daysFromNow(1),
+      location: "Metro Fire Training Center",
+      status: "ACTIVE",
+      notes: "Engine-company skills stations with assigned evaluators.",
+      createdById: "usr_riley",
+      proctors: { create: [{ userId: "usr_lee" }, { userId: "usr_dana" }] },
+      roster: {
+        create: [
+          { id: "class_enroll_alex", membershipId: mem("usr_alex"), attendance: "PRESENT", finalResult: "REMEDIATION", writtenScore: 88 },
+          { id: "class_enroll_jamie", membershipId: mem("usr_jamie"), attendance: "PRESENT", finalResult: "PENDING", writtenScore: 82 },
+          { id: "class_enroll_jesse", membershipId: mem("usr_jesse"), attendance: "REGISTERED", finalResult: "PENDING" },
+          { id: "class_enroll_ctaylor", membershipId: mem("usr_ctaylor"), attendance: "PRESENT", finalResult: "PENDING", writtenScore: 91 },
+        ],
+      },
+    },
+  });
+  const academySkills = probation.sections.flatMap((section) => section.requirements).slice(0, 3);
+  for (const [index, skill] of academySkills.entries()) {
+    await prisma.trainingClassSkillResult.create({
+      data: {
+        enrollmentId: "class_enroll_alex",
+        requirementId: skill.id,
+        result: index === 1 ? "NEEDS_REMEDIATION" : "PASS",
+        notes: index === 1 ? "Repeat the evolution while maintaining tool control through the full movement." : "Meets the department skill standard.",
+        evaluatorId: "usr_lee",
+        evaluatedAt: new Date(now.getTime() - (45 - index * 8) * 60_000),
+      },
+    });
+  }
+
+  await prisma.trainingClass.create({
+    data: {
+      id: "class_cpr_provider_renewal",
+      departmentId: department.id,
+      title: "CPR Provider Renewal Class",
+      classType: "CPR",
+      checklistVersionId: cprVersionId,
+      startsAt: daysFromNow(7),
+      endsAt: daysFromNow(7.2),
+      location: "Station 1 Classroom",
+      status: "DRAFT",
+      notes: "Roster report includes written score, CCF score, and adult/pediatric skill pages.",
+      createdById: "usr_riley",
+      proctors: { create: [{ userId: "usr_lee" }] },
+      roster: {
+        create: ["usr_alex", "usr_jordan", "usr_chris", "usr_taylor", "usr_avery", "usr_parker"].map((userId) => ({ membershipId: mem(userId) })),
+      },
+    },
+  });
+
+  await prisma.inboxNotification.createMany({
+    data: [
+      {
+        departmentId: department.id,
+        userId: "usr_riley",
+        type: "CLASS_READY",
+        title: "Fire academy testing is active",
+        body: "Four students and two proctors are assigned to tomorrow’s skills testing roster.",
+        referenceType: "TrainingClass",
+        referenceId: academyClass.id,
+        actionPath: `/classes/${academyClass.id}`,
+        dedupeKey: "demo-academy-class-ready",
+        pushStatus: "NO_DEVICE",
+      },
+      {
+        departmentId: department.id,
+        userId: "usr_lee",
+        type: "CLASS_ASSIGNED",
+        title: "You are assigned as a proctor",
+        body: "Fire Academy Skills Testing Day is ready for skill check-offs.",
+        referenceType: "TrainingClass",
+        referenceId: academyClass.id,
+        actionPath: `/classes/${academyClass.id}`,
+        dedupeKey: "demo-academy-proctor-assigned",
+        pushStatus: "NO_DEVICE",
+      },
+    ],
+  });
+
   await addCredential({ membershipId: mem("usr_alex"), departmentId: department.id, typeId: typeIds.get("EMT"), name: "EMT", issuer: "Texas DSHS", number: "EMT-44821", issueDaysAgo: 400, expiresInDays: 330 });
   await addCredential({ membershipId: mem("usr_alex"), departmentId: department.id, typeId: typeIds.get("CPR"), name: "CPR", issuer: "American Heart Association", number: "CPR-19-8821", issueDaysAgo: 317, expiresInDays: 48 });
   await addCredential({ membershipId: mem("usr_alex"), departmentId: department.id, typeId: typeIds.get("HazMat Operations"), name: "HazMat Operations", issuer: "TCFP", issueDaysAgo: 500, expiresInDays: 400 });
   await addCredential({ membershipId: mem("usr_alex"), departmentId: department.id, typeId: typeIds.get("Firefighter I"), name: "Firefighter I", issuer: "TCFP", issueDaysAgo: 200, expiresInDays: 900 });
+  await addCredential({ membershipId: mem("usr_alex"), departmentId: department.id, name: "Wildland Firefighter Type 2", issuer: "Redwood FD", issueDaysAgo: 900, expiresInDays: 200, verification: "UNVERIFIED", source: "APP_SHARED", sourceExternalId: "demo-app-cert-wildland", sourceUpdatedAt: daysAgo(1), sharedByMemberAt: daysAgo(1) });
 
   await addCredential({ membershipId: mem("usr_jordan"), departmentId: department.id, typeId: typeIds.get("EMT"), name: "EMT", issuer: "Texas DSHS", number: "EMT-33109", issueDaysAgo: 669, expiresInDays: 61 });
   await addCredential({ membershipId: mem("usr_jordan"), departmentId: department.id, typeId: typeIds.get("CPR"), name: "CPR", issuer: "American Heart Association", issueDaysAgo: 100, expiresInDays: 265 });

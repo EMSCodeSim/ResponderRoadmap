@@ -8,7 +8,7 @@ export const DEMO_WALKS = {
     title: "Training Officer",
     next: "/dashboard",
     cta: "See as Training Officer",
-    after: "Open the training board, review progress, assignments, sign-offs, and department readiness.",
+    after: "Open the training board, class rosters, inbox, assignments, sign-offs, and department readiness.",
   },
   member: {
     key: "member",
@@ -24,9 +24,9 @@ export const DEMO_WALKS = {
     email: "sam.lee@metrofire.gov",
     name: "Lt. Sam Lee",
     title: "Evaluator · Engine 1",
-    next: "/evaluate",
+    next: "/classes",
     cta: "See as Evaluator",
-    after: "Open the evaluation queue and review exactly what a field evaluator sees before sign-off.",
+    after: "Open an assigned class roster, check off student skills, and review the field evaluation queue.",
   },
 } as const;
 
