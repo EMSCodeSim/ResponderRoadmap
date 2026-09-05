@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
+import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
 
 const RESULT_VALUES = new Set(["NOT_EVALUATED", "PASS", "NEEDS_REMEDIATION", "FAIL", "NOT_APPLICABLE"]);
 const ATTENDANCE_VALUES = new Set(["REGISTERED", "PRESENT", "ABSENT", "EXCUSED"]);
@@ -70,7 +71,7 @@ export async function getClassSetup(ctx: AuthContext) {
       role: membership.role,
     })),
     proctors: memberships
-      .filter((membership) => ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(membership.role))
+      .filter((membership) => ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(membership.role) && membership.evaluatorStatus !== "SUSPENDED")
       .map((membership) => ({ userId: membership.userId, name: membership.user.name, role: membership.role })),
   };
 }
@@ -138,10 +139,8 @@ export async function createClass(
   });
   const validProctors = await prisma.departmentMembership.findMany({
     where: {
+      ...approvedEvaluatorWhere(ctx.departmentId),
       userId: { in: proctorIds },
-      departmentId: ctx.departmentId,
-      status: "ACTIVE",
-      role: { in: ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
     },
   });
   if (validMembers.length !== memberIds.length) throw new HttpError(400, "One or more roster members are invalid.");
@@ -285,6 +284,7 @@ export async function recordSkillResult(
   input: { result?: string; notes?: string; stepResults?: unknown[] },
 ) {
   assertPermission(ctx, "classes.proctor");
+  await assertApprovedEvaluator(ctx);
   const classRow = await canAccessClass(ctx, classId, true);
   if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED") {
     throw new HttpError(409, "This class is closed for check-off.");
@@ -335,6 +335,7 @@ export async function updateEnrollment(
   input: { attendance?: string; writtenScore?: number | null; ccfScore?: number | null; notes?: string },
 ) {
   assertPermission(ctx, "classes.proctor");
+  await assertApprovedEvaluator(ctx);
   await canAccessClass(ctx, classId, true);
   const enrollment = await prisma.trainingClassEnrollment.findFirst({ where: { id: enrollmentId, classId } });
   if (!enrollment) throw new HttpError(404, "Student is not on this class roster.");

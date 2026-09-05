@@ -7,6 +7,7 @@ import { reviewStageForRequirement } from "@/lib/signoff";
 import { parseJsonArray, type SignOffResult } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
 import { notifyUser } from "@/server/services/inbox";
+import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
 
 const assignmentInclude = {
   membership: { include: { user: true } },
@@ -303,6 +304,7 @@ function roleCanSignLevel(role: Role, level: string) {
 
 export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string } = {}) {
   assertPermission(ctx, "signoff.review");
+  await assertApprovedEvaluator(ctx);
   const completions = await prisma.requirementCompletion.findMany({
     where: {
       assignment: { departmentId: ctx.departmentId },
@@ -411,6 +413,7 @@ export async function reviewSignOff(
   },
 ) {
   assertPermission(ctx, "signoff.review");
+  await assertApprovedEvaluator(ctx);
   const completion = await prisma.requirementCompletion.findFirst({
     where: { id: completionId, assignment: { departmentId: ctx.departmentId } },
     include: {
@@ -836,11 +839,7 @@ export async function getPrintRecord(ctx: AuthContext, assignmentId: string) {
 export async function listEvaluators(ctx: AuthContext) {
   assertPermission(ctx, "assignments.read");
   const people = await prisma.departmentMembership.findMany({
-    where: {
-      departmentId: ctx.departmentId,
-      status: "ACTIVE",
-      role: { in: ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
-    },
+    where: approvedEvaluatorWhere(ctx.departmentId),
     include: { user: true },
   });
   return people.map((item) => ({ id: item.userId, membershipId: item.id, name: item.user.name, role: item.role }));

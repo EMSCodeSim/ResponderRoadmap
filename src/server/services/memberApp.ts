@@ -5,6 +5,7 @@ import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import type { AuthContext } from "@/server/permissions";
 import { refreshAssignmentStatus } from "@/server/services/assignments";
 import { notifyUser } from "@/server/services/inbox";
+import { approvedEvaluatorWhere } from "@/server/services/evaluators";
 
 function parseStringArray(value: string): string[] {
   try {
@@ -225,11 +226,7 @@ export async function getMyAssignment(ctx: AuthContext, assignmentId: string) {
 export async function listMyEvaluators(ctx: AuthContext) {
   await assertActiveMembership(ctx);
   const people = await prisma.departmentMembership.findMany({
-    where: {
-      departmentId: ctx.departmentId,
-      status: "ACTIVE",
-      role: { in: ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
-    },
+    where: approvedEvaluatorWhere(ctx.departmentId),
     include: { user: true },
     orderBy: { user: { name: "asc" } },
   });
@@ -466,10 +463,8 @@ export async function submitRequirement(
     if (!requestedEvaluatorId) throw new HttpError(400, "Choose an approved evaluator.");
     const approved = await prisma.departmentMembership.findFirst({
       where: {
-        departmentId: ctx.departmentId,
+        ...approvedEvaluatorWhere(ctx.departmentId),
         userId: requestedEvaluatorId,
-        status: "ACTIVE",
-        role: { in: ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
       },
     });
     if (!approved) throw new HttpError(400, "The selected evaluator is not approved for this department.");

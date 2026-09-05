@@ -44,6 +44,7 @@ const ITEMS = [
   { href: "/training-assignments", key: "training-assignments", label: "Quick Training", icon: Dumbbell },
   { href: "/assignments", key: "assignments", label: "Assignments", icon: ClipboardList },
   { href: "/evaluate", key: "evaluate", label: "Needs Evaluation", icon: ClipboardList },
+  { href: "/evaluators", key: "evaluators", label: "Evaluator Management", icon: Users },
   { href: "/classes", key: "classes", label: "Classes & Rosters", icon: CalendarCheck },
   { href: "/my-task-books", key: "my-task-books", label: "My Task Books", icon: BookOpen },
   { href: "/certifications", key: "certifications", label: "Certifications", icon: Award },

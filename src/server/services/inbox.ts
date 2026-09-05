@@ -157,7 +157,7 @@ async function createEscalationsForDepartment(departmentId: string) {
 
 export async function getInbox(ctx: AuthContext) {
   await createEscalationsForDepartment(ctx.departmentId);
-  const [items, unreadCount, memberActions, evaluatorActions] = await Promise.all([
+  const [items, unreadCount, memberActions, evaluatorActions, evaluatorMembership] = await Promise.all([
     prisma.inboxNotification.findMany({ where: { userId: ctx.userId, departmentId: ctx.departmentId }, orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.inboxNotification.count({ where: { userId: ctx.userId, departmentId: ctx.departmentId, readAt: null } }),
     prisma.requirementCompletion.findMany({
@@ -170,8 +170,11 @@ export async function getInbox(ctx: AuthContext) {
       include: { membership: { include: { user: true } }, requirement: true, assignment: true, signOffs: true },
       orderBy: { submittedAt: "asc" }, take: 100,
     }),
+    ctx.role === "MEMBER"
+      ? Promise.resolve(null)
+      : prisma.departmentMembership.findUnique({ where: { id: ctx.membershipId }, select: { evaluatorStatus: true } }),
   ]);
-  const reviewerItems = evaluatorActions.filter((item) => {
+  const reviewerItems = evaluatorMembership?.evaluatorStatus === "SUSPENDED" ? [] : evaluatorActions.filter((item) => {
     if (ctx.role !== "EVALUATOR") return true;
     const stage = reviewStageForRequirement({
       evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,

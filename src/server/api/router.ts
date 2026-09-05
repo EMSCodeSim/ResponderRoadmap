@@ -11,6 +11,7 @@ import * as department from "@/server/services/department";
 import * as memberApp from "@/server/services/memberApp";
 import * as inbox from "@/server/services/inbox";
 import * as classes from "@/server/services/classes";
+import * as evaluators from "@/server/services/evaluators";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
@@ -150,6 +151,19 @@ export async function handleApi(req: Request, path: string[]) {
     const portalInboxRead = match(path, "inbox/:id/read");
     if (method === "POST" && portalInboxRead) return jsonOk(await inbox.markRead(ctx, portalInboxRead.id));
     if (method === "POST" && match(path, "inbox/read-all")) return jsonOk(await inbox.markAllRead(ctx));
+
+    if (method === "GET" && match(path, "evaluator-management")) {
+      return jsonOk(await evaluators.listEvaluatorManagement(ctx));
+    }
+    const evaluatorStatus = match(path, "evaluator-management/:membershipId");
+    if (method === "PATCH" && evaluatorStatus) {
+      return jsonOk(await evaluators.updateEvaluator(ctx, evaluatorStatus.membershipId, await readBody(req)));
+    }
+    const evaluatorReassign = match(path, "evaluator-management/:userId/reassign");
+    if (method === "POST" && evaluatorReassign) {
+      const body = await readBody(req);
+      return jsonOk(await evaluators.reassignEvaluator(ctx, evaluatorReassign.userId, body.newEvaluatorId));
+    }
 
     if (method === "GET" && match(path, "classes/setup")) return jsonOk(await classes.getClassSetup(ctx));
     if (method === "GET" && match(path, "classes")) return jsonOk(await classes.listClasses(ctx));

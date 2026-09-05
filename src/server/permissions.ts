@@ -11,6 +11,7 @@ export type Permission =
   | "assignments.read"
   | "assignments.write"
   | "signoff.review"
+  | "evaluators.manage"
   | "classes.read"
   | "classes.write"
   | "classes.proctor"
@@ -40,6 +41,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "assignments.read",
     "assignments.write",
     "signoff.review",
+    "evaluators.manage",
     "classes.read",
     "classes.write",
     "classes.proctor",
@@ -61,6 +63,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "assignments.read",
     "assignments.write",
     "signoff.review",
+    "evaluators.manage",
     "classes.read",
     "classes.write",
     "classes.proctor",
@@ -117,6 +120,7 @@ export function navItemsForRole(role: Role): string[] {
   if (hasPermission(role, "assignments.write")) items.push("training-assignments");
   if (hasPermission(role, "assignments.read")) items.push("assignments");
   if (hasPermission(role, "signoff.review")) items.push("evaluate");
+  if (hasPermission(role, "evaluators.manage")) items.push("evaluators");
   if (hasPermission(role, "classes.read")) items.push("classes");
   if (hasPermission(role, "credentials.read")) items.push("certifications");
   if (hasPermission(role, "reports.read")) items.push("reports");

@@ -86,6 +86,11 @@ model DepartmentMembership {
   station        String?
   shift          String?
   employeeNumber String?
+  /// ROLE_DEFAULT follows an evaluator-capable role; APPROVED records explicit authorization; SUSPENDED removes access.
+  evaluatorStatus String     @default("ROLE_DEFAULT")
+  evaluatorApprovalLevel String @default("EVALUATOR")
+  evaluatorStatusUpdatedAt DateTime?
+  evaluatorStatusUpdatedById String?
   joinedAt       DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
