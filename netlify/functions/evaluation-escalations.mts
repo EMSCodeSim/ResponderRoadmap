@@ -1,4 +1,3 @@
-import type { Config } from "@netlify/functions";
 import { runEvaluationEscalations } from "../../src/server/services/inbox";
 
 export default async () => {
@@ -9,6 +8,6 @@ export default async () => {
   });
 };
 
-export const config: Config = {
+export const config = {
   schedule: "@hourly",
 };
