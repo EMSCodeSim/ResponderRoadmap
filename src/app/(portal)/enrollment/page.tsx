@@ -229,7 +229,7 @@ export default function EnrollmentPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {origin ? <img src={qrUrl} alt={`QR code for department join code ${data.department.joinCode}`} className="mx-auto mt-3 h-[220px] w-[220px] rounded-md border border-navy-100" /> : null}
           <div className="display mt-3 text-2xl font-bold tracking-wider">{data.department.joinCode}</div>
-          <p className="mt-1 text-xs text-navy-500">For existing ResponderRoadmap accounts. {data.department.requireApproval ? "A captain must approve each request." : "Requests activate immediately."}</p>
+          <p className="mt-1 text-xs text-navy-500">For new or existing ResponderRoadmap users. Every join-code request remains pending until a Training Officer approves it.</p>
           <Button variant="secondary" className="mt-4 w-full" onClick={() => copy(joinUrl, "Join link")}><Clipboard size={16} /> Copy join link</Button>
         </Card>
       </div>

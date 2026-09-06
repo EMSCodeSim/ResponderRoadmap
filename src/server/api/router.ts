@@ -54,10 +54,20 @@ export async function handleApi(req: Request, path: string[]) {
       const token = await signSession(result.session);
       return jsonOk({ ...result, token });
     }
+    if (method === "POST" && match(path, "auth/department-code")) {
+      const body = await readBody(req);
+      return jsonOk(await auth.validateDepartmentJoinCode(body.joinCode || ""));
+    }
     if (method === "POST" && match(path, "auth/register")) {
       const body = await readBody(req);
       const result = await auth.register(body);
       return jsonOk(result);
+    }
+    if (method === "POST" && match(path, "auth/app-register")) {
+      const body = await readBody(req);
+      const result = await auth.register(body);
+      const token = result.session ? await signSession(result.session) : null;
+      return jsonOk({ ...result, token });
     }
     if (method === "POST" && match(path, "auth/logout")) {
       await clearSessionCookie();

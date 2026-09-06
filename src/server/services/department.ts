@@ -10,6 +10,7 @@ import {
 } from "@/server/services/invitation-email";
 import bcrypt from "bcryptjs";
 import { setSessionCookie } from "@/server/session";
+import { notifyUser } from "@/server/services/inbox";
 
 export async function getDepartment(ctx: AuthContext) {
   assertPermission(ctx, "department.read");
@@ -263,7 +264,7 @@ export async function joinByCode(userId: string, joinCode: string) {
       departmentId: department.id,
       userId,
       role: "MEMBER",
-      status: department.requireApproval ? "PENDING" : "ACTIVE",
+      status: "PENDING",
     },
   });
   await writeActivity(department.id, "MEMBER_JOINED", {
@@ -271,18 +272,21 @@ export async function joinByCode(userId: string, joinCode: string) {
     referenceId: membership.id,
     metadata: { memberName: user.name },
   });
-  if (membership.status === "ACTIVE") {
-    await setSessionCookie({
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      departmentId: department.id,
-      departmentName: department.name,
-      membershipId: membership.id,
-      role: "MEMBER",
-      rank: null,
-    });
-  }
+  const officers = await prisma.departmentMembership.findMany({
+    where: { departmentId: department.id, status: "ACTIVE", role: { in: ["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] } },
+    select: { userId: true },
+  });
+  await Promise.all(officers.map(({ userId: officerId }) => notifyUser({
+    departmentId: department.id,
+    userId: officerId,
+    type: "MEMBER_APPROVAL_REQUIRED",
+    title: "New member awaiting approval",
+    body: `${user.name} used the department join code and is waiting for approval.`,
+    referenceType: "DepartmentMembership",
+    referenceId: membership.id,
+    actionPath: "/enrollment",
+    dedupeKey: `member-approval:${membership.id}`,
+  })));
   return { department, membership };
 }
 

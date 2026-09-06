@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { HttpError } from "@/server/http";
 import { setSessionCookie, type SessionPayload } from "@/server/session";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
+import { notifyUser } from "@/server/services/inbox";
 
 function toSession(user: {
   id: string;
@@ -50,51 +51,90 @@ export async function login(email: string, password: string) {
   if (session.membershipId) {
     const membership = user.memberships.find((item) => item.id === session.membershipId);
     if (membership && membership.status !== "ACTIVE") {
-      throw new HttpError(403, "Your department membership is not active.");
+      throw new HttpError(403, membership.status === "PENDING"
+        ? "Your department membership is waiting for Training Officer approval."
+        : "Your department membership is not active. Contact your Training Officer for help.");
     }
   }
   await setSessionCookie(session);
   return { session, needsDepartment: !session.departmentId };
 }
 
-export async function register(input: { name: string; email: string; password: string; invitationToken?: string }) {
+export async function validateDepartmentJoinCode(rawCode: string) {
+  const joinCode = rawCode.trim().toUpperCase();
+  if (!joinCode) throw new HttpError(400, "Enter the department join code provided by your Training Officer.");
+  const department = await prisma.department.findUnique({
+    where: { joinCode },
+    select: { id: true, name: true },
+  });
+  if (!department) throw new HttpError(404, "That department join code was not accepted. Check the code with your Training Officer.");
+  return { departmentName: department.name, joinCode, approvalRequired: true };
+}
+
+export async function register(input: { name: string; email: string; password: string; invitationToken?: string; joinCode?: string }) {
   const email = input.email.trim().toLowerCase();
   const token = input.invitationToken?.trim() || "";
+  const joinCode = input.joinCode?.trim().toUpperCase() || "";
   if (!input.name.trim() || !email || input.password.length < 8) {
     throw new HttpError(400, "Name, email, and a password of at least 8 characters are required.");
   }
-  if (!token) {
-    throw new HttpError(403, "ResponderRoadmap is invite-only during the pilot program. Use the invitation link sent by your department.");
+  if (!token && !joinCode) {
+    throw new HttpError(403, "Enter a department join code or use the invitation link sent by your department.");
   }
 
-  const invitation = await prisma.invitation.findUnique({ where: { token }, include: { department: true } });
-  if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt < new Date()) {
+  const invitation = token
+    ? await prisma.invitation.findUnique({ where: { token }, include: { department: true } })
+    : null;
+  if (token && (!invitation || invitation.status !== "PENDING" || invitation.expiresAt < new Date())) {
     throw new HttpError(400, "This invitation is invalid or has expired.");
   }
-  if (invitation.email && invitation.email !== email) {
-    throw new HttpError(403, "This invitation was issued to a different email address.");
-  }
+  if (invitation?.email && invitation.email !== email) throw new HttpError(403, "This invitation was issued to a different email address.");
+  const codeDepartment = joinCode
+    ? await prisma.department.findUnique({ where: { joinCode }, select: { id: true, name: true } })
+    : null;
+  if (joinCode && !codeDepartment) throw new HttpError(404, "That department join code was not accepted. Check the code with your Training Officer.");
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new HttpError(409, "An account with that email already exists. Sign in to accept your invitation.");
 
   const passwordHash = await bcrypt.hash(input.password, 10);
+  const departmentId = invitation?.departmentId || codeDepartment!.id;
+  const membershipStatus = invitation ? "ACTIVE" : "PENDING";
   const userId = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({ data: { name: input.name.trim(), email, passwordHash } });
     await tx.departmentMembership.create({
       data: {
-        departmentId: invitation.departmentId,
+        departmentId,
         userId: user.id,
-        role: invitation.role,
-        status: "ACTIVE",
-        rank: invitation.rank,
-        station: invitation.station,
-        shift: invitation.shift,
+        role: invitation?.role || "MEMBER",
+        status: membershipStatus,
+        rank: invitation?.rank,
+        station: invitation?.station,
+        shift: invitation?.shift,
       },
     });
-    await tx.invitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } });
+    if (invitation) await tx.invitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } });
     return user.id;
   });
+
+  if (!invitation) {
+    const officers = await prisma.departmentMembership.findMany({
+      where: { departmentId, status: "ACTIVE", role: { in: ["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] } },
+      select: { userId: true },
+    });
+    await Promise.all(officers.map(({ userId: officerId }) => notifyUser({
+      departmentId,
+      userId: officerId,
+      type: "MEMBER_APPROVAL_REQUIRED",
+      title: "New member awaiting approval",
+      body: `${input.name.trim()} used the department join code and is waiting for approval.`,
+      referenceType: "User",
+      referenceId: userId,
+      actionPath: "/enrollment",
+      dedupeKey: `member-approval:${userId}`,
+    })));
+    return { session: null, needsDepartment: true, approvalPending: true, departmentName: codeDepartment!.name };
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -103,7 +143,7 @@ export async function register(input: { name: string; email: string; password: s
   if (!user) throw new HttpError(500, "Account was created but could not be loaded.");
   const session = toSession(user);
   await setSessionCookie(session);
-  return { session, needsDepartment: false };
+  return { session, needsDepartment: false, approvalPending: false, departmentName: invitation.department.name };
 }
 
 function makeJoinCode(name: string) {

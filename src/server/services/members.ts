@@ -4,6 +4,7 @@ import { assertPermission, hasPermission, type AuthContext } from "@/server/perm
 import { credentialStatus, worstCredentialHealth, type CredentialHealth } from "@/lib/dates";
 import { computeAssignmentProgress } from "@/lib/progress";
 import type { Role, MembershipStatus } from "@/lib/constants";
+import { notifyUser } from "@/server/services/inbox";
 
 function includeMember() {
   return {
@@ -428,5 +429,18 @@ export async function approveMembership(ctx: AuthContext, membershipId: string, 
     data: { status: approve ? "ACTIVE" : "REJECTED" },
   });
   await writeAudit(ctx, approve ? "membership.approved" : "membership.rejected", "DepartmentMembership", membership.id, {});
+  await notifyUser({
+    departmentId: ctx.departmentId,
+    userId: membership.userId,
+    type: approve ? "MEMBERSHIP_APPROVED" : "MEMBERSHIP_REJECTED",
+    title: approve ? "Department access approved" : "Department access not approved",
+    body: approve
+      ? `${ctx.departmentName} approved your membership. You can now sign in to the app or website.`
+      : `${ctx.departmentName} did not approve your membership request. Contact your Training Officer for help.`,
+    referenceType: "DepartmentMembership",
+    referenceId: membership.id,
+    actionPath: approve ? "/dashboard" : "/join",
+    dedupeKey: `membership-decision:${membership.id}:${approve ? "approved" : "rejected"}`,
+  });
   return updated;
 }

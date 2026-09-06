@@ -11,21 +11,27 @@ function RegisterContent() {
   const router = useRouter();
   const search = useSearchParams();
   const invitationToken = search.get("invite") || "";
+  const joinCode = search.get("code")?.trim().toUpperCase() || "";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingDepartment, setPendingDepartment] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await api("auth/register", {
+      const result = await api<{ approvalPending?: boolean; departmentName?: string }>("auth/register", {
         method: "POST",
-        body: JSON.stringify({ name, email, password, invitationToken }),
+        body: JSON.stringify({ name, email, password, invitationToken, joinCode }),
       });
+      if (result.approvalPending) {
+        setPendingDepartment(result.departmentName || "your department");
+        return;
+      }
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -42,12 +48,24 @@ function RegisterContent() {
           <BrandMark size={56} alt="ResponderRoadmap" />
         </Link>
 
-        {invitationToken ? (
+        {pendingDepartment ? (
+          <div>
+            <div className="kicker">Account created</div>
+            <h1 className="display mt-1 text-4xl font-bold">Approval requested</h1>
+            <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-navy-700">
+              Your request to join <strong>{pendingDepartment}</strong> was sent to its Training Officers. You cannot access department records until one of them approves you.
+            </div>
+            <p className="mt-4 text-sm text-navy-500">After approval, return to the app or website and sign in with the email and password you just created.</p>
+            <Link href="/login" className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">Return to sign in</Link>
+          </div>
+        ) : invitationToken || joinCode ? (
           <>
-            <div className="kicker">Pilot invitation</div>
+            <div className="kicker">{invitationToken ? "Department invitation" : "Department code accepted"}</div>
             <h1 className="display mt-1 text-4xl font-bold">Create your account</h1>
             <p className="mt-2 text-sm text-navy-500">
-              This account will be connected to the department that invited you.
+              {invitationToken
+                ? "This account will be connected to the department that invited you."
+                : "Your Training Officer must approve the account before department assignments become available."}
             </p>
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <Flash message={error} tone="danger" />
@@ -61,16 +79,16 @@ function RegisterContent() {
                 <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
               </Field>
               <Button type="submit" className="w-full" disabled={busy}>
-                {busy ? "Creating…" : "Create account and join department"}
+                {busy ? "Creating…" : joinCode ? "Create account and request approval" : "Create account and join department"}
               </Button>
             </form>
           </>
         ) : (
           <>
             <div className="kicker">Founding Department Pilot</div>
-            <h1 className="display mt-1 text-4xl font-bold">Pilot access is invite-only</h1>
+            <h1 className="display mt-1 text-4xl font-bold">Department access is controlled</h1>
             <p className="mt-3 text-sm text-navy-500">
-              ResponderRoadmap is currently being tested with selected fire and EMS departments. Public department signup is temporarily closed while we validate real Task Book workflows.
+              Create an account with a private department join code or an invitation from your department. Public unrestricted signup remains closed.
             </p>
 
             <div className="mt-5 rounded-md border border-fire/25 bg-fire-soft/40 p-4">
@@ -96,6 +114,9 @@ function RegisterContent() {
               </ol>
             </div>
             <div className="mt-5 space-y-2">
+              <Link href="/join" className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold text-white hover:bg-fire-dark">
+                Enter department join code
+              </Link>
               <Link href="/login" className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">
                 Sign in
               </Link>
