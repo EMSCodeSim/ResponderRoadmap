@@ -327,6 +327,18 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
 
   return completions
     .filter((item) => {
+      if (filter.view === "mine") {
+        const stage = reviewStageForRequirement({
+          evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+          supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
+          signOffs: item.signOffs,
+          submittedAt: item.submittedAt,
+        });
+        const assignedReviewerId = stage === "SUPERVISOR"
+          ? item.assignment.supervisorId
+          : item.requestedEvaluatorId || item.assignment.evaluatorId;
+        return assignedReviewerId === ctx.userId;
+      }
       if (ctx.role === "EVALUATOR" && item.assignment.evaluatorId && item.assignment.evaluatorId !== ctx.userId) {
         return false;
       }

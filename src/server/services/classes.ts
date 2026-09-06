@@ -76,12 +76,14 @@ export async function getClassSetup(ctx: AuthContext) {
   };
 }
 
-export async function listClasses(ctx: AuthContext) {
+export async function listClasses(ctx: AuthContext, filter: { view?: string } = {}) {
   assertPermission(ctx, "classes.read");
   const rows = await prisma.trainingClass.findMany({
     where: {
       departmentId: ctx.departmentId,
-      ...(ctx.role === "EVALUATOR" ? { proctors: { some: { userId: ctx.userId } } } : {}),
+      ...(filter.view === "mine" || ctx.role === "EVALUATOR"
+        ? { proctors: { some: { userId: ctx.userId } } }
+        : {}),
     },
     include: {
       checklistVersion: { include: { template: true } },

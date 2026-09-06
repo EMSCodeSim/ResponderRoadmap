@@ -166,7 +166,7 @@ export async function handleApi(req: Request, path: string[]) {
     }
 
     if (method === "GET" && match(path, "classes/setup")) return jsonOk(await classes.getClassSetup(ctx));
-    if (method === "GET" && match(path, "classes")) return jsonOk(await classes.listClasses(ctx));
+    if (method === "GET" && match(path, "classes")) return jsonOk(await classes.listClasses(ctx, q));
     if (method === "POST" && match(path, "classes")) {
       const body = await readBody(req);
       return jsonOk(await classes.createClass(ctx, body), 201);
