@@ -116,6 +116,7 @@ export function navItemsForRole(role: Role): string[] {
     return items;
   }
   if (hasPermission(role, "members.read")) items.push("members");
+  if (hasPermission(role, "invitations.write")) items.push("enrollment");
   if (hasPermission(role, "taskbooks.read")) items.push("task-books");
   if (hasPermission(role, "assignments.write")) items.push("training-assignments");
   if (hasPermission(role, "assignments.read")) items.push("assignments");

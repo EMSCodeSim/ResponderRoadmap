@@ -1,14 +1,15 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { BrandMark } from "@/components/brand";
 import { Button, Field, Flash, Input } from "@/components/ui";
 
-export default function JoinPage() {
+function JoinContent() {
   const router = useRouter();
-  const [code, setCode] = useState("NFR-4821");
+  const search = useSearchParams();
+  const [code, setCode] = useState(search.get("code")?.toUpperCase() || "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -19,6 +20,10 @@ export default function JoinPage() {
       await api("join", { method: "POST", body: JSON.stringify({ joinCode: code }) });
       router.push("/dashboard");
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push(`/login?next=${encodeURIComponent(`/join?code=${code}`)}`);
+        return;
+      }
       setError(err instanceof ApiError ? err.message : "Unable to join.");
     } finally {
       setBusy(false);
@@ -31,7 +36,7 @@ export default function JoinPage() {
         <BrandMark size={56} alt="ResponderRoadmap" />
         <div className="kicker">My Department</div>
         <h1 className="display text-4xl font-bold">Join Department</h1>
-        <p className="text-sm text-navy-500">Enter the department code from your training officer. Example: NFR-4821.</p>
+        <p className="text-sm text-navy-500">Enter the department code from your Training Captain. You will be asked to sign in if needed.</p>
         <Flash message={error} tone="danger" />
         <Field label="Department code">
           <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required />
@@ -41,5 +46,13 @@ export default function JoinPage() {
         </Button>
       </form>
     </div>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-canvas">Loading…</div>}>
+      <JoinContent />
+    </Suspense>
   );
 }

@@ -2,7 +2,12 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/server/db";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
-import type { Role } from "@/lib/constants";
+import { ROLE_LABELS, ROLES, type Role } from "@/lib/constants";
+import {
+  invitationEmailConfigured,
+  sendInvitationEmail,
+  sendInvitationEmailBatch,
+} from "@/server/services/invitation-email";
 import bcrypt from "bcryptjs";
 import { setSessionCookie } from "@/server/session";
 
@@ -63,28 +68,184 @@ export async function listInvitations(ctx: AuthContext) {
   });
 }
 
-export async function createInvitation(
-  ctx: AuthContext,
-  input: { email?: string; role?: Role; rank?: string; station?: string; shift?: string },
-) {
-  assertPermission(ctx, "invitations.write");
+type InvitationInput = {
+  email?: string;
+  role?: Role;
+  rank?: string;
+  station?: string;
+  shift?: string;
+};
+
+function cleanInvitationInput(input: InvitationInput, row?: number) {
+  const email = input.email?.trim().toLowerCase() || "";
+  const prefix = row ? `Row ${row}: ` : "";
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpError(400, `${prefix}a valid email address is required.`);
+  }
+  const role = input.role || "MEMBER";
+  if (!ROLES.includes(role)) throw new HttpError(400, `${prefix}the selected role is not valid.`);
+  return {
+    email,
+    role,
+    rank: input.rank?.trim().slice(0, 100) || null,
+    station: input.station?.trim().slice(0, 100) || null,
+    shift: input.shift?.trim().slice(0, 100) || null,
+  };
+}
+
+async function savePendingInvitation(ctx: AuthContext, input: ReturnType<typeof cleanInvitationInput>) {
   const token = randomBytes(18).toString("hex");
-  const invitation = await prisma.invitation.create({
+  const expiresAt = new Date(Date.now() + 14 * 86_400_000);
+  const existing = await prisma.invitation.findFirst({
+    where: { departmentId: ctx.departmentId, email: input.email, status: "PENDING" },
+    orderBy: { createdAt: "desc" },
+  });
+  if (existing) {
+    return prisma.invitation.update({
+      where: { id: existing.id },
+      data: { ...input, token, expiresAt },
+    });
+  }
+  return prisma.invitation.create({
     data: {
       departmentId: ctx.departmentId,
-      email: input.email?.trim().toLowerCase() || null,
+      ...input,
       token,
-      role: input.role || "MEMBER",
-      rank: input.rank || null,
-      station: input.station || null,
-      shift: input.shift || null,
       invitedById: ctx.userId,
       status: "PENDING",
+      expiresAt,
+    },
+  });
+}
+
+function invitationEmailDetails(ctx: AuthContext, invitation: Awaited<ReturnType<typeof savePendingInvitation>>) {
+  return {
+    id: invitation.id,
+    token: invitation.token,
+    email: invitation.email,
+    departmentName: ctx.departmentName,
+    roleLabel: ROLE_LABELS[invitation.role as Role] || invitation.role,
+    invitedByName: ctx.name,
+  };
+}
+
+export async function getEnrollment(ctx: AuthContext) {
+  assertPermission(ctx, "invitations.write");
+  const [department, invitations, pendingMembers] = await Promise.all([
+    prisma.department.findUniqueOrThrow({
+      where: { id: ctx.departmentId },
+      select: { id: true, name: true, joinCode: true, requireApproval: true },
+    }),
+    prisma.invitation.findMany({
+      where: { departmentId: ctx.departmentId },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      include: { invitedBy: { select: { name: true } } },
+    }),
+    prisma.departmentMembership.findMany({
+      where: { departmentId: ctx.departmentId, status: "PENDING" },
+      orderBy: { joinedAt: "asc" },
+      include: { user: { select: { name: true, email: true } } },
+    }),
+  ]);
+  return {
+    department,
+    emailDeliveryConfigured: invitationEmailConfigured(),
+    invitations: invitations.map((invitation) => ({
+      id: invitation.id,
+      email: invitation.email,
+      token: invitation.token,
+      role: invitation.role,
+      rank: invitation.rank,
+      station: invitation.station,
+      shift: invitation.shift,
+      status: invitation.status,
+      createdAt: invitation.createdAt,
+      expiresAt: invitation.expiresAt,
+      invitedByName: invitation.invitedBy.name,
+    })),
+    pendingMembers: pendingMembers.map((membership) => ({
+      id: membership.id,
+      name: membership.user.name,
+      email: membership.user.email,
+      role: membership.role,
+      rank: membership.rank,
+      station: membership.station,
+      shift: membership.shift,
+      joinedAt: membership.joinedAt,
+    })),
+  };
+}
+
+export async function createInvitation(
+  ctx: AuthContext,
+  raw: InvitationInput,
+) {
+  assertPermission(ctx, "invitations.write");
+  const invitation = await savePendingInvitation(ctx, cleanInvitationInput(raw));
+  const delivery = await sendInvitationEmail(invitationEmailDetails(ctx, invitation));
+  await writeAudit(ctx, "invitation.created", "Invitation", invitation.id, {
+    email: invitation.email,
+    role: invitation.role,
+    deliveryStatus: delivery.status,
+  });
+  return { ...invitation, delivery };
+}
+
+export async function resendInvitation(ctx: AuthContext, invitationId: string) {
+  assertPermission(ctx, "invitations.write");
+  const existing = await prisma.invitation.findFirst({
+    where: { id: invitationId, departmentId: ctx.departmentId },
+  });
+  if (!existing) throw new HttpError(404, "Invitation not found.");
+  if (existing.status !== "PENDING") throw new HttpError(409, "Only pending invitations can be resent.");
+  const invitation = await prisma.invitation.update({
+    where: { id: existing.id },
+    data: {
+      token: randomBytes(18).toString("hex"),
       expiresAt: new Date(Date.now() + 14 * 86_400_000),
     },
   });
-  await writeAudit(ctx, "invitation.created", "Invitation", invitation.id, { email: invitation.email, role: invitation.role });
-  return invitation;
+  const delivery = await sendInvitationEmail(invitationEmailDetails(ctx, invitation));
+  await writeAudit(ctx, "invitation.resent", "Invitation", invitation.id, { deliveryStatus: delivery.status });
+  return { ...invitation, delivery };
+}
+
+export async function revokeInvitation(ctx: AuthContext, invitationId: string) {
+  assertPermission(ctx, "invitations.write");
+  const invitation = await prisma.invitation.findFirst({
+    where: { id: invitationId, departmentId: ctx.departmentId },
+  });
+  if (!invitation) throw new HttpError(404, "Invitation not found.");
+  if (invitation.status !== "PENDING") throw new HttpError(409, "Only pending invitations can be revoked.");
+  const updated = await prisma.invitation.update({
+    where: { id: invitation.id },
+    data: { status: "REVOKED" },
+  });
+  await writeAudit(ctx, "invitation.revoked", "Invitation", invitation.id, {});
+  return updated;
+}
+
+export async function bulkCreateInvitations(ctx: AuthContext, raw: unknown) {
+  assertPermission(ctx, "invitations.write");
+  if (!Array.isArray(raw) || raw.length === 0) throw new HttpError(400, "Add at least one CSV roster row.");
+  if (raw.length > 250) throw new HttpError(400, "Import no more than 250 members at one time.");
+  const inputs = raw.map((item, index) => cleanInvitationInput((item || {}) as InvitationInput, index + 2));
+  const emails = new Set<string>();
+  for (const input of inputs) {
+    if (emails.has(input.email)) throw new HttpError(400, `The CSV includes ${input.email} more than once.`);
+    emails.add(input.email);
+  }
+  const invitations = [];
+  for (const input of inputs) invitations.push(await savePendingInvitation(ctx, input));
+  const delivery = await sendInvitationEmailBatch(
+    invitations.map((invitation) => invitationEmailDetails(ctx, invitation)),
+  );
+  await writeAudit(ctx, "invitation.bulk_created", "Department", ctx.departmentId, {
+    count: invitations.length,
+    deliveryStatus: delivery.status,
+  });
+  return { count: invitations.length, delivery, invitations };
 }
 
 export async function joinByCode(userId: string, joinCode: string) {

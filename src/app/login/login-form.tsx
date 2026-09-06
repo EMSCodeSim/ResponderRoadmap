@@ -11,7 +11,8 @@ import { Button, Field, Flash, Input } from "@/components/ui";
 export default function LoginForm({ demoAvailable }: { demoAvailable: boolean }) {
   const router = useRouter();
   const search = useSearchParams();
-  const next = search.get("next") || "/dashboard";
+  const requestedNext = search.get("next") || "/dashboard";
+  const next = requestedNext.startsWith("/") && !requestedNext.startsWith("//") ? requestedNext : "/dashboard";
   const walk = search.get("walk");
   const autoWalk = demoAvailable && (walk === "to" || walk === "member" || walk === "evaluator") ? walk : null;
   const [email, setEmail] = useState("");
@@ -28,7 +29,7 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      router.push(result.needsDepartment ? "/onboarding" : next);
+      router.push(result.needsDepartment && next === "/dashboard" ? "/onboarding" : next);
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to sign in.");

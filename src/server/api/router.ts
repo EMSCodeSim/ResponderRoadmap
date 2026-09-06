@@ -298,9 +298,22 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk(await department.updateDepartment(ctx, body));
     }
     if (method === "GET" && match(path, "invitations")) return jsonOk(await department.listInvitations(ctx));
+    if (method === "GET" && match(path, "enrollment")) return jsonOk(await department.getEnrollment(ctx));
     if (method === "POST" && match(path, "invitations")) {
       const body = await readBody(req);
       return jsonOk(await department.createInvitation(ctx, body), 201);
+    }
+    if (method === "POST" && match(path, "invitations/bulk")) {
+      const body = await readBody(req);
+      return jsonOk(await department.bulkCreateInvitations(ctx, body.rows), 201);
+    }
+    const invitationResend = match(path, "invitations/:id/resend");
+    if (method === "POST" && invitationResend) {
+      return jsonOk(await department.resendInvitation(ctx, invitationResend.id));
+    }
+    const invitationRevoke = match(path, "invitations/:id/revoke");
+    if (method === "POST" && invitationRevoke) {
+      return jsonOk(await department.revokeInvitation(ctx, invitationRevoke.id));
     }
 
     if (method === "GET" && match(path, "activity")) {
