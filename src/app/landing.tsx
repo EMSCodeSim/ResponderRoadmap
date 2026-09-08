@@ -33,6 +33,7 @@ const PREVIEW = [
 ];
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/repsonder-roadmap/id6800092347";
+const FIREOPS_SIM_URL = "https://fireopssim.com/roadmap-support.html?source=responderroadmap";
 
 export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
   return (
@@ -164,6 +165,21 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
                 ))}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="border-b border-white/10 bg-navy-900/45">
+          <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Connected learning companion</p>
+              <h2 className="display mt-2 text-3xl font-bold">Official records here. Free practice on FireOpsSim.</h2>
+              <p className="mt-3 max-w-3xl text-white/65">
+                A member can open related study, drills, simulations, and calculators from the Responder Roadmap app, then return to the assigned requirement to document the work and request evaluator approval. Practice never counts as an official completion by itself.
+              </p>
+            </div>
+            <a href={FIREOPS_SIM_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-5 text-sm font-semibold text-white hover:bg-white/10">
+              Explore FireOpsSim training
+            </a>
           </div>
         </section>
 
