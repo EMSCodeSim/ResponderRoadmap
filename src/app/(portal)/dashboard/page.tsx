@@ -138,28 +138,15 @@ export default function DashboardPage() {
               <Link href="/assignments?assign=1">
                 <Button variant="secondary">Assign Task Book</Button>
               </Link>
+              <Link href="/training-assignments">
+                <Button variant="secondary">Assign One Task</Button>
+              </Link>
             </>
           )
         }
       />
 
       {data.personal ? <ProofRail data={data} /> : null}
-
-      {!data.personal ? (
-        <Card className="mb-6 border-fire/30 bg-fire-soft/30 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="kicker text-fire">AI Training Officer Brief</div>
-              <h2 className="display mt-1 text-2xl font-bold text-navy-900">Summarize what needs attention</h2>
-              <p className="mt-1 text-sm text-navy-600">Uses the dashboard facts already calculated by ResponderRoadmap. AI summarizes; it does not determine compliance or change records.</p>
-            </div>
-            <Button variant="secondary" onClick={generateDepartmentBrief} disabled={aiBusy}>
-              {aiBusy ? "Summarizing…" : aiBrief ? "Refresh AI Brief" : "Generate AI Brief"}
-            </Button>
-          </div>
-          {aiBrief ? <div className="mt-4 whitespace-pre-line rounded-md border border-navy-200 bg-white p-4 text-sm leading-6 text-navy-700">{aiBrief}</div> : null}
-        </Card>
-      ) : null}
 
       <div className={`grid gap-3 ${data.personal ? "sm:grid-cols-2 xl:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
         {data.personal ? (
@@ -182,7 +169,7 @@ export default function DashboardPage() {
       {!data.personal && today ? (
         <div className="mt-6 grid gap-4 xl:grid-cols-3">
           <WorkList
-            title="Sign these off"
+            title="Evaluations waiting"
             empty="Nothing waiting on an evaluator."
             moreHref={today.signOffTotal > today.signOffs.length ? "/evaluate" : undefined}
             moreLabel={`See all ${today.signOffTotal}`}
@@ -193,12 +180,12 @@ export default function DashboardPage() {
               place: place(item),
               detail: `${item.requirementTitle} · ${item.taskBookTitle}`,
               meta: relativeTime(item.submittedAt),
-              action: "Evaluate",
+              action: "Review",
               tone: "warn" as const,
             }))}
           />
           <WorkList
-            title="Follow up"
+            title="Overdue or stalled"
             empty="No overdue or stalled assignments."
             moreHref="/assignments?status=OVERDUE"
             items={today.followUp.map((item) => ({
@@ -208,7 +195,7 @@ export default function DashboardPage() {
               place: place(item),
               detail: `${item.taskBookTitle} · ${item.percent}%`,
               meta: item.reason || "",
-              action: "Open",
+              action: "View member",
               tone: "danger" as const,
             }))}
           />
@@ -228,6 +215,22 @@ export default function DashboardPage() {
             }))}
           />
         </div>
+      ) : null}
+
+      {!data.personal ? (
+        <Card className="mt-6 border-navy-200 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="kicker">Optional summary</div>
+              <h2 className="display mt-1 text-xl font-bold text-navy-900">Training Officer brief</h2>
+              <p className="mt-1 text-sm text-navy-500">Summarizes the dashboard facts above without changing any records or compliance decisions.</p>
+            </div>
+            <Button variant="secondary" onClick={generateDepartmentBrief} disabled={aiBusy}>
+              {aiBusy ? "Summarizing…" : aiBrief ? "Refresh brief" : "Generate brief"}
+            </Button>
+          </div>
+          {aiBrief ? <div className="mt-4 whitespace-pre-line rounded-md border border-navy-200 bg-navy-50 p-4 text-sm leading-6 text-navy-700">{aiBrief}</div> : null}
+        </Card>
       ) : null}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
