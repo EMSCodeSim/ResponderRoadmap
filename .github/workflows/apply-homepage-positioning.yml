@@ -1,0 +1,31 @@
+name: Apply homepage positioning
+
+on:
+  push:
+    paths:
+      - "scripts/reposition-homepage.py"
+      - ".github/workflows/apply-homepage-positioning.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Reposition homepage
+        run: python scripts/reposition-homepage.py
+      - name: Commit homepage positioning
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/landing.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Position ResponderRoadmap as fire and EMS training management"
+          git push origin main
