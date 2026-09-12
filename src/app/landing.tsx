@@ -41,7 +41,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
       <header className="border-b border-white/10">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4">
           <Link href="/">
-            <BrandLockup size={44} subtitle="Task Books for Fire & EMS" />
+            <BrandLockup size={44} subtitle="Fire & EMS Training Management" />
           </Link>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white">
@@ -49,11 +49,11 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             </a>
             {demoAvailable ? (
               <Link href="/demo" className="rounded-md bg-fire px-3 py-2 text-sm font-semibold text-white hover:bg-fire-dark">
-                Start Demo
+                See Department Demo
               </Link>
             ) : null}
             <Link href="/department-interest?source=header" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white">
-              Founding Department List
+              Department Pricing & Access
             </Link>
             <Link href="/login" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white">
               Sign In
@@ -66,30 +66,30 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         <section className="mx-auto grid max-w-6xl gap-10 px-5 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:py-16">
           <div>
             <BrandMark size={148} alt="ResponderRoadmap" className="mb-6 shadow-[0_18px_50px_rgba(0,0,0,0.35)]" />
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Built for the station, not a generic training platform</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Fire & EMS training management built around digital Task Books</p>
             <h1 className="display mt-3 text-5xl font-bold leading-[0.95] sm:text-6xl">
-              Know who is ready.
-              <span className="block text-white/80">Prove it on the record.</span>
+              Assign it. Complete it. Sign it off.
+              <span className="block text-white/80">Prove it.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-white/70">
-              Build qualification Task Books, create class rosters, assign skills checklists, evaluate members from a phone, track certifications, and keep a department record without turning training into a complicated software project.
+              Create and assign digital Task Books, route skills to evaluators for field sign-off, track certifications and progress, and keep a defensible department training record—without the complexity of a traditional LMS.
             </p>
             <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-fire/40 bg-fire/10 px-3 py-1.5 text-sm font-semibold text-white/90">
-              <span className="text-fire">AI Task Book Creator</span>
-              <span className="text-white/55">Guided follow-up questions · PDF import · Human review</span>
+              <span className="text-fire">Built around the workflow departments already use</span>
+              <span className="text-white/55">Assign · Complete · Evaluate · Approve · Record</span>
             </div>
             <div className="mt-8 flex flex-col gap-3 sm:max-w-md">
               {demoAvailable ? (
                 <>
-                  <WalkDemoButton walk="to">Start Live Demo</WalkDemoButton>
+                  <WalkDemoButton walk="to">See the 3-Minute Department Demo</WalkDemoButton>
                   <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-sm font-semibold text-white hover:bg-white/10">
                     Download Responder Roadmap for iPhone
                   </a>
-                  <p className="text-sm text-white/50">No signup. Start in the Training Officer view and use the real ResponderRoadmap workflow with Metro Fire sample data.</p>
+                  <p className="text-sm text-white/50">No signup. See the Training Officer view, follow a member from assignment to sign-off, and inspect the record the department retains.</p>
                 </>
               ) : (
                 <Link href="/department-interest?source=landing-no-demo" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold hover:bg-fire-dark">
-                  Join Founding Department List
+                  Join Department Pricing & Access
                 </Link>
               )}
             </div>
@@ -135,6 +135,9 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <p className="mt-3 text-xs text-white/40">
               The live demo opens as the Training Officer with realistic members, Task Books, class rosters, inbox alerts, sign-offs, shared certifications, and reports.
             </p>
+            <Link href="/firefighter-task-book-software" className="mt-4 inline-flex text-sm font-semibold text-fire hover:underline">
+              Explore firefighter digital Task Book software →
+            </Link>
           </div>
         </section>
 
@@ -273,12 +276,12 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               </p>
             </div>
             <div className="flex w-full max-w-sm flex-col gap-3">
-              {demoAvailable ? <WalkDemoButton walk="to">Start Live Demo</WalkDemoButton> : null}
+              {demoAvailable ? <WalkDemoButton walk="to">See the 3-Minute Department Demo</WalkDemoButton> : null}
               <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-center text-sm font-semibold text-white hover:bg-white/10">
                 Download the iPhone App
               </a>
               <Link href="/department-interest?source=landing-bottom" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-center text-sm font-semibold text-white hover:bg-white/10">
-                Join the Founding Department List
+                Join the Department Pricing & Access
               </Link>
               <Link href="/login" className="text-center text-sm font-semibold text-white/60 hover:text-white">
                 Already invited? Sign in
