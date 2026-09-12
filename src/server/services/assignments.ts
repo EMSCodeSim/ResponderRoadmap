@@ -440,7 +440,8 @@ export async function reviewSignOff(
   if (completion.status !== "SUBMITTED") {
     throw new HttpError(409, "This submission is no longer waiting for review. Refresh the queue before acting.");
   }
-  if (ctx.role === "EVALUATOR" && completion.assignment.evaluatorId && completion.assignment.evaluatorId !== ctx.userId) {
+  const assignedEvaluatorId = completion.requestedEvaluatorId || completion.assignment.evaluatorId;
+  if (ctx.role === "EVALUATOR" && assignedEvaluatorId && assignedEvaluatorId !== ctx.userId) {
     throw new HttpError(403, "This submission is assigned to another evaluator.");
   }
 
@@ -604,6 +605,15 @@ export async function submitRequirement(
   assertCanReadAssignment(ctx, assignment.membershipId);
   if (ctx.role === "MEMBER" && ctx.membershipId !== assignment.membershipId) {
     throw new HttpError(403, "You can only submit your own Task Book work.");
+  }
+  if (input.evaluatorId) {
+    const requestedEvaluator = await prisma.departmentMembership.findFirst({
+      where: { ...approvedEvaluatorWhere(ctx.departmentId), userId: input.evaluatorId },
+      select: { id: true },
+    });
+    if (!requestedEvaluator) {
+      throw new HttpError(400, "Choose an active, approved evaluator from this department.");
+    }
   }
 
   const requirement = assignment.version.sections.flatMap((section) => section.requirements).find((item) => item.id === requirementId);
