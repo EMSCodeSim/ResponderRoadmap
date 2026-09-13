@@ -9,6 +9,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
+      url: "https://responderroadmap.com/firefighter-task-book-software",
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
+    {
       url: "https://responderroadmap.com/department-interest",
       lastModified: new Date(),
       changeFrequency: "monthly",
