@@ -53,6 +53,12 @@ async function pendingForEvaluator(departmentId: string, userId: string) {
 
 export async function listEvaluatorManagement(ctx: AuthContext) {
   assertPermission(ctx, "evaluators.manage");
+  const department = await prisma.department.findUnique({
+    where: { id: ctx.departmentId },
+    select: { evaluationEscalationHours: true },
+  });
+  const escalationHours = Math.max(1, department?.evaluationEscalationHours || 48);
+  const escalationCutoff = new Date(Date.now() - escalationHours * 3_600_000);
   const people = await prisma.departmentMembership.findMany({
     where: {
       departmentId: ctx.departmentId,
@@ -72,7 +78,7 @@ export async function listEvaluatorManagement(ctx: AuthContext) {
       submittedAt: true,
     },
   });
-  const workload = new Map<string, { count: number; oldest: Date | null }>();
+  const workload = new Map<string, { count: number; oldest: Date | null; escalated: number }>();
   for (const item of pending) {
     if (reviewStageForRequirement({
       evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
@@ -82,8 +88,9 @@ export async function listEvaluatorManagement(ctx: AuthContext) {
     }) !== "EVALUATOR") continue;
     const userId = item.requestedEvaluatorId || item.assignment.evaluatorId;
     if (!userId) continue;
-    const current = workload.get(userId) || { count: 0, oldest: null };
+    const current = workload.get(userId) || { count: 0, oldest: null, escalated: 0 };
     current.count += 1;
+    if (item.submittedAt && item.submittedAt <= escalationCutoff) current.escalated += 1;
     if (item.submittedAt && (!current.oldest || item.submittedAt < current.oldest)) current.oldest = item.submittedAt;
     workload.set(userId, current);
   }
@@ -97,6 +104,8 @@ export async function listEvaluatorManagement(ctx: AuthContext) {
     approvalLevel: item.evaluatorApprovalLevel,
     approved: item.evaluatorStatus !== "SUSPENDED",
     pendingCount: workload.get(item.userId)?.count || 0,
+    escalatedCount: workload.get(item.userId)?.escalated || 0,
+    escalationHours,
     oldestPendingAt: workload.get(item.userId)?.oldest || null,
     statusUpdatedAt: item.evaluatorStatusUpdatedAt,
   }));

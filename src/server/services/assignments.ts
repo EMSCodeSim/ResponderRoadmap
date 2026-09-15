@@ -305,6 +305,11 @@ function roleCanSignLevel(role: Role, level: string) {
 export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string } = {}) {
   assertPermission(ctx, "signoff.review");
   await assertApprovedEvaluator(ctx);
+  const department = await prisma.department.findUnique({
+    where: { id: ctx.departmentId },
+    select: { evaluationEscalationHours: true },
+  });
+  const escalationHours = Math.max(1, department?.evaluationEscalationHours || 48);
   const completions = await prisma.requirementCompletion.findMany({
     where: {
       assignment: { departmentId: ctx.departmentId },
@@ -357,6 +362,9 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
       });
       const approvedRepetitions = Math.max(0, item.repetitionCount, item.status === "APPROVED" ? 1 : 0);
       const repetitionsRequired = Math.max(1, item.requirement.repetitionsRequired);
+      const waitingHours = item.submittedAt
+        ? Math.max(0, Math.floor((Date.now() - item.submittedAt.getTime()) / 3_600_000))
+        : 0;
       return {
         id: item.id,
         assignmentId: item.assignmentId,
@@ -373,6 +381,9 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
         objectives: parseJsonArray(item.requirement.objectivesJson),
         evidenceType: item.requirement.evidenceType,
         submittedAt: item.submittedAt,
+        waitingHours,
+        escalationHours,
+        escalated: item.status === "SUBMITTED" && waitingHours >= escalationHours,
         memberNotes: item.memberNotes,
         evidence: item.evidence,
         repetitionCount: item.repetitionCount,
