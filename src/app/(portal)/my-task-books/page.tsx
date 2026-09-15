@@ -44,6 +44,30 @@ export default function MyTaskBooksPage() {
         title="Your assigned Task Books"
         description="See what you need to do, what counts as complete, and who signs you off."
       />
+      <Card className="mb-4 border-navy-200 bg-navy-50/70 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-2xl">
+            <div className="kicker">Mobile companion</div>
+            <h2 className="display mt-1 text-2xl font-bold text-navy-950">Take your Task Books to the drill ground</h2>
+            <p className="mt-2 text-sm leading-6 text-navy-700">
+              Sign in to the Responder Roadmap app with this same department account. Your assignments,
+              evaluator requests, returned work, approvals, progress, and server receipts stay connected
+              to the department record shown here.
+            </p>
+            <p className="mt-2 text-xs font-semibold text-navy-500">
+              Plan and manage on the website. Complete field work in the app without being redirected to a browser.
+            </p>
+          </div>
+          <a
+            href="https://apps.apple.com/us/app/repsonder-roadmap/id6800092347"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-navy-950 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800"
+          >
+            Download iPhone app
+          </a>
+        </div>
+      </Card>
       {next ? (
         <Card className="mb-4 border-fire/20 p-4">
           <div className="kicker">What is next</div>
