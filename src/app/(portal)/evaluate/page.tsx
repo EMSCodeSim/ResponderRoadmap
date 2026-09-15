@@ -7,7 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { formatDate, relativeTime } from "@/lib/dates";
 import { STEP_RATING_LABELS, STEP_RATINGS } from "@/lib/constants";
 import { TASKBOOK_ATTESTATION_TEXT } from "@/lib/taskbook-attestation";
-import { Button, Card, EmptyState, Field, Flash, PageHeader, TextArea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Field, Flash, PageHeader, TextArea } from "@/components/ui";
 
 type AiDraft = {
   description: string;
@@ -26,6 +26,9 @@ type QueueItem = {
   instructions: string;
   objectives: string[];
   submittedAt: string | null;
+  waitingHours: number;
+  escalationHours: number;
+  escalated: boolean;
   memberNotes: string;
   evidence: Array<{ id: string; type: string; description: string; fileUrl: string | null }>;
   evaluationSteps: Array<{ id: string; text: string }>;
@@ -52,6 +55,7 @@ function EvaluateInner() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const escalatedCount = queue.filter((item) => item.escalated).length;
 
   async function load() {
     const rows = await api<QueueItem[]>(`sign-offs?view=${view === "recent" ? "recent" : view === "remediation" ? "remediation" : ""}`);
@@ -144,6 +148,24 @@ function EvaluateInner() {
           Recently Signed
         </Link>
       </div>
+      {view === "queue" ? (
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
+          <Card className="p-4">
+            <div className="kicker">Waiting on me</div>
+            <div className="display mt-1 text-3xl font-bold">{queue.length}</div>
+          </Card>
+          <Card className={`p-4 ${escalatedCount ? "border-danger/40 bg-danger-soft/40" : ""}`}>
+            <div className="kicker">Escalated</div>
+            <div className="display mt-1 text-3xl font-bold">{escalatedCount}</div>
+            <p className="mt-1 text-xs text-navy-500">Past the department response target</p>
+          </Card>
+          <Card className="p-4">
+            <div className="kicker">Queue order</div>
+            <div className="mt-2 font-semibold">Oldest submission first</div>
+            <p className="mt-1 text-xs text-navy-500">Finish one review, then advance to the next.</p>
+          </Card>
+        </div>
+      ) : null}
       <Flash message={error} tone="danger" />
       <div className="mb-3">
         <Flash message={message} tone="current" />
@@ -161,9 +183,14 @@ function EvaluateInner() {
                     onClick={() => setSelected(item)}
                     className={`w-full border-b border-navy-100 px-4 py-4 text-left ${selected?.id === item.id ? "bg-fire-soft" : ""}`}
                   >
-                    <div className="font-semibold">{item.memberName}</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-semibold">{item.memberName}</div>
+                      {item.escalated ? <Badge tone="danger">escalated</Badge> : null}
+                    </div>
                     <div className="text-sm text-navy-700">{item.requirementTitle}</div>
-                    <div className="text-xs text-navy-400">{relativeTime(item.submittedAt)}</div>
+                    <div className={`text-xs ${item.escalated ? "font-semibold text-danger" : "text-navy-400"}`}>
+                      {item.escalated ? `${item.waitingHours}h waiting · ${item.escalationHours}h target` : relativeTime(item.submittedAt)}
+                    </div>
                   </button>
                 </li>
               ))}
@@ -176,6 +203,11 @@ function EvaluateInner() {
               <p className="text-navy-600">
                 {selected.memberName} · {selected.taskBookTitle} · {selected.sectionTitle}
               </p>
+              {selected.escalated ? (
+                <div className="mt-3 rounded-md border border-danger/30 bg-danger-soft p-3 text-sm font-semibold text-danger">
+                  Escalated: waiting {selected.waitingHours} hours against the department’s {selected.escalationHours}-hour response target.
+                </div>
+              ) : null}
               {selected.repetitionsRequired > 1 ? (
                 <p className="mt-2 font-semibold">
                   {selected.repetitionCount} / {selected.repetitionsRequired} complete
