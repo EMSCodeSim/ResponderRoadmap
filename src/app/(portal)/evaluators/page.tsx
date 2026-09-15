@@ -15,6 +15,8 @@ type Evaluator = {
   approvalLevel: string;
   approved: boolean;
   pendingCount: number;
+  escalatedCount: number;
+  escalationHours: number;
   oldestPendingAt: string | null;
   statusUpdatedAt: string | null;
 };
@@ -42,7 +44,11 @@ export default function EvaluatorsPage() {
   }, []);
 
   const totals = useMemo(
-    () => ({ approved: rows.filter((row) => row.approved).length, pending: rows.reduce((sum, row) => sum + row.pendingCount, 0) }),
+    () => ({
+      approved: rows.filter((row) => row.approved).length,
+      pending: rows.reduce((sum, row) => sum + row.pendingCount, 0),
+      escalated: rows.reduce((sum, row) => sum + row.escalatedCount, 0),
+    }),
     [rows],
   );
 
@@ -94,10 +100,23 @@ export default function EvaluatorsPage() {
       <Flash message={error} tone="danger" />
       <div className="mb-4"><Flash message={message} tone="current" /></div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2">
+      <div className="mb-4 grid gap-4 sm:grid-cols-3">
         <Card className="p-5"><div className="kicker">Approved evaluators</div><div className="display mt-2 text-4xl font-bold">{totals.approved}</div></Card>
         <Card className="p-5"><div className="kicker">Pending evaluations</div><div className="display mt-2 text-4xl font-bold">{totals.pending}</div></Card>
+        <Card className={`p-5 ${totals.escalated ? "border-danger/40 bg-danger-soft/40" : ""}`}>
+          <div className="kicker">Escalated</div>
+          <div className="display mt-2 text-4xl font-bold">{totals.escalated}</div>
+          <p className="mt-1 text-xs text-navy-500">Past the department response target</p>
+        </Card>
       </div>
+      {totals.approved < 2 ? (
+        <Flash
+          tone="danger"
+          message="Coverage risk: approve a second evaluator so pending work has a backup when the primary evaluator is unavailable."
+        />
+      ) : (
+        <div className="mb-4"><Flash tone="current" message="Evaluator coverage is active. Use workload and escalation status below to rebalance requests before they become stranded." /></div>
+      )}
 
       <Card>
         <div className="p-4">
@@ -135,8 +154,13 @@ export default function EvaluatorsPage() {
                       </Select>
                     </td>
                     <td>
-                      <div className="font-semibold">{row.pendingCount} waiting</div>
-                      <div className="text-xs text-navy-500">{row.oldestPendingAt ? `Oldest ${formatDate(row.oldestPendingAt)}` : "No pending work"}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-semibold">{row.pendingCount} waiting</div>
+                        {row.escalatedCount > 0 ? <Badge tone="danger">{row.escalatedCount} escalated</Badge> : null}
+                      </div>
+                      <div className="text-xs text-navy-500">
+                        {row.oldestPendingAt ? `Oldest ${formatDate(row.oldestPendingAt)} · ${row.escalationHours}h target` : "No pending work"}
+                      </div>
                     </td>
                     <td>
                       {row.pendingCount > 0 ? (
