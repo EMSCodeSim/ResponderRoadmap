@@ -1,315 +1,41 @@
 import Link from "next/link";
-import { BrandLockup, BrandMark } from "@/components/brand";
-import { WalkDemoButton } from "@/components/walk-demo";
-
-const PREVIEW = [
-  {
-    title: "Waiting on sign-off",
-    count: "4",
-    tone: "warn" as const,
-    rows: [
-      { name: "Jordan Smith", place: "Station 2 · Shift B", detail: "Deploy 1¾-inch attack line · Probationary Firefighter", meta: "Waiting 2 hours" },
-      { name: "Jamie Ortiz", place: "Station 1 · Shift A", detail: "Don SCBA and conduct seal check · Probationary Firefighter", meta: "Waiting since yesterday" },
-    ],
-  },
-  {
-    title: "Follow up",
-    count: "3",
-    tone: "danger" as const,
-    rows: [
-      { name: "Chris Taylor", place: "Station 7 · Shift A", detail: "Probationary Firefighter · 41%", meta: "12 days overdue" },
-      { name: "Reese Walker", place: "Station 1 · Shift B", detail: "Driver / Operator – Pumper · 18%", meta: "No movement in 31 days" },
-    ],
-  },
-  {
-    title: "Due this week",
-    count: "2",
-    tone: "info" as const,
-    rows: [
-      { name: "Taylor Brooks", place: "Station 1 · Shift A", detail: "Driver / Operator – Pumper", meta: "Due in 3 days" },
-      { name: "Avery Patel", place: "Station 3 · Shift C", detail: "New Paramedic Orientation", meta: "Due Friday" },
-    ],
-  },
-];
+import { BrandLockup } from "@/components/brand";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/repsonder-roadmap/id6800092347";
-const FIREOPS_SIM_URL = "https://fireopssim.com/roadmap-support.html?source=responderroadmap";
+
+const preview = [
+  { title: "Waiting on sign-off", name: "Jordan Smith", role: "Probationary Firefighter", task: "Deploy 1¾-inch attack line", time: "Waiting 2 hours", tone: "border-fire/50 bg-fire/10" },
+  { title: "Follow up", name: "Chris Taylor", role: "Probationary Firefighter", task: "Task Book progress · 41%", time: "12 days overdue", tone: "border-warn/50 bg-warn/10" },
+  { title: "Due this week", name: "Taylor Brooks", role: "Driver/Operator – Pumper", task: "Final evaluator review", time: "Due in 3 days", tone: "border-white/15 bg-white/5" },
+];
+
+const comparison = [
+  ["Evaluator sign-off", "Manual", "Varies", "Built in"], ["Drill-ground use", "Paper in hand", "Course-first", "Phone-first"], ["Who is overdue by name", "No", "Course status", "Daily board"], ["Import existing book", "—", "Manual rebuild", "PDF-assisted draft"], ["40–75 person department", "Hidden admin cost", "Quote required", "$500/year"],
+];
+
+const faqs = [
+  ["Does FireOpsSim practice count as official completion?", "No. Practice stays in FireOpsSim. Official completion stays here."], ["Can we use our existing Task Book?", "Yes. Import the PDF, review the draft with an officer, and edit it before anything is published."], ["Is this an LMS?", "No. It is the Task Book workflow: assign, complete, evaluate, approve, and keep the record."], ["Android?", "Use the web dashboard today. A native Android app comes later."], ["Volunteer and career?", "Yes. The workflow supports volunteer, combination, and career departments."], ["Already on Vector / TargetSolutions?", "ResponderRoadmap is the field sign-off layer still handled on paper. It does not ask you to replace your course catalog."],
+];
 
 export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
-  return (
-    <div className="min-h-screen bg-navy-950 text-white">
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <Link href="/">
-            <BrandLockup size={44} subtitle="Fire & EMS Training Management" />
-          </Link>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white">
-              Download iPhone App
-            </a>
-            {demoAvailable ? (
-              <Link href="/demo" className="rounded-md bg-fire px-3 py-2 text-sm font-semibold text-white hover:bg-fire-dark">
-                See Department Demo
-              </Link>
-            ) : null}
-            <Link href="/department-interest?source=header" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white">
-              Department Pricing & Access
-            </Link>
-            <Link href="/login" className="rounded-md px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white">
-              Sign In
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main>
-        <section className="mx-auto grid max-w-6xl gap-10 px-5 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:py-16">
-          <div>
-            <BrandMark size={148} alt="ResponderRoadmap" className="mb-6 shadow-[0_18px_50px_rgba(0,0,0,0.35)]" />
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Fire & EMS training management built around digital Task Books</p>
-            <h1 className="display mt-3 text-5xl font-bold leading-[0.95] sm:text-6xl">
-              Assign it. Complete it. Sign it off.
-              <span className="block text-white/80">Prove it.</span>
-            </h1>
-            <p className="mt-5 max-w-xl text-lg text-white/70">
-              Create and assign digital Task Books, route skills to evaluators for field sign-off, track certifications and progress, and keep a defensible department training record—without the complexity of a traditional LMS.
-            </p>
-            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-fire/40 bg-fire/10 px-3 py-1.5 text-sm font-semibold text-white/90">
-              <span className="text-fire">Built around the workflow departments already use</span>
-              <span className="text-white/55">Assign · Complete · Evaluate · Approve · Record</span>
-            </div>
-            <div className="mt-8 flex flex-col gap-3 sm:max-w-md">
-              {demoAvailable ? (
-                <>
-                  <WalkDemoButton walk="to">See the 3-Minute Department Demo</WalkDemoButton>
-                  <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-sm font-semibold text-white hover:bg-white/10">
-                    Download Responder Roadmap for iPhone
-                  </a>
-                  <p className="text-sm text-white/50">No signup. See the Training Officer view, follow a member from assignment to sign-off, and inspect the record the department retains.</p>
-                </>
-              ) : (
-                <Link href="/department-interest?source=landing-no-demo" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold hover:bg-fire-dark">
-                  Join Department Pricing & Access
-                </Link>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-white/10 bg-navy-900 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-            <div className="mb-3 flex items-end justify-between gap-3">
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">Today</div>
-                <h2 className="display text-3xl font-bold">Who needs you today</h2>
-              </div>
-              <span className="rounded bg-fire-soft px-2 py-1 text-xs font-semibold text-fire">Training Officer</span>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              {PREVIEW.map((column) => (
-                <div key={column.title} className="rounded-md border border-white/10 bg-navy-950/70 p-3">
-                  <div className="flex items-baseline justify-between">
-                    <h3 className="text-sm font-semibold">{column.title}</h3>
-                    <span className="text-xs text-white/50">{column.count}</span>
-                  </div>
-                  <ul className="mt-2 space-y-2">
-                    {column.rows.map((row) => (
-                      <li
-                        key={row.name}
-                        className={`rounded border px-2.5 py-2 ${
-                          column.tone === "danger"
-                            ? "border-danger/40 bg-danger/10"
-                            : column.tone === "warn"
-                              ? "border-warn/40 bg-warn/10"
-                              : "border-white/10 bg-white/5"
-                        }`}
-                      >
-                        <div className="text-sm font-semibold">{row.name}</div>
-                        <div className="text-[11px] text-white/50">{row.place}</div>
-                        <div className="mt-1 text-xs text-white/75">{row.detail}</div>
-                        <div className="mt-1 text-[11px] font-semibold text-white/55">{row.meta}</div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-white/40">
-              The live demo opens as the Training Officer with realistic members, Task Books, class rosters, inbox alerts, sign-offs, shared certifications, and reports.
-            </p>
-            <Link href="/firefighter-task-book-software" className="mt-4 inline-flex text-sm font-semibold text-fire hover:underline">
-              Explore firefighter digital Task Book software →
-            </Link>
-          </div>
-        </section>
-
-        <section className="border-y border-white/10 bg-navy-950">
-          <div className="mx-auto max-w-6xl px-5 py-14">
-            <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Dashboard + native app</p>
-                <h2 className="display mt-2 text-4xl font-bold">Plan at the desk. Evaluate at the drill ground.</h2>
-                <p className="mt-4 text-white/70">
-                  The Training Captain builds programs and class rosters in the department dashboard. Members and assigned proctors use the native app without being redirected to a website.
-                </p>
-                <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-5 text-sm font-semibold text-white hover:bg-fire-dark">
-                  Download on the App Store
-                </a>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  ["Class rosters", "Create a fire academy, CPR, or skills-testing roster and attach any published checklist."],
-                  ["Proctor mode", "Assigned evaluators select a student and record Pass, Remediation, Fail, or N/A from the app."],
-                  ["Reliable inbox", "Assignments, returned work, approvals, receipts, sync state, and items needing action stay visible."],
-                  ["Private certification sharing", "Members choose which certification names and expiration dates to share; private notes and numbers stay personal."],
-                ].map(([title, body]) => (
-                  <div key={title} className="rounded-md border border-white/10 bg-navy-900 p-4">
-                    <div className="font-semibold">{title}</div>
-                    <p className="mt-1 text-sm text-white/60">{body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border-b border-white/10 bg-navy-900/45">
-          <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">Connected learning companion</p>
-              <h2 className="display mt-2 text-3xl font-bold">Official records here. Free practice on FireOpsSim.</h2>
-              <p className="mt-3 max-w-3xl text-white/65">
-                A member can open related study, drills, simulations, and calculators from the Responder Roadmap app, then return to the assigned requirement to document the work and request evaluator approval. Practice never counts as an official completion by itself.
-              </p>
-            </div>
-            <a href={FIREOPS_SIM_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-5 text-sm font-semibold text-white hover:bg-white/10">
-              Explore FireOpsSim training
-            </a>
-          </div>
-        </section>
-
-        <section className="border-y border-white/10 bg-navy-900/70">
-          <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">AI Task Book Creator</p>
-              <h2 className="display mt-2 text-4xl font-bold">Turn an idea—or your existing PDF—into a working draft.</h2>
-              <p className="mt-4 text-white/70">
-                Describe the program you need and ResponderRoadmap asks focused follow-up questions about your department, members, timeline, sign-off rules, evidence, and local priorities before building the draft.
-              </p>
-              <p className="mt-3 text-sm text-white/50">
-                Already have a paper or PDF Task Book? Upload it and let the AI Import Assistant convert it into editable sections and requirements. Nothing is published automatically; a Training Officer reviews the draft first.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                ["Guided interview", "The builder asks follow-up questions so the Task Book fits the department instead of producing a generic checklist."],
-                ["PDF → editable draft", "Convert an existing Task Book PDF into ResponderRoadmap sections and requirements without rebuilding it by hand."],
-                ["Department-specific", "Use staffing, apparatus, local priorities, evaluator rules, evidence expectations, and program milestones in the draft."],
-                ["Human review first", "AI creates a draft only. Training staff review, edit, approve, publish, and assign the official Task Book."],
-              ].map(([title, body]) => (
-                <div key={title} className="rounded-md border border-white/10 bg-navy-950/70 p-4">
-                  <div className="font-semibold">{title}</div>
-                  <p className="mt-1 text-sm text-white/60">{body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="border-t border-white/10 bg-navy-900">
-          <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-3">
-            <Pitch
-              step="01"
-              title="See the daily board"
-              body="Start with names, not spreadsheet counts. See waiting sign-offs, overdue members, stalled progress, expiring certifications, and active Task Books immediately."
-            />
-            <Pitch
-              step="02"
-              title="Open the field workflow"
-              body="Move from a member to the exact requirement and evaluation record an officer would use at the station. Use the same controls and workflow available to a department."
-            />
-            <Pitch
-              step="03"
-              title="Finish with the record"
-              body="Open reports and printable records to see what the department can retain: progress, certifications, attempts, evaluators, and approval history."
-            />
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl px-5 py-14">
-          <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/45">Why departments buy this</p>
-              <h2 className="display mt-2 text-4xl font-bold">The binder never told you who was stalled.</h2>
-              <p className="mt-4 text-white/70">
-                Fire and EMS qualifications live in Task Books: a member demonstrates a skill, an evaluator reviews it, a supervisor can countersign, and the department keeps a record that survives turnover.
-              </p>
-              <blockquote className="mt-6 border-l-4 border-fire pl-4 text-lg text-white/85">
-                If I cannot tell you who is stalled before the shift starts, the book is just a binder.
-              </blockquote>
-              <p className="mt-2 text-sm text-white/45">Metro Fire demonstration workflow</p>
-            </div>
-            <ul className="space-y-3">
-              {[
-                ["AI-assisted creation", "Describe the program, answer a few follow-up questions, and start from a personalized editable draft instead of a blank page."],
-                ["PDF import", "Bring an existing department Task Book into the system without manually rebuilding every section and requirement."],
-                ["Creation speed", "Build a usable Task Book without setting up a course catalog."],
-                ["Field evaluation", "Phone-sized workflow built around the evaluator and the skill."],
-                ["Official record", "Keep what was evaluated, by whom, and at which approval level."],
-                ["What’s next", "Members can see the next requirement without hunting through a packet."],
-                ["Versioned books", "Published assignments stay tied to the version they were issued."],
-                ["Department visibility", "Training officers see people who need action, not just totals."],
-              ].map(([title, body]) => (
-                <li key={title} className="rounded-md border border-white/10 bg-navy-900 px-4 py-3">
-                  <div className="font-semibold">{title}</div>
-                  <div className="text-sm text-white/65">{body}</div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        <section className="border-t border-white/10">
-          <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-5 py-14 md:flex-row md:items-center">
-            <div>
-              <h2 className="display text-4xl font-bold">Give it three minutes.</h2>
-              <p className="mt-2 max-w-xl text-white/65">
-                Open the daily board. Follow a member into a Task Book. Review the evaluation queue. Finish with the department record. No account setup required.
-              </p>
-            </div>
-            <div className="flex w-full max-w-sm flex-col gap-3">
-              {demoAvailable ? <WalkDemoButton walk="to">See the 3-Minute Department Demo</WalkDemoButton> : null}
-              <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-center text-sm font-semibold text-white hover:bg-white/10">
-                Download the iPhone App
-              </a>
-              <Link href="/department-interest?source=landing-bottom" className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 px-4 text-center text-sm font-semibold text-white hover:bg-white/10">
-                Join the Department Pricing & Access
-              </Link>
-              <Link href="/login" className="text-center text-sm font-semibold text-white/60 hover:text-white">
-                Already invited? Sign in
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className="border-t border-white/10">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-sm text-white/40">
-          <span className="flex items-center gap-2">
-            <BrandMark size={28} />
-            ResponderRoadmap · Department Task Books
-          </span>
-          <span>Fire · EMS · Training Division</span>
-        </div>
-      </footer>
-    </div>
-  );
+  const demoHref = demoAvailable ? "/demo" : "/department-interest?source=demo-unavailable";
+  return <div className="min-h-screen bg-[#0B1220] text-white">
+    <header className="border-b border-white/10"><div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-5 py-4"><Link href="/"><BrandLockup size={42} subtitle="Fire & EMS Training Management" /></Link><nav className="hidden items-center gap-6 text-sm font-semibold text-white/70 lg:flex"><Link href={demoHref}>Demo</Link><a href="#pricing">Pricing</a><a href="#security">Security</a><Link href="/login">Sign in</Link></nav><div className="flex items-center gap-3"><a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="hidden text-sm font-semibold text-white/70 md:block">Download iPhone App</a><Link href={demoHref} className="rounded-md bg-[#E11D48] px-4 py-2.5 text-sm font-bold hover:bg-[#f02855]">See Department Demo</Link></div></div></header>
+    <main>
+      <section className="mx-auto grid max-w-7xl gap-12 px-5 py-16 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:py-24"><div><p className="text-xs font-extrabold uppercase tracking-[.17em] text-[#fb5575]">Department Task Books for Fire & EMS</p><h1 className="display mt-5 max-w-3xl text-6xl font-bold leading-[.92] tracking-[-.035em] sm:text-7xl">See who is stalled before the shift starts.</h1><p className="mt-7 max-w-2xl text-lg leading-8 text-white/65">Assign digital Task Books, get field sign-off on a phone, and keep a versioned department record. No LMS course catalog. No binder hunt.</p><div className="mt-6 inline-flex flex-wrap rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-white/80">Assign · Complete · Evaluate · Approve · Record</div><div className="mt-8 flex flex-col gap-3 sm:flex-row"><Link href={demoHref} className="inline-flex min-h-12 items-center justify-center rounded-md bg-[#E11D48] px-5 font-bold hover:bg-[#f02855]">See the 3-minute demo →</Link><Link href="/register" className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/20 px-5 font-bold hover:bg-white/10">Start free — 0 to 5 members</Link></div><p className="mt-3 text-sm text-white/40">No account required. Opens as Training Officer.</p></div><div className="overflow-hidden rounded-2xl border border-white/15 bg-[#0f1a2a] shadow-[0_30px_90px_rgba(0,0,0,.45)]"><div className="flex items-center justify-between border-b border-white/10 p-5"><div><p className="text-[11px] font-black uppercase tracking-[.17em] text-white/40">Today</p><h2 className="display text-3xl font-bold">Who needs you today</h2></div><span className="rounded-md border border-[#E11D48]/30 bg-[#E11D48]/10 px-2.5 py-1.5 text-xs font-bold text-[#fb9aae]">Training Officer</span></div><div className="grid gap-px bg-white/10 md:grid-cols-3">{preview.map(item=><div key={item.title} className="bg-[#101b2c] p-3"><div className="mb-3 flex justify-between text-xs font-bold text-white/55"><span>{item.title}</span><span>1</span></div><div className={`min-h-44 rounded-lg border p-3 ${item.tone}`}><p className="text-sm font-bold">{item.name}</p><p className="text-xs text-white/45">{item.role}</p><p className="mt-4 text-sm text-white/80">{item.task}</p><p className="mt-4 border-t border-white/10 pt-3 text-xs font-semibold text-white/50">{item.time}</p></div></div>)}</div><p className="border-t border-white/10 px-5 py-3 text-xs text-white/35">Example department data · Updated just now</p></div></section>
+      <section className="border-y border-white/10 bg-[#0d1625]"><div className="mx-auto grid max-w-7xl gap-4 px-5 py-8 md:grid-cols-[1.5fr_repeat(3,1fr)] md:items-center"><p className="font-bold text-white/80">Built around the Task Book workflow departments already use.</p>{["Founding pilots open","No setup fee","Department-owned record"].map(x=><div key={x} className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider text-white/55">{x}</div>)}</div></section>
+      <section className="mx-auto grid max-w-7xl gap-10 px-5 py-24 lg:grid-cols-[1.1fr_.9fr] lg:items-end"><div><p className="eyebrow">The problem</p><h2 className="title">The binder never told you who was stalled.</h2><p className="copy">The book is in a cabinet. The spreadsheet has totals, not names. The LMS has courses, not evaluator sign-off on the drill ground. When someone leaves, the history often leaves with them.</p></div><blockquote className="border-l-4 border-[#E11D48] pl-6 text-xl font-semibold leading-8 text-white/85">“If I cannot tell you who is stalled before the shift starts, the book is just a binder.”</blockquote></section>
+      <section className="band"><div className="wrap"><p className="eyebrow">How it works</p><h2 className="title">From assignment to official record.</h2><div className="mt-12 grid gap-5 md:grid-cols-3">{[["01","See the daily board","Names, not spreadsheet counts."],["02","Open the field workflow","Pass / Remediation / Fail / N/A on a phone at the station."],["03","Finish with the record","Who signed, which version, printable history."]].map(([n,t,b])=><article key={n} className="panel"><p className="eyebrow">{n}</p><h3 className="mt-3 text-xl font-bold">{t}</h3><p className="mt-2 text-white/55">{b}</p></article>)}</div></div></section>
+      <section className="mx-auto grid max-w-7xl gap-10 px-5 py-24 lg:grid-cols-2"><div><p className="eyebrow">Desk + field</p><h2 className="title">Plan at the desk. Evaluate at the drill ground.</h2><div className="mt-8 grid grid-cols-2 gap-3">{["Class rosters","Proctor mode","Reliable inbox","Private cert sharing"].map(x=><div key={x} className="rounded-md border border-white/15 p-4 font-semibold text-white/75">{x}</div>)}</div></div><div className="panel"><p className="text-xs font-black uppercase tracking-wider text-white/40">Product workflow</p><div className="mt-4 space-y-3">{["Build and assign Task Books from the department dashboard","Evaluate skills from the native iPhone app","Route attempts for approval or remediation","Keep the result tied to the correct version"].map((x,i)=><div key={x} className="flex gap-4 rounded-md border border-white/10 bg-black/15 p-4"><span className="font-black text-[#fb5575]">{i+1}</span><span className="text-white/75">{x}</span></div>)}</div></div></section>
+      <section className="band"><div className="wrap"><p className="eyebrow">AI-assisted import</p><h2 className="title max-w-4xl">Turn an idea—or your existing PDF—into a working draft.</h2><div className="mt-10 grid gap-4 md:grid-cols-3">{[["Upload PDF","Start with the document your department already uses."],["Guided interview","Answer questions about staffing, apparatus, and sign-off rules."],["Editable draft","Review every section before release."]].map(([t,b])=><div key={t} className="panel"><h3 className="font-bold">{t}</h3><p className="mt-2 text-sm text-white/55">{b}</p></div>)}</div><p className="mt-5 rounded-lg border border-white/15 bg-white/5 p-4 text-white/70"><b className="text-white">Human review first.</b> Nothing publishes until a Training Officer says so.</p></div></section>
+      <section className="wrap"><p className="eyebrow">Built for field sign-off</p><h2 className="title">The difference is the workflow.</h2><div className="mt-10 overflow-x-auto rounded-xl border border-white/10"><table className="w-full min-w-[760px] border-collapse bg-[#101b2c] text-left"><thead><tr className="text-xs uppercase tracking-wider text-white/45"><th className="p-4">Capability</th><th className="p-4">Paper Task Book</th><th className="p-4">Typical LMS</th><th className="p-4 text-[#fb7185]">ResponderRoadmap</th></tr></thead><tbody>{comparison.map(row=><tr key={row[0]} className="border-t border-white/10"><td className="p-4 font-semibold">{row[0]}</td><td className="p-4 text-white/45">{row[1]}</td><td className="p-4 text-white/45">{row[2]}</td><td className="p-4 font-bold text-emerald-300">{row[3]}</td></tr>)}</tbody></table></div></section>
+      <section id="security" className="band"><div className="mx-auto grid max-w-7xl gap-10 px-5 py-24 lg:grid-cols-[.8fr_1.2fr]"><div><p className="eyebrow">Trust the record</p><h2 className="title">Built for review, not just completion.</h2></div><div className="grid gap-3 sm:grid-cols-2">{["Versioned assignments","Evaluator + optional countersign","Attempt history","Export and print","Member-controlled cert sharing","Department-owned official record"].map(x=><div key={x} className="rounded-md border border-white/10 bg-[#111d2f] p-4 font-semibold text-white/75">✓ <span className="ml-2">{x}</span></div>)}</div></div></section>
+      <section id="pricing" className="wrap"><p className="eyebrow">Pricing</p><h2 className="title">Start with 5. Scale when the book is real.</h2><div className="mt-12 grid gap-5 lg:grid-cols-3"><Price title="Free" price="$0" members="0–5 active members" bullets={["Full Task Book workflow","No card required","One crew or probation class"]} href="/register" cta="Start free"/><Price featured title="Founding" price="$500/year" members="Up to 75 active members" bullets={["Unlimited Task Books","Unlimited evaluators and admins","No setup fee","Price locked while subscribed"]} href="/department-interest?plan=founding" cta="Join the founding plan"/><Price title="Department" price="76+" members="Active members" bullets={["Department-scale setup","Task Books, rosters, and reporting","Active-member pricing"]} href="/department-interest?plan=department" cta="Contact for pricing"/></div><p className="mt-6 text-sm text-white/40">Active members, not purchased seats. The free iPhone app is the member’s personal career record; official department sign-off is the dashboard plan.</p><p className="mt-4 rounded-lg border border-white/15 bg-white/5 p-4 text-sm text-white/65"><b className="text-white">Municipal purchasing welcome.</b> Request a quote, invoice, W-9, or purchase-order documentation through Department Pricing & Access.</p></section>
+      <section className="band"><div className="mx-auto max-w-5xl px-5 py-24"><p className="eyebrow">FAQ</p><h2 className="title">Straight answers before the demo.</h2><div className="mt-10 divide-y divide-white/10 border-y border-white/10">{faqs.map(([q,a])=><details key={q} className="group py-5"><summary className="cursor-pointer list-none font-bold">{q}<span className="float-right text-[#fb5575]">+</span></summary><p className="mt-3 max-w-3xl text-white/55">{a}</p></details>)}</div></div></section>
+      <section className="px-5 py-24 text-center"><p className="eyebrow">No account required</p><h2 className="display mt-3 text-6xl font-bold">Give it three minutes.</h2><div className="mx-auto mt-8 flex max-w-4xl flex-wrap justify-center gap-3"><Link href={demoHref} className="rounded-md bg-[#E11D48] px-5 py-3 font-bold">See the 3-minute demo</Link><Link href="/register" className="cta-outline">Start free (0–5)</Link><Link href="/department-interest?plan=founding" className="cta-outline">Founding plan $500/year</Link><Link href="/department-interest?plan=department" className="cta-outline">76+ contact for pricing</Link></div><Link href="/login" className="mt-6 inline-block text-sm text-white/55 underline">Already invited? Sign in</Link></section>
+    </main>
+    <footer className="border-t border-white/10"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 px-5 py-8 text-sm text-white/40 md:flex-row"><div><p className="font-bold text-white/70">ResponderRoadmap · Department Task Books</p><p>Fire · EMS · Training Division</p><p className="mt-3 text-xs">Practice stays in FireOpsSim. Official completion stays here.</p></div><div className="flex gap-5"><Link href="/login">Sign in</Link><a href="#security">Security</a><Link href="/department-interest">Contact</Link></div></div></footer>
+  </div>;
 }
 
-function Pitch({ step, title, body }: { step: string; title: string; body: string }) {
-  return (
-    <div>
-      <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-fire">{step}</div>
-      <h2 className="display mt-2 text-3xl font-bold">{title}</h2>
-      <p className="mt-3 text-white/65">{body}</p>
-    </div>
-  );
-}
+function Price({title,price,members,bullets,href,cta,featured=false}:{title:string;price:string;members:string;bullets:string[];href:string;cta:string;featured?:boolean}) { return <article className={`flex min-h-[390px] flex-col rounded-xl border p-7 ${featured?"border-[#E11D48] bg-[#111d2f] shadow-[0_20px_60px_rgba(0,0,0,.3)]":"border-white/10 bg-[#101b2c]"}`}><p className="text-xs font-black uppercase tracking-widest text-white/45">{title}</p><p className="mt-3 text-4xl font-black tracking-tight">{price}</p><p className="mt-1 text-sm text-white/45">{members}</p><ul className="my-7 flex-1 space-y-3">{bullets.map(x=><li key={x} className="text-sm text-white/70">• {x}</li>)}</ul><Link href={href} className={featured?"inline-flex min-h-12 items-center justify-center rounded-md bg-[#E11D48] px-4 font-bold":"cta-outline inline-flex min-h-12 items-center justify-center"}>{cta}</Link></article> }

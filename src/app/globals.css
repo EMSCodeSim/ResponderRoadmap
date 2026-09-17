@@ -82,6 +82,15 @@ button[class*="bg-navy-900"] *,
   letter-spacing: 0.02em;
 }
 
+.eyebrow { font-size: 12px; font-weight: 900; letter-spacing: .17em; text-transform: uppercase; color: #fb5575; }
+.title { margin-top: .75rem; font-family: var(--font-barlow), "Barlow Condensed", sans-serif; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 700; line-height: 1; letter-spacing: -.025em; }
+.copy { margin-top: 1.5rem; max-width: 48rem; font-size: 1.125rem; line-height: 2rem; color: rgba(255,255,255,.65); }
+.band { border-top: 1px solid rgba(255,255,255,.1); border-bottom: 1px solid rgba(255,255,255,.1); background: #0d1625; }
+.wrap { width: min(80rem, calc(100% - 2.5rem)); margin-inline: auto; padding-block: 6rem; }
+.panel { border: 1px solid rgba(255,255,255,.1); border-radius: .75rem; background: #111d2f; padding: 1.5rem; }
+.cta-outline { border: 1px solid rgba(255,255,255,.2); border-radius: .375rem; padding: .75rem 1.25rem; font-weight: 700; }
+.cta-outline:hover { background: rgba(255,255,255,.1); }
+
 .kicker {
   font-size: 11px;
   font-weight: 700;
