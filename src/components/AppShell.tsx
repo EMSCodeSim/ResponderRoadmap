@@ -37,28 +37,28 @@ type Session = {
   nav: string[];
 };
 
-type NavSection = "Overview" | "My work" | "Training" | "People" | "Records & settings";
+type NavSection = "Today" | "Training" | "Department" | "More";
 
 const ITEMS = [
-  { href: "/dashboard", key: "dashboard", label: "Dashboard", section: "Overview", icon: LayoutDashboard },
-  { href: "/inbox", key: "inbox", label: "Inbox", section: "My work", icon: Bell },
-  { href: "/evaluate", key: "evaluate", label: "Evaluations", section: "My work", icon: ClipboardList },
-  { href: "/my-task-books", key: "my-task-books", label: "My Task Books", section: "My work", icon: BookOpen },
+  { href: "/dashboard", key: "dashboard", label: "Today", section: "Today", icon: LayoutDashboard },
+  { href: "/inbox", key: "inbox", label: "Needs Attention", section: "Today", icon: Bell },
+  { href: "/evaluate", key: "evaluate", label: "Evaluations", section: "Training", icon: ClipboardList },
+  { href: "/my-task-books", key: "my-task-books", label: "My Task Books", section: "Training", icon: BookOpen },
   { href: "/task-books", key: "task-books", label: "Task Books", section: "Training", icon: BookOpen },
   { href: "/assignments", key: "assignments", label: "Assignments", section: "Training", icon: ClipboardList },
-  { href: "/training-assignments", key: "training-assignments", label: "Assign One Task", section: "Training", icon: Dumbbell },
+  { href: "/training-assignments", key: "training-assignments", label: "Quick Assignment", section: "More", icon: Dumbbell },
   { href: "/classes", key: "classes", label: "Classes & Rosters", section: "Training", icon: CalendarCheck },
-  { href: "/members", key: "members", label: "Members", section: "People", icon: Users },
-  { href: "/enrollment", key: "enrollment", label: "Add Members", section: "People", icon: UserPlus },
-  { href: "/evaluators", key: "evaluators", label: "Evaluators", section: "People", icon: Users },
-  { href: "/certifications", key: "certifications", label: "Certifications", section: "Records & settings", icon: Award },
-  { href: "/reports", key: "reports", label: "Reports", section: "Records & settings", icon: BarChart3 },
-  { href: "/department", key: "department", label: "Department", section: "Records & settings", icon: Building2 },
-  { href: "/interest-list", key: "interest-list", label: "Interest List", section: "Records & settings", icon: Mail },
-  { href: "/settings", key: "settings", label: "Settings", section: "Records & settings", icon: Settings },
+  { href: "/members", key: "members", label: "People", section: "Department", icon: Users },
+  { href: "/reports", key: "reports", label: "Reports", section: "Department", icon: BarChart3 },
+  { href: "/enrollment", key: "enrollment", label: "Add Members", section: "More", icon: UserPlus },
+  { href: "/evaluators", key: "evaluators", label: "Manage Evaluators", section: "More", icon: Users },
+  { href: "/certifications", key: "certifications", label: "Certifications", section: "More", icon: Award },
+  { href: "/department", key: "department", label: "Department Setup", section: "More", icon: Building2 },
+  { href: "/interest-list", key: "interest-list", label: "Interest List", section: "More", icon: Mail },
+  { href: "/settings", key: "settings", label: "Account Settings", section: "More", icon: Settings },
 ] as const;
 
-const SECTION_ORDER: NavSection[] = ["Overview", "My work", "Training", "People", "Records & settings"];
+const SECTION_ORDER: NavSection[] = ["Today", "Training", "Department"];
 
 function demoWalkForRole(role: Role | null | undefined): DemoWalkKey {
   if (role === "MEMBER") return "member";
@@ -103,6 +103,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       })).filter((group) => group.items.length > 0),
     [nav],
   );
+
+  const moreItems = useMemo(() => nav.filter((item) => item.section === "More"), [nav]);
+  const moreActive = moreItems.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 
   const isDemo = session?.departmentId === DEMO_DEPARTMENT_ID;
   const demoWalk = demoWalkForRole(session?.role);
@@ -209,6 +212,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           ))}
+          {moreItems.length > 0 ? (
+            <details className="mt-5" open={moreActive || undefined}>
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md px-3 text-sm font-semibold text-white/65 hover:bg-white/10 hover:text-white">
+                <Settings size={18} />
+                <span className="flex-1">More tools</span>
+                <span className="text-xs text-white/40">{moreActive ? "−" : "+"}</span>
+              </summary>
+              <div className="mt-1 space-y-1 border-l border-white/10 pl-3">
+                {moreItems.map((item) => {
+                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={cx(
+                        "flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold",
+                        active ? "bg-fire text-white" : "text-white/65 hover:bg-white/10 hover:text-white",
+                      )}
+                    >
+                      <Icon size={17} />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </details>
+          ) : null}
         </nav>
         <div className="border-t border-white/10 p-4">
           <div className="text-sm font-semibold">{session?.name ?? "…"}</div>
