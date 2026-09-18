@@ -1,10 +1,10 @@
-name: Apply self-service free signup
+name: Apply self-service free signup hardening
 
 on:
   push:
     branches: [feature/self-service-free-signup]
     paths:
-      - scripts/enable-self-service-free-signup.py
+      - scripts/harden-free-signup.py
       - .github/workflows/apply-free-signup.yml
 
 permissions:
@@ -20,13 +20,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Apply signup implementation
-        run: python scripts/enable-self-service-free-signup.py
+      - name: Harden alternate department creation
+        run: python scripts/harden-free-signup.py
       - name: Commit application changes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add prisma/schema.prisma src/server/services/free-plan.ts src/server/services/auth.ts src/server/services/members.ts src/server/services/department.ts src/app/register/page.tsx
+          git add src/server/services/auth.ts
           git diff --cached --quiet && exit 0
-          git commit -m 'Enable public free training-organization signup with active member limits'
+          git commit -m 'Ensure new departments created through onboarding use free tier'
           git push origin HEAD:feature/self-service-free-signup
