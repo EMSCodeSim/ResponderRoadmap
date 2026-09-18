@@ -224,6 +224,7 @@ export async function createDepartment(
   const department = await prisma.department.create({
     data: {
       name,
+      plan: "FREE",
       publicId,
       joinCode,
       address: input.address?.trim() || null,
