@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { assertFreeCapacity } from "@/server/services/free-plan";
 import { prisma } from "@/server/db";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
@@ -303,7 +304,10 @@ export async function acceptInvitation(userId: string, token: string) {
   if (invitation.email && invitation.email !== user.email) {
     throw new HttpError(403, "This invitation was issued to a different email address.");
   }
-  const membership = await prisma.departmentMembership.upsert({
+  const membership = await prisma.$transaction(async (tx) => {
+    const current = await tx.departmentMembership.findUnique({ where: { departmentId_userId: { departmentId: invitation.departmentId, userId } } });
+    if (current?.status !== "ACTIVE") await assertFreeCapacity(tx, invitation.departmentId);
+    const membership = await tx.departmentMembership.upsert({
     where: { departmentId_userId: { departmentId: invitation.departmentId, userId } },
     update: {
       role: invitation.role,
@@ -322,7 +326,9 @@ export async function acceptInvitation(userId: string, token: string) {
       shift: invitation.shift,
     },
   });
-  await prisma.invitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } });
+    await tx.invitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } });
+    return membership;
+  });
   await setSessionCookie({
     userId: user.id,
     email: user.email,

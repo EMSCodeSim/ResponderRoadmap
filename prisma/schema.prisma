@@ -40,6 +40,7 @@ model User {
 /// Department-controlled organization. Tenant root for all department queries.
 model Department {
   id              String   @id @default(cuid())
+  plan            String   @default("LEGACY") // Existing departments retain their access; new self-service orgs use FREE.
   name            String
   publicId        String   @unique
   joinCode        String   @unique

@@ -1,4 +1,6 @@
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
+import { assertFreeCapacity } from "@/server/services/free-plan";
 import { prisma } from "@/server/db";
 import { HttpError } from "@/server/http";
 import { setSessionCookie, type SessionPayload } from "@/server/session";
@@ -71,15 +73,52 @@ export async function validateDepartmentJoinCode(rawCode: string) {
   return { departmentName: department.name, joinCode, approvalRequired: true };
 }
 
-export async function register(input: { name: string; email: string; password: string; invitationToken?: string; joinCode?: string }) {
+export async function register(input: { name: string; email: string; password: string; invitationToken?: string; joinCode?: string; organizationName?: string }) {
   const email = input.email.trim().toLowerCase();
   const token = input.invitationToken?.trim() || "";
   const joinCode = input.joinCode?.trim().toUpperCase() || "";
   if (!input.name.trim() || !email || input.password.length < 8) {
     throw new HttpError(400, "Name, email, and a password of at least 8 characters are required.");
   }
+  // Public registration creates a NEW isolated free organization; it never joins an existing tenant.
   if (!token && !joinCode) {
-    throw new HttpError(403, "Enter a department join code or use the invitation link sent by your department.");
+    const organizationName = input.organizationName?.trim() || "";
+    if (organizationName.length < 2 || organizationName.length > 180) {
+      throw new HttpError(400, "Enter an organization name (2–180 characters).");
+    }
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) throw new HttpError(409, "An account with that email already exists. Sign in instead.");
+    const passwordHash = await bcrypt.hash(input.password, 10);
+    const { user, freeDepartment } = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({ data: { name: input.name.trim(), email, passwordHash } });
+      const freeDepartment = await tx.department.create({
+        data: {
+          name: organizationName,
+          plan: "FREE",
+          publicId: `FREE-${randomBytes(8).toString("hex").toUpperCase()}`,
+          joinCode: `FREE-${randomBytes(8).toString("hex").toUpperCase()}`,
+          contactName: user.name,
+          contactEmail: user.email,
+          createdById: user.id,
+          memberships: { create: { userId: user.id, role: "DEPARTMENT_ADMINISTRATOR", status: "ACTIVE" } },
+        },
+        include: { memberships: true },
+      });
+      return { user, freeDepartment };
+    });
+    const membership = freeDepartment.memberships[0];
+    const session: SessionPayload = {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      departmentId: freeDepartment.id,
+      departmentName: freeDepartment.name,
+      membershipId: membership.id,
+      role: "DEPARTMENT_ADMINISTRATOR",
+      rank: null,
+    };
+    await setSessionCookie(session);
+    return { session, needsDepartment: false, approvalPending: false, departmentName: freeDepartment.name };
   }
 
   const invitation = token
@@ -101,6 +140,7 @@ export async function register(input: { name: string; email: string; password: s
   const departmentId = invitation?.departmentId || codeDepartment!.id;
   const membershipStatus = invitation ? "ACTIVE" : "PENDING";
   const userId = await prisma.$transaction(async (tx) => {
+    if (invitation) await assertFreeCapacity(tx, departmentId);
     const user = await tx.user.create({ data: { name: input.name.trim(), email, passwordHash } });
     await tx.departmentMembership.create({
       data: {
@@ -184,6 +224,7 @@ export async function createDepartment(
   const department = await prisma.department.create({
     data: {
       name,
+      plan: "FREE",
       publicId,
       joinCode,
       address: input.address?.trim() || null,

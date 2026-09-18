@@ -15,6 +15,7 @@ function RegisterContent() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pendingDepartment, setPendingDepartment] = useState<string | null>(null);
@@ -26,7 +27,7 @@ function RegisterContent() {
     try {
       const result = await api<{ approvalPending?: boolean; departmentName?: string }>("auth/register", {
         method: "POST",
-        body: JSON.stringify({ name, email, password, invitationToken, joinCode }),
+        body: JSON.stringify({ name, email, password, invitationToken, joinCode, organizationName: !invitationToken && !joinCode ? organizationName : undefined }),
       });
       if (result.approvalPending) {
         setPendingDepartment(result.departmentName || "your department");
@@ -85,44 +86,21 @@ function RegisterContent() {
           </>
         ) : (
           <>
-            <div className="kicker">Founding Department Pilot</div>
-            <h1 className="display mt-1 text-4xl font-bold">Department access is controlled</h1>
-            <p className="mt-3 text-sm text-navy-500">
-              Create an account with a private department join code or an invitation from your department. Public unrestricted signup remains closed.
-            </p>
-
-            <div className="mt-5 rounded-md border border-fire/25 bg-fire-soft/40 p-4">
-              <div className="text-sm font-semibold text-navy-900">Want department access when memberships open?</div>
-              <p className="mt-1 text-sm text-navy-600">
-                Join the Founding Department List. There is no payment or commitment today — it simply lets us contact you when paid department access is ready.
-              </p>
-              <Link
-                href="/department-interest?source=pilot-access"
-                className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold text-white hover:bg-fire-dark"
-              >
-                Join the Founding Department List
-              </Link>
-            </div>
-
-            <div className="mt-5 rounded-md border border-navy-200 bg-navy-50 p-4">
-              <div className="text-sm font-semibold text-navy-900">How pilot access works</div>
-              <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-navy-600">
-                <li>Your department administrator or pilot coordinator sends you an invitation link.</li>
-                <li>Open that invitation and create your account with the invited email address.</li>
-                <li>Your department role and access are assigned automatically from the invitation.</li>
-                <li>Existing users can sign in and accept an invitation without creating another account.</li>
-              </ol>
-            </div>
-            <div className="mt-5 space-y-2">
-              <Link href="/join" className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold text-white hover:bg-fire-dark">
-                Enter department join code
-              </Link>
-              <Link href="/login" className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">
-                Sign in
-              </Link>
-              <Link href="/" className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">
-                View the Metro Fire demo
-              </Link>
+            <div className="kicker">Start free · 0–5 active members</div>
+            <h1 className="display mt-1 text-4xl font-bold">Create your training organization</h1>
+            <p className="mt-3 text-sm text-navy-500">For a Training Captain, Chief, Training Officer, administrator or CPR instructor testing ResponderRoadmap. Full Task Book workflow. $0, no credit card. Your account counts as one of the five active members.</p>
+            <form onSubmit={onSubmit} className="mt-6 space-y-4">
+              <Flash message={error} tone="danger" />
+              <Field label="Organization or department name"><Input value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} minLength={2} maxLength={180} required placeholder="Your fire department or training company" /></Field>
+              <Field label="Your full name"><Input value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" /></Field>
+              <Field label="Work email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></Field>
+              <Field label="Password" hint="At least 8 characters."><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></Field>
+              <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating…" : "Create my free department"}</Button>
+            </form>
+            <div className="mt-5 border-t border-navy-200 pt-5 text-sm text-navy-600">
+              <p className="font-semibold">Joining an existing department?</p>
+              <p className="mt-1">Members use their department invitation or join code. Creating a new organization does not grant access to any existing department.</p>
+              <div className="mt-3 flex gap-4"><Link href="/join" className="font-semibold text-fire">Enter join code</Link><Link href="/login" className="font-semibold text-fire">Sign in</Link></div>
             </div>
           </>
         )}

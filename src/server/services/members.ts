@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { assertFreeCapacity } from "@/server/services/free-plan";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { credentialStatus, worstCredentialHealth, type CredentialHealth } from "@/lib/dates";
@@ -367,7 +368,9 @@ export async function updateMember(
   if (input.role && input.role !== membership.role) {
     assertPermission(ctx, "roles.write");
   }
-  const updated = await prisma.departmentMembership.update({
+  const updated = await prisma.$transaction(async (tx) => {
+    if (input.status === "ACTIVE" && membership.status !== "ACTIVE") await assertFreeCapacity(tx, ctx.departmentId);
+    return tx.departmentMembership.update({
     where: { id: membership.id },
     data: {
       role: input.role ?? membership.role,
@@ -378,6 +381,7 @@ export async function updateMember(
       shift: input.shift === undefined ? membership.shift : input.shift,
       employeeNumber: input.employeeNumber === undefined ? membership.employeeNumber : input.employeeNumber,
     },
+    });
   });
   if (input.role && input.role !== membership.role) {
     await writeAudit(ctx, "membership.role_change", "DepartmentMembership", membership.id, {
@@ -424,9 +428,12 @@ export async function approveMembership(ctx: AuthContext, membershipId: string, 
     where: { id: membershipId, departmentId: ctx.departmentId },
   });
   if (!membership) throw new HttpError(404, "Member not found.");
-  const updated = await prisma.departmentMembership.update({
-    where: { id: membership.id },
-    data: { status: approve ? "ACTIVE" : "REJECTED" },
+  const updated = await prisma.$transaction(async (tx) => {
+    if (approve && membership.status !== "ACTIVE") await assertFreeCapacity(tx, ctx.departmentId);
+    return tx.departmentMembership.update({
+      where: { id: membership.id },
+      data: { status: approve ? "ACTIVE" : "REJECTED" },
+    });
   });
   await writeAudit(ctx, approve ? "membership.approved" : "membership.rejected", "DepartmentMembership", membership.id, {});
   await notifyUser({
