@@ -33,7 +33,8 @@ function RegisterContent() {
         setPendingDepartment(result.departmentName || "your department");
         return;
       }
-      router.push("/dashboard");
+      // Invited members go straight to their workspace. New department owners get a guided first-run checklist.
+      router.push(!invitationToken && !joinCode ? "/getting-started" : "/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to create account.");
