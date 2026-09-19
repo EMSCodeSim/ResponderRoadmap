@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import Link from "next/link";
+import { api, ApiError } from "@/lib/api";
 import { relativeTime } from "@/lib/dates";
-import { Badge, Card, Input, PageHeader, ProgressBar, Select, certTone } from "@/components/ui";
+import { Badge, Card, EmptyState, Input, PageHeader, ProgressBar, Select, certTone } from "@/components/ui";
 
 type MemberRow = {
   id: string;
@@ -25,8 +25,8 @@ type Payload = {
 };
 
 export default function MembersPage() {
-  const router = useRouter();
   const [data, setData] = useState<Payload | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [rank, setRank] = useState("");
   const [station, setStation] = useState("");
@@ -43,7 +43,15 @@ export default function MembersPage() {
     if (cert) params.set("certStatus", cert);
     if (status) params.set("status", status);
     const timer = setTimeout(() => {
-      api<Payload>(`members?${params.toString()}`).then(setData);
+      setError(null);
+      api<Payload>(`members?${params.toString()}`)
+        .then(setData)
+        .catch((err) => {
+          setData(null);
+          setError(err instanceof ApiError && err.status === 403
+            ? "Your department role does not include access to the department roster."
+            : err instanceof Error ? err.message : "Unable to load the department roster.");
+        });
     }, 150);
     return () => clearTimeout(timer);
   }, [query, rank, station, shift, cert, status]);
@@ -97,7 +105,11 @@ export default function MembersPage() {
         </div>
       </Card>
       <Card className="mt-4">
-        {!data ? (
+        {error ? (
+          <div className="p-6">
+            <EmptyState title="Roster unavailable" body={error} />
+          </div>
+        ) : !data ? (
           <p className="p-6 text-navy-500">Loading roster…</p>
         ) : data.members.length === 0 ? (
           <p className="p-6 text-navy-500">No members match these filters.</p>
@@ -118,8 +130,12 @@ export default function MembersPage() {
               </thead>
               <tbody>
                 {data.members.map((member) => (
-                  <tr key={member.id} className="clickable" onClick={() => router.push(`/members/${member.id}`)}>
-                    <td className="font-semibold">{member.name}</td>
+                  <tr key={member.id}>
+                    <td className="font-semibold">
+                      <Link href={`/members/${member.id}`} className="inline-flex min-h-11 items-center text-navy-900 underline decoration-navy-300 underline-offset-4 hover:text-fire">
+                        {member.name}
+                      </Link>
+                    </td>
                     <td>{member.rank ?? "—"}</td>
                     <td>
                       {member.station ?? "—"}
