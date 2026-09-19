@@ -3,7 +3,7 @@ import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress } from "@/lib/progress";
 import { computeUpNext, deserializeRequirement, evaluationPasses, nextApprovalLevel } from "@/lib/taskbook";
-import { reviewStageForRequirement } from "@/lib/signoff";
+import { reviewerSeparationConflict, reviewStageForRequirement } from "@/lib/signoff";
 import { parseJsonArray, type SignOffResult } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
 import { notifyUser } from "@/server/services/inbox";
@@ -365,6 +365,15 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
       const waitingHours = item.submittedAt
         ? Math.max(0, Math.floor((Date.now() - item.submittedAt.getTime()) / 3_600_000))
         : 0;
+      const expectedLevel = nextApprovalLevel(parsed.approvalPath, item.signOffs.filter(
+        (signOff) => !item.submittedAt || signOff.signedAt >= item.submittedAt,
+      )) || reviewStage;
+      const sameReviewerConflict = reviewerSeparationConflict({
+        signOffs: item.signOffs,
+        reviewerId: ctx.userId,
+        approvalLevel: expectedLevel,
+        submittedAt: item.submittedAt,
+      });
       return {
         id: item.id,
         assignmentId: item.assignmentId,
@@ -394,7 +403,9 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
         standards: parsed.standards,
         approvalPath: parsed.approvalPath,
         evaluatorNotesEnabled: item.requirement.evaluatorNotesEnabled,
-        reviewStage,
+        reviewStage: expectedLevel,
+        sameReviewerConflict,
+        sameReviewerOverrideAllowed: ctx.role === "DEPARTMENT_ADMINISTRATOR",
         approvedRepetitions,
         repetitionsRequired,
         nextRepetition: Math.min(repetitionsRequired, approvedRepetitions + 1),
@@ -433,6 +444,8 @@ export async function reviewSignOff(
     criticalFailuresTriggered?: string[];
     numericScore?: number | null;
     approvalLevel?: string;
+    sameReviewerOverride?: boolean;
+    overrideReason?: string;
   },
 ) {
   assertPermission(ctx, "signoff.review");
@@ -478,6 +491,26 @@ export async function reviewSignOff(
   if (!roleCanSignLevel(ctx.role, level)) {
     throw new HttpError(403, `Your role cannot sign the ${level.replaceAll("_", " ").toLowerCase()} level.`);
   }
+  const sameReviewerConflict = reviewerSeparationConflict({
+    signOffs: completion.signOffs,
+    reviewerId: ctx.userId,
+    approvalLevel: level,
+    submittedAt: completion.submittedAt,
+  });
+  const overrideReason = input.overrideReason?.trim().slice(0, 500) || "";
+  const separationOverride = verdict.passed && sameReviewerConflict && input.sameReviewerOverride === true;
+  if (verdict.passed && sameReviewerConflict) {
+    if (ctx.role !== "DEPARTMENT_ADMINISTRATOR") {
+      throw new HttpError(409, "A different reviewer must complete the next approval stage.");
+    }
+    if (!separationOverride || !overrideReason) {
+      throw new HttpError(400, "Enter a reason to use the administrator same-reviewer override.");
+    }
+  }
+  const recordedNotes = [
+    input.notes?.trim(),
+    separationOverride ? `Administrator same-reviewer override: ${overrideReason}` : "",
+  ].filter(Boolean).join("\n\n");
 
   const nextRepIndex = completion.attempts.length + 1;
   let nextStatus = completion.status;
@@ -511,7 +544,7 @@ export async function reviewSignOff(
         result: verdict.result,
         stepResultsJson: JSON.stringify(input.stepResults ?? []),
         criticalFailuresJson: JSON.stringify(input.criticalFailuresTriggered ?? []),
-        comments: input.notes?.trim() || "",
+        comments: recordedNotes,
         numericScore: input.numericScore ?? null,
       },
     });
@@ -521,7 +554,7 @@ export async function reviewSignOff(
         completionId: completion.id,
         evaluatorId: ctx.userId,
         result: verdict.result,
-        notes: input.notes?.trim() || "",
+        notes: recordedNotes,
         approvalLevel: level,
         repetitionIndex: nextRepIndex,
         attemptId: attempt.id,
@@ -548,6 +581,8 @@ export async function reviewSignOff(
     fromStatus: completion.status,
     toStatus: nextStatus,
     approvedRepetitions: repetitionCount,
+    separationOverride,
+    overrideReason: separationOverride ? overrideReason : undefined,
   });
   await writeActivity(ctx.departmentId, nextStatus === "RETURNED" ? "REQUIREMENT_RETURNED" : "REQUIREMENT_SIGNED", {
     userId: completion.membership.userId,
