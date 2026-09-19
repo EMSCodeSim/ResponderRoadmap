@@ -38,6 +38,8 @@ type QueueItem = {
   scoringMethod: string;
   approvalPath: string[];
   reviewStage: string;
+  sameReviewerConflict: boolean;
+  sameReviewerOverrideAllowed: boolean;
   history: Array<{ id: string; result: string; notes: string; signedAt: string; evaluatorName: string; approvalLevel: string }>;
   attempts: Array<{ id: string; result: string; comments: string; signedAt: string; evaluatorName: string; repetitionIndex: number }>;
 };
@@ -61,6 +63,8 @@ function EvaluateInner() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sameReviewerOverride, setSameReviewerOverride] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
   const escalatedCount = queue.filter((item) => item.escalated).length;
 
   async function load() {
@@ -80,6 +84,8 @@ function EvaluateInner() {
     setSteps({});
     setCritical([]);
     setAttested(false);
+    setSameReviewerOverride(false);
+    setOverrideReason("");
     // Reset field controls when the selected submission changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
@@ -112,6 +118,16 @@ function EvaluateInner() {
       document.getElementById("field-evaluation-attestation")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
+    if (result === "APPROVED" && selected.sameReviewerConflict) {
+      if (!selected.sameReviewerOverrideAllowed) {
+        setError("A different reviewer must complete this approval stage.");
+        return;
+      }
+      if (!sameReviewerOverride || !overrideReason.trim()) {
+        setError("Confirm the administrator override and enter a reason before signing.");
+        return;
+      }
+    }
     setBusy(true);
     setError(null);
     try {
@@ -124,6 +140,8 @@ function EvaluateInner() {
           stepResults,
           criticalFailuresTriggered: critical,
           attested: result === "APPROVED" ? attested : false,
+          sameReviewerOverride: result === "APPROVED" ? sameReviewerOverride : false,
+          overrideReason: result === "APPROVED" ? overrideReason.trim() : "",
         }),
       });
       setMessage(result === "APPROVED" ? "Signed. This attempt is in the audit history." : result === "NEEDS_REMEDIATION" ? "Returned for remediation. Prior attempts were kept." : "Marked not evaluated.");
@@ -317,6 +335,30 @@ function EvaluateInner() {
                   </ul>
                 </div>
               ) : null}
+              {view !== "recent" && selected.sameReviewerConflict ? (
+                <div className="mt-5 rounded-md border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+                  <div className="font-bold">Independent approval required</div>
+                  <p className="mt-1">You signed an earlier stage of this approval cycle. A different reviewer must complete this stage.</p>
+                  {selected.sameReviewerOverrideAllowed ? (
+                    <div className="mt-3 border-t border-danger/20 pt-3">
+                      <label className="flex items-start gap-3 font-semibold">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-5 w-5 shrink-0"
+                          checked={sameReviewerOverride}
+                          onChange={(event) => setSameReviewerOverride(event.target.checked)}
+                        />
+                        Use Department Administrator override
+                      </label>
+                      {sameReviewerOverride ? (
+                        <Field label="Required override reason">
+                          <TextArea value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} />
+                        </Field>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {view === "recent" ? null : <div className="mt-5 rounded-md border border-fire/30 bg-fire-soft/40 p-3">
                 <div className="text-xs font-bold uppercase tracking-wide text-fire">AI Remediation Assistant</div>
                 <p className="mt-1 text-sm text-navy-600">Draft coaching and reassessment ideas from this skill and its recorded attempts. The evaluator remains responsible for the remediation decision.</p>
@@ -353,7 +395,12 @@ function EvaluateInner() {
               </label>}
 
               {view === "recent" ? null : <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Button className="min-h-16 text-base" variant="success" disabled={busy || critical.length > 0 || !attested} onClick={() => evaluate("APPROVED")}>
+                <Button
+                  className="min-h-16 text-base"
+                  variant="success"
+                  disabled={busy || critical.length > 0 || !attested || (selected.sameReviewerConflict && (!selected.sameReviewerOverrideAllowed || !sameReviewerOverride || !overrideReason.trim()))}
+                  onClick={() => evaluate("APPROVED")}
+                >
                   PASS & SIGN
                 </Button>
                 <Button className="min-h-16 text-base" variant="danger" disabled={busy} onClick={() => evaluate("NEEDS_REMEDIATION")}>
