@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { formatDate, relativeTime } from "@/lib/dates";
+import { formatDateTime, relativeTime } from "@/lib/dates";
 import { STEP_RATING_LABELS, STEP_RATINGS } from "@/lib/constants";
 import { TASKBOOK_ATTESTATION_TEXT } from "@/lib/taskbook-attestation";
 import { Badge, Button, Card, EmptyState, Field, Flash, PageHeader, TextArea } from "@/components/ui";
@@ -36,9 +36,17 @@ type QueueItem = {
   repetitionsRequired: number;
   repetitionCount: number;
   scoringMethod: string;
+  approvalPath: string[];
+  reviewStage: string;
+  sameReviewerConflict: boolean;
+  sameReviewerOverrideAllowed: boolean;
   history: Array<{ id: string; result: string; notes: string; signedAt: string; evaluatorName: string; approvalLevel: string }>;
   attempts: Array<{ id: string; result: string; comments: string; signedAt: string; evaluatorName: string; repetitionIndex: number }>;
 };
+
+function approvalLevelLabel(level: string) {
+  return level.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 function EvaluateInner() {
   const search = useSearchParams();
@@ -55,6 +63,8 @@ function EvaluateInner() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sameReviewerOverride, setSameReviewerOverride] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
   const escalatedCount = queue.filter((item) => item.escalated).length;
 
   async function load() {
@@ -74,6 +84,8 @@ function EvaluateInner() {
     setSteps({});
     setCritical([]);
     setAttested(false);
+    setSameReviewerOverride(false);
+    setOverrideReason("");
     // Reset field controls when the selected submission changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
@@ -106,6 +118,16 @@ function EvaluateInner() {
       document.getElementById("field-evaluation-attestation")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
+    if (result === "APPROVED" && selected.sameReviewerConflict) {
+      if (!selected.sameReviewerOverrideAllowed) {
+        setError("A different reviewer must complete this approval stage.");
+        return;
+      }
+      if (!sameReviewerOverride || !overrideReason.trim()) {
+        setError("Confirm the administrator override and enter a reason before signing.");
+        return;
+      }
+    }
     setBusy(true);
     setError(null);
     try {
@@ -118,6 +140,8 @@ function EvaluateInner() {
           stepResults,
           criticalFailuresTriggered: critical,
           attested: result === "APPROVED" ? attested : false,
+          sameReviewerOverride: result === "APPROVED" ? sameReviewerOverride : false,
+          overrideReason: result === "APPROVED" ? overrideReason.trim() : "",
         }),
       });
       setMessage(result === "APPROVED" ? "Signed. This attempt is in the audit history." : result === "NEEDS_REMEDIATION" ? "Returned for remediation. Prior attempts were kept." : "Marked not evaluated.");
@@ -203,6 +227,21 @@ function EvaluateInner() {
               <p className="text-navy-600">
                 {selected.memberName} · {selected.taskBookTitle} · {selected.sectionTitle}
               </p>
+              {view === "recent" ? (
+                <div className="mt-3 rounded-md border border-navy-200 bg-navy-50 p-3 text-sm font-semibold text-navy-700">
+                  Completed review · Read-only audit history
+                </div>
+              ) : (
+                <div className="mt-3 rounded-md border border-fire/30 bg-fire-soft p-3">
+                  <div className="kicker">Approval stage</div>
+                  <div className="mt-1 font-semibold text-navy-900">{approvalLevelLabel(selected.reviewStage)}</div>
+                  <p className="mt-1 text-xs text-navy-600">
+                    {selected.approvalPath.length > 1
+                      ? `${selected.approvalPath.map(approvalLevelLabel).join(" → ")}. This requirement is not complete until every stage approves.`
+                      : "This approval completes the current requirement when the required repetition count is met."}
+                  </p>
+                </div>
+              )}
               {selected.escalated ? (
                 <div className="mt-3 rounded-md border border-danger/30 bg-danger-soft p-3 text-sm font-semibold text-danger">
                   Escalated: waiting {selected.waitingHours} hours against the department’s {selected.escalationHours}-hour response target.
@@ -283,19 +322,44 @@ function EvaluateInner() {
                   </ul>
                 </div>
               ) : null}
-              {selected.attempts.length ? (
+              {selected.history.length ? (
                 <div className="mt-5">
-                  <div className="kicker">Previous attempts</div>
-                  <ul className="mt-2 text-xs text-navy-600">
-                    {selected.attempts.map((attempt) => (
-                      <li key={attempt.id}>
-                        #{attempt.repetitionIndex} {attempt.evaluatorName} {attempt.result.toLowerCase().replaceAll("_", " ")} · {formatDate(attempt.signedAt)} · {attempt.comments}
+                  <div className="kicker">Approval and attempt history</div>
+                  <ul className="mt-2 space-y-2 text-xs text-navy-600">
+                    {selected.history.map((entry, index) => (
+                      <li key={entry.id}>
+                        #{index + 1} {entry.evaluatorName} · {approvalLevelLabel(entry.approvalLevel)} · {entry.result.toLowerCase().replaceAll("_", " ")} · {formatDateTime(entry.signedAt)}
+                        {entry.notes ? ` · ${entry.notes}` : ""}
                       </li>
                     ))}
                   </ul>
                 </div>
               ) : null}
-              <div className="mt-5 rounded-md border border-fire/30 bg-fire-soft/40 p-3">
+              {view !== "recent" && selected.sameReviewerConflict ? (
+                <div className="mt-5 rounded-md border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+                  <div className="font-bold">Independent approval required</div>
+                  <p className="mt-1">You signed an earlier stage of this approval cycle. A different reviewer must complete this stage.</p>
+                  {selected.sameReviewerOverrideAllowed ? (
+                    <div className="mt-3 border-t border-danger/20 pt-3">
+                      <label className="flex items-start gap-3 font-semibold">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-5 w-5 shrink-0"
+                          checked={sameReviewerOverride}
+                          onChange={(event) => setSameReviewerOverride(event.target.checked)}
+                        />
+                        Use Department Administrator override
+                      </label>
+                      {sameReviewerOverride ? (
+                        <Field label="Required override reason">
+                          <TextArea value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} />
+                        </Field>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {view === "recent" ? null : <div className="mt-5 rounded-md border border-fire/30 bg-fire-soft/40 p-3">
                 <div className="text-xs font-bold uppercase tracking-wide text-fire">AI Remediation Assistant</div>
                 <p className="mt-1 text-sm text-navy-600">Draft coaching and reassessment ideas from this skill and its recorded attempts. The evaluator remains responsible for the remediation decision.</p>
                 <Button className="mt-3" variant="secondary" onClick={suggestRemediation} disabled={aiBusy}>
@@ -309,12 +373,12 @@ function EvaluateInner() {
                     </Button>
                   </div>
                 ) : null}
-              </div>
-              <Field label="Evaluator comments">
+              </div>}
+              {view === "recent" ? null : <Field label="Evaluator comments">
                 <TextArea value={note} onChange={(e) => setNote(e.target.value)} />
-              </Field>
+              </Field>}
 
-              <label
+              {view === "recent" ? null : <label
                 id="field-evaluation-attestation"
                 className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-navy-200 bg-navy-50 p-4"
               >
@@ -328,10 +392,15 @@ function EvaluateInner() {
                   <span className="block font-semibold text-navy-900">I verify this completion</span>
                   <span className="mt-1 block text-xs leading-relaxed text-navy-600">{TASKBOOK_ATTESTATION_TEXT}</span>
                 </span>
-              </label>
+              </label>}
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Button className="min-h-16 text-base" variant="success" disabled={busy || critical.length > 0 || !attested} onClick={() => evaluate("APPROVED")}>
+              {view === "recent" ? null : <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <Button
+                  className="min-h-16 text-base"
+                  variant="success"
+                  disabled={busy || critical.length > 0 || !attested || (selected.sameReviewerConflict && (!selected.sameReviewerOverrideAllowed || !sameReviewerOverride || !overrideReason.trim()))}
+                  onClick={() => evaluate("APPROVED")}
+                >
                   PASS & SIGN
                 </Button>
                 <Button className="min-h-16 text-base" variant="danger" disabled={busy} onClick={() => evaluate("NEEDS_REMEDIATION")}>
@@ -340,11 +409,11 @@ function EvaluateInner() {
                 <Button className="min-h-16 text-base" variant="secondary" disabled={busy} onClick={() => evaluate("NOT_EVALUATED")}>
                   NOT EVALUATED
                 </Button>
-              </div>
-              {critical.length ? <p className="mt-2 text-sm text-danger">A critical failure is marked. This attempt cannot pass.</p> : null}
-              {!attested && !critical.length ? <p className="mt-2 text-sm text-navy-500">Check “I verify this completion” to enable PASS & SIGN.</p> : null}
-              <p className="mt-3 text-center text-sm font-semibold text-navy-700">The signed evaluation is stored in the append-only audit history.</p>
-              {queue.length > 1 ? (
+              </div>}
+              {view !== "recent" && critical.length ? <p className="mt-2 text-sm text-danger">A critical failure is marked. This attempt cannot pass.</p> : null}
+              {view !== "recent" && !attested && !critical.length ? <p className="mt-2 text-sm text-navy-500">Check “I verify this completion” to enable PASS & SIGN.</p> : null}
+              {view !== "recent" ? <p className="mt-3 text-center text-sm font-semibold text-navy-700">The signed evaluation is stored in the append-only audit history.</p> : null}
+              {view !== "recent" && queue.length > 1 ? (
                 <Button
                   variant="secondary"
                   className="mt-4 w-full"

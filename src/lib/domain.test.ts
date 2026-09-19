@@ -3,7 +3,7 @@ import { bumpVersion } from "@/lib/constants";
 import { credentialStatus, daysUntil, worstCredentialHealth } from "@/lib/dates";
 import { computeAssignmentProgress } from "@/lib/progress";
 import { computeUpNext, evaluationPasses, reviewTaskBook, serializeRequirement } from "@/lib/taskbook";
-import { approvalsSinceSubmission, nextReviewState, reviewStageForRequirement } from "@/lib/signoff";
+import { approvalsSinceSubmission, nextReviewState, reviewerSeparationConflict, reviewStageForRequirement } from "@/lib/signoff";
 import { hasPermission } from "@/server/permissions";
 
 describe("bumpVersion", () => {
@@ -244,6 +244,34 @@ describe("sign-off stages", () => {
       signOffs: [{ result: "APPROVED", signedAt: new Date("2026-08-28T12:05:00Z") }],
       submittedAt,
     })).toBe("FINAL");
+  });
+
+  it("requires a different person for a later approval stage", () => {
+    expect(reviewerSeparationConflict({
+      signOffs: [{
+        result: "APPROVED",
+        signedAt: new Date("2026-08-28T12:05:00Z"),
+        evaluatorId: "reviewer-1",
+        approvalLevel: "EVALUATOR",
+      }],
+      reviewerId: "reviewer-1",
+      approvalLevel: "TRAINING_OFFICER",
+      submittedAt,
+    })).toBe(true);
+  });
+
+  it("allows the same person to review a new submission cycle", () => {
+    expect(reviewerSeparationConflict({
+      signOffs: [{
+        result: "APPROVED",
+        signedAt: new Date("2026-08-28T11:55:00Z"),
+        evaluatorId: "reviewer-1",
+        approvalLevel: "EVALUATOR",
+      }],
+      reviewerId: "reviewer-1",
+      approvalLevel: "TRAINING_OFFICER",
+      submittedAt,
+    })).toBe(false);
   });
 });
 

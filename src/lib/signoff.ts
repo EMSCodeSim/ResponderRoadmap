@@ -6,6 +6,11 @@ export type SignOffLike = {
   signedAt: Date | string;
 };
 
+export type ReviewerSignOffLike = SignOffLike & {
+  evaluatorId: string;
+  approvalLevel?: string | null;
+};
+
 function asTime(value: Date | string) {
   return value instanceof Date ? value.getTime() : new Date(value).getTime();
 }
@@ -18,6 +23,22 @@ export function approvalsSinceSubmission(
   return signOffs.filter(
     (signOff) => signOff.result === "APPROVED" && asTime(signOff.signedAt) >= submitted,
   ).length;
+}
+
+export function reviewerSeparationConflict(input: {
+  signOffs: ReviewerSignOffLike[];
+  reviewerId: string;
+  approvalLevel: string;
+  submittedAt?: Date | string | null;
+}) {
+  const submitted = input.submittedAt ? asTime(input.submittedAt) : Number.NEGATIVE_INFINITY;
+  return input.signOffs.some(
+    (signOff) =>
+      signOff.evaluatorId === input.reviewerId &&
+      signOff.approvalLevel !== input.approvalLevel &&
+      (signOff.result === "APPROVED" || signOff.result === "PASS") &&
+      asTime(signOff.signedAt) >= submitted,
+  );
 }
 
 export function reviewStageForRequirement(input: {
