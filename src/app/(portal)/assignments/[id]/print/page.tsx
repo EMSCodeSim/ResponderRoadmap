@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { formatDate } from "@/lib/dates";
+import { formatDate, formatDateTime } from "@/lib/dates";
 
 type RecordPayload = {
   department: { name?: string | null; city?: string | null; state?: string | null };
@@ -103,13 +103,13 @@ export default function PrintRecordPage() {
               <tr className="text-left text-xs uppercase tracking-wide text-navy-500">
                 <th className="py-2">Requirement</th>
                 <th>Status</th>
-                <th>Evaluator / date</th>
+                <th>Signed approval history</th>
                 <th>Comments</th>
               </tr>
             </thead>
             <tbody>
               {section.requirements.map((req) => {
-                const last = req.completion?.signOffs.filter((sign) => sign.result === "APPROVED" || sign.result === "PASS").at(-1);
+                const signOffs = req.completion?.signOffs || [];
                 return (
                   <tr key={req.title} className="border-t border-navy-100 align-top">
                     <td className="py-2 pr-3">
@@ -123,17 +123,31 @@ export default function PrintRecordPage() {
                     </td>
                     <td className="py-2 pr-3">{(req.completion?.status || "NOT STARTED").replaceAll("_", " ")}</td>
                     <td className="py-2 pr-3">
-                      {last ? (
-                        <>
-                          {last.evaluatorName}
-                          <div className="text-xs">{formatDate(last.signedAt)}</div>
-                          <div className="text-xs">{last.approvalLevel.replaceAll("_", " ")}</div>
-                        </>
+                      {signOffs.length ? (
+                        <ol className="space-y-2">
+                          {signOffs.map((sign, index) => (
+                            <li key={`${sign.evaluatorName}-${sign.signedAt}-${index}`}>
+                              <div className="font-semibold">{index + 1}. {sign.evaluatorName}</div>
+                              <div className="text-xs">{sign.approvalLevel.replaceAll("_", " ")} · {sign.result.replaceAll("_", " ")}</div>
+                              <div className="text-xs">{formatDateTime(sign.signedAt)}</div>
+                            </li>
+                          ))}
+                        </ol>
                       ) : (
                         "—"
                       )}
                     </td>
-                    <td className="py-2">{last?.notes || req.completion?.memberNotes || "—"}</td>
+                    <td className="py-2">
+                      {signOffs.length ? (
+                        <ol className="space-y-2">
+                          {signOffs.map((sign, index) => (
+                            <li key={`${sign.evaluatorName}-${sign.signedAt}-note-${index}`}>
+                              <span className="font-semibold">Stage {index + 1}:</span> {sign.notes || "No comments"}
+                            </li>
+                          ))}
+                        </ol>
+                      ) : req.completion?.memberNotes || "—"}
+                    </td>
                   </tr>
                 );
               })}
