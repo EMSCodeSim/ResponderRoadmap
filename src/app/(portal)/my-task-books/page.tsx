@@ -59,7 +59,7 @@ export default function MyTaskBooksPage() {
             </p>
           </div>
           <a
-            href="https://apps.apple.com/us/app/repsonder-roadmap/id6800092347"
+            href="https://apps.apple.com/us/app/responder-roadmap/id6800092347"
             target="_blank"
             rel="noreferrer"
             className="inline-flex min-h-11 items-center justify-center rounded-md bg-navy-950 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800"

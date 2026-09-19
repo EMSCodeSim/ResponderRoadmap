@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 
-const APP_STORE_URL = "https://apps.apple.com/us/app/repsonder-roadmap/id6800092347";
+const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
 
 const preview = [
   { title: "Waiting on sign-off", name: "Jordan Smith", role: "Probationary Firefighter", task: "Deploy 1¾-inch attack line", time: "Waiting 2 hours", tone: "border-fire/50 bg-fire/10" },
