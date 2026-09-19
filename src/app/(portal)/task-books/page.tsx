@@ -103,9 +103,11 @@ export default function TaskBooksPage() {
               </thead>
               <tbody>
                 {books.map((book) => (
-                  <tr key={book.id} className="clickable" onClick={() => (window.location.href = `/task-books/${book.id}`)}>
+                  <tr key={book.id}>
                     <td className="font-semibold">
-                      {book.title}
+                      <Link href={`/task-books/${book.id}`} className="inline-flex min-h-11 items-center text-navy-900 underline decoration-navy-300 underline-offset-4 hover:text-fire">
+                        {book.title}
+                      </Link>
                       {book.templateKind === "VERIFIED" ? (
                         <div className="text-[11px] font-bold uppercase tracking-wide text-ok">Verified source</div>
                       ) : null}

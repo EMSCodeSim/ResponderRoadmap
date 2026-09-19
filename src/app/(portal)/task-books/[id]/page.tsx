@@ -236,7 +236,8 @@ export default function TaskBookBuilderPage() {
     setEstimatedDurationDays(data.estimatedDurationDays ? String(data.estimatedDurationDays) : "");
     const mapped = mapSections(data);
     setSections(mapped);
-    setSelectedSection((current) => current || mapped[0]?.clientId || null);
+    setSelectedSection((current) => mapped.some((section) => section.clientId === current) ? current : mapped[0]?.clientId || null);
+    setSelectedReq((current) => mapped.some((section) => section.requirements.some((requirement) => requirement.clientId === current)) ? current : null);
     setDirty(false);
     snapshot.current = JSON.stringify({ title: data.title, sections: mapped });
   }
