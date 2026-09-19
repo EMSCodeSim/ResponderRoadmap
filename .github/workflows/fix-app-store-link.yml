@@ -1,0 +1,48 @@
+name: Fix App Store links
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/fix-app-store-link.yml
+
+permissions:
+  contents: write
+
+jobs:
+  correct-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Replace incorrect App Store URLs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          old = 'https://apps.apple.com/us/app/repsonder-roadmap/id6800092347'
+          new = 'https://apps.apple.com/us/app/responder-roadmap/id6800092347'
+          paths = [
+              Path('src/app/landing.tsx'),
+              Path('src/app/(portal)/my-task-books/page.tsx'),
+              Path('src/components/AppShell.tsx'),
+          ]
+          for path in paths:
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected one incorrect App Store URL in {path}, found {count}')
+              path.write_text(text.replace(old, new))
+              assert old not in path.read_text()
+              assert path.read_text().count(new) == 1
+              print(f'Corrected and verified {path}')
+          PY
+      - name: Commit corrected links
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/landing.tsx 'src/app/(portal)/my-task-books/page.tsx' src/components/AppShell.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix App Store link on homepage and department pages'
+          git push origin main
