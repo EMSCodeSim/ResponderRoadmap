@@ -1,0 +1,49 @@
+name: Move people management actions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/move-people-actions.yml
+
+permissions:
+  contents: write
+
+jobs:
+  move-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Move people actions without changing permissions or backend
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, before, after):
+              file = Path(path)
+              text = file.read_text()
+              if text.count(before) != 1:
+                  raise SystemExit(f'Expected exactly one match in {path}: {before!r}; got {text.count(before)}')
+              file.write_text(text.replace(before, after, 1))
+
+          shell = 'src/components/AppShell.tsx'
+          replace_once(shell, '  UserPlus,\n', '')
+          replace_once(shell, '  { href: "/enrollment", key: "enrollment", label: "Add Members", section: "More", icon: UserPlus },\n', '')
+          replace_once(shell, '  { href: "/evaluators", key: "evaluators", label: "Manage Evaluators", section: "More", icon: Users },\n', '')
+
+          members = 'src/app/(portal)/members/page.tsx'
+          replace_once(members, '  const [data, setData] = useState<Payload | null>(null);', '  const [data, setData] = useState<Payload | null>(null);\n  const [peopleActions, setPeopleActions] = useState<string[]>([]);')
+          replace_once(members, '  useEffect(() => {\n    const params = new URLSearchParams();', '  useEffect(() => {\n    api<{ nav: string[] }>("auth/me")\n      .then((session) => setPeopleActions(session.nav))\n      .catch(() => setPeopleActions([]));\n  }, []);\n\n  useEffect(() => {\n    const params = new URLSearchParams();')
+          replace_once(members, '        title="Members"\n        description="Department membership only. Personal Career Road history is not visible from this roster."\n', '        title="People"\n        description="Manage your department roster and authorized personnel tools. Personal Career Road history is not visible here."\n        actions={peopleActions.includes("enrollment") || peopleActions.includes("evaluators") ? (\n          <div className="flex flex-wrap gap-2">\n            {peopleActions.includes("enrollment") ? (\n              <Link href="/enrollment" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white hover:bg-fire-dark">Add Members</Link>\n            ) : null}\n            {peopleActions.includes("evaluators") ? (\n              <Link href="/evaluators" className="inline-flex min-h-11 items-center justify-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Manage Evaluators</Link>\n            ) : null}\n          </div>\n        ) : undefined}\n')
+          print('Moved Add Members and Manage Evaluators to People; existing protected routes and role permissions unchanged.')
+          PY
+      - name: Commit People navigation change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/AppShell.tsx 'src/app/(portal)/members/page.tsx'
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Move Add Members and Manage Evaluators into People"
+          git push origin main
