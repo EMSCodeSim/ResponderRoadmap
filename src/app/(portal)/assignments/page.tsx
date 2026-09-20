@@ -1,5 +1,7 @@
 "use client";
 
+import { WorkspaceTabs } from "@/components/WorkspaceTabs";
+
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -288,6 +290,7 @@ function AssignmentsInner() {
 
   return (
     <div>
+      <WorkspaceTabs />
       <PageHeader
         kicker="Assignments"
         title="Task Book assignments"

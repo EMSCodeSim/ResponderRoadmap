@@ -1,5 +1,7 @@
 "use client";
 
+import { WorkspaceTabs } from "@/components/WorkspaceTabs";
+
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -156,6 +158,7 @@ function EvaluateInner() {
 
   return (
     <div>
+      <WorkspaceTabs />
       <PageHeader
         kicker="Evaluator"
         title="Needs My Evaluation"

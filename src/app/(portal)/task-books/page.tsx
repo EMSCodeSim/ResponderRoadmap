@@ -1,5 +1,7 @@
 "use client";
 
+import { WorkspaceTabs } from "@/components/WorkspaceTabs";
+
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
@@ -48,6 +50,7 @@ export default function TaskBooksPage() {
 
   return (
     <div>
+      <WorkspaceTabs />
       <PageHeader
         kicker="Library"
         title="Task Books"

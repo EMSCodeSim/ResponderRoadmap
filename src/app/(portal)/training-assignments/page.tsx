@@ -1,5 +1,7 @@
 "use client";
 
+import { WorkspaceTabs } from "@/components/WorkspaceTabs";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
@@ -127,7 +129,8 @@ export default function TrainingAssignmentsPage() {
   if (role && !canAssign) {
     return (
       <div>
-        <PageHeader kicker="Training" title="Quick Training Assignment" description="Training Officers and Department Administrators can create department-wide skill assignments." />
+        <WorkspaceTabs />
+      <PageHeader kicker="Training" title="Quick Training Assignment" description="Training Officers and Department Administrators can create department-wide skill assignments." />
         <Flash tone="danger" message="You do not have permission to create department training assignments." />
       </div>
     );
