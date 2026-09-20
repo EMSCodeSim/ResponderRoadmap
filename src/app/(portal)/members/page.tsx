@@ -26,6 +26,7 @@ type Payload = {
 
 export default function MembersPage() {
   const [data, setData] = useState<Payload | null>(null);
+  const [peopleActions, setPeopleActions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [rank, setRank] = useState("");
@@ -33,6 +34,12 @@ export default function MembersPage() {
   const [shift, setShift] = useState("");
   const [cert, setCert] = useState("");
   const [status, setStatus] = useState("ACTIVE");
+
+  useEffect(() => {
+    api<{ nav: string[] }>("auth/me")
+      .then((session) => setPeopleActions(session.nav))
+      .catch(() => setPeopleActions([]));
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -65,8 +72,18 @@ export default function MembersPage() {
     <div>
       <PageHeader
         kicker="Roster"
-        title="Members"
-        description="Department membership only. Personal Career Road history is not visible from this roster."
+        title="People"
+        description="Manage your department roster and authorized personnel tools. Personal Career Road history is not visible here."
+        actions={peopleActions.includes("enrollment") || peopleActions.includes("evaluators") ? (
+          <div className="flex flex-wrap gap-2">
+            {peopleActions.includes("enrollment") ? (
+              <Link href="/enrollment" className="inline-flex min-h-11 items-center justify-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white hover:bg-fire-dark">Add Members</Link>
+            ) : null}
+            {peopleActions.includes("evaluators") ? (
+              <Link href="/evaluators" className="inline-flex min-h-11 items-center justify-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Manage Evaluators</Link>
+            ) : null}
+          </div>
+        ) : undefined}
       />
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">

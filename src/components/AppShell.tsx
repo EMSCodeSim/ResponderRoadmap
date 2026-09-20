@@ -16,7 +16,6 @@ import {
   Menu,
   Settings,
   Users,
-  UserPlus,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -50,8 +49,6 @@ const ITEMS = [
   { href: "/classes", key: "classes", label: "Classes & Rosters", section: "Training", icon: CalendarCheck },
   { href: "/members", key: "members", label: "People", section: "Department", icon: Users },
   { href: "/reports", key: "reports", label: "Reports", section: "Department", icon: BarChart3 },
-  { href: "/enrollment", key: "enrollment", label: "Add Members", section: "More", icon: UserPlus },
-  { href: "/evaluators", key: "evaluators", label: "Manage Evaluators", section: "More", icon: Users },
   { href: "/certifications", key: "certifications", label: "Certifications", section: "More", icon: Award },
   { href: "/department", key: "department", label: "Department Setup", section: "More", icon: Building2 },
   { href: "/interest-list", key: "interest-list", label: "Interest List", section: "More", icon: Mail },
