@@ -5,6 +5,8 @@ import { api, ApiError } from "@/lib/api";
 import { Badge, Button, Card, Flash, PageHeader, Select } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
 
+type Candidate = { membershipId: string; name: string; rank: string | null };
+
 type Evaluator = {
   membershipId: string;
   userId: string;
@@ -30,13 +32,21 @@ const LEVELS = [
 
 export default function EvaluatorsPage() {
   const [rows, setRows] = useState<Evaluator[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [newMemberId, setNewMemberId] = useState("");
+  const [newLevel, setNewLevel] = useState("EVALUATOR");
   const [reassignTo, setReassignTo] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    setRows(await api<Evaluator[]>("evaluator-management"));
+    const [evaluators, available] = await Promise.all([
+      api<Evaluator[]>("evaluator-management"),
+      api<Candidate[]>("evaluator-management/candidates"),
+    ]);
+    setRows(evaluators);
+    setCandidates(available);
   }
 
   useEffect(() => {
@@ -64,6 +74,43 @@ export default function EvaluatorsPage() {
       setMessage(`${row.name}'s evaluator authorization was updated.`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to update evaluator.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function addEvaluator() {
+    if (!newMemberId || busy) return;
+    setBusy("adding");
+    setError(null);
+    setMessage(null);
+    try {
+      const member = candidates.find((item) => item.membershipId === newMemberId);
+      setRows(await api<Evaluator[]>("evaluator-management", {
+        method: "POST", body: JSON.stringify({ membershipId: newMemberId, approvalLevel: newLevel }),
+      }));
+      setNewMemberId("");
+      setCandidates(await api<Candidate[]>("evaluator-management/candidates"));
+      setMessage(`${member?.name || "Member"} was added to the approved evaluator list.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to add evaluator.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function removeEvaluator(row: Evaluator) {
+    if (busy || row.role !== "EVALUATOR") return;
+    if (!window.confirm(`Remove ${row.name} from the evaluator list? They will remain a department member and all training history and signatures will be preserved. Reassign all outstanding work first.`)) return;
+    setBusy(row.membershipId);
+    setError(null);
+    setMessage(null);
+    try {
+      setRows(await api<Evaluator[]>(`evaluator-management/${row.membershipId}`, { method: "DELETE" }));
+      setCandidates(await api<Candidate[]>("evaluator-management/candidates"));
+      setMessage(`${row.name} was removed as an evaluator and remains a department member.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to remove evaluator.");
     } finally {
       setBusy(null);
     }
@@ -100,6 +147,25 @@ export default function EvaluatorsPage() {
       <Flash message={error} tone="danger" />
       <div className="mb-4"><Flash message={message} tone="current" /></div>
 
+      <Card className="mb-4 p-4">
+        <h2 className="display text-xl font-bold">Add an evaluator</h2>
+        <p className="mt-1 text-sm text-navy-500">Select an existing active department member. This grants evaluator permissions without creating another account.</p>
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold">Department member
+            <Select value={newMemberId} onChange={(event) => setNewMemberId(event.target.value)} disabled={busy !== null}>
+              <option value="">Choose a member…</option>
+              {candidates.map((person) => <option key={person.membershipId} value={person.membershipId}>{person.name}{person.rank ? ` · ${person.rank}` : ""}</option>)}
+            </Select>
+          </label>
+          <label className="flex min-w-44 flex-col gap-1 text-sm font-semibold">Approval level
+            <Select value={newLevel} onChange={(event) => setNewLevel(event.target.value)} disabled={busy !== null}>
+              {LEVELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </Select>
+          </label>
+          <Button disabled={!newMemberId || busy !== null} onClick={() => void addEvaluator()}>Add evaluator</Button>
+        </div>
+        {candidates.length === 0 ? <p className="mt-2 text-xs text-navy-500">No active department members are available to add. Use People → Add Members first.</p> : null}
+      </Card>
       <div className="mb-4 grid gap-4 sm:grid-cols-3">
         <Card className="p-5"><div className="kicker">Approved evaluators</div><div className="display mt-2 text-4xl font-bold">{totals.approved}</div></Card>
         <Card className="p-5"><div className="kicker">Pending evaluations</div><div className="display mt-2 text-4xl font-bold">{totals.pending}</div></Card>
@@ -125,7 +191,7 @@ export default function EvaluatorsPage() {
         </div>
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Evaluator</th><th>Authorization</th><th>Approval level</th><th>Workload</th><th>Reassign pending work</th></tr></thead>
+            <thead><tr><th>Evaluator</th><th>Authorization</th><th>Approval level</th><th>Workload</th><th>Reassign pending work</th><th>Remove</th></tr></thead>
             <tbody>
               {rows.map((row) => {
                 const targets = rows.filter((item) => item.approved && item.userId !== row.userId);
@@ -172,6 +238,11 @@ export default function EvaluatorsPage() {
                           <Button disabled={busy === row.membershipId || !reassignTo[row.userId]} onClick={() => reassign(row)}>Move</Button>
                         </div>
                       ) : <span className="text-sm text-navy-400">Nothing to move</span>}
+                    </td>
+                    <td>
+                      {row.role === "EVALUATOR" ? (
+                        <Button variant="danger" disabled={busy !== null} onClick={() => void removeEvaluator(row)}>Remove</Button>
+                      ) : <span className="text-xs text-navy-500">Officer role · suspend instead</span>}
                     </td>
                   </tr>
                 );

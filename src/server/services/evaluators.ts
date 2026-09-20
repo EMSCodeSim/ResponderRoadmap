@@ -214,3 +214,83 @@ export async function reassignEvaluator(
   });
   return { reassigned: pending.length, evaluators: await listEvaluatorManagement(ctx) };
 }
+
+
+// Only active department members are eligible to be added. This does not invite outsiders.
+export async function listEvaluatorCandidates(ctx: AuthContext) {
+  assertPermission(ctx, "evaluators.manage");
+  const members = await prisma.departmentMembership.findMany({
+    where: { departmentId: ctx.departmentId, status: "ACTIVE", role: "MEMBER" },
+    include: { user: { select: { name: true } } },
+    orderBy: { user: { name: "asc" } },
+  });
+  return members.map((member) => ({ membershipId: member.id, name: member.user.name, rank: member.rank }));
+}
+
+export async function addEvaluator(ctx: AuthContext, membershipIdValue: unknown, levelValue: unknown) {
+  assertPermission(ctx, "evaluators.manage");
+  const membershipId = String(membershipIdValue || "").trim();
+  const approvalLevel = String(levelValue || "EVALUATOR").trim().toUpperCase();
+  if (!membershipId) throw new HttpError(400, "Select a department member.");
+  if (!APPROVAL_LEVELS.has(approvalLevel)) throw new HttpError(400, "Invalid approval level.");
+  const member = await prisma.departmentMembership.findFirst({
+    where: { id: membershipId, departmentId: ctx.departmentId, role: "MEMBER", status: "ACTIVE" },
+    include: { user: { select: { name: true } } },
+  });
+  if (!member) throw new HttpError(404, "Active department member not found or already authorized.");
+  await prisma.departmentMembership.update({
+    where: { id: member.id },
+    data: {
+      role: "EVALUATOR", evaluatorStatus: "APPROVED", evaluatorApprovalLevel: approvalLevel,
+      evaluatorStatusUpdatedAt: new Date(), evaluatorStatusUpdatedById: ctx.userId,
+    },
+  });
+  await writeAudit(ctx, "evaluator.added", "DepartmentMembership", member.id, {
+    userId: member.userId, previousRole: member.role, approvalLevel,
+  });
+  await writeActivity(ctx.departmentId, "EVALUATOR_STATUS_UPDATED", {
+    userId: member.userId,
+    metadata: { actorName: ctx.name, evaluatorName: member.user.name, status: "APPROVED", approvalLevel },
+  });
+  return listEvaluatorManagement(ctx);
+}
+
+// Demote an evaluator without deleting their department account, training records, or signed evaluations.
+export async function removeEvaluator(ctx: AuthContext, membershipId: string) {
+  assertPermission(ctx, "evaluators.manage");
+  const member = await prisma.departmentMembership.findFirst({
+    where: { id: membershipId, departmentId: ctx.departmentId, role: "EVALUATOR", status: "ACTIVE" },
+    include: { user: { select: { name: true } } },
+  });
+  if (!member) throw new HttpError(404, "Active evaluator not found. Officers can be suspended, but their department roles cannot be removed here.");
+  if (member.id === ctx.membershipId) throw new HttpError(400, "You cannot remove your own evaluator role.");
+  const [pendingCount, assignmentCount, supervisorCount] = await Promise.all([
+    prisma.requirementCompletion.count({
+      where: { status: "SUBMITTED", assignment: { departmentId: ctx.departmentId }, requestedEvaluatorId: member.userId },
+    }),
+    prisma.taskBookAssignment.count({
+      where: { departmentId: ctx.departmentId, evaluatorId: member.userId, status: { not: "COMPLETE" } },
+    }),
+    prisma.taskBookAssignment.count({
+      where: { departmentId: ctx.departmentId, supervisorId: member.userId, status: { not: "COMPLETE" } },
+    }),
+  ]);
+  if (pendingCount || assignmentCount || supervisorCount) {
+    throw new HttpError(409, `Reassign this evaluator's ${pendingCount} pending requests and ${assignmentCount + supervisorCount} active task-book responsibilities before removal.`);
+  }
+  await prisma.departmentMembership.update({
+    where: { id: member.id },
+    data: {
+      role: "MEMBER", evaluatorStatus: "SUSPENDED",
+      evaluatorStatusUpdatedAt: new Date(), evaluatorStatusUpdatedById: ctx.userId,
+    },
+  });
+  await writeAudit(ctx, "evaluator.removed", "DepartmentMembership", member.id, {
+    userId: member.userId, previousRole: member.role,
+  });
+  await writeActivity(ctx.departmentId, "EVALUATOR_STATUS_UPDATED", {
+    userId: member.userId,
+    metadata: { actorName: ctx.name, evaluatorName: member.user.name, status: "REMOVED" },
+  });
+  return listEvaluatorManagement(ctx);
+}

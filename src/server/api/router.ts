@@ -162,10 +162,20 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "POST" && portalInboxRead) return jsonOk(await inbox.markRead(ctx, portalInboxRead.id));
     if (method === "POST" && match(path, "inbox/read-all")) return jsonOk(await inbox.markAllRead(ctx));
 
+    if (method === "GET" && match(path, "evaluator-management/candidates")) {
+      return jsonOk(await evaluators.listEvaluatorCandidates(ctx));
+    }
+    if (method === "POST" && match(path, "evaluator-management")) {
+      const body = await readBody(req);
+      return jsonOk(await evaluators.addEvaluator(ctx, body.membershipId, body.approvalLevel), 201);
+    }
     if (method === "GET" && match(path, "evaluator-management")) {
       return jsonOk(await evaluators.listEvaluatorManagement(ctx));
     }
     const evaluatorStatus = match(path, "evaluator-management/:membershipId");
+    if (method === "DELETE" && evaluatorStatus) {
+      return jsonOk(await evaluators.removeEvaluator(ctx, evaluatorStatus.membershipId));
+    }
     if (method === "PATCH" && evaluatorStatus) {
       return jsonOk(await evaluators.updateEvaluator(ctx, evaluatorStatus.membershipId, await readBody(req)));
     }
