@@ -9,6 +9,7 @@ import { Badge, Card, EmptyState, Input, PageHeader, ProgressBar, Select, certTo
 type MemberRow = {
   id: string;
   name: string;
+  role: string;
   rank: string | null;
   station: string | null;
   shift: string | null;
@@ -27,6 +28,10 @@ type Payload = {
 export default function MembersPage() {
   const [data, setData] = useState<Payload | null>(null);
   const [peopleActions, setPeopleActions] = useState<string[]>([]);
+  const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [rank, setRank] = useState("");
@@ -36,8 +41,12 @@ export default function MembersPage() {
   const [status, setStatus] = useState("ACTIVE");
 
   useEffect(() => {
-    api<{ nav: string[] }>("auth/me")
-      .then((session) => setPeopleActions(session.nav))
+    api<{ nav: string[]; membershipId: string; role: string }>("auth/me")
+      .then((session) => {
+        setPeopleActions(session.nav);
+        setCurrentMemberId(session.membershipId);
+        setCurrentRole(session.role);
+      })
       .catch(() => setPeopleActions([]));
   }, []);
 
@@ -63,6 +72,28 @@ export default function MembersPage() {
     return () => clearTimeout(timer);
   }, [query, rank, station, shift, cert, status]);
 
+  async function removeMember(member: MemberRow) {
+    if (member.status !== "ACTIVE" || member.id === currentMemberId || removingId) return;
+    if (!window.confirm(`Remove ${member.name} from the active department roster? Their training records will be retained and they can be reactivated later.`)) return;
+    setRemovingId(member.id);
+    setActionMessage(null);
+    try {
+      await api(`members/${member.id}`, { method: "PATCH", body: JSON.stringify({ status: "INACTIVE" }) });
+      setData((previous) => previous ? {
+        ...previous,
+        members: previous.members.map((row) => row.id === member.id ? { ...row, status: "INACTIVE" } : row)
+          .filter((row) => !status || row.status === status),
+      } : previous);
+      setActionMessage(`${member.name} was removed from the active roster. Their training history was preserved.`);
+    } catch (err) {
+      setActionMessage(err instanceof Error ? `Unable to remove ${member.name}: ${err.message}` : `Unable to remove ${member.name}.`);
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  const canRemoveMembers = currentRole === "TRAINING_OFFICER" || currentRole === "DEPARTMENT_ADMINISTRATOR";
+
   const books = useMemo(
     () => [...new Set(data?.members.flatMap((row) => row.activeTaskBooks.map((item) => item.taskBookTitle)) ?? [])],
     [data],
@@ -85,6 +116,7 @@ export default function MembersPage() {
           </div>
         ) : undefined}
       />
+      {actionMessage ? <p role="status" className="mb-3 rounded-md border border-navy-200 bg-white p-3 text-sm text-navy-800">{actionMessage}</p> : null}
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Input placeholder="Search name, rank, station" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -143,6 +175,7 @@ export default function MembersPage() {
                   <th>Certification</th>
                   <th>Last Activity</th>
                   <th>Status</th>
+                  {canRemoveMembers ? <th>Manage</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -173,6 +206,21 @@ export default function MembersPage() {
                         {member.status.toLowerCase()}
                       </Badge>
                     </td>
+                    {canRemoveMembers ? (
+                      <td>
+                        {member.status === "ACTIVE" && member.id !== currentMemberId && (member.role !== "DEPARTMENT_ADMINISTRATOR" || currentRole === "DEPARTMENT_ADMINISTRATOR") ? (
+                          <button
+                            type="button"
+                            disabled={removingId !== null}
+                            onClick={() => void removeMember(member)}
+                            className="min-h-10 rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            aria-label={`Remove ${member.name} from department`}
+                          >
+                            {removingId === member.id ? "Removing…" : "Remove member"}
+                          </button>
+                        ) : <span className="text-xs text-navy-400">—</span>}
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

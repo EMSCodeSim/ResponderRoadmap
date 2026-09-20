@@ -365,6 +365,12 @@ export async function updateMember(
     where: { id: membershipId, departmentId: ctx.departmentId },
   });
   if (!membership) throw new HttpError(404, "Member not found.");
+  if (input.status === "INACTIVE" && membership.id === ctx.membershipId) {
+    throw new HttpError(400, "You cannot remove your own department membership.");
+  }
+  if (input.status === "INACTIVE" && membership.role === "DEPARTMENT_ADMINISTRATOR") {
+    assertPermission(ctx, "roles.write");
+  }
   if (input.role && input.role !== membership.role) {
     assertPermission(ctx, "roles.write");
   }
