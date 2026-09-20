@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpen, CalendarCheck, CircleHelp, LayoutDashboard, Menu, Settings, Users, X } from "lucide-react";
+import { BarChart3, BookOpen, CalendarCheck, LayoutDashboard, Menu, Settings, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -125,7 +125,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="border-t border-white/10 p-4">
           <Link href="/settings" onClick={() => setOpen(false)} aria-current={settingsActive ? "page" : undefined} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", settingsActive ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><Settings size={18} />Settings</Link>
-          <Link href="/settings" onClick={() => setOpen(false)} className="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold text-white/75 hover:bg-white/10 hover:text-white"><CircleHelp size={18} />Help & account</Link>
           <div className="mt-3 border-t border-white/10 pt-3 text-sm font-semibold">{session?.name ?? "…"}</div>
           <div className="text-xs text-white/60">{session?.departmentName ?? "No department"}</div>
           <div className="mt-1 text-xs font-semibold text-white/80">{session?.role ? ROLE_LABELS[session.role] : ""}{session?.rank ? ` · ${session.rank}` : ""}</div>

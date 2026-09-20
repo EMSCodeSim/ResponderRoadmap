@@ -119,6 +119,7 @@ export default function DashboardPage() {
 
   return (
     <div>
+      <div className="mb-4 flex justify-end"><Link href="/inbox" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 bg-white px-4 py-2 text-sm font-semibold text-navy-800 hover:bg-navy-50">Needs Attention</Link></div>
       <PageHeader
         kicker="Today"
         title={data.personal ? "What needs attention" : "Who needs you today"}

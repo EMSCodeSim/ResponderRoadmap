@@ -138,6 +138,7 @@ export default function TrainingAssignmentsPage() {
 
   return (
     <div>
+      <WorkspaceTabs />
       <PageHeader
         kicker="Training"
         title="Quick Training Assignment"
