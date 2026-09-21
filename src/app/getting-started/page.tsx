@@ -11,11 +11,14 @@ type SetupDashboard = {
   summary: { activeMembers: number; activeTaskBooks: number; membersAssigned?: number };
 };
 type Department = { name: string; plan?: string };
+type Invitation = { id: string; email: string | null; role: Role; status: string; expiresAt: string };
+type Enrollment = { invitations: Invitation[]; pendingMembers: Array<{ id: string }> };
 type InviteResult = { token: string; delivery?: { status: string; message: string } };
 
 export default function GettingStartedPage() {
   const [dashboard, setDashboard] = useState<SetupDashboard | null>(null);
   const [department, setDepartment] = useState<Department | null>(null);
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [inviteLink, setInviteLink] = useState("");
@@ -31,6 +34,8 @@ export default function GettingStartedPage() {
       ]);
       setDashboard(nextDashboard);
       setDepartment(nextDepartment);
+      // Enrollment details are supplementary: users without enrollment access can still set up their department.
+      try { setEnrollment(await api<Enrollment>("enrollment")); } catch { setEnrollment(null); }
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load department setup.");
@@ -50,9 +55,8 @@ export default function GettingStartedPage() {
         method: "POST",
         body: JSON.stringify({ email: email.trim(), role }),
       });
-      const delivery = result.delivery;
-      setMessage(delivery?.message || "Invitation created.");
-      if (delivery?.status !== "SENT" && result.token) {
+      setMessage(result.delivery?.message || "Invitation created.");
+      if (result.delivery?.status !== "SENT" && result.token) {
         setInviteLink(`${window.location.origin}/invite/${encodeURIComponent(result.token)}`);
       }
       setEmail("");
@@ -65,7 +69,7 @@ export default function GettingStartedPage() {
   }
 
   if (!dashboard || !department) {
-    return <main className="mx-auto max-w-4xl p-6 text-navy-700">{error || "Loading department setup…"}</main>;
+    return <main className="mx-auto max-w-4xl p-6 text-navy-700" role="status">{error || "Loading department setup…"}</main>;
   }
   if (dashboard.personal) {
     return <main className="mx-auto max-w-4xl p-6"><p>This setup is for department administrators.</p><Link className="text-fire underline" href="/dashboard">Go to your dashboard</Link></main>;
@@ -73,80 +77,75 @@ export default function GettingStartedPage() {
 
   const { activeMembers, activeTaskBooks, membersAssigned = 0 } = dashboard.summary;
   const free = department.plan === "FREE";
-  const ready = membersAssigned > 0;
+  const assigned = membersAssigned > 0;
+  const pendingInvitations = enrollment?.invitations.filter(item => item.status === "PENDING" && new Date(item.expiresAt).getTime() > Date.now()) ?? [];
+  const pendingApprovals = enrollment?.pendingMembers.length ?? 0;
   const steps = [
-    { title: "Create department", description: "Your separate department is ready.", complete: true, href: "/department", action: "Department settings" },
-    { title: "Invite your team", description: "Invite your Captain, evaluator, and members. An invitation activates the member on acceptance; a join code requires approval.", complete: activeMembers > 1, href: "/enrollment", action: "All enrollment options" },
-    { title: "Publish a Task Book", description: "Start with a template, review the requirements, and publish it.", complete: activeTaskBooks > 0, href: "/task-books/new", action: "Create Task Book" },
-    { title: "Assign it to a member", description: "Choose your published Task Book and the member who will complete it.", complete: ready, href: "/assignments?assign=1", action: "Assign Task Book" },
+    { title: "Create department", description: "Your separate department and administrator account are ready.", complete: true, href: "/department", action: "Review department details" },
+    { title: "Add your people", description: "Invite a member or evaluator. Track invitations and approve join requests on the People screen.", complete: activeMembers > 1, href: "/members", action: "Open People" },
+    { title: "Create your first Task Book", description: "Choose a template, import an existing PDF, or build from scratch. Review and publish before assigning.", complete: activeTaskBooks > 0, href: "/task-books/new", action: "Create a Task Book" },
+    { title: "Make your first assignment", description: "Choose a published Task Book and a member. Your first assignment is the finish line.", complete: assigned, href: "/assignments?assign=1", action: "Assign a Task Book" },
   ];
-  const completeCount = steps.filter((step) => step.complete).length;
+  const completeCount = steps.filter(step => step.complete).length;
+  const nextStep = steps.find(step => !step.complete);
+  const needMember = activeMembers <= 1;
+  const needBook = activeTaskBooks === 0;
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 md:px-8">
-      <header className="rounded-xl bg-navy-950 p-6 text-white md:p-8">
-        <div className="text-xs font-bold uppercase tracking-widest text-white/60">First department experience</div>
-        <h1 className="display mt-2 text-4xl font-bold">Set up {department.name}</h1>
-        <p className="mt-2 text-white/75">Four straightforward steps from account creation to the first assignment.</p>
-        <div className="mt-5 flex flex-wrap items-center gap-3 text-sm">
-          <span className="rounded-md bg-white/10 px-3 py-2">{completeCount} of 4 steps complete</span>
-          {free ? <span className="rounded-md bg-white/10 px-3 py-2">Free seats: {activeMembers} of 5 active · {Math.max(0, 5 - activeMembers)} remaining</span> : null}
-          <Button variant="secondary" onClick={() => void refresh()}>Refresh progress</Button>
-        </div>
+      <header className="rounded-2xl bg-navy-950 p-6 text-white shadow-lg md:p-8">
+        <p className="text-xs font-bold uppercase tracking-[.16em] text-white/60">First department setup</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Get {department.name} ready</h1>
+        <p className="mt-3 max-w-2xl text-white/75">Four steps to your first assignment. Pick up where you left off whenever you return.</p>
+        <div className="mt-6 flex flex-wrap items-center gap-3 text-sm"><strong className="rounded-lg bg-white/10 px-3 py-2">{completeCount} of 4 steps complete</strong>{free ? <span className="rounded-lg bg-white/10 px-3 py-2">{activeMembers} of 5 free seats used</span> : null}<Button variant="secondary" onClick={() => void refresh()}>Refresh progress</Button></div>
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-label="Department setup progress" aria-valuemin={0} aria-valuemax={4} aria-valuenow={completeCount}><div className="h-full rounded-full bg-[#E11D48] transition-all" style={{ width: `${completeCount * 25}%` }} /></div>
       </header>
 
-      {error ? <p role="alert" className="rounded-md bg-danger-soft p-3 text-danger">{error}</p> : null}
-
-      {ready ? (
-        <Card className="border border-green-300 bg-green-50 p-6">
-          <div className="text-xs font-bold uppercase tracking-widest text-green-800">Your department is ready</div>
-          <h2 className="display mt-2 text-3xl font-bold text-navy-900">Your first assignment is out.</h2>
-          <p className="mt-2 text-navy-700">{activeMembers} active members · {activeTaskBooks} published Task Book{activeTaskBooks === 1 ? "" : "s"} · {membersAssigned} assignment{membersAssigned === 1 ? "" : "s"} created.</p>
-          <p className="mt-2 text-sm text-navy-600">Your member can open My Task Books and request evaluation. Only final approval counts as completed progress.</p>
-          <Link href="/dashboard" className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 font-semibold text-white">Open department dashboard</Link>
+      {error ? <p role="alert" className="rounded-lg bg-danger-soft p-4 text-danger">{error}</p> : null}
+      {assigned ? (
+        <Card className="border border-green-300 bg-green-50 p-6 md:p-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-green-800">Setup complete</p>
+          <h2 className="mt-2 text-2xl font-bold text-navy-900">Your first assignment is out.</h2>
+          <p className="mt-2 text-navy-700">{activeMembers} active members · {activeTaskBooks} published Task Book{activeTaskBooks === 1 ? "" : "s"} · {membersAssigned} assignment{membersAssigned === 1 ? "" : "s"}.</p>
+          <p className="mt-2 text-sm text-navy-600">Your member can submit work for evaluation. Progress counts only after all required approvals.</p>
+          <div className="mt-5 flex flex-wrap gap-3"><Link href="/assignments" className="inline-flex min-h-11 items-center rounded-lg bg-fire px-5 py-2 font-semibold text-white">View assignments</Link><Link href="/dashboard" className="inline-flex min-h-11 items-center rounded-lg border border-green-300 px-5 py-2 font-semibold text-navy-800">Open dashboard</Link></div>
+        </Card>
+      ) : nextStep ? (
+        <Card className="border-2 border-fire p-6 md:p-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-fire">Your next step · {completeCount + 1} of 4</p>
+          <h2 className="mt-2 text-2xl font-bold text-navy-900">{nextStep.title}</h2>
+          <p className="mt-2 max-w-2xl text-navy-600">{nextStep.description}</p>
+          {needMember ? <p className="mt-3 text-sm text-navy-600">Use the invitation form below. You can also continue building your Task Book while invitations are pending.</p> : null}
+          {needBook && !needMember ? <div className="mt-5 grid gap-2 sm:grid-cols-3"><Link href="/task-books/new" className="rounded-lg bg-fire px-4 py-3 text-center text-sm font-semibold text-white">Start with a template or blank book</Link><Link href="/task-books" className="rounded-lg border border-navy-200 px-4 py-3 text-center text-sm font-semibold text-navy-800">Browse Task Books</Link><Link href="/task-books/new" className="rounded-lg border border-navy-200 px-4 py-3 text-center text-sm font-semibold text-navy-800">Import existing PDF</Link></div> : null}
+          {(!needMember && !needBook) ? <Link href={nextStep.href} className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-fire px-5 py-2 font-semibold text-white">{nextStep.action} →</Link> : null}
+          {needMember ? <a href="#invite-member" className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-fire px-5 py-2 font-semibold text-white">Invite your first member →</a> : null}
         </Card>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <section aria-label="Setup checklist" className="grid gap-4 md:grid-cols-2">
         {steps.map((step, index) => (
-          <Card key={step.title} className="p-5">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-bold uppercase tracking-widest text-fire">Step {index + 1}</span>
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${step.complete ? "bg-green-100 text-green-800" : "bg-navy-100 text-navy-700"}`}>{step.complete ? "Complete" : "To do"}</span>
-            </div>
-            <h2 className="display mt-2 text-2xl font-bold text-navy-900">{step.title}</h2>
-            <p className="mt-2 text-sm text-navy-600">{step.description}</p>
-            <Link className="mt-4 inline-flex min-h-11 items-center font-semibold text-fire underline" href={step.href}>{step.action}</Link>
+          <Card key={step.title} className={`p-5 ${!step.complete && nextStep?.title === step.title ? "border-fire" : ""}`}>
+            <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold uppercase tracking-widest text-fire">Step {index + 1}</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${step.complete ? "bg-green-100 text-green-800" : "bg-navy-100 text-navy-700"}`}>{step.complete ? "Complete" : "To do"}</span></div>
+            <h3 className="mt-3 text-xl font-bold text-navy-900">{step.title}</h3><p className="mt-2 text-sm leading-6 text-navy-600">{step.description}</p>
+            <Link className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-fire underline" href={step.href}>{step.action}</Link>
           </Card>
         ))}
-      </div>
+      </section>
 
-      {!ready ? (
-        <Card className="p-6">
-          <h2 className="display text-2xl font-bold text-navy-900">Invite a member</h2>
-          <p className="mt-2 text-sm text-navy-600">Start here for a small team. Advanced enrollment, join codes, and CSV import are available in Member Enrollment.</p>
-          <form className="mt-4 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end" onSubmit={inviteMember}>
-            <Field label="Work email"><Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="member@department.gov" /></Field>
-            <Field label="Department role">
-              <Select value={role} onChange={(event) => setRole(event.target.value as Role)}>
-                <option value="MEMBER">Member</option>
-                <option value="EVALUATOR">Captain / Evaluator</option>
-                <option value="TRAINING_OFFICER">Training Officer</option>
-                <option value="DEPARTMENT_ADMINISTRATOR">Administrator</option>
-              </Select>
-            </Field>
-            <Button type="submit" disabled={busy || (free && activeMembers >= 5)}>{busy ? "Inviting…" : "Invite member"}</Button>
-          </form>
-          {message ? <p role="status" className="mt-3 text-sm text-navy-700">{message}</p> : null}
-          {inviteLink ? <p className="mt-2 break-all text-sm text-navy-700">Email delivery was not confirmed. Share the invitation link securely: <a className="font-semibold text-fire underline" href={inviteLink}>{inviteLink}</a></p> : null}
-          {free && activeMembers >= 5 ? <p className="mt-3 text-sm text-navy-600">All five active seats are occupied. Existing invitations may still be pending; activating a sixth person requires upgrading.</p> : null}
-          <Link href="/enrollment" className="mt-4 inline-flex text-sm font-semibold text-fire underline">More enrollment options and pending approvals</Link>
-        </Card>
-      ) : null}
-      <div className="flex flex-wrap justify-between gap-4 border-t border-navy-200 pt-5 text-sm">
-        <Link href="/dashboard" className="font-semibold text-navy-700 underline">Skip setup and open dashboard</Link>
-        <Link href="/enrollment" className="font-semibold text-fire underline">Manage members</Link>
-      </div>
+      {!assigned ? <Card className="p-6" >
+        <div id="invite-member"><h2 className="text-2xl font-bold text-navy-900">Invite your first team member</h2><p className="mt-2 text-sm text-navy-600">Invite a firefighter, evaluator, or officer. Existing department join requests still require approval.</p></div>
+        <form className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end" onSubmit={inviteMember}>
+          <Field label="Work email"><Input type="email" value={email} onChange={event => setEmail(event.target.value)} required placeholder="member@department.gov" /></Field>
+          <Field label="Department role"><Select value={role} onChange={event => setRole(event.target.value as Role)}><option value="MEMBER">Member</option><option value="EVALUATOR">Captain / Evaluator</option><option value="TRAINING_OFFICER">Training Officer</option><option value="DEPARTMENT_ADMINISTRATOR">Administrator</option></Select></Field>
+          <Button type="submit" disabled={busy || (free && activeMembers >= 5)}>{busy ? "Inviting…" : "Send invitation"}</Button>
+        </form>
+        {message ? <p role="status" className="mt-3 text-sm text-navy-700">{message}</p> : null}
+        {inviteLink ? <p className="mt-2 break-all text-sm text-navy-700">Email delivery was not confirmed. Share this invitation securely: <a className="font-semibold text-fire underline" href={inviteLink}>{inviteLink}</a></p> : null}
+        {free && activeMembers >= 5 ? <p className="mt-3 text-sm text-navy-600">All five free seats are occupied. A sixth active member requires upgrading.</p> : null}
+        {enrollment ? <div className="mt-6 rounded-lg border border-navy-200 bg-navy-50 p-4"><div className="flex flex-wrap justify-between gap-2"><h3 className="font-bold text-navy-900">Enrollment status</h3><Link href="/enrollment" className="text-sm font-semibold text-fire underline">Manage invitations and approvals</Link></div><p className="mt-2 text-sm text-navy-600">{pendingInvitations.length} pending invitation{pendingInvitations.length === 1 ? "" : "s"} · {pendingApprovals} join request{pendingApprovals === 1 ? "" : "s"} awaiting approval</p>{pendingInvitations.length ? <ul className="mt-3 space-y-2">{pendingInvitations.slice(0, 5).map(item => <li key={item.id} className="flex flex-wrap justify-between gap-2 text-sm text-navy-700"><span className="break-all">{item.email || "Invitation link"}</span><span className="text-amber-800">Awaiting acceptance</span></li>)}</ul> : null}</div> : null}
+        <div className="mt-5 flex flex-wrap gap-4 text-sm"><Link href="/members" className="font-semibold text-fire underline">People and evaluator management</Link><Link href="/enrollment" className="font-semibold text-fire underline">Join codes and CSV import</Link></div>
+      </Card> : null}
+      <div className="flex flex-wrap justify-between gap-4 border-t border-navy-200 pt-5 text-sm"><Link href="/dashboard" className="font-semibold text-navy-700 underline">Skip setup and open dashboard</Link><Link href="/getting-started" className="font-semibold text-fire underline" onClick={() => void refresh()}>Refresh checklist</Link></div>
     </main>
   );
 }
