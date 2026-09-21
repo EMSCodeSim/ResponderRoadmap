@@ -643,6 +643,7 @@ export async function submitRequirement(
     evidence?: Array<{ type: string; description?: string; fileUrl?: string | null }>;
     hours?: number;
     evaluatorId?: string | null;
+    clientRequestId?: string | null;
   } = {},
 ) {
   assertPermission(ctx, "assignments.write");
@@ -666,6 +667,20 @@ export async function submitRequirement(
   if (!requirement) throw new HttpError(404, "Requirement not found on this Task Book version.");
   const parsed = deserializeRequirement(requirement as unknown as Record<string, unknown>);
   const existing = assignment.completions.find((item) => item.requirementId === requirementId);
+  const clientRequestId = input.clientRequestId?.trim().slice(0, 120) || null;
+  if (clientRequestId && existing?.lastSubmissionRequestId === clientRequestId) {
+    return {
+      ...(await getAssignmentDetail(ctx, assignmentId)),
+      submissionReceipt: {
+        receiptId: existing.id,
+        clientRequestId,
+        assignmentId,
+        requirementId,
+        status: existing.status,
+        recordedAt: existing.submittedAt,
+      },
+    };
+  }
   const repetitionsRequired = Math.max(1, requirement.repetitionsRequired);
   const currentRepetitionCount = Math.max(0, existing?.repetitionCount ?? 0);
   if (existing?.status === "APPROVED" && currentRepetitionCount >= repetitionsRequired) {
@@ -708,6 +723,7 @@ export async function submitRequirement(
       repetitionCount: storedRepetitionCount,
       hoursLogged: input.hours ?? 0,
       requestedEvaluatorId: input.evaluatorId || assignment.evaluatorId,
+      lastSubmissionRequestId: clientRequestId,
     },
     update: {
       status: nextStatus,
@@ -717,6 +733,7 @@ export async function submitRequirement(
       repetitionCount: storedRepetitionCount,
       hoursLogged: input.hours ?? undefined,
       requestedEvaluatorId: input.evaluatorId || assignment.evaluatorId,
+      lastSubmissionRequestId: clientRequestId,
     },
   });
 
@@ -777,7 +794,17 @@ export async function submitRequirement(
       });
     }
   }
-  return getAssignmentDetail(ctx, assignmentId);
+  return {
+    ...(await getAssignmentDetail(ctx, assignmentId)),
+    submissionReceipt: {
+      receiptId: completion.id,
+      clientRequestId,
+      assignmentId,
+      requirementId,
+      status: nextStatus,
+      recordedAt: now,
+    },
+  };
 }
 
 export async function getAssignment(ctx: AuthContext, assignmentId: string) {
