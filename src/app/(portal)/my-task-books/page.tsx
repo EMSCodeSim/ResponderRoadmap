@@ -1,7 +1,6 @@
 "use client";
 
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
-
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -12,10 +11,12 @@ import { Badge, Card, EmptyState, PageHeader, ProgressBar, assignmentTone } from
 type Row = {
   id: string;
   taskBookTitle: string;
+  assignmentKind: string;
   version: string;
   progress: number;
   complete: number;
   totalRequired: number;
+  pendingApproval: number;
   dueDate: string | null;
   status: string;
   evaluatorName: string | null;
@@ -23,18 +24,18 @@ type Row = {
 
 function pickNextBook(rows: Row[]) {
   const open = rows.filter((row) => row.status !== "COMPLETE");
-  if (open.length === 0) return null;
+  if (!open.length) return null;
   return [...open].sort((a, b) => b.progress - a.progress)[0];
 }
 
 export default function MyTaskBooksPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api<Row[]>("assignments")
-      .then(setRows)
-      .catch((err) => setError(err.message));
+      .then((items) => setRows(items.filter((item) => item.assignmentKind === "TASK_BOOK")))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to load your Task Books."));
   }, []);
 
   const next = rows ? pickNextBook(rows) : null;
@@ -42,80 +43,40 @@ export default function MyTaskBooksPage() {
   return (
     <div>
       <WorkspaceTabs />
-      <PageHeader
-        kicker="My Task Books"
-        title="Your assigned Task Books"
-        description="See what you need to do, what counts as complete, and who signs you off."
-      />
-      <Card className="mb-4 border-navy-200 bg-navy-50/70 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-2xl">
-            <div className="kicker">Mobile companion</div>
-            <h2 className="display mt-1 text-2xl font-bold text-navy-950">Take your Task Books to the drill ground</h2>
-            <p className="mt-2 text-sm leading-6 text-navy-700">
-              Sign in to the Responder Roadmap app with this same department account. Your assignments,
-              evaluator requests, returned work, approvals, progress, and server receipts stay connected
-              to the department record shown here.
-            </p>
-            <p className="mt-2 text-xs font-semibold text-navy-500">
-              Plan and manage on the website. Complete field work in the app without being redirected to a browser.
-            </p>
-          </div>
-          <a
-            href="https://apps.apple.com/us/app/responder-roadmap/id6800092347"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-navy-950 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800"
-          >
-            Download iPhone app
-          </a>
-        </div>
-      </Card>
+      <PageHeader kicker="Task Books" title="My Task Books" description="Your assigned full Task Books, verified progress, and the next thing to work on." />
       {next ? (
-        <Card className="mb-4 border-fire/20 p-4">
-          <div className="kicker">What is next</div>
-          <p className="mt-1 text-sm text-navy-700">
-            Open{" "}
-            <Link href={`/my-task-books/${next.id}`} className="font-semibold text-navy-900 underline">
-              {next.taskBookTitle}
-            </Link>
-            . The next skill is named on the book. Request evaluation when you are ready — you do not have to hunt a packet.
-          </p>
+        <Card className="mb-5 border-fire/30 bg-fire-soft/20 p-5">
+          <div className="kicker text-fire">Continue where you left off</div>
+          <h2 className="display mt-1 text-xl font-bold text-navy-950">{next.taskBookTitle}</h2>
+          <p className="mt-2 text-sm text-navy-600">{next.pendingApproval > 0 ? `${next.pendingApproval} task(s) are waiting for approval. You can continue with other requirements.` : "Open your Task Book to find your next skill and request an evaluation when ready."}</p>
+          <Link href={`/my-task-books/${next.id}`} className="mt-3 inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-bold text-white hover:bg-fire-dark">Open Task Book →</Link>
         </Card>
       ) : null}
-      {error ? <p className="text-danger">{error}</p> : null}
-      {!rows ? (
-        <p className="text-navy-500">Loading your Task Books…</p>
-      ) : rows.length === 0 ? (
-        <EmptyState title="No Task Books assigned" body="When a training officer assigns a book, it will show up here." />
-      ) : (
-        <div className="grid gap-3">
-          {rows.map((row) => (
-            <Link key={row.id} href={`/my-task-books/${row.id}`}>
-              <Card className="p-5 hover:border-navy-400">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="display text-3xl font-bold">{row.taskBookTitle}</h2>
-                    <p className="text-sm text-navy-500">
-                      Version {row.version}
-                      {row.evaluatorName ? ` · Evaluator: ${row.evaluatorName}` : ""}
-                      {row.dueDate ? ` · Due ${formatDate(row.dueDate)}` : ""}
-                    </p>
-                  </div>
-                  <Badge tone={assignmentTone(row.status)}>{assignmentStatusLabel(row.status)}</Badge>
+      {error ? <p role="alert" className="mb-4 text-sm text-danger">{error}</p> : null}
+      {!rows && !error ? <p className="text-navy-500">Loading your Task Books…</p> : null}
+      {rows && rows.length === 0 ? <EmptyState title="No Task Books assigned" body="Your Training Officer's Task Books will appear here. One-off assignments have their own Assignments tab." /> : null}
+      <div className="grid gap-3">
+        {rows?.map((row) => (
+          <Link key={row.id} href={`/my-task-books/${row.id}`}>
+            <Card className="p-5 hover:border-navy-400">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="display text-xl font-bold text-navy-950">{row.taskBookTitle}</h2>
+                  <p className="mt-1 text-xs text-navy-500">Version {row.version}{row.evaluatorName ? ` · Evaluator: ${row.evaluatorName}` : ""}{row.dueDate ? ` · Due ${formatDate(row.dueDate)}` : ""}</p>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <ProgressBar value={row.progress} />
-                  <span className="text-sm font-semibold">
-                    {row.complete} of {row.totalRequired} requirements completed
-                  </span>
-                  <span className="text-sm text-navy-500">{daysRemainingLabel(row.dueDate)}</span>
-                </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
+                <Badge tone={assignmentTone(row.status)}>{assignmentStatusLabel(row.status)}</Badge>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <ProgressBar value={row.progress} />
+                <span className="text-sm text-navy-700">{row.complete} of {row.totalRequired} requirements approved</span>
+                {row.pendingApproval > 0 ? <span className="text-xs font-semibold text-warn">{row.pendingApproval} awaiting approval</span> : null}
+                {row.dueDate ? <span className="text-xs text-navy-500">{daysRemainingLabel(row.dueDate)}</span> : null}
+              </div>
+              <p className="mt-3 text-sm font-semibold text-fire">{row.status === "COMPLETE" ? "View completed record" : "Continue Task Book"} →</p>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
