@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpen, CalendarCheck, LayoutDashboard, Menu, Settings, Users, X } from "lucide-react";
+import { BarChart3, BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, Menu, Settings, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -21,7 +21,7 @@ type Session = {
   nav: string[];
 };
 
-const TRAINING_PATHS = ["/task-books", "/my-task-books", "/assignments", "/training-assignments", "/evaluate"];
+const TRAINING_PATHS = ["/task-books", "/my-task-books", "/assignments", "/evaluate"];
 const SETTINGS_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/enrollment", "/evaluators"];
 
 function demoWalkForRole(role: Role | null | undefined): DemoWalkKey {
@@ -55,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return [
       { href: "/dashboard", label: "Home", icon: LayoutDashboard, visible: allowed.has("dashboard"), paths: ["/dashboard", "/inbox"] },
       { href: trainingHref || "/task-books", label: "Task Books", icon: BookOpen, visible: Boolean(trainingHref), paths: TRAINING_PATHS },
+      { href: "/single-assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments"), paths: ["/single-assignments", "/training-assignments"] },
       { href: "/classes", label: "Classes", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
       { href: "/members", label: "People", icon: Users, visible: allowed.has("members"), paths: ["/members", "/enrollment", "/evaluators"] },
       { href: "/reports", label: "Reports", icon: BarChart3, visible: allowed.has("reports"), paths: ["/reports"] },
