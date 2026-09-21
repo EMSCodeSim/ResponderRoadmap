@@ -90,6 +90,8 @@ export default function MyTaskBookDetailPage() {
   const [evidence, setEvidence] = useState("");
   const [evaluatorId, setEvaluatorId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [syncState, setSyncState] = useState<"idle" | "saving" | "synced" | "waiting" | "failed">("idle");
+  const [lastReceipt, setLastReceipt] = useState<{ receiptId: string; recordedAt: string | null; status: string } | null>(null);
 
   async function load() {
     const detail = await api<Detail>(`assignments/${params.id}`);
@@ -102,23 +104,56 @@ export default function MyTaskBookDetailPage() {
   }, [params.id]);
 
   async function submit(requirementId: string) {
+    const clientRequestId = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const payload = {
+      notes,
+      evaluatorId: evaluatorId || null,
+      evidence: evidence.trim() ? [{ type: "WRITTEN_NOTE", description: evidence.trim() }] : [],
+      clientRequestId,
+    };
+
     setBusy(true);
+    setSyncState("saving");
     setError(null);
+    setMessage("Saving submission…");
+
+    const send = () =>
+      api<Detail & { submissionReceipt?: { receiptId: string; recordedAt: string | null; status: string } }>(
+        `assignments/${params.id}/requirements/${requirementId}/submit`,
+        { method: "POST", body: JSON.stringify(payload) },
+      );
+
     try {
-      const detail = await api<Detail>(`assignments/${params.id}/requirements/${requirementId}/submit`, {
-        method: "POST",
-        body: JSON.stringify({
-          notes,
-          evaluatorId: evaluatorId || null,
-          evidence: evidence.trim() ? [{ type: "WRITTEN_NOTE", description: evidence.trim() }] : [],
-        }),
-      });
+      let detail;
+      try {
+        detail = await send();
+      } catch {
+        setSyncState("waiting");
+        setMessage("Connection interrupted. Retrying safely…");
+        await new Promise((resolve) => setTimeout(resolve, 900));
+        detail = await send();
+      }
+
       setData(detail);
-      setMessage("Submitted for evaluation.");
+      if (detail.submissionReceipt) setLastReceipt(detail.submissionReceipt);
+      setSyncState("synced");
+      setMessage(
+        detail.submissionReceipt?.recordedAt
+          ? `Submitted and synced · ${new Date(detail.submissionReceipt.recordedAt).toLocaleString()}`
+          : "Submitted and synced.",
+      );
       setNotes("");
       setEvidence("");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to submit.");
+      setSyncState("failed");
+      setMessage(null);
+      setError(
+        err instanceof ApiError
+          ? `Submission not confirmed: ${err.message}`
+          : "Submission not confirmed. Check your connection and try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -141,7 +176,13 @@ export default function MyTaskBookDetailPage() {
       />
       <Flash message={error} tone="danger" />
       <div className="mb-3">
-        <Flash message={message} tone="current" />
+        <Flash message={message} tone={syncState === "failed" ? "danger" : syncState === "waiting" ? "info" : "current"} />
+        {syncState !== "idle" ? (
+          <p className="mt-1 text-xs text-navy-500" aria-live="polite">
+            Sync: {syncState === "saving" ? "Saving" : syncState === "waiting" ? "Waiting to retry" : syncState === "synced" ? "Synced" : "Failed"}
+            {lastReceipt?.receiptId ? ` · Receipt ${lastReceipt.receiptId}` : ""}
+          </p>
+        ) : null}
       </div>
 
       {data.isComplete ? (
