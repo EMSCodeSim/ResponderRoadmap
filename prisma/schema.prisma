@@ -364,6 +364,8 @@ model TrainingClass {
   endsAt        DateTime?
   location      String          @default("")
   status        String          @default("DRAFT")
+  registrationToken String?     @unique
+  registrationEnabled Boolean   @default(false)
   notes         String          @default("")
   createdById   String
   createdBy     User            @relation("ClassCreator", fields: [createdById], references: [id])
@@ -392,8 +394,11 @@ model TrainingClassEnrollment {
   id          String               @id @default(cuid())
   classId     String
   class       TrainingClass        @relation(fields: [classId], references: [id], onDelete: Cascade)
-  membershipId String
-  membership  DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  membershipId String?
+  membership  DepartmentMembership? @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  guestName   String?
+  guestEmail  String?
+  guestOrganization String?
   attendance  String               @default("REGISTERED")
   writtenScore Float?
   ccfScore     Float?
@@ -405,6 +410,7 @@ model TrainingClassEnrollment {
   skillResults TrainingClassSkillResult[]
 
   @@unique([classId, membershipId])
+  @@unique([classId, guestEmail])
   @@index([membershipId, classId])
 }
 
@@ -425,6 +431,16 @@ model TrainingClassSkillResult {
 
   @@unique([enrollmentId, requirementId])
   @@index([evaluatorId, evaluatedAt])
+}
+
+/// Short-lived counters for abuse protection. Keys are one-way hashes, never raw IP addresses.
+model RegistrationRateLimit {
+  key         String   @id
+  windowStart DateTime
+  count       Int      @default(1)
+  updatedAt   DateTime @updatedAt
+
+  @@index([windowStart])
 }
 
 /// Department-managed credential. Distinct from PersonalCredential.

@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { Badge, Button, Card, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
+import { ClassRegistrationControls } from "@/components/class-registration-controls";
 
 type SkillResult = {
   requirementId: string;
@@ -20,6 +21,8 @@ type Student = {
   name: string;
   rank: string | null;
   email: string;
+  isGuest: boolean;
+  organization: string | null;
   attendance: string;
   writtenScore: number | null;
   ccfScore: number | null;
@@ -48,6 +51,8 @@ type ClassDetail = {
   location: string;
   status: string;
   notes: string;
+  registrationToken: string | null;
+  registrationEnabled: boolean;
   checklistTitle: string;
   checklistVersion: string;
   proctors: Array<{ userId: string; name: string }>;
@@ -173,6 +178,7 @@ export default function ClassDetailPage() {
         actions={<><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start class</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => updateStatus("COMPLETE")} disabled={busy}>Complete class</Button> : null}</>}
       />
       <Flash message={error} tone="danger" />
+      <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
 
       <section className="print-page hidden print:block">
         <h1 className="text-2xl font-bold">{detail.title} — Class roster</h1>
@@ -190,7 +196,7 @@ export default function ClassDetailPage() {
           <div className="mt-3 space-y-2">
             {detail.roster.map((item) => (
               <button key={item.id} onClick={() => setStudentId(item.id)} className={`w-full rounded-md border p-3 text-left ${studentId === item.id ? "border-fire bg-fire-soft" : "border-navy-200 bg-white"}`}>
-                <div className="flex items-center justify-between gap-2"><span className="font-semibold">{item.name}</span><Badge tone={tone(item.finalResult)}>{resultLabels[item.finalResult] || item.finalResult}</Badge></div>
+                <div className="flex items-center justify-between gap-2"><span className="font-semibold">{item.name}{item.isGuest ? <span className="ml-2 text-xs font-normal text-navy-500">Guest</span> : null}</span><Badge tone={tone(item.finalResult)}>{resultLabels[item.finalResult] || item.finalResult}</Badge></div>
                 <p className="mt-1 text-xs text-navy-500">{item.attendance} · {item.results.length} results recorded</p>
               </button>
             ))}
@@ -199,7 +205,7 @@ export default function ClassDetailPage() {
 
         {student ? <div className="space-y-4">
           <Card className="p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">{student.name}</h2><p className="text-sm text-navy-500">{student.email}</p></div><Badge tone={tone(student.finalResult)}>{resultLabels[student.finalResult] || student.finalResult}</Badge></div>
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">{student.name}</h2><p className="text-sm text-navy-500">{student.email}{student.isGuest ? " · Guest registration" : ""}{student.organization ? ` · ${student.organization}` : ""}</p></div><Badge tone={tone(student.finalResult)}>{resultLabels[student.finalResult] || student.finalResult}</Badge></div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <Field label="Attendance"><Select value={student.attendance} disabled={busy || detail.status === "COMPLETE"} onChange={(event) => updateStudent({ attendance: event.target.value })}><option>REGISTERED</option><option>PRESENT</option><option>ABSENT</option><option>EXCUSED</option></Select></Field>
               <Field label="Written test score (%)"><Input type="number" min="0" max="100" value={student.writtenScore ?? ""} disabled={busy || detail.status === "COMPLETE"} onBlur={(event) => updateStudent({ writtenScore: event.target.value === "" ? null : Number(event.target.value) })} onChange={(event) => setDetail({ ...detail, roster: detail.roster.map((item) => item.id === student.id ? { ...item, writtenScore: event.target.value === "" ? null : Number(event.target.value) } : item) })} /></Field>
