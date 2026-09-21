@@ -51,8 +51,8 @@ export function reviewStageForRequirement(input: {
 
   if (input.evaluatorSignOffRequired && approvals === 0) return "EVALUATOR";
   if (input.supervisorApprovalRequired) {
-    const evaluatorDone = !input.evaluatorSignOffRequired || approvals >= 1;
-    if (evaluatorDone) return "SUPERVISOR";
+    const requiredApprovals = input.evaluatorSignOffRequired ? 2 : 1;
+    if (approvals < requiredApprovals) return "SUPERVISOR";
   }
   return "FINAL";
 }
