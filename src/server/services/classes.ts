@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/server/db";
 import { normalizeGuestRegistration } from "@/lib/class-registration";
+import { canViewClassRecord, classListScope } from "@/lib/class-access";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
@@ -35,11 +36,11 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
     include: { proctors: { where: { userId: ctx.userId } } },
   });
   if (!row) throw new HttpError(404, "Class not found.");
+  if (!canViewClassRecord(ctx.role, ctx.userId, row.createdById, row.proctors.map((item) => item.userId))) {
+    throw new HttpError(403, "You are not assigned to this class.");
+  }
   if (write && !hasPermission(ctx.role, "classes.write") && row.proctors.length === 0) {
     throw new HttpError(403, "You are not assigned as a proctor for this class.");
-  }
-  if (!write && ctx.role === "EVALUATOR" && row.proctors.length === 0) {
-    throw new HttpError(403, "You are not assigned to this class.");
   }
   return row;
 }
@@ -73,7 +74,7 @@ export async function getClassSetup(ctx: AuthContext) {
       role: membership.role,
     })),
     proctors: memberships
-      .filter((membership) => ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(membership.role) && membership.evaluatorStatus !== "SUSPENDED")
+      .filter((membership) => ["INSTRUCTOR", "EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(membership.role) && membership.evaluatorStatus !== "SUSPENDED")
       .map((membership) => ({ userId: membership.userId, name: membership.user.name, role: membership.role })),
   };
 }
@@ -83,9 +84,7 @@ export async function listClasses(ctx: AuthContext, filter: { view?: string } = 
   const rows = await prisma.trainingClass.findMany({
     where: {
       departmentId: ctx.departmentId,
-      ...(filter.view === "mine" || ctx.role === "EVALUATOR"
-        ? { proctors: { some: { userId: ctx.userId } } }
-        : {}),
+      ...classListScope(ctx.role, ctx.userId, filter.view),
     },
     include: {
       checklistVersion: { include: { template: true } },

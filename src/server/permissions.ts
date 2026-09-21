@@ -25,6 +25,12 @@ export type Permission =
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   MEMBER: ["dashboard.read", "assignments.read", "assignments.write"],
+  INSTRUCTOR: [
+    "dashboard.read",
+    "classes.read",
+    "classes.write",
+    "classes.proctor",
+  ],
   EVALUATOR: [
     "dashboard.read",
     "signoff.review",

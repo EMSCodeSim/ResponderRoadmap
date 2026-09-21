@@ -136,7 +136,7 @@ export default function GettingStartedPage() {
         <div id="invite-member"><h2 className="text-2xl font-bold text-navy-900">Invite your first team member</h2><p className="mt-2 text-sm text-navy-600">Invite a firefighter, evaluator, or officer. Existing department join requests still require approval.</p></div>
         <form className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end" onSubmit={inviteMember}>
           <Field label="Work email"><Input type="email" value={email} onChange={event => setEmail(event.target.value)} required placeholder="member@department.gov" /></Field>
-          <Field label="Department role"><Select value={role} onChange={event => setRole(event.target.value as Role)}><option value="MEMBER">Member</option><option value="EVALUATOR">Captain / Evaluator</option><option value="TRAINING_OFFICER">Training Officer</option><option value="DEPARTMENT_ADMINISTRATOR">Administrator</option></Select></Field>
+          <Field label="Department role"><Select value={role} onChange={event => setRole(event.target.value as Role)}><option value="MEMBER">Member</option><option value="INSTRUCTOR">Instructor</option><option value="EVALUATOR">Captain / Evaluator</option><option value="TRAINING_OFFICER">Training Officer</option><option value="DEPARTMENT_ADMINISTRATOR">Administrator</option></Select></Field>
           <Button type="submit" disabled={busy || (free && activeMembers >= 5)}>{busy ? "Inviting…" : "Send invitation"}</Button>
         </form>
         {message ? <p role="status" className="mt-3 text-sm text-navy-700">{message}</p> : null}

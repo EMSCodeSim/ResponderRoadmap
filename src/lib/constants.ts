@@ -1,5 +1,6 @@
 export const ROLES = [
   "MEMBER",
+  "INSTRUCTOR",
   "EVALUATOR",
   "TRAINING_OFFICER",
   "DEPARTMENT_ADMINISTRATOR",
@@ -9,6 +10,7 @@ export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
   MEMBER: "Member — Complete assigned Task Books",
+  INSTRUCTOR: "Instructor — Create and teach classes",
   EVALUATOR: "Evaluator — Skills check-off / sign-off",
   TRAINING_OFFICER: "Training Officer — Check-off, create & assign Task Books",
   DEPARTMENT_ADMINISTRATOR: "Department Administrator — Full department access",
