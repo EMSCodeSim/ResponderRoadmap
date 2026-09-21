@@ -53,3 +53,25 @@ jobs:
 
       - name: Build production app
         run: npm run build
+
+      # Run actual HTTP requests against a disposable CI Postgres service and seeded demo schema.
+      # Never point this test at production: it creates fictional books and changes demo sign-offs.
+      - name: Test end-to-end HTTP workflows on isolated database
+        run: |
+          npm run start > /tmp/responder-roadmap-qa-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/login > /dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then break; fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/responder-roadmap-qa-server.log
+            exit 1
+          fi
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-http.sh
