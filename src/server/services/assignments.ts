@@ -893,13 +893,26 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
 
 export async function getPrintRecord(ctx: AuthContext, assignmentId: string) {
   const detail = await getAssignmentDetail(ctx, assignmentId);
-  const department = await prisma.department.findUnique({ where: { id: ctx.departmentId } });
+  const [department, assignment] = await Promise.all([
+    prisma.department.findUnique({ where: { id: ctx.departmentId } }),
+    prisma.taskBookAssignment.findFirst({
+      where: { id: assignmentId, departmentId: ctx.departmentId },
+      select: { versionId: true, createdAt: true, updatedAt: true },
+    }),
+  ]);
+  if (!assignment) throw new HttpError(404, "Assignment not found.");
+
   return {
+    recordGeneratedAt: new Date(),
+    recordType: "OFFICIAL_TASK_BOOK_RECORD",
     department: {
       name: department?.name,
       city: department?.city,
       state: department?.state,
     },
+    issuedVersionId: assignment.versionId,
+    recordCreatedAt: assignment.createdAt,
+    recordUpdatedAt: assignment.updatedAt,
     ...detail,
   };
 }
