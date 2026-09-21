@@ -34,6 +34,7 @@ const emptyForm = {
   endsAt: "",
   location: "",
   membershipIds: [] as string[],
+  selfRegistration: false,
   proctorUserIds: [] as string[],
 };
 
@@ -77,7 +78,7 @@ export default function ClassesPage() {
       <PageHeader
         kicker="Training delivery"
         title="Classes & skills rosters"
-        description="Build the roster once, attach a published checklist, and let assigned proctors record every student result."
+        description="Create a roster manually or let students join by class-specific QR code, then record attendance and results."
         actions={setup ? <Button onClick={() => setOpen(true)}>Create class</Button> : undefined}
       />
       <Flash message={error} tone="danger" />
@@ -127,8 +128,12 @@ export default function ClassesPage() {
             <Field label="Starts"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
             <Field label="Ends"><Input type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field>
           </div>
+          <label className="flex min-h-12 items-center gap-3 rounded-lg border border-fire/30 bg-fire-soft p-4 text-sm font-semibold">
+            <input type="checkbox" checked={form.selfRegistration} onChange={(event) => setForm({ ...form, selfRegistration: event.target.checked })} />
+            Allow QR student registration (the class may start with an empty roster)
+          </label>
           <div className="grid gap-5 md:grid-cols-2">
-            <Field label={`Roster (${form.membershipIds.length})`} hint="Select every student who will receive an individual result record.">
+            <Field label={`Roster (${form.membershipIds.length})`} hint={form.selfRegistration ? "Optional: pre-add department members." : "Select students or enable QR registration."}>
               <div className="max-h-64 space-y-1 overflow-auto rounded-md border border-navy-200 p-2">
                 {setup?.members.map((member) => (
                   <label key={member.id} className="flex min-h-11 items-center gap-3 rounded px-2 hover:bg-navy-50">
