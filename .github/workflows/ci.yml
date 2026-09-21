@@ -20,9 +20,9 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
+          --health-interval=5s
           --health-timeout=5s
-          --health-retries=5
+          --health-retries=10
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/responderroadmap
@@ -53,3 +53,27 @@ jobs:
 
       - name: Build production app
         run: npm run build
+
+      # All requests target the local server with disposable CI Postgres and demo schemas.
+      # Never run destructive QA against actual production or real customer accounts.
+      - name: Test end-to-end HTTP workflows on isolated database
+        run: |
+          npm run start > /tmp/responder-roadmap-qa-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/login > /dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then break; fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/responder-roadmap-qa-server.log
+            exit 1
+          fi
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-http.sh
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-training-workflows.sh
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-class-results.sh
