@@ -6,6 +6,27 @@ on:
     paths:
       - scripts/smoke-http.sh
       - .github/workflows/smoke.yml
+      - src/server/services/assignments.ts
+      - src/server/services/memberApp.ts
+      - src/server/api/router.ts
+      - src/lib/progress.ts
+      - src/app/(portal)/my-task-books/**
+      - src/app/(portal)/evaluate/**
+      - prisma/schema.prisma
+      - prisma/seed.ts
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/smoke-http.sh
+      - .github/workflows/smoke.yml
+      - src/server/services/assignments.ts
+      - src/server/services/memberApp.ts
+      - src/server/api/router.ts
+      - src/lib/progress.ts
+      - src/app/(portal)/my-task-books/**
+      - src/app/(portal)/evaluate/**
+      - prisma/schema.prisma
+      - prisma/seed.ts
 
 jobs:
   smoke:
