@@ -21,7 +21,7 @@ type Session = {
   nav: string[];
 };
 
-const TRAINING_PATHS = ["/task-books", "/my-task-books", "/assignments", "/evaluate"];
+const TRAINING_PATHS = ["/task-books", "/my-task-books", "/task-book-progress", "/assignments", "/evaluate"];
 const SETTINGS_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/enrollment", "/evaluators"];
 
 function demoWalkForRole(role: Role | null | undefined): DemoWalkKey {
