@@ -16,7 +16,7 @@ describe("two-stage approval integrity", () => {
     expect(reviewerSeparationConflict({ signOffs: [evaluatorApproval], reviewerId: "supervisor-b", approvalLevel: "SUPERVISOR", submittedAt })).toBe(false);
     expect(nextReviewState({ result: "APPROVED", stage: "SUPERVISOR", supervisorApprovalRequired: true, currentApprovedRepetitions: 0, repetitionsRequired: 1 })).toEqual({ status: "APPROVED", approvedRepetitions: 1, completed: true, supervisorPending: false });
     expect(approvalsSinceSubmission([evaluatorApproval, supervisorApproval], submittedAt)).toBe(2);
-    expect(reviewStageForRequirement({ evaluatorSignOffRequired: true, supervisorApprovalRequired: true, signOffs: [evaluatorApproval, supervisorApproval], submittedAt })).toBe("SUPERVISOR");
+    expect(reviewStageForRequirement({ evaluatorSignOffRequired: true, supervisorApprovalRequired: true, signOffs: [evaluatorApproval, supervisorApproval], submittedAt })).toBe("FINAL");
   });
 
   it("rejects the same person signing evaluator and supervisor stages", () => {
