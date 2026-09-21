@@ -68,36 +68,70 @@ if [[ -n "$ASSIGNMENT_ID" ]]; then
 fi
 ok 'Task Book assignment workflow'
 
-# Member perspective and a real requirement submission from seeded demo data.
+# Approval workflow regression: member submit -> idempotent retry -> evaluator return -> member resubmit -> evaluator approve.
+# Use the seeded Alex Morgan Driver / Operator assignment because it starts clean and is assigned to demo evaluator Sam Lee.
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | $JQ '.data.session.role == "EVALUATOR"' >/dev/null
+EVAL_ME=$(json "$BASE/api/v1/auth/me")
+EVALUATOR_USER_ID=$(echo "$EVAL_ME" | jq -r '.data.userId')
+[[ -n "$EVALUATOR_USER_ID" && "$EVALUATOR_USER_ID" != "null" ]]
+ok 'demo evaluator identity'
+
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
 json "$BASE/api/v1/auth/me" | $JQ '.data.role == "MEMBER"' >/dev/null
-MY=$(json "$BASE/api/v1/app/assignments")
-echo "$MY" | $JQ '.data | type == "array"' >/dev/null
-expect_page "$BASE/my-task-books"
-MEMBER_ASSIGNMENT_ID=$(echo "$MY" | jq -r '.data[0].id // empty')
-if [[ -n "$MEMBER_ASSIGNMENT_ID" ]]; then
-  DETAIL=$(json "$BASE/api/v1/app/assignments/$MEMBER_ASSIGNMENT_ID")
-  REQ_ID=$(echo "$DETAIL" | jq -r '[.data.sections[].requirements[] | select(.blockedByPrerequisites == false and (.completion == null or .completion.status == "NEEDS_REMEDIATION"))][0].id // empty')
-  if [[ -n "$REQ_ID" ]]; then
-    json -X POST "$BASE/api/v1/app/assignments/$MEMBER_ASSIGNMENT_ID/requirements/$REQ_ID/submit" -d '{"memberNotes":"QA smoke submission","evidenceDescription":"Observed during QA smoke workflow","evidenceType":"SKILL_EVALUATION"}' | $JQ '.data != null' >/dev/null
-    ok 'member requirement submission'
-  fi
-fi
-ok 'member role and assignment access'
+MY_ASSIGNMENTS=$(json "$BASE/api/v1/assignments")
+MEMBER_ASSIGNMENT_ID=$(echo "$MY_ASSIGNMENTS" | jq -r '[.data[] | select(.taskBookTitle | test("Driver"; "i"))][0].id // empty')
+[[ -n "$MEMBER_ASSIGNMENT_ID" ]] || { echo "No seeded member Driver assignment found"; exit 1; }
+DETAIL=$(json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID")
+REQ_ID=$(echo "$DETAIL" | jq -r '[.data.sections[].requirements[] | select(.locked == false and .evaluatorSignOffRequired == true and (.repetitionsRequired // 1) == 1 and (.completion == null or (.completion.status != "APPROVED" and .completion.status != "SUBMITTED")))][0].id // empty')
+[[ -n "$REQ_ID" ]] || { echo "No eligible evaluator requirement found"; exit 1; }
+echo "$DETAIL" | jq -e --arg uid "$EVALUATOR_USER_ID" '.data.evaluators | any(.id == $uid)' >/dev/null
+REQUEST_ID="smoke-submit-$MEMBER_ASSIGNMENT_ID-$REQ_ID"
+SUBMIT_BODY=$(jq -nc --arg evaluator "$EVALUATOR_USER_ID" --arg request "$REQUEST_ID" '{notes:"QA approval regression submission",evaluatorId:$evaluator,evidence:[{type:"WRITTEN_NOTE",description:"QA regression evidence"}],clientRequestId:$request}')
+FIRST_SUBMIT=$(json -X POST "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID/requirements/$REQ_ID/submit" -d "$SUBMIT_BODY")
+FIRST_RECEIPT=$(echo "$FIRST_SUBMIT" | jq -r '.data.submissionReceipt.receiptId // empty')
+[[ -n "$FIRST_RECEIPT" ]] || { echo "$FIRST_SUBMIT"; echo "Missing server submission receipt"; exit 1; }
+echo "$FIRST_SUBMIT" | $JQ '.data.submissionReceipt.status == "SUBMITTED" and .data.submissionReceipt.recordedAt != null' >/dev/null
 
-# Evaluator perspective and a real remediation action against disposable demo data.
+# Retry the exact same request to prove idempotency. It must return the same receipt, not create another submission.
+RETRY_SUBMIT=$(json -X POST "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID/requirements/$REQ_ID/submit" -d "$SUBMIT_BODY")
+RETRY_RECEIPT=$(echo "$RETRY_SUBMIT" | jq -r '.data.submissionReceipt.receiptId // empty')
+[[ "$FIRST_RECEIPT" == "$RETRY_RECEIPT" ]] || { echo "Idempotent retry created a different receipt"; exit 1; }
+ok 'member submission receipt and idempotent retry'
+
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | $JQ '.data.session.role == "EVALUATOR"' >/dev/null
-json "$BASE/api/v1/auth/me" | $JQ '.data.role == "EVALUATOR"' >/dev/null
-QUEUE=$(json "$BASE/api/v1/sign-offs")
-echo "$QUEUE" | $JQ '.data | type == "array"' >/dev/null
-expect_page "$BASE/evaluate"
-SIGNOFF_ID=$(echo "$QUEUE" | jq -r '.data[0].id // empty')
-if [[ -n "$SIGNOFF_ID" ]]; then
-  json -X POST "$BASE/api/v1/sign-offs/$SIGNOFF_ID" -d '{"result":"NEEDS_REMEDIATION","notes":"QA smoke remediation check","stepResults":[],"criticalFailuresTriggered":[],"attested":false}' | $JQ '.data != null' >/dev/null
-  json "$BASE/api/v1/sign-offs?view=remediation" | $JQ '.data | type == "array"' >/dev/null
-  ok 'evaluator remediation action'
-fi
-ok 'evaluator role and queue access'
+QUEUE=$(json "$BASE/api/v1/sign-offs?view=mine")
+SIGNOFF_ID=$(echo "$QUEUE" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data[] | select(.assignmentId == $aid and .requirementId == $rid)][0].id // empty')
+RETURN_LEVEL=$(echo "$QUEUE" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data[] | select(.assignmentId == $aid and .requirementId == $rid)][0].reviewStage // "EVALUATOR"')
+[[ -n "$SIGNOFF_ID" ]] || { echo "$QUEUE"; echo "Submitted requirement missing from evaluator queue"; exit 1; }
+RETURN_BODY=$(jq -nc --arg level "$RETURN_LEVEL" '{result:"NEEDS_REMEDIATION",notes:"Repeat the evolution and correct the QA test item.",stepResults:[],criticalFailuresTriggered:[],approvalLevel:$level,attested:false}')
+RETURNED=$(json -X POST "$BASE/api/v1/sign-offs/$SIGNOFF_ID" -d "$RETURN_BODY")
+echo "$RETURNED" | $JQ '.data.status == "RETURNED"' >/dev/null
+ok 'evaluator return with remediation reason'
+
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
+AFTER_RETURN=$(json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID")
+echo "$AFTER_RETURN" | jq -e --arg rid "$REQ_ID" '[.data.sections[].requirements[] | select(.id == $rid)][0].completion.status == "RETURNED"' >/dev/null
+RESUBMIT_ID="$REQUEST_ID-resubmit"
+RESUBMIT_BODY=$(jq -nc --arg evaluator "$EVALUATOR_USER_ID" --arg request "$RESUBMIT_ID" '{notes:"QA regression corrected and resubmitted",evaluatorId:$evaluator,evidence:[{type:"WRITTEN_NOTE",description:"Corrected QA regression evidence"}],clientRequestId:$request}')
+RESUBMIT=$(json -X POST "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID/requirements/$REQ_ID/submit" -d "$RESUBMIT_BODY")
+echo "$RESUBMIT" | $JQ '.data.submissionReceipt.status == "SUBMITTED" and .data.submissionReceipt.recordedAt != null' >/dev/null
+ok 'member resubmission after remediation'
+
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | $JQ '.data.session.role == "EVALUATOR"' >/dev/null
+QUEUE2=$(json "$BASE/api/v1/sign-offs?view=mine")
+SIGNOFF_ID2=$(echo "$QUEUE2" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data[] | select(.assignmentId == $aid and .requirementId == $rid)][0].id // empty')
+APPROVE_LEVEL=$(echo "$QUEUE2" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data[] | select(.assignmentId == $aid and .requirementId == $rid)][0].reviewStage // "EVALUATOR"')
+[[ "$SIGNOFF_ID2" == "$SIGNOFF_ID" ]] || { echo "Completion identity changed across resubmission"; exit 1; }
+APPROVE_BODY=$(jq -nc --arg level "$APPROVE_LEVEL" '{result:"APPROVED",notes:"Meets QA regression standard.",stepResults:[],criticalFailuresTriggered:[],approvalLevel:$level,attested:true}')
+APPROVED=$(json -X POST "$BASE/api/v1/sign-offs/$SIGNOFF_ID2" -d "$APPROVE_BODY")
+echo "$APPROVED" | $JQ '.data.status == "APPROVED" or .data.status == "SUBMITTED"' >/dev/null
+
+# For the seeded Driver requirement this is evaluator-only, so it should now be approved.
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
+FINAL_DETAIL=$(json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID")
+echo "$FINAL_DETAIL" | jq -e --arg rid "$REQ_ID" '[.data.sections[].requirements[] | select(.id == $rid)][0].completion.status == "APPROVED"' >/dev/null
+json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID/print" | jq -e --arg rid "$REQ_ID" '[.data.sections[].requirements[] | select(.id == $rid)][0].completion.signOffs | length >= 2' >/dev/null
+ok 'return, resubmit, approval, and audit record persistence'
 
 # AI tools are Training Officer features. Switch back to an authorized role and verify
 # that the route returns structured JSON even when CI intentionally has no OpenAI key.
