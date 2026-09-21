@@ -6,21 +6,22 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { cx } from "@/components/ui";
 
+type Session = { nav: string[] };
+
+/** Only full Task Books live here. Single tasks have their own sidebar destination. */
 const TABS = [
-  { key: "my-task-books", label: "My books", href: "/my-task-books" },
+  { key: "my-task-books", label: "My Task Books", href: "/my-task-books" },
   { key: "task-books", label: "Library", href: "/task-books" },
-  { key: "assignments", label: "Assignments", href: "/assignments" },
-  { key: "training-assignments", label: "Quick assignment", href: "/training-assignments" },
-  { key: "evaluate", label: "Evaluations", href: "/evaluate" },
+  { key: "assignments", label: "Progress", href: "/task-book-progress" },
 ] as const;
 
-/** Navigation only: the existing pages and server-side permissions remain authoritative. */
+/** Navigation is presentational; API permissions remain authoritative. */
 export function WorkspaceTabs() {
   const pathname = usePathname();
   const [allowed, setAllowed] = useState<string[]>([]);
 
   useEffect(() => {
-    api<{ nav: string[] }>("auth/me")
+    api<Session>("auth/me")
       .then((session) => setAllowed(session.nav))
       .catch(() => setAllowed([]));
   }, []);
@@ -37,7 +38,7 @@ export function WorkspaceTabs() {
             key={tab.key}
             href={tab.href}
             aria-current={active ? "page" : undefined}
-            className={cx("inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-sm font-semibold transition-colors", active ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-700 hover:bg-navy-50")}
+            className={cx("inline-flex min-h-11 items-center rounded-md border px-4 py-2 text-sm font-semibold transition-colors", active ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-700 hover:bg-navy-50")}
           >
             {tab.label}
           </Link>
