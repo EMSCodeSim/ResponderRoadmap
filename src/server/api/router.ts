@@ -42,12 +42,6 @@ export async function handleApi(req: Request, path: string[]) {
     const method = req.method;
     const url = new URL(req.url);
     const q = Object.fromEntries(url.searchParams.entries());
-    const publicClass = match(path, "public/classes/:token");
-    if (publicClass && method === "GET") return jsonOk(await classes.getPublicClassRegistration(publicClass.token));
-    if (publicClass && method === "POST") {
-      const source = req.headers.get("x-nf-client-connection-ip") || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-      return jsonOk(await classes.registerGuestStudent(publicClass.token, await readBody(req), source), 201);
-    }
 
     if (method === "POST" && match(path, "auth/login")) {
       const body = await readBody(req);
@@ -196,11 +190,6 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "POST" && match(path, "classes")) {
       const body = await readBody(req);
       return jsonOk(await classes.createClass(ctx, body), 201);
-    }
-    const classRegistration = match(path, "classes/:id/registration");
-    if (method === "POST" && classRegistration) {
-      const body = await readBody(req);
-      return jsonOk(await classes.manageClassRegistration(ctx, classRegistration.id, body.action));
     }
     const classStatus = match(path, "classes/:id/status");
     if (method === "POST" && classStatus) {

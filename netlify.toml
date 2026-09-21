@@ -1,5 +1,5 @@
 [build]
-  command = "npm test && npm run build"
+  command = "npm test && npm run db:push && npm run build"
   publish = ".next"
 
 [build.environment]

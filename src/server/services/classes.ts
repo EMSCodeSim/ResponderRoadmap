@@ -1,6 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/server/db";
-import { normalizeGuestRegistration } from "@/lib/class-registration";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
@@ -122,7 +120,6 @@ export async function createClass(
     notes?: string;
     membershipIds?: string[];
     proctorUserIds?: string[];
-    selfRegistration?: boolean;
   },
 ) {
   assertPermission(ctx, "classes.write");
@@ -137,7 +134,7 @@ export async function createClass(
   if (!version) throw new HttpError(404, "Published checklist not found.");
   const memberIds = [...new Set(input.membershipIds || [])];
   const proctorIds = [...new Set(input.proctorUserIds || [])];
-  if (memberIds.length === 0 && input.selfRegistration !== true) throw new HttpError(400, "Add at least one student or enable QR self-registration.");
+  if (memberIds.length === 0) throw new HttpError(400, "Add at least one student to the roster.");
   if (proctorIds.length === 0) throw new HttpError(400, "Assign at least one proctor.");
   const validMembers = await prisma.departmentMembership.findMany({
     where: { id: { in: memberIds }, departmentId: ctx.departmentId, status: "ACTIVE" },
@@ -164,8 +161,6 @@ export async function createClass(
       endsAt,
       location: input.location?.trim().slice(0, 180) || "",
       notes: input.notes?.trim().slice(0, 4000) || "",
-      registrationToken: input.selfRegistration ? randomBytes(32).toString("hex") : null,
-      registrationEnabled: input.selfRegistration === true,
       createdById: ctx.userId,
       roster: { create: memberIds.map((membershipId) => ({ membershipId })) },
       proctors: { create: proctorIds.map((userId) => ({ userId })) },
@@ -203,7 +198,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
           membership: { include: { user: true } },
           skillResults: { include: { evaluator: true } },
         },
-        orderBy: { enrolledAt: "asc" },
+        orderBy: { membership: { user: { name: "asc" } } },
       },
     },
   });
@@ -217,8 +212,6 @@ export async function getClass(ctx: AuthContext, classId: string) {
     location: row.location,
     status: row.status,
     notes: row.notes,
-    registrationEnabled: row.registrationEnabled,
-    registrationToken: hasPermission(ctx.role, "classes.write") ? row.registrationToken : null,
     checklistTitle: row.checklistVersion.template.title,
     checklistVersion: row.checklistVersion.version,
     proctors: row.proctors.map((item) => ({ userId: item.userId, name: item.user.name })),
@@ -239,12 +232,9 @@ export async function getClass(ctx: AuthContext, classId: string) {
     roster: row.roster.map((enrollment) => ({
       id: enrollment.id,
       membershipId: enrollment.membershipId,
-      name: enrollment.membership?.user.name || enrollment.guestName || "Unknown student",
-      rank: enrollment.membership?.rank || null,
-      email: enrollment.membership?.user.email || enrollment.guestEmail || "",
-      isGuest: enrollment.membershipId == null,
-      organization: enrollment.guestOrganization,
-      registeredAt: enrollment.enrolledAt,
+      name: enrollment.membership.user.name,
+      rank: enrollment.membership.rank,
+      email: enrollment.membership.user.email,
       attendance: enrollment.attendance,
       writtenScore: enrollment.writtenScore,
       ccfScore: enrollment.ccfScore,
@@ -261,70 +251,6 @@ export async function getClass(ctx: AuthContext, classId: string) {
       })),
     })),
   };
-}
-
-export async function manageClassRegistration(ctx: AuthContext, classId: string, rawAction: unknown) {
-  assertPermission(ctx, "classes.write");
-  const row = await canAccessClass(ctx, classId);
-  const action = String(rawAction || "").toUpperCase();
-  if (!new Set(["OPEN", "CLOSE", "ROTATE"]).has(action)) throw new HttpError(400, "Invalid registration action.");
-  if (action !== "CLOSE" && !["DRAFT", "ACTIVE"].includes(row.status)) throw new HttpError(409, "A completed or cancelled class cannot accept registrations.");
-  const updated = await prisma.trainingClass.update({
-    where: { id: row.id },
-    data: action === "CLOSE"
-      ? { registrationEnabled: false }
-      : { registrationEnabled: true, registrationToken: action === "ROTATE" || !row.registrationToken ? randomBytes(32).toString("hex") : row.registrationToken },
-  });
-  await writeAudit(ctx, `class.registration.${action.toLowerCase()}`, "TrainingClass", row.id, { enabled: updated.registrationEnabled });
-  return getClass(ctx, row.id);
-}
-
-async function findRegistrationClass(token: string) {
-  if (!/^[a-f0-9]{64}$/.test(token)) throw new HttpError(404, "Registration link not found.");
-  const row = await prisma.trainingClass.findUnique({
-    where: { registrationToken: token },
-    select: { id: true, departmentId: true, title: true, startsAt: true, location: true, status: true, registrationEnabled: true },
-  });
-  if (!row) throw new HttpError(404, "Registration link not found.");
-  return row;
-}
-
-export async function getPublicClassRegistration(token: string) {
-  const row = await findRegistrationClass(token);
-  return { title: row.title, startsAt: row.startsAt, location: row.location, open: row.registrationEnabled && ["DRAFT", "ACTIVE"].includes(row.status) };
-}
-
-async function enforceRegistrationRateLimit(token: string, source: string) {
-  const windowMs = 15 * 60 * 1000;
-  const windowStart = new Date(Math.floor(Date.now() / windowMs) * windowMs);
-  const key = createHash("sha256").update(`${token}:${source || "unknown"}:${windowStart.toISOString()}`).digest("hex");
-  const counter = await prisma.registrationRateLimit.upsert({
-    where: { key }, create: { key, windowStart, count: 1 }, update: { count: { increment: 1 } }, select: { count: true },
-  });
-  if (counter.count > 8) throw new HttpError(429, "Too many registration attempts. Wait a few minutes and try again.");
-}
-
-export async function registerGuestStudent(token: string, raw: unknown, source = "unknown") {
-  await enforceRegistrationRateLimit(token, source);
-  const input = normalizeGuestRegistration(raw);
-  const enrollment = await prisma.$transaction(async (tx) => {
-    const row = await tx.trainingClass.findUnique({ where: { registrationToken: token }, select: { id: true, departmentId: true, status: true, registrationEnabled: true } });
-    if (!row || !/^[a-f0-9]{64}$/.test(token)) throw new HttpError(404, "Registration link not found.");
-    if (!row.registrationEnabled || !["DRAFT", "ACTIVE"].includes(row.status)) throw new HttpError(409, "Registration is closed for this class.");
-    const rosterCount = await tx.trainingClassEnrollment.count({ where: { classId: row.id } });
-    if (rosterCount >= 250) throw new HttpError(409, "Registration is full. Contact the instructor.");
-    const existing = await tx.trainingClassEnrollment.findFirst({
-      where: { classId: row.id, OR: [{ guestEmail: input.email }, { membership: { user: { email: input.email } } }] }, select: { id: true },
-    });
-    if (existing) throw new HttpError(409, "This email is already on the class roster.");
-    const created = await tx.trainingClassEnrollment.create({ data: { classId: row.id, guestName: input.name, guestEmail: input.email, guestOrganization: input.organization } });
-    return { id: created.id, classId: row.id, departmentId: row.departmentId };
-  }).catch((error: unknown) => {
-    if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw new HttpError(409, "This email is already on the class roster.");
-    throw error;
-  });
-  await writeActivity(enrollment.departmentId, "CLASS_GUEST_REGISTERED", { referenceId: enrollment.classId, metadata: { enrollmentId: enrollment.id, source: "CLASS_QR", accountCreated: false } });
-  return { registered: true };
 }
 
 async function recalculateEnrollment(enrollmentId: string) {
@@ -446,7 +372,7 @@ export async function updateClassStatus(ctx: AuthContext, classId: string, statu
   await canAccessClass(ctx, classId);
   const status = String(statusInput || "").trim().toUpperCase();
   if (!CLASS_STATUS_VALUES.has(status)) throw new HttpError(400, "Invalid class status.");
-  await prisma.trainingClass.update({ where: { id: classId }, data: { status, ...(["COMPLETE", "CANCELLED"].includes(status) ? { registrationEnabled: false } : {}) } });
+  await prisma.trainingClass.update({ where: { id: classId }, data: { status } });
   await writeAudit(ctx, "class.status.updated", "TrainingClass", classId, { status });
   return getClass(ctx, classId);
 }
