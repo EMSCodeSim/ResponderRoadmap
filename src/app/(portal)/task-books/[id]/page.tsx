@@ -592,8 +592,13 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
         ))}
       </div>
 
+      <nav aria-label="Task Book builder steps" className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-navy-200 bg-white p-3 text-sm font-semibold">
+        <a href="#book-details" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">1. Details</a>
+        <a href="#book-requirements" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">2. Requirements</a>
+        {!draftLocked ? <button type="button" onClick={() => setReviewOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">3. Review & publish</button> : <span className="px-3 py-2 text-navy-500">Published version</span>}
+      </nav>
       <div className="grid gap-4 xl:grid-cols-[240px_1fr_340px]">
-        <Card className="p-3">
+        <Card id="book-details" className="p-3">
           <Field label="Task Book name">
             <Input value={title} onChange={(e) => { setTitle(e.target.value); markDirty(); }} disabled={draftLocked} />
           </Field>
@@ -606,7 +611,9 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               </Select>
             </Field>
           </div>
-          <div className="mt-3">
+          <details className="mt-3 rounded-md border border-navy-200 p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-navy-700">More Task Book details</summary>
+            <div className="mt-3">
             <Field label="Intended position">
               <Input value={intendedPosition} onChange={(e) => { setIntendedPosition(e.target.value); markDirty(); }} disabled={draftLocked} />
             </Field>
@@ -621,6 +628,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               <TextArea value={description} onChange={(e) => { setDescription(e.target.value); markDirty(); }} disabled={draftLocked} />
             </Field>
           </div>
+          </details>
           <div className="kicker mt-4 mb-2">Sections</div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionDrag}>
             <SortableContext items={sections.map((section) => section.clientId)} strategy={verticalListSortingStrategy}>
@@ -689,7 +697,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
           ) : null}
         </Card>
 
-        <Card className="p-4">
+        <Card id="book-requirements" className="p-4">
           {current ? (
             <>
               <Field label="Section title">

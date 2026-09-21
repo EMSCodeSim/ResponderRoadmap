@@ -55,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return [
       { href: "/dashboard", label: "Home", icon: LayoutDashboard, visible: allowed.has("dashboard"), paths: ["/dashboard", "/inbox"] },
       { href: trainingHref || "/task-books", label: "Task Books", icon: BookOpen, visible: Boolean(trainingHref), paths: TRAINING_PATHS },
-      { href: "/single-assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments"), paths: ["/single-assignments", "/training-assignments"] },
+      { href: allowed.has("training-assignments") ? "/single-assignments" : "/my-assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments") || allowed.has("my-task-books"), paths: ["/single-assignments", "/training-assignments", "/my-assignments"] },
       { href: "/classes", label: "Classes", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
       { href: "/members", label: "People", icon: Users, visible: allowed.has("members"), paths: ["/members", "/enrollment", "/evaluators"] },
       { href: "/reports", label: "Reports", icon: BarChart3, visible: allowed.has("reports"), paths: ["/reports"] },
