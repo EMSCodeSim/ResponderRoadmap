@@ -1,0 +1,63 @@
+name: Capture demo product showcase
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/capture-product-showcase.yml'
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install screenshot browser
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install chromium
+      - name: Capture real Metro Fire demo screens only
+        env:
+          BASE_URL: https://responderroadmap.com
+        run: |
+          mkdir -p public/showcase
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          (async () => {
+            const browser = await chromium.launch({headless:true, args:['--no-sandbox']});
+            const base=process.env.BASE_URL;
+            async function capture(walk, route, viewport, output, heading) {
+              const context=await browser.newContext({viewport, deviceScaleFactor:1, reducedMotion:'reduce'});
+              const page=await context.newPage();
+              await page.goto(`${base}/login?walk=${walk}`, {waitUntil:'domcontentloaded', timeout:45000});
+              await page.waitForURL(url => url.pathname !== '/login', {timeout:45000});
+              await page.goto(`${base}${route}`, {waitUntil:'domcontentloaded', timeout:45000});
+              await page.locator('main').waitFor({timeout:30000});
+              await page.getByText(heading, {exact:false}).first().waitFor({timeout:30000});
+              await page.evaluate(() => document.fonts.ready);
+              await page.screenshot({path:output, animations:'disabled', fullPage:false});
+              const bytes=fs.statSync(output).size;
+              if (bytes<18000) throw new Error(`Suspiciously small screenshot: ${output} ${bytes}`);
+              console.log(`Captured demo-only ${output} (${bytes} bytes)`);
+              await context.close();
+            }
+            try {
+              await capture('to','/dashboard',{width:1440,height:900},'public/showcase/dashboard-demo.png','Who needs you today');
+              await capture('member','/my-task-books',{width:390,height:844},'public/showcase/member-demo.png','Your assigned Task Books');
+              await capture('evaluator','/evaluate',{width:390,height:844},'public/showcase/evaluator-demo.png','Needs My Evaluation');
+            } finally {await browser.close();}
+          })().catch(error=>{console.error(error);process.exit(1)});
+          NODE
+      - name: Commit only demo screenshots
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/showcase/dashboard-demo.png public/showcase/member-demo.png public/showcase/evaluator-demo.png
+          git commit -m 'Capture authentic Metro Fire demo screenshots for product showcase'
+          git push origin main
