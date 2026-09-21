@@ -22,6 +22,12 @@ const ROLE_CAPABILITIES: Record<Role, string[]> = {
     "View and complete assigned Department Task Books",
     "Submit requirements and evidence for review",
   ],
+  INSTRUCTOR: [
+    "Create classes from published checklists",
+    "View classes they created or are assigned to teach",
+    "Manage rosters, attendance, and class evaluations for those classes",
+    "Generate and manage class QR registration links",
+  ],
   EVALUATOR: [
     "Everything a Member can do",
     "Review submitted skills and requirements",
@@ -152,6 +158,10 @@ export default function MemberPermissionsPage() {
           <div className="kicker">Role guide</div>
           <h3 className="display mt-1 text-xl font-bold">Use the lowest access needed</h3>
           <div className="mt-4 space-y-4 text-sm">
+            <div>
+              <div className="font-bold">Instructor</div>
+              <p className="text-navy-500">For members who create classes and teach classes assigned to them, without department administration access.</p>
+            </div>
             <div>
               <div className="font-bold">Evaluator</div>
               <p className="text-navy-500">For members who perform skills check-offs and evaluator sign-offs.</p>

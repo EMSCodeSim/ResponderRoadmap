@@ -4,7 +4,7 @@ import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { notifyUser } from "@/server/services/inbox";
 
-const REVIEWER_ROLES = ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"];
+const REVIEWER_ROLES = ["INSTRUCTOR", "EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"];
 const EVALUATOR_STATUSES = new Set(["ROLE_DEFAULT", "APPROVED", "SUSPENDED"]);
 const APPROVAL_LEVELS = new Set(["EVALUATOR", "COMPANY_OFFICER", "PRECEPTOR", "FTO"]);
 
