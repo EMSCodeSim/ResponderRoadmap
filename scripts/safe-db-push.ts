@@ -77,21 +77,7 @@ const checks: ConstraintCheck[] = [
     duplicateQuery: `
       SELECT "classId", "membershipId", COUNT(*)::int AS "count"
       FROM "TrainingClassEnrollment"
-      WHERE "membershipId" IS NOT NULL
       GROUP BY "classId", "membershipId"
-      HAVING COUNT(*) > 1
-      LIMIT 20
-    `,
-  },
-  {
-    label: "TrainingClassEnrollment classId/guestEmail",
-    table: "TrainingClassEnrollment",
-    requiredColumns: ["classId", "guestEmail"],
-    duplicateQuery: `
-      SELECT "classId", "guestEmail", COUNT(*)::int AS "count"
-      FROM "TrainingClassEnrollment"
-      WHERE "guestEmail" IS NOT NULL
-      GROUP BY "classId", "guestEmail"
       HAVING COUNT(*) > 1
       LIMIT 20
     `,
