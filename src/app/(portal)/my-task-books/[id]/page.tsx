@@ -129,7 +129,7 @@ export default function MyTaskBookDetailPage() {
       let detail;
       try {
         detail = await send();
-      } catch (firstError) {
+      } catch {
         setSyncState("waiting");
         setMessage("Connection interrupted. Retrying safely…");
         await new Promise((resolve) => setTimeout(resolve, 900));
@@ -176,7 +176,7 @@ export default function MyTaskBookDetailPage() {
       />
       <Flash message={error} tone="danger" />
       <div className="mb-3">
-        <Flash message={message} tone={syncState === "failed" ? "danger" : syncState === "waiting" ? "warn" : "current"} />
+        <Flash message={message} tone={syncState === "failed" ? "danger" : syncState === "waiting" ? "info" : "current"} />
         {syncState !== "idle" ? (
           <p className="mt-1 text-xs text-navy-500" aria-live="polite">
             Sync: {syncState === "saving" ? "Saving" : syncState === "waiting" ? "Waiting to retry" : syncState === "synced" ? "Synced" : "Failed"}
