@@ -1,12 +1,9 @@
 "use client";
 
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
-
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { formatDate } from "@/lib/dates";
-import { TASK_BOOK_CATEGORIES } from "@/lib/constants";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Select } from "@/components/ui";
 
 type Book = {
@@ -16,8 +13,6 @@ type Book = {
   status: string;
   version: string;
   assignedMembers: number;
-  lastUpdated: string;
-  ownerName: string;
   intendedPosition?: string;
   templateKind?: string;
 };
@@ -28,108 +23,76 @@ function statusTone(status: string) {
   return "neutral" as const;
 }
 
+function statusLabel(status: string) {
+  if (status === "ACTIVE") return "Published";
+  if (status === "DRAFT") return "Draft";
+  return "Archived";
+}
+
 export default function TaskBooksPage() {
   const [books, setBooks] = useState<Book[] | null>(null);
+  const [error, setError] = useState("");
   const [q, setQ] = useState("");
-  const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
 
+  // Fetch once: text/status filters are local so typing does not repeatedly reload the library.
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (category) params.set("category", category);
-    if (status) params.set("status", status);
-    const query = params.toString();
-    api<Book[]>(`task-books${query ? `?${query}` : ""}`).then(setBooks);
-  }, [q, category, status]);
+    api<Book[]>("task-books")
+      .then(setBooks)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to load Task Books."));
+  }, []);
 
-  const categories = useMemo(() => {
-    const fromBooks = [...new Set((books || []).map((book) => book.category))];
-    return [...new Set([...TASK_BOOK_CATEGORIES, ...fromBooks])];
-  }, [books]);
+  const visible = useMemo(() => (books ?? []).filter((book) => {
+    const term = q.trim().toLowerCase();
+    return (!status || book.status === status) && (!term ||
+      [book.title, book.category, book.intendedPosition || ""].some((value) => value.toLowerCase().includes(term)));
+  }), [books, q, status]);
 
   return (
     <div>
       <WorkspaceTabs />
       <PageHeader
-        kicker="Library"
-        title="Task Books"
-        description="Department templates you assign to members. Publishing a version never rewrites historical completions."
-        actions={
-          <Link href="/task-books/new">
-            <Button>Create Task Book</Button>
-          </Link>
-        }
+        kicker="Task Book library"
+        title="Department Task Books"
+        description="Create, publish, and assign full Task Books. Single tasks live under Assignments in the left menu."
+        actions={<Link href="/task-books/new"><Button>Create Task Book</Button></Link>}
       />
-      <div className="mb-4 grid gap-3 md:grid-cols-3">
-        <Input placeholder="Search title, category, owner" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">All categories</option>
-          {categories.map((item) => (
-            <option key={item}>{item}</option>
-          ))}
-        </Select>
-        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <Input className="min-w-52 flex-1" aria-label="Search Task Books" placeholder="Search Task Books" value={q} onChange={(event) => setQ(event.target.value)} />
+        <Select className="w-full sm:w-44" aria-label="Filter Task Books by status" value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="">All statuses</option>
-          <option value="DRAFT">Draft</option>
-          <option value="ACTIVE">Active</option>
+          <option value="ACTIVE">Published</option>
+          <option value="DRAFT">Drafts</option>
           <option value="ARCHIVED">Archived</option>
         </Select>
       </div>
-      {!books ? (
-        <p className="text-navy-500">Loading library…</p>
-      ) : books.length === 0 ? (
-        <EmptyState
-          title="No Task Books yet"
-          body="Create a blank book, start from a template, or duplicate an existing one."
-          action={
-            <Link href="/task-books/new">
-              <Button>Create Task Book</Button>
-            </Link>
-          }
-        />
+      {error ? <p role="alert" className="mb-4 text-sm text-danger">{error}</p> : null}
+      {!books && !error ? <p className="text-navy-500">Loading library…</p> : null}
+      {books && books.length === 0 ? (
+        <EmptyState title="Create your first Task Book" body="Start blank, use a template, or import a PDF. Review the draft before publishing and assigning it." action={<Link href="/task-books/new"><Button>Create Task Book</Button></Link>} />
+      ) : books && visible.length === 0 ? (
+        <EmptyState title="No matching Task Books" body="Try a different search or status filter." action={<Button variant="secondary" onClick={() => { setQ(""); setStatus(""); }}>Clear filters</Button>} />
       ) : (
-        <Card>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Category</th>
-                  <th>Position</th>
-                  <th>Version</th>
-                  <th>Assigned members</th>
-                  <th>Last updated</th>
-                  <th>Created by</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {books.map((book) => (
-                  <tr key={book.id}>
-                    <td className="font-semibold">
-                      <Link href={`/task-books/${book.id}`} className="inline-flex min-h-11 items-center text-navy-900 underline decoration-navy-300 underline-offset-4 hover:text-fire">
-                        {book.title}
-                      </Link>
-                      {book.templateKind === "VERIFIED" ? (
-                        <div className="text-[11px] font-bold uppercase tracking-wide text-ok">Verified source</div>
-                      ) : null}
-                    </td>
-                    <td>{book.category}</td>
-                    <td>{book.intendedPosition || "—"}</td>
-                    <td>{book.version}</td>
-                    <td>{book.assignedMembers}</td>
-                    <td>{formatDate(book.lastUpdated)}</td>
-                    <td>{book.ownerName}</td>
-                    <td>
-                      <Badge tone={statusTone(book.status)}>{book.status.toLowerCase()}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {visible.map((book) => (
+            <Card key={book.id} className="flex flex-col justify-between p-5">
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <Badge tone={statusTone(book.status)}>{statusLabel(book.status)}</Badge>
+                  {book.templateKind === "VERIFIED" ? <Badge tone="current">Verified source</Badge> : null}
+                  <span className="text-xs text-navy-500">Version {book.version}</span>
+                </div>
+                <h2 className="display text-xl font-bold text-navy-950">{book.title}</h2>
+                <p className="mt-1 text-sm text-navy-500">{book.category}{book.intendedPosition ? ` · ${book.intendedPosition}` : ""}</p>
+                <p className="mt-3 text-sm font-semibold text-navy-700">{book.assignedMembers} {book.assignedMembers === 1 ? "member" : "members"} assigned</p>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-2 border-t border-navy-100 pt-4">
+                <Link href={`/task-books/${book.id}`}><Button variant={book.status === "DRAFT" ? "primary" : "secondary"}>{book.status === "DRAFT" ? "Continue editing" : "Open / edit"}</Button></Link>
+                {book.status === "ACTIVE" ? <Link href="/assignments?assign=1"><Button>Assign</Button></Link> : null}
+              </div>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );
