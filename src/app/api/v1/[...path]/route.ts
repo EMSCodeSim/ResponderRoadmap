@@ -3,6 +3,7 @@ import { getRequestSession } from "@/server/session";
 import { handleError, jsonOk } from "@/server/http";
 import * as auth from "@/server/services/auth";
 import { withDemoDatabase } from "@/server/db";
+import { demoPrisma } from "@/server/demo-db";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
 
 const corsHeaders = {
@@ -41,6 +42,24 @@ async function dispatch(req: Request, params: Promise<{ path: string[] }>) {
 
   if (req.method === "POST" && route === "auth/demo-login") {
     return withCors(await withDemoDatabase(() => demoLogin(req)));
+  }
+
+  // A scanned class QR link is anonymous: there is no demo session cookie to
+  // select the correct database. Resolve only well-formed public tokens against
+  // the isolated demo schema before falling through to the production schema.
+  // Never route by a caller-supplied "demo" flag or expose any roster data.
+  if ((req.method === "GET" || req.method === "POST") && path.length === 3 &&
+      path[0] === "public" && path[1] === "classes" && /^[a-f0-9]{64}$/.test(path[2]) && demoPrisma) {
+    try {
+      const demoClass = await demoPrisma.trainingClass.findUnique({
+        where: { registrationToken: path[2] },
+        select: { id: true },
+      });
+      if (demoClass) return withCors(await withDemoDatabase(() => handleApi(req, path)));
+    } catch (error) {
+      // An unavailable optional demo database must not break real registrations.
+      console.error("Unable to resolve a public demo registration token", error);
+    }
   }
 
   const session = await getRequestSession(req);

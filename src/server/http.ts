@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import type { AuthContext } from "@/server/permissions";
+import { RegistrationInputError } from "@/lib/class-registration";
 
 export async function writeAudit(
   ctx: AuthContext,
@@ -28,8 +29,7 @@ export async function writeActivity(
     referenceId?: string | null;
     metadata?: Record<string, unknown>;
     timestamp?: Date;
-  } = {},
-) {
+  } = {}) {
   await prisma.activityEvent.create({
     data: {
       departmentId,
@@ -70,6 +70,9 @@ export function jsonError(message: string, status = 400) {
 export function handleError(error: unknown) {
   if (error instanceof HttpError) {
     return jsonError(error.message, error.status);
+  }
+  if (error instanceof RegistrationInputError) {
+    return jsonError(error.message, 400);
   }
   const status = typeof error === "object" && error && "status" in error ? Number(error.status) : 500;
   const message = error instanceof Error ? error.message : "Unexpected error";
