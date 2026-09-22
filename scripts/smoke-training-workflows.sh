@@ -17,8 +17,8 @@ api -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}' | jq -e '.data.ses
 api "$BASE/api/v1/dashboard" | jq -e '(.data.summary.awaitingSignOff >= 0) and ((.data.taskBookProgress | type) == "array")' >/dev/null
 api "$BASE/api/v1/evaluator-management" | jq -e '(.data | type) == "array"' >/dev/null
 api "$BASE/api/v1/single-assignments" | jq -e '((.data.templates | type) == "array") and ((.data.assignments | type) == "array")' >/dev/null
-# The command center is client-rendered; HTTP 200 is only a route check, not visual UI QA.
-check_status 200 "$BASE/command-center"
+# Old bookmarks redirect into the role-aware Home; manager-only data remains API-protected.
+check_status 307 "$BASE/command-center"
 check_status 200 "$BASE/single-assignments"
 check_status 200 "$BASE/classes"
 SETUP=$(api "$BASE/api/v1/classes/setup")
