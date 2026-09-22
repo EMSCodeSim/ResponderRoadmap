@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
+import { commandCenterSessionState } from "@/lib/command-center";
 import { formatDate } from "@/lib/dates";
 import { assignmentStatusLabel } from "@/lib/progress";
 import { Badge, Button, Card, Input, PageHeader, ProgressBar, Select, assignmentTone } from "@/components/ui";
@@ -61,8 +62,10 @@ export default function CommandCenterPage() {
     return true;
   }).sort((a, b) => Number(reasons(b, threshold).includes("Overdue")) - Number(reasons(a, threshold).includes("Overdue")) || b.pendingApproval - a.pendingApproval || a.memberName.localeCompare(b.memberName));
 
-  if (role === null) return <p className="text-navy-500">Loading command center…{error ? ` ${error}` : ""}</p>;
-  if (!managers.has(role)) return <Card className="p-6"><h1 className="text-xl font-bold">Training Officer access required</h1><p className="mt-2 text-sm text-navy-600">Only Training Officers and department administrators can see department-wide progress.</p><Link href="/dashboard" className="mt-4 inline-block font-semibold text-fire underline">Return to Home</Link></Card>;
+  const sessionState = commandCenterSessionState(role, error);
+  if (sessionState === "loading") return <p className="text-navy-500">Loading command center…</p>;
+  if (sessionState === "error") return <Card className="p-5"><h1 className="text-xl font-bold text-navy-950">Unable to verify your session</h1><p role="alert" className="mt-2 text-sm text-danger">{error}</p><div className="mt-4 flex flex-wrap gap-3"><Button onClick={() => void load().catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to retry."))}>Retry</Button><Link href="/login" className="inline-flex min-h-10 items-center font-semibold text-fire underline">Return to sign in</Link></div></Card>;
+  if (!managers.has(role || "")) return <Card className="p-6"><h1 className="text-xl font-bold">Training Officer access required</h1><p className="mt-2 text-sm text-navy-600">Only Training Officers and department administrators can see department-wide progress.</p><Link href="/dashboard" className="mt-4 inline-block font-semibold text-fire underline">Return to Home</Link></Card>;
   if (!assignments || !dashboard) return <Card className="p-5"><p className="text-navy-600">{error || "Loading department records…"}</p>{error ? <Button className="mt-3" onClick={() => void load().catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to retry."))}>Retry</Button> : null}</Card>;
   return <div>
     <PageHeader kicker="Department operations" title="Training Command Center" description="See who needs action, what is blocking progress, and where approvals are waiting. Only approved requirements count toward completion." actions={<Button variant="secondary" disabled={busy} onClick={async () => { setBusy(true); try { await load(); } catch (err) { setError(err instanceof Error ? err.message : "Unable to refresh."); } finally { setBusy(false); } }}>{busy ? "Refreshing…" : "Refresh data"}</Button>} />
