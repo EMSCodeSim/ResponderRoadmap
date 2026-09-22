@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { activityText } from "@/lib/activity";
 import { Badge, Button, Card, PageHeader, ProgressBar } from "@/components/ui";
+import { ManagementDashboard } from "@/components/ManagementDashboard";
+import { isManagementRole } from "@/lib/command-center";
 import { daysRemainingLabel, relativeTime } from "@/lib/dates";
 
 type AiDraft = {
@@ -74,13 +76,21 @@ function place(item: TodayItem) {
 
 export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aiBrief, setAiBrief] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
 
-  useEffect(() => {
-    api<Dashboard>("dashboard").then(setData).catch((err) => setError(err.message));
+  const loadDashboard = useCallback(async () => {
+    setError(null);
+    const [session, dashboard] = await Promise.all([api<{ role: string | null }>("auth/me"), api<Dashboard>("dashboard")]);
+    setRole(session.role);
+    setData(dashboard);
   }, []);
+
+  useEffect(() => {
+    void loadDashboard().catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to load dashboard."));
+  }, [loadDashboard]);
 
   async function generateDepartmentBrief() {
     if (!data || data.personal) return;
@@ -110,7 +120,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (error) return <p className="text-danger">{error}</p>;
+  if (error && !data) return <Card className="p-5"><h1 className="text-xl font-bold">Unable to load Home</h1><p role="alert" className="mt-2 text-sm text-danger">{error}</p><Button className="mt-4" onClick={() => void loadDashboard().catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to retry."))}>Retry</Button></Card>;
   if (!data) return <p className="text-navy-500">Loading dashboard…</p>;
 
   const today = data.today;
@@ -217,6 +227,8 @@ export default function DashboardPage() {
           />
         </div>
       ) : null}
+
+      {isManagementRole(role) ? <ManagementDashboard awaitingSignOff={signCount} /> : null}
 
       {!data.personal ? (
         <Card className="mt-6 border-navy-200 p-4">
