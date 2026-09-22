@@ -71,11 +71,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setDemoSwitching(true);
     try {
       await api("auth/demo-login", { method: "POST", body: JSON.stringify({ walk }) });
-      const nextSession = await api<Session>("auth/me");
-      setSession(nextSession);
-      router.push(DEMO_WALKS[walk].next);
-      router.refresh();
-      setOpen(false);
+      // A full navigation clears role-specific client state before the new
+      // perspective renders. router.refresh() preserves mounted client state
+      // when both perspectives use /dashboard.
+      window.location.assign(DEMO_WALKS[walk].next);
     } finally {
       setDemoSwitching(false);
     }
