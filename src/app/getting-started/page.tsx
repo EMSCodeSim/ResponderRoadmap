@@ -83,7 +83,7 @@ export default function GettingStartedPage() {
   const steps = [
     { title: "Create department", description: "Your separate department and administrator account are ready.", complete: true, href: "/department", action: "Review department details" },
     { title: "Add your people", description: "Invite a member or evaluator. Track invitations and approve join requests on the People screen.", complete: activeMembers > 1, href: "/members", action: "Open People" },
-    { title: "Create your first Task Book", description: "Choose a template, import an existing PDF, or build from scratch. Review and publish before assigning.", complete: activeTaskBooks > 0, href: "/task-books/new", action: "Create a Task Book" },
+    { title: "Create your first Task Book", description: "Choose a template, import an existing PDF, or build from scratch. Review and publish before assigning.", complete: activeTaskBooks > 0, href: "/task-books/fast-start", action: "Create a Task Book" },
     { title: "Make your first assignment", description: "Choose a published Task Book and a member. Your first assignment is the finish line.", complete: assigned, href: "/assignments?assign=1", action: "Assign a Task Book" },
   ];
   const completeCount = steps.filter(step => step.complete).length;
@@ -116,7 +116,7 @@ export default function GettingStartedPage() {
           <h2 className="mt-2 text-2xl font-bold text-navy-900">{nextStep.title}</h2>
           <p className="mt-2 max-w-2xl text-navy-600">{nextStep.description}</p>
           {needMember ? <p className="mt-3 text-sm text-navy-600">Use the invitation form below. You can also continue building your Task Book while invitations are pending.</p> : null}
-          {needBook && !needMember ? <div className="mt-5 grid gap-2 sm:grid-cols-3"><Link href="/task-books/new" className="rounded-lg bg-fire px-4 py-3 text-center text-sm font-semibold text-white">Start with a template or blank book</Link><Link href="/task-books" className="rounded-lg border border-navy-200 px-4 py-3 text-center text-sm font-semibold text-navy-800">Browse Task Books</Link><Link href="/task-books/new" className="rounded-lg border border-navy-200 px-4 py-3 text-center text-sm font-semibold text-navy-800">Import existing PDF</Link></div> : null}
+          {needBook && !needMember ? <div className="mt-5 grid gap-2 sm:grid-cols-2"><Link href="/task-books/fast-start" className="rounded-lg bg-fire px-4 py-3 text-center text-sm font-semibold text-white">Create Task Book</Link><Link href="/task-books" className="rounded-lg border border-navy-200 px-4 py-3 text-center text-sm font-semibold text-navy-800">Browse Task Books</Link></div> : null}
           {(!needMember && !needBook) ? <Link href={nextStep.href} className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-fire px-5 py-2 font-semibold text-white">{nextStep.action} →</Link> : null}
           {needMember ? <a href="#invite-member" className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-fire px-5 py-2 font-semibold text-white">Invite your first member →</a> : null}
         </Card>
