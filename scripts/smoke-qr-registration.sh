@@ -28,7 +28,7 @@ public "$URL" | jq -e '.data.open == true and .data.title == "QA Anonymous QR Re
 expect_status 400 -X POST "$URL" -d '{"name":"QA Guest","email":"guest@example.test","consent":false}'
 public -X POST "$URL" -d '{"name":"QA Guest Student","email":"qa-guest@example.test","organization":"QA Test Agency","consent":true}' | jq -e '.data.registered == true' >/dev/null
 expect_status 409 -X POST "$URL" -d '{"name":"Duplicate Student","email":"qa-guest@example.test","consent":true}'
-admin "$BASE/api/v1/classes/$CLASS_ID" | jq -e '(.data.roster | length) == 1 and .[0].isGuest == true and .[0].name == "QA Guest Student" and .[0].finalResult == "PENDING"' >/dev/null
+admin "$BASE/api/v1/classes/$CLASS_ID" | jq -e '(.data.roster | length) == 1 and .data.roster[0].isGuest == true and .data.roster[0].name == "QA Guest Student" and .data.roster[0].finalResult == "PENDING"' >/dev/null
 admin -X POST "$BASE/api/v1/classes/$CLASS_ID/registration" -d '{"action":"CLOSE"}' | jq -e '.data.registrationEnabled == false' >/dev/null
 public "$URL" | jq -e '.data.open == false' >/dev/null
 expect_status 409 -X POST "$URL" -d '{"name":"Closed Guest","email":"closed@example.test","consent":true}'
@@ -37,5 +37,5 @@ NEW_TOKEN=$(echo "$ROTATED" | jq -r '.data.registrationToken')
 [[ "$NEW_TOKEN" != "$TOKEN" && "${#NEW_TOKEN}" -eq 64 ]]
 expect_status 404 "$URL"
 public "$BASE/api/v1/public/classes/$NEW_TOKEN" | jq -e '.data.open == true' >/dev/null
-admin "$BASE/api/v1/classes/$CLASS_ID" | jq -e '(.data.roster | length) == 1 and .[0].finalResult == "PENDING"' >/dev/null
+admin "$BASE/api/v1/classes/$CLASS_ID" | jq -e '(.data.roster | length) == 1 and .data.roster[0].finalResult == "PENDING"' >/dev/null
 echo 'Anonymous QR join, guest roster, duplicate, validation, close, and rotation QA passed.'
