@@ -166,7 +166,7 @@ export default function TrainingSheetPage() {
       </Card>
 
       <footer className="mt-5 text-xs text-navy-500">
-        Generated {formatDateTime(data.generatedAt)} · This sheet summarizes Responder Roadmap records for transfer into the department's official record system.
+        Generated {formatDateTime(data.generatedAt)} · This sheet summarizes Responder Roadmap records for transfer into the department&apos;s official record system.
       </footer>
     </div>
   );
