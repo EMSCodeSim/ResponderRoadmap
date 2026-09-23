@@ -27,6 +27,19 @@ type Compliance = {
   expired: number;
 };
 
+type TrainingSheetBatch = {
+  id: string;
+  title: string;
+  assignedDate: string;
+  dueDate: string | null;
+  assignedByName: string;
+  assigned: number;
+  completed: number;
+  awaitingEvaluation: number;
+  incomplete: number;
+  reportReady: boolean;
+};
+
 function ReportsInner() {
   const search = useSearchParams();
   const report = search.get("type") || "progress";
@@ -36,11 +49,13 @@ function ReportsInner() {
   const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [recordId, setRecordId] = useState("");
   const [record, setRecord] = useState<{ memberName: string; timeline: Array<{ at: string; title: string; kind: string; detail: string }> } | null>(null);
+  const [trainingSheets, setTrainingSheets] = useState<TrainingSheetBatch[]>([]);
 
   useEffect(() => {
     api<ProgressRow[]>("reports/task-book-progress").then(setProgress);
     api<typeof certs>("reports/certifications").then(setCerts);
     api<Compliance>("reports/compliance").then(setCompliance);
+    api<TrainingSheetBatch[]>("reports/training-sheets").then(setTrainingSheets);
     api<{ members: Array<{ id: string; name: string }> }>("members").then((payload) => setMembers(payload.members));
   }, []);
 
@@ -80,6 +95,7 @@ function ReportsInner() {
           ["progress", "Task Book Progress"],
           ["certs", "Certification Status"],
           ["record", "Member Training Record"],
+          ["training-sheets", "RMS Training Sheets"],
           ["compliance", "Department Compliance"],
         ].map(([id, label]) => {
           const active = report === id;
@@ -190,6 +206,46 @@ function ReportsInner() {
               </ul>
             </Card>
           ) : null}
+        </div>
+      )}
+
+      {report === "training-sheets" && (
+        <div className="space-y-4">
+          <Card className="p-5">
+            <h2 className="display text-2xl font-bold">RMS Training Sheets</h2>
+            <p className="mt-1 max-w-3xl text-sm text-navy-600">
+              Each sheet groups members assigned to the same training at the same time. When the training window closes, use the completed list to enter the verified training into your department RMS or official record system.
+            </p>
+          </Card>
+          {trainingSheets.length === 0 ? (
+            <Card className="p-5"><p className="text-sm text-navy-500">No training assignments are available yet.</p></Card>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {trainingSheets.map((sheet) => (
+                <Card key={sheet.id} className="p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="display text-xl font-bold">{sheet.title}</h3>
+                      <p className="mt-1 text-sm text-navy-500">
+                        {formatDate(sheet.assignedDate)}{sheet.dueDate ? ` → ${formatDate(sheet.dueDate)}` : " · No end date"}
+                      </p>
+                    </div>
+                    <Badge tone={sheet.reportReady ? "current" : "warn"}>{sheet.reportReady ? "Sheet ready" : "Window open"}</Badge>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div><p className="text-2xl font-bold">{sheet.assigned}</p><p className="text-xs text-navy-500">Assigned</p></div>
+                    <div><p className="text-2xl font-bold text-success">{sheet.completed}</p><p className="text-xs text-navy-500">Ready for RMS</p></div>
+                    <div><p className="text-2xl font-bold text-danger">{sheet.incomplete}</p><p className="text-xs text-navy-500">Incomplete</p></div>
+                    <div><p className="text-2xl font-bold text-warn">{sheet.awaitingEvaluation}</p><p className="text-xs text-navy-500">Pending</p></div>
+                  </div>
+                  <p className="mt-3 text-xs text-navy-500">Assigned by {sheet.assignedByName}</p>
+                  <Link href={`/reports/training-sheet/${sheet.id}`} className="mt-4 inline-flex min-h-10 items-center rounded-md bg-fire px-4 text-sm font-semibold text-white hover:bg-fire-dark">
+                    Open Training Sheet
+                  </Link>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
