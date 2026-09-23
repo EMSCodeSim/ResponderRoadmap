@@ -15,10 +15,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.95,
     },
     {
-      url: "https://responderroadmap.com/firefighter-task-book-software",
+      url: "https://responderroadmap.com/digital-firefighter-task-books",
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.95,
+    },
+    {
+      url: "https://responderroadmap.com/training-captain-software",
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: "https://responderroadmap.com/fire-department-training-tracker",
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: "https://responderroadmap.com/probationary-firefighter-task-book",
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
     },
     {
       url: "https://responderroadmap.com/department-interest",
