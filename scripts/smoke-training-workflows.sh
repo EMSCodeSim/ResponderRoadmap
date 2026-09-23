@@ -14,13 +14,18 @@ check_status() {
 }
 echo 'QA: Training Officer dashboard and workspace reads'
 api -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}' | jq -e '.data.session.role == "TRAINING_OFFICER"' >/dev/null
-api "$BASE/api/v1/dashboard" | jq -e '(.data.summary.awaitingSignOff >= 0) and ((.data.taskBookProgress | type) == "array")' >/dev/null
+api "$BASE/api/v1/dashboard" | jq -e '(.data.summary.awaitingSignOff >= 0) and (.data.summary.activeAssignments >= 0) and ((.data.memberProgress | type) == "array") and ((.data.taskBookProgress | type) == "array")' >/dev/null
 api "$BASE/api/v1/evaluator-management" | jq -e '(.data | type) == "array"' >/dev/null
 api "$BASE/api/v1/single-assignments" | jq -e '((.data.templates | type) == "array") and ((.data.assignments | type) == "array")' >/dev/null
-# Old bookmarks redirect into the role-aware Home; manager-only data remains API-protected.
+# Old bookmarks redirect into the unified Home / Assignments / Task Book create paths.
 check_status 307 "$BASE/command-center"
-check_status 200 "$BASE/single-assignments"
+check_status 307 "$BASE/single-assignments"
+check_status 307 "$BASE/training-assignments"
+check_status 307 "$BASE/task-books/new"
+check_status 200 "$BASE/assignments"
+check_status 200 "$BASE/assignments/new"
 check_status 200 "$BASE/classes"
+api -X POST "$BASE/api/v1/ai/ask" -d '{"question":"Who needs my attention?","page":"/dashboard"}' | jq -e '.data.source == "facts" and ((.data.links | length) > 0)' >/dev/null
 SETUP=$(api "$BASE/api/v1/classes/setup")
 MEMBER=$(echo "$SETUP" | jq -r '.data.members[] | select(.role == "MEMBER") | .id' | head -n1)
 PROCTOR=$(echo "$SETUP" | jq -r '.data.proctors[0].userId')
