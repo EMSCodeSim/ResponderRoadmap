@@ -7,6 +7,15 @@ import { DEMO_DEPARTMENT_NAME, DEMO_MEMBERS } from "@/lib/demo-story";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
 
+const kicker = "text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40";
+const heading = "mt-3 max-w-3xl text-[1.85rem] font-semibold leading-tight tracking-tight text-white sm:text-[2.35rem]";
+const body = "mt-4 max-w-2xl text-[15px] leading-7 text-white/68";
+const card = "rounded-lg border border-white/[0.08] bg-[#121A2A]";
+const ctaPrimary =
+  "inline-flex min-h-11 items-center justify-center rounded-md bg-[#C8102E] px-5 text-sm font-semibold text-white transition hover:bg-[#9E0C24] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+const ctaGhost =
+  "inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-transparent px-5 text-sm font-semibold text-white/90 transition hover:bg-white/5";
+
 const capabilities = [
   { title: "Build", body: "Create department Task Books without fighting spreadsheets and documents.", extra: "Generate with AI" },
   { title: "Assign", body: "Assign Task Books or individual training Assignments to one member or an entire group." },
@@ -39,22 +48,21 @@ const faqs = [
   ["How do you count members?", "Active members — not the whole roster. Someone counts if they are assigned a Task Book or signed in during the last 90 days."],
 ];
 
+function glanceStatus(member: (typeof glance)[number]) {
+  if (member.status === "Awaiting Evaluation") return { label: `${member.awaitingEvaluation} awaiting evaluation`, tone: "text-[#C47A0A]" };
+  if (member.status === "Completed") return { label: "Completed", tone: "text-white/50" };
+  if (member.status === "Needs Attention") return { label: "Needs attention", tone: "text-[#C8102E]" };
+  return { label: member.status, tone: "text-white/60" };
+}
+
 function Ctas({ demoHref, centered = false }: { demoHref: string; centered?: boolean }) {
   return (
     <div className={`flex flex-col gap-3 sm:flex-row ${centered ? "sm:justify-center" : ""}`}>
-      <TrackedLink
-        href={demoHref}
-        event="homepage_demo_clicked"
-        className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#E11D48] px-6 py-3 text-center text-sm font-bold text-white shadow-lg shadow-rose-950/25 transition hover:bg-[#BE123C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-      >
+      <TrackedLink href={demoHref} event="homepage_demo_clicked" className={ctaPrimary}>
         {demoHref === "/demo" ? "See the 3-Minute Demo" : "Request a department demo"}
       </TrackedLink>
-      <TrackedLink
-        href="/register"
-        event="signup_clicked"
-        className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/30 bg-white/5 px-6 py-3 text-center text-sm font-bold text-white transition hover:bg-white/10"
-      >
-        Start Free <span className="ml-2 font-normal text-white/65">0–5 members</span>
+      <TrackedLink href="/register" event="signup_clicked" className={ctaGhost}>
+        Start Free <span className="ml-2 font-normal text-white/50">0–5 members</span>
       </TrackedLink>
     </div>
   );
@@ -64,176 +72,189 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
   const demoHref = demoAvailable ? "/demo" : "/department-interest?source=demo-unavailable";
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#0B1220] text-white">
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+      <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#0B1220]/92 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-3.5 sm:px-8">
           <Link href="/" aria-label="Responder Roadmap home">
-            <BrandLockup size={40} subtitle="Fire & EMS Training Progress" />
+            <BrandLockup size={36} subtitle="Fire & EMS Training Progress" />
           </Link>
-          <nav aria-label="Main navigation" className="order-3 flex w-full items-center justify-between gap-4 text-sm font-semibold text-white/70 sm:order-none sm:w-auto sm:gap-6">
+          <nav aria-label="Main navigation" className="hidden items-center gap-7 text-[13px] font-medium text-white/60 md:flex">
             <Link href={demoHref} className="hover:text-white">Demo</Link>
             <a href="#product" className="hover:text-white">Product</a>
             <Link href="/pricing" className="hover:text-white">Pricing</Link>
             <Link href="/login" className="hover:text-white">Sign in</Link>
           </nav>
-          <TrackedLink href={demoHref} event="homepage_demo_clicked" className="hidden min-h-10 items-center rounded-lg bg-[#E11D48] px-4 text-sm font-bold transition hover:bg-[#BE123C] lg:inline-flex">
-            See the 3-Minute Demo
-          </TrackedLink>
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="text-[13px] font-medium text-white/60 hover:text-white md:hidden">Sign in</Link>
+            <TrackedLink href={demoHref} event="homepage_demo_clicked" className={`${ctaPrimary} min-h-9 px-3.5 text-[13px]`}>
+              See the 3-Minute Demo
+            </TrackedLink>
+          </div>
         </div>
+        <nav aria-label="Page sections" className="flex items-center justify-between border-t border-white/[0.06] px-5 py-2 text-[13px] font-medium text-white/55 md:hidden sm:px-8">
+          <Link href={demoHref} className="hover:text-white">Demo</Link>
+          <a href="#product" className="hover:text-white">Product</a>
+          <Link href="/pricing" className="hover:text-white">Pricing</Link>
+        </nav>
       </header>
 
       <main>
-        <section className="relative isolate overflow-hidden">
-          <div aria-hidden="true" className="pointer-events-none absolute -right-40 -top-48 -z-10 h-[680px] w-[680px] rounded-full bg-[#E11D48]/[.075] blur-[110px]" />
-          <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-16 pt-14 sm:px-8 lg:grid-cols-[.82fr_1.18fr] lg:gap-10 lg:pb-24 lg:pt-20">
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[#FB7185]">Simple training progress for Fire & EMS</p>
-              <h1 className="mt-5 max-w-xl text-4xl font-extrabold leading-[1.07] tracking-[-.045em] sm:text-5xl lg:text-[3.35rem]">
-                Know exactly where your department stands.
-              </h1>
-              <p className="mt-6 max-w-xl text-base leading-8 text-white/70 sm:text-lg">
-                Create Task Books and Assignments, track every member’s progress, manage evaluations, and see what needs your attention — without turning training into another administrative burden.
-              </p>
-              <div className="mt-8"><Ctas demoHref={demoHref} /></div>
-              <p className="mt-4 text-sm text-white/50">Built specifically for Fire & EMS training. No account required for the demo.</p>
-              <p className="mt-2 text-sm text-white/45">A 12-person volunteer station is Station — $299/year. Same workflow as Free.</p>
-            </div>
-            <DashboardPreview href={demoHref} compact />
+        <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-14 lg:pb-20 lg:pt-16">
+          <div>
+            <p className={kicker}>Simple training progress for Fire & EMS</p>
+            <h1 className="mt-4 max-w-xl text-[2.35rem] font-semibold leading-[1.12] tracking-tight text-white sm:text-5xl">
+              Know exactly where your department stands.
+            </h1>
+            <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/68">
+              Create Task Books and Assignments, track every member’s progress, manage evaluations, and see what needs your attention — without turning training into another administrative burden.
+            </p>
+            <div className="mt-8"><Ctas demoHref={demoHref} /></div>
+            <p className="mt-5 text-[13px] leading-6 text-white/45">
+              Built specifically for Fire & EMS training. No account required for the demo.
+              <span className="mt-1 block">A 12-person volunteer station is Station — $299/year. Same workflow as Free.</span>
+            </p>
           </div>
+          <DashboardPreview href={demoHref} compact />
         </section>
 
-        <section className="border-y border-white/10 bg-[#101B2C]">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-12 gap-y-3 px-5 py-5 text-center text-sm font-semibold text-white/60 sm:justify-between sm:px-8">
+        <section className="border-y border-white/[0.08] bg-[#0E1624]">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-4 text-[13px] text-white/50 sm:flex-row sm:items-center sm:justify-between sm:px-8">
             <span>AI does the tedious work. Humans decide.</span>
+            <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
             <span>Start with five. Station is $299/year for 25.</span>
+            <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
             <span>Not a full LMS or RMS</span>
           </div>
         </section>
 
-        <section id="product" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">The work Responder Roadmap is for</p>
-          <h2 className="mt-4 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">Build. Assign. Evaluate. Track.</h2>
+        <section id="product" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+          <p className={kicker}>The work Responder Roadmap is for</p>
+          <h2 className={heading}>Build. Assign. Evaluate. Track.</h2>
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {capabilities.map((item) => (
-              <article key={item.title} className="rounded-2xl border border-white/10 bg-[#111D2F] p-6">
-                <h3 className="text-xl font-bold">{item.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-white/65">{item.body}</p>
-                {item.extra ? <p className="mt-4 text-xs font-bold uppercase tracking-widest text-[#FDA4AF]">{item.extra}</p> : null}
+            {capabilities.map((item, index) => (
+              <article key={item.title} className={`${card} p-6`}>
+                <span className="text-[11px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
+                <h3 className="mt-3 text-lg font-semibold">{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-white/60">{item.body}</p>
+                {item.extra ? <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">{item.extra}</p> : null}
               </article>
             ))}
           </div>
         </section>
 
-        <section className="border-y border-white/10 bg-[#101B2C]">
-          <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">Training Officer view</p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Your department at a glance.</h2>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-white/65">Progress visibility — not employee rankings or performance scores. Open a member and see the work, the percentage complete, and what is waiting.</p>
-            <div className="mt-8 grid gap-4 lg:grid-cols-3">
-              {glance.map((member) => (
-                <article key={member.id} className="rounded-2xl border border-white/10 bg-[#111D2F] p-6">
-                  <p className="text-lg font-bold">{member.name}</p>
-                  <p className="mt-1 text-sm text-white/60">{member.currentWork}</p>
-                  <p className="mt-4 text-3xl font-bold">{member.percent}% complete</p>
-                  <p className="mt-2 text-sm font-semibold text-[#FDA4AF]">
-                    {member.status === "Awaiting Evaluation"
-                      ? `${member.awaitingEvaluation} awaiting evaluation`
-                      : member.status === "Completed"
-                        ? "Completed"
-                        : member.status}
-                  </p>
-                </article>
-              ))}
+        <section className="border-y border-white/[0.08] bg-[#0E1624]">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+            <p className={kicker}>Training Officer view</p>
+            <h2 className={heading}>Your department at a glance.</h2>
+            <p className={body}>Progress visibility — not employee rankings or performance scores. Open a member and see the work, the percentage complete, and what is waiting.</p>
+            <div className="mt-10 grid gap-4 lg:grid-cols-3">
+              {glance.map((member) => {
+                const status = glanceStatus(member);
+                return (
+                  <article key={member.id} className={`${card} p-6`}>
+                    <p className="text-base font-semibold">{member.name}</p>
+                    <p className="mt-1 text-sm text-white/50">{member.currentWork}</p>
+                    <div className="mt-5 h-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+                      <div className="h-full bg-[#C8102E]" style={{ width: `${member.percent}%` }} />
+                    </div>
+                    <p className="mt-3 text-2xl font-semibold tabular-nums">{member.percent}% <span className="text-sm font-medium text-white/40">complete</span></p>
+                    <p className={`mt-2 text-sm font-medium ${status.tone}`}>{status.label}</p>
+                  </article>
+                );
+              })}
             </div>
-            <TrackedLink href={demoHref} event="homepage_demo_clicked" className="mt-8 inline-flex min-h-11 items-center text-sm font-bold text-[#FDA4AF] underline underline-offset-4">
+            <TrackedLink href={demoHref} event="homepage_demo_clicked" className="mt-8 inline-flex min-h-10 items-center text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">
               See It in the Demo →
             </TrackedLink>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">Responder AI</p>
-          <h2 className="mt-4 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">AI that removes work — not control.</h2>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-white/65">
+        <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+          <p className={kicker}>Responder AI</p>
+          <h2 className={heading}>AI that removes work — not control.</h2>
+          <p className="mt-4 max-w-3xl text-[15px] leading-7 text-white/68">
             Responder AI helps Training Officers build Task Books, create Assignments, write requirements, draft evaluation criteria, summarize department progress, identify pending work, and answer how-to questions. You review it. You edit it. You approve it.
           </p>
-          <div className="mt-10 grid gap-5 lg:grid-cols-2">
-            <article className="rounded-2xl border border-white/10 bg-[#111D2F] p-6">
-              <p className="text-xs font-bold uppercase tracking-widest text-[#FDA4AF]">Task Book draft</p>
-              <p className="mt-4 text-sm leading-7 text-white/70"><span className="font-semibold text-white">Training Officer:</span> “Create a probationary firefighter Task Book covering SCBA, hose deployment, ladders, forcible entry, apparatus checks, and radio operations.”</p>
-              <p className="mt-4 text-sm leading-7 text-white/70"><span className="font-semibold text-white">Responder AI:</span> Generates the initial Task Book structure and requirements.</p>
-              <p className="mt-5 rounded-lg border border-[#E11D48]/30 bg-[#E11D48]/10 px-4 py-3 text-sm text-white/85">AI never replaces required human evaluation or final approval.</p>
+          <div className="mt-10 grid gap-4 lg:grid-cols-2">
+            <article className={`${card} p-6`}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Task Book draft</p>
+              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Training Officer:</span> “Create a probationary firefighter Task Book covering SCBA, hose deployment, ladders, forcible entry, apparatus checks, and radio operations.”</p>
+              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Responder AI:</span> Generates the initial Task Book structure and requirements.</p>
+              <p className="mt-5 border-l-2 border-[#C8102E] pl-4 text-sm leading-6 text-white/70">AI never replaces required human evaluation or final approval.</p>
             </article>
-            <article className="rounded-2xl border border-white/10 bg-[#111D2F] p-6">
-              <p className="text-xs font-bold uppercase tracking-widest text-[#FDA4AF]">Support desk + department assistant</p>
-              <p className="mt-4 text-sm leading-7 text-white/70"><span className="font-semibold text-white">Training Officer:</span> “Why is Smith’s Task Book still at 80%?”</p>
-              <p className="mt-4 text-sm leading-7 text-white/70"><span className="font-semibold text-white">Responder AI:</span> “Smith has 20 requirements. 16 are approved, 2 are awaiting evaluator approval, and 2 remain incomplete.”</p>
-              <p className="mt-5 text-sm text-white/55">Ask how to use Responder Roadmap, or what needs attention in the department.</p>
+            <article className={`${card} p-6`}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Support desk + department assistant</p>
+              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Training Officer:</span> “Why is Smith’s Task Book still at 80%?”</p>
+              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Responder AI:</span> “Smith has 20 requirements. 16 are approved, 2 are awaiting evaluator approval, and 2 remain incomplete.”</p>
+              <p className="mt-5 text-sm text-white/45">Ask how to use Responder Roadmap, or what needs attention in the department.</p>
             </article>
           </div>
         </section>
 
-        <section id="how-it-works" className="border-y border-white/10 bg-[#101B2C]">
-          <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">The workflow</p>
-            <h2 className="mt-4 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">Create → Assign → Complete → Evaluate → Approve → Track</h2>
-            <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <section id="how-it-works" className="border-y border-white/[0.08] bg-[#0E1624]">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+            <p className={kicker}>The workflow</p>
+            <h2 className={heading}>Create → Assign → Complete → Evaluate → Approve → Track</h2>
+            <ol className="mt-10 grid gap-px overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.08] sm:grid-cols-2 lg:grid-cols-6">
               {workflow.map((item, index) => (
-                <article key={item.title} className="rounded-2xl border border-white/10 bg-[#111D2F] p-5">
-                  <span className="text-sm font-bold tracking-widest text-[#FB7185]">0{index + 1}</span>
-                  <h3 className="mt-4 text-lg font-bold">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-white/60">{item.body}</p>
-                </article>
+                <li key={item.title} className="bg-[#121A2A] p-5">
+                  <span className="text-[11px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
+                  <h3 className="mt-3 text-base font-semibold">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-white/50">{item.body}</p>
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">Focused on purpose</p>
-          <h2 className="mt-4 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">Works alongside the systems you already use.</h2>
-          <p className="mt-5 max-w-3xl leading-8 text-white/65">
+        <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+          <p className={kicker}>Focused on purpose</p>
+          <h2 className={heading}>Works alongside the systems you already use.</h2>
+          <p className="mt-5 max-w-3xl text-[15px] leading-7 text-white/68">
             Responder Roadmap focuses on the part that’s difficult to manage: development progress. Departments can keep existing training-record systems for permanent records while using Responder Roadmap to manage Task Books, Assignments, evaluations, and member progress.
           </p>
         </section>
 
-        <section id="pricing" className="border-y border-white/10 bg-[#101B2C]">
-          <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
+        <section id="pricing" className="border-y border-white/[0.08] bg-[#0E1624]">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
             <PricingTiers />
-            <div className="mt-8"><Ctas demoHref={demoHref} /></div>
-            <p className="mt-5 text-sm leading-6 text-white/50">Municipal purchasing — quotes, invoices, W-9s, and purchase orders — goes through Department / Agency contact.</p>
+            <div className="mt-10"><Ctas demoHref={demoHref} /></div>
+            <p className="mt-5 text-[13px] leading-6 text-white/40">Municipal purchasing — quotes, invoices, W-9s, and purchase orders — goes through Department / Agency contact.</p>
           </div>
         </section>
 
-        <section className="mx-auto max-w-5xl px-5 py-20 sm:px-8 lg:py-24">
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">Questions</p>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Answers before you start.</h2>
-          <div className="mt-9 divide-y divide-white/10 border-y border-white/10">
+        <section className="mx-auto max-w-3xl px-5 py-16 sm:px-8 lg:py-20">
+          <p className={kicker}>Questions</p>
+          <h2 className={heading}>Answers before you start.</h2>
+          <div className="mt-8 divide-y divide-white/[0.08] border-y border-white/[0.08]">
             {faqs.map(([question, answer]) => (
-              <details key={question} className="group py-5">
-                <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold">{question}<span aria-hidden="true" className="text-[#FB7185]">+</span></summary>
-                <p className="mt-3 max-w-3xl text-sm leading-7 text-white/65">{answer}</p>
+              <details key={question} className="group py-4">
+                <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium text-white/90">
+                  {question}
+                  <span aria-hidden="true" className="text-white/30 group-open:rotate-45">+</span>
+                </summary>
+                <p className="mt-2 max-w-2xl pb-1 text-sm leading-7 text-white/55">{answer}</p>
               </details>
             ))}
           </div>
         </section>
 
-        <section className="border-t border-white/10 bg-[#101B2C] px-5 py-20 text-center sm:py-24">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#FB7185]">See it in three minutes</p>
-          <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">Stop chasing training progress.</h2>
-          <p className="mx-auto mb-8 mt-4 max-w-2xl leading-7 text-white/65">See how Responder Roadmap gives your Training Officer one place to manage Task Books, Assignments, Evaluations, and Member Progress.</p>
+        <section className="border-t border-white/[0.08] bg-[#0E1624] px-5 py-16 text-center sm:py-20">
+          <p className={kicker}>See it in three minutes</p>
+          <h2 className="mx-auto mt-3 max-w-2xl text-[1.85rem] font-semibold tracking-tight sm:text-[2.35rem]">Stop chasing training progress.</h2>
+          <p className="mx-auto mb-8 mt-4 max-w-xl text-[15px] leading-7 text-white/60">See how Responder Roadmap gives your Training Officer one place to manage Task Books, Assignments, Evaluations, and Member Progress.</p>
           <Ctas demoHref={demoHref} centered />
-          <p className="mt-5 text-sm text-white/45">Already invited? <Link href="/login" className="font-semibold text-white underline underline-offset-4">Sign in</Link></p>
+          <p className="mt-6 text-sm text-white/40">Already invited? <Link href="/login" className="font-medium text-white/70 underline underline-offset-4 hover:text-white">Sign in</Link></p>
         </section>
       </main>
 
-      <footer className="border-t border-white/10">
-        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 px-5 py-8 text-sm text-white/50 sm:px-8 md:flex-row">
+      <footer className="border-t border-white/[0.08]">
+        <div className="mx-auto flex max-w-6xl flex-col justify-between gap-6 px-5 py-8 text-[13px] text-white/40 sm:px-8 md:flex-row md:items-end">
           <div>
-            <p className="font-bold text-white/80">Responder Roadmap · {DEMO_DEPARTMENT_NAME} is a fictional demo</p>
-            <p className="mt-1">Fire · EMS · Training Division</p>
+            <p className="font-medium text-white/70">Responder Roadmap</p>
+            <p className="mt-1">{DEMO_DEPARTMENT_NAME} is a fictional demo · Fire · EMS · Training Division</p>
             <p className="mt-3 text-xs">Simple training progress management — with AI doing the tedious work.</p>
           </div>
-          <div className="flex flex-wrap gap-5">
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
             <Link href="/login" className="hover:text-white">Sign in</Link>
             <Link href={demoHref} className="hover:text-white">Demo</Link>
             <Link href="/pricing" className="hover:text-white">Pricing</Link>
