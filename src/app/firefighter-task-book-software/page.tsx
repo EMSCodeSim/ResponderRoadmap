@@ -39,7 +39,7 @@ export default function FirefighterTaskBookSoftwarePage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4">
           <Link href="/"><BrandLockup size={44} subtitle="Fire & EMS Training Management" /></Link>
           <div className="flex items-center gap-2">
-            <Link href="/demo" className="rounded-md bg-fire px-4 py-2 text-sm font-semibold hover:bg-fire-dark">See Department Demo</Link>
+            <Link href="/demo" className="rounded-md bg-fire px-4 py-2 text-sm font-semibold hover:bg-fire-dark">See the 3-Minute Demo</Link>
             <Link href="/login" className="rounded-md px-3 py-2 text-sm font-semibold text-white/75 hover:bg-white/10">Sign In</Link>
           </div>
         </div>
@@ -53,7 +53,7 @@ export default function FirefighterTaskBookSoftwarePage() {
             Replace paper packets, scattered PDFs, and sign-off spreadsheets with one fire and EMS workflow. Build the Task Book, assign it, let members request evaluation, route the skill to the right evaluator, and keep the final approval as part of the department training record.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/demo" className="inline-flex min-h-11 items-center rounded-md bg-fire px-5 text-sm font-bold hover:bg-fire-dark">See the Department Demo</Link>
+            <Link href="/demo" className="inline-flex min-h-11 items-center rounded-md bg-fire px-5 text-sm font-bold hover:bg-fire-dark">See the 3-Minute Demo</Link>
             <Link href="/department-interest?source=task-book-seo" className="inline-flex min-h-11 items-center rounded-md border border-white/20 px-5 text-sm font-semibold hover:bg-white/10">Talk About Your Department</Link>
           </div>
         </section>

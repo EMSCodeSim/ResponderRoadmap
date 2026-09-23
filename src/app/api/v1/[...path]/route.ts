@@ -5,6 +5,7 @@ import * as auth from "@/server/services/auth";
 import { withDemoDatabase } from "@/server/db";
 import { demoPrisma } from "@/server/demo-db";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
+import { recordPublicMarketingEvent } from "@/server/services/public-events";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,6 +43,16 @@ async function dispatch(req: Request, params: Promise<{ path: string[] }>) {
 
   if (req.method === "POST" && route === "auth/demo-login") {
     return withCors(await withDemoDatabase(() => demoLogin(req)));
+  }
+
+  if (req.method === "POST" && route === "public/events") {
+    const body = await req.json().catch(() => ({}));
+    const result = recordPublicMarketingEvent({
+      event: (body as { event?: unknown }).event,
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous",
+    });
+    if (!result.ok) return withCors(Response.json({ error: result.error }, { status: result.status }));
+    return withCors(new Response(null, { status: 204 }));
   }
 
   // A scanned class QR link is anonymous: there is no demo session cookie to

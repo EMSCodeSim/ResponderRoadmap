@@ -2,6 +2,7 @@ name: Apply homepage positioning
 
 on:
   push:
+    branches: [main]
     paths:
       - "scripts/reposition-homepage.py"
       - ".github/workflows/apply-homepage-positioning.yml"
