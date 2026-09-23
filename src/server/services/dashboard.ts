@@ -1,6 +1,6 @@
 import { prisma } from "@/server/db";
 import { assertPermission, type AuthContext } from "@/server/permissions";
-import { computeAssignmentProgress, daysStalled } from "@/lib/progress";
+import { computeAssignmentProgress, daysStalled, requirementIsComplete } from "@/lib/progress";
 import { memberOperationalStatus } from "@/lib/member-status";
 import { assignmentRecordPath, memberProgressPath } from "@/lib/routes";
 import { credentialStatus } from "@/lib/dates";
@@ -188,7 +188,7 @@ export async function getDashboard(ctx: AuthContext) {
   const memberProgressMap = new Map<string, {
     id: string;
     name: string;
-    currentWork: string;
+    currentWork: string[];
     percent: number;
     complete: number;
     totalRequired: number;
@@ -196,56 +196,133 @@ export async function getDashboard(ctx: AuthContext) {
     overdue: number;
     lastActivity: Date | null;
     dueDate: Date | null;
+    activeAssignments: number;
+    nextRequirement: string | null;
+    nextAssignmentId: string | null;
+    maxStalledDays: number;
     assignments: Array<{ status: string; pendingApproval: number; overdue: number; percent: number; stalledDays: number }>;
   }>();
+
+  // Seed every active department member so the Training Captain can see the
+  // entire roster, including people who do not currently have training assigned.
+  for (const member of members) {
+    memberProgressMap.set(member.id, {
+      id: member.id,
+      name: member.user.name,
+      currentWork: [],
+      percent: 0,
+      complete: 0,
+      totalRequired: 0,
+      pendingApproval: 0,
+      overdue: 0,
+      lastActivity: null,
+      dueDate: null,
+      activeAssignments: 0,
+      nextRequirement: null,
+      nextAssignmentId: null,
+      maxStalledDays: 0,
+      assignments: [],
+    });
+  }
+
   for (const row of assignmentRows) {
     const memberId = row.assignment.membershipId;
     const stalledDays = daysStalled({ updatedAt: row.assignment.updatedAt, assignedDate: row.assignment.assignedDate });
     const existing = memberProgressMap.get(memberId);
-    const work = `${row.assignment.version.template.title} (${row.progress.percent}%)`;
-    if (!existing) {
-      memberProgressMap.set(memberId, {
-        id: memberId,
-        name: row.assignment.membership.user.name,
-        currentWork: work,
-        percent: row.progress.percent,
-        complete: row.progress.complete,
-        totalRequired: row.progress.totalRequired,
-        pendingApproval: row.progress.pendingApproval,
-        overdue: row.progress.overdue,
-        lastActivity: row.assignment.updatedAt,
-        dueDate: row.assignment.dueDate,
-        assignments: [{ status: row.progress.status, pendingApproval: row.progress.pendingApproval, overdue: row.progress.overdue, percent: row.progress.percent, stalledDays }],
-      });
-    } else {
-      existing.currentWork = `${existing.currentWork}; ${work}`;
+    if (!existing) continue;
+
+    const active = row.progress.status !== "COMPLETE";
+    if (active) {
+      existing.currentWork.push(`${row.assignment.version.template.title} (${row.progress.percent}%)`);
+      existing.activeAssignments += 1;
       existing.complete += row.progress.complete;
       existing.totalRequired += row.progress.totalRequired;
       existing.pendingApproval += row.progress.pendingApproval;
       existing.overdue += row.progress.overdue;
-      existing.percent = existing.totalRequired ? Math.round((existing.complete / existing.totalRequired) * 100) : 0;
-      if (row.assignment.updatedAt && (!existing.lastActivity || row.assignment.updatedAt > existing.lastActivity)) {
-        existing.lastActivity = row.assignment.updatedAt;
+      existing.maxStalledDays = Math.max(existing.maxStalledDays, stalledDays);
+
+      if (!existing.nextRequirement && row.progress.pendingApproval === 0) {
+        const completionByRequirement = new Map(row.assignment.completions.map((item) => [item.requirementId, item]));
+        const next = row.assignment.version.sections
+          .flatMap((section) => section.requirements)
+          .find((requirement) => requirement.isRequired && !requirementIsComplete(requirement, completionByRequirement.get(requirement.id)));
+        if (next) {
+          existing.nextRequirement = next.title;
+          existing.nextAssignmentId = row.assignment.id;
+        }
       }
+
       if (row.assignment.dueDate && (!existing.dueDate || row.assignment.dueDate < existing.dueDate)) {
         existing.dueDate = row.assignment.dueDate;
       }
-      existing.assignments.push({ status: row.progress.status, pendingApproval: row.progress.pendingApproval, overdue: row.progress.overdue, percent: row.progress.percent, stalledDays });
     }
+
+    if (row.assignment.updatedAt && (!existing.lastActivity || row.assignment.updatedAt > existing.lastActivity)) {
+      existing.lastActivity = row.assignment.updatedAt;
+    }
+    existing.assignments.push({
+      status: row.progress.status,
+      pendingApproval: row.progress.pendingApproval,
+      overdue: row.progress.overdue,
+      percent: row.progress.percent,
+      stalledDays,
+    });
   }
+
   const memberProgress = [...memberProgressMap.values()]
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      currentWork: row.currentWork,
-      percent: row.percent,
-      lastActivity: row.lastActivity,
-      dueDate: row.dueDate,
-      status: memberOperationalStatus(row.assignments),
-      href: memberProgressPath(row.id),
-    }))
+    .map((row) => {
+      const status = memberOperationalStatus(row.assignments);
+      const percent = row.activeAssignments > 0 && row.totalRequired
+        ? Math.round((row.complete / row.totalRequired) * 100)
+        : row.assignments.length > 0 && row.assignments.every((item) => item.status === "COMPLETE")
+          ? 100
+          : 0;
+      const attentionReason =
+        row.pendingApproval > 0
+          ? `${row.pendingApproval} awaiting evaluation`
+          : row.overdue > 0
+            ? `${row.overdue} overdue requirement${row.overdue === 1 ? "" : "s"}`
+            : row.activeAssignments > 0 && row.maxStalledDays >= 14
+              ? `No recorded activity for ${row.maxStalledDays} days`
+              : row.activeAssignments === 0
+                ? "No active work"
+                : "On track";
+      const nextAction =
+        row.pendingApproval > 0
+          ? { label: "Review evaluation", href: "/evaluate" }
+          : row.overdue > 0
+            ? { label: "Open overdue work", href: memberProgressPath(row.id) }
+            : row.activeAssignments > 0 && row.maxStalledDays >= 14
+              ? { label: "Follow up", href: memberProgressPath(row.id) }
+              : row.activeAssignments === 0
+                ? { label: "Assign training", href: createAssignmentPath() }
+                : row.nextRequirement && row.nextAssignmentId
+                  ? { label: "Open next requirement", href: assignmentRecordPath(row.nextAssignmentId) }
+                  : { label: "View member", href: memberProgressPath(row.id) };
+
+      return {
+        id: row.id,
+        name: row.name,
+        currentWork: row.currentWork.length ? row.currentWork.join("; ") : "No active Task Books or Assignments",
+        percent,
+        lastActivity: row.lastActivity,
+        dueDate: row.dueDate,
+        status,
+        activeAssignments: row.activeAssignments,
+        pendingApproval: row.pendingApproval,
+        overdue: row.overdue,
+        stalledDays: row.maxStalledDays,
+        nextRequirement: row.nextRequirement,
+        attentionReason,
+        nextActionLabel: nextAction.label,
+        nextActionHref: nextAction.href,
+        href: memberProgressPath(row.id),
+      };
+    })
     .sort((a, b) => {
       const rank = { "Needs Attention": 0, "Awaiting Evaluation": 1, "On Track": 2, Completed: 3 };
+      if (a.activeAssignments === 0 && b.activeAssignments > 0) return 1;
+      if (b.activeAssignments === 0 && a.activeAssignments > 0) return -1;
       return (rank[a.status] ?? 4) - (rank[b.status] ?? 4) || a.name.localeCompare(b.name);
     });
 
