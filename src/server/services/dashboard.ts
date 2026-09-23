@@ -2,7 +2,7 @@ import { prisma } from "@/server/db";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress, daysStalled, requirementIsComplete } from "@/lib/progress";
 import { memberOperationalStatus } from "@/lib/member-status";
-import { assignmentRecordPath, memberProgressPath } from "@/lib/routes";
+import { assignmentRecordPath, createAssignmentPath, memberProgressPath } from "@/lib/routes";
 import { credentialStatus } from "@/lib/dates";
 import { parseMetadata as parseMeta } from "@/server/http";
 
