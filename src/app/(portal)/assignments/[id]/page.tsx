@@ -104,6 +104,7 @@ export default function AssignmentRecordPage() {
       actions={<>
         <Link href={`/members/${data.memberId}?tab=task-books`}><Button variant="secondary">Member profile</Button></Link>
         {data.pendingApproval > 0 ? <Link href="/evaluate"><Button variant="secondary">Review queue</Button></Link> : null}
+        {data.assignmentKind === "TRAINING_TASK" ? <Link href={`/reports/training-sheet/${data.id}`}><Button variant="secondary">RMS Training Sheet</Button></Link> : null}
         <Link href={`/assignments/${data.id}/print`}><Button>Print / PDF record</Button></Link>
       </>}
     />
