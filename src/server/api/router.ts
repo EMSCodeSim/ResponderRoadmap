@@ -366,6 +366,11 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && match(path, "reports/certifications")) {
       return jsonOk(await reports.certificationReport(ctx, q));
     }
+    if (method === "GET" && match(path, "reports/training-sheets")) {
+      return jsonOk(await reports.listTrainingSheetBatches(ctx));
+    }
+    const trainingSheet = match(path, "reports/training-sheet/:id");
+    if (method === "GET" && trainingSheet) return jsonOk(await reports.trainingSheetReport(ctx, trainingSheet.id));
     const training = match(path, "reports/training-record/:id");
     if (method === "GET" && training) return jsonOk(await reports.memberTrainingRecord(ctx, training.id));
     if (method === "GET" && match(path, "reports/compliance")) return jsonOk(await reports.complianceSnapshot(ctx));
