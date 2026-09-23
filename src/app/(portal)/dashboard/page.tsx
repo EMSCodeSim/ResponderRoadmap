@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { activityText } from "@/lib/activity";
-import { Badge, Button, Card, PageHeader, ProgressBar } from "@/components/ui";
+import { Badge, Button, Card, Input, PageHeader, ProgressBar, Select } from "@/components/ui";
 import { ManagementDashboard } from "@/components/ManagementDashboard";
 import { isManagementRole } from "@/lib/command-center";
 import { relativeTime } from "@/lib/dates";
@@ -69,6 +69,14 @@ type Dashboard = {
     lastActivity: string | null;
     dueDate: string | null;
     status: OperationalStatus;
+    activeAssignments: number;
+    pendingApproval: number;
+    overdue: number;
+    stalledDays: number;
+    nextRequirement: string | null;
+    attentionReason: string;
+    nextActionLabel: string;
+    nextActionHref: string;
     href: string;
   }>;
   work?: {
@@ -237,17 +245,47 @@ function WorkSection({ title, empty, items }: { title: string; empty: string; it
 }
 
 function MemberProgressTable({ rows }: { rows: NonNullable<Dashboard["memberProgress"]> }) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "attention" | "evaluation" | "track" | "unassigned">("all");
+  const normalized = query.trim().toLowerCase();
+  const filtered = rows.filter((row) => {
+    if (normalized && !`${row.name} ${row.currentWork} ${row.nextRequirement || ""}`.toLowerCase().includes(normalized)) return false;
+    if (filter === "attention") return row.status === "Needs Attention";
+    if (filter === "evaluation") return row.status === "Awaiting Evaluation";
+    if (filter === "track") return row.status === "On Track" && row.activeAssignments > 0;
+    if (filter === "unassigned") return row.activeAssignments === 0;
+    return true;
+  });
+
   return (
     <Card className="mt-6 p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="kicker">Operational awareness</div>
-          <h2 className="display mt-1 text-2xl font-bold">Member Progress</h2>
+          <div className="kicker">Training Captain view</div>
+          <h2 className="display mt-1 text-2xl font-bold">All Members</h2>
+          <p className="mt-1 text-sm text-navy-500">See what everyone is working on, what needs attention, and the next useful action.</p>
         </div>
         <Link href="/members" className="text-sm font-semibold text-fire underline">Open Members</Link>
       </div>
-      {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-navy-500">No assigned Task Books or Assignments yet.</p>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-[1fr_220px]">
+        <Input
+          aria-label="Search members or current work"
+          placeholder="Search member, Task Book, Assignment, or next requirement"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <Select aria-label="Filter member progress" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}>
+          <option value="all">All members ({rows.length})</option>
+          <option value="attention">Needs attention</option>
+          <option value="evaluation">Awaiting evaluation</option>
+          <option value="track">On track</option>
+          <option value="unassigned">No active work</option>
+        </Select>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="mt-4 text-sm text-navy-500">No members match this view.</p>
       ) : (
         <>
           <div className="mt-4 hidden md:block">
@@ -256,39 +294,63 @@ function MemberProgressTable({ rows }: { rows: NonNullable<Dashboard["memberProg
                 <thead>
                   <tr>
                     <th>Member</th>
-                    <th>Current Work</th>
+                    <th>Working on</th>
                     <th>Progress</th>
-                    <th>Last Activity</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
+                    <th>Needs attention</th>
+                    <th>Next step</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id} className="clickable" onClick={() => (window.location.href = row.href)}>
-                      <td className="font-semibold">{row.name}</td>
-                      <td className="max-w-xs truncate">{row.currentWork}</td>
-                      <td><ProgressBar value={row.percent} /></td>
-                      <td>{relativeTime(row.lastActivity)}</td>
-                      <td>{row.dueDate ? new Date(row.dueDate).toLocaleDateString() : "—"}</td>
-                      <td><Badge tone={operationalStatusTone(row.status)}>{row.status}</Badge></td>
+                  {filtered.map((row) => (
+                    <tr key={row.id}>
+                      <td>
+                        <Link href={row.href} className="font-semibold text-navy-950 hover:text-fire hover:underline">{row.name}</Link>
+                        <div className="mt-1"><Badge tone={operationalStatusTone(row.status)}>{row.activeAssignments === 0 ? "No Active Work" : row.status}</Badge></div>
+                      </td>
+                      <td className="max-w-sm">
+                        <div className="font-medium text-navy-800">{row.currentWork}</div>
+                        {row.nextRequirement ? <div className="mt-1 text-xs text-navy-500">Next incomplete: {row.nextRequirement}</div> : null}
+                      </td>
+                      <td>
+                        {row.activeAssignments > 0 ? <ProgressBar value={row.percent} /> : <span className="text-sm text-navy-400">—</span>}
+                        {row.activeAssignments > 0 ? <div className="mt-1 text-xs text-navy-500">{row.percent}% approved</div> : null}
+                      </td>
+                      <td>
+                        <div className="text-sm font-semibold text-navy-800">{row.attentionReason}</div>
+                        <div className="mt-1 text-xs text-navy-500">
+                          {row.lastActivity ? relativeTime(row.lastActivity) : "No recorded activity"}
+                          {row.dueDate ? ` · Due ${new Date(row.dueDate).toLocaleDateString()}` : ""}
+                        </div>
+                      </td>
+                      <td>
+                        <Link href={row.nextActionHref} className="inline-flex min-h-10 items-center rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-fire hover:border-fire">
+                          {row.nextActionLabel}
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
+
           <ul className="mt-4 grid gap-3 md:hidden">
-            {rows.map((row) => (
-              <li key={row.id}>
-                <Link href={row.href} className="block rounded-md border border-navy-200 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="font-semibold">{row.name}</div>
-                    <Badge tone={operationalStatusTone(row.status)}>{row.status}</Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-navy-600">{row.currentWork}</p>
-                  <div className="mt-3"><ProgressBar value={row.percent} /></div>
-                  <p className="mt-2 text-xs text-navy-500">{relativeTime(row.lastActivity)}{row.dueDate ? ` · Due ${new Date(row.dueDate).toLocaleDateString()}` : ""}</p>
+            {filtered.map((row) => (
+              <li key={row.id} className="rounded-md border border-navy-200 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <Link href={row.href} className="font-semibold text-navy-950 hover:text-fire hover:underline">{row.name}</Link>
+                  <Badge tone={operationalStatusTone(row.status)}>{row.activeAssignments === 0 ? "No Active Work" : row.status}</Badge>
+                </div>
+                <p className="mt-2 text-sm font-medium text-navy-700">{row.currentWork}</p>
+                {row.activeAssignments > 0 ? <div className="mt-3"><ProgressBar value={row.percent} /></div> : null}
+                {row.nextRequirement ? <p className="mt-2 text-xs text-navy-500">Next incomplete: {row.nextRequirement}</p> : null}
+                <div className="mt-3 rounded-md bg-navy-50 p-3">
+                  <div className="text-xs font-bold uppercase tracking-wide text-navy-500">Needs attention</div>
+                  <div className="mt-1 text-sm font-semibold text-navy-800">{row.attentionReason}</div>
+                  <div className="mt-1 text-xs text-navy-500">{row.lastActivity ? relativeTime(row.lastActivity) : "No recorded activity"}{row.dueDate ? ` · Due ${new Date(row.dueDate).toLocaleDateString()}` : ""}</div>
+                </div>
+                <Link href={row.nextActionHref} className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-fire">
+                  {row.nextActionLabel}
                 </Link>
               </li>
             ))}
