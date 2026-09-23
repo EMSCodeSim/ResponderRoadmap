@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AI_FORBIDDEN_ACTIONS, AI_UNAVAILABLE_MESSAGE, isAiMutationRequest } from "./ai-safety";
-import { navItemsForRole } from "@/server/permissions";
+import { canOpenAssignmentRecord, navItemsForRole } from "@/server/permissions";
 
 describe("Responder AI safety", () => {
   it("refuses official mutations and subjective scoring requests", () => {
@@ -17,5 +17,12 @@ describe("Responder AI safety", () => {
     expect(navItemsForRole("TRAINING_OFFICER")).toContain("members");
     expect(navItemsForRole("TRAINING_OFFICER")).toContain("task-books");
     expect(navItemsForRole("DEPARTMENT_ADMINISTRATOR")).toContain("department");
+  });
+
+  it("lets authorized evaluators open assignment records without granting assignment writes", () => {
+    expect(canOpenAssignmentRecord("EVALUATOR")).toBe(true);
+    expect(canOpenAssignmentRecord("MEMBER")).toBe(true);
+    expect(canOpenAssignmentRecord("INSTRUCTOR")).toBe(false);
+    expect(canOpenAssignmentRecord("TRAINING_OFFICER")).toBe(true);
   });
 });

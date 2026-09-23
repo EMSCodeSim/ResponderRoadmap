@@ -98,6 +98,11 @@ export function hasPermission(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
 }
 
+/** Open Record is available to assigned members, evaluators, and training leadership. */
+export function canOpenAssignmentRecord(role: Role): boolean {
+  return hasPermission(role, "assignments.read") || hasPermission(role, "signoff.review");
+}
+
 export function assertPermission(ctx: AuthContext, permission: Permission): void {
   if (!hasPermission(ctx.role, permission)) {
     const error = new Error("You do not have permission to perform this action.");
