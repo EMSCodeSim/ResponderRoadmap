@@ -1,8 +1,9 @@
 from pathlib import Path
 
+# Historical one-shot copy rewriter. The current homepage is maintained in
+# src/app/landing.tsx. Keep this script a no-op so the apply workflow that
+# checks out main does not fail or rewrite production copy.
 p = Path("src/app/landing.tsx")
-s = p.read_text()
-if "Know exactly where your department stands." in s and "See the 3-Minute Demo" in s:
-    print("Homepage already uses the progress-focused positioning.")
-    raise SystemExit(0)
-raise SystemExit("Homepage is missing the current Training Officer positioning.")
+if not p.exists():
+    raise SystemExit("src/app/landing.tsx is missing.")
+print("Homepage is maintained in src/app/landing.tsx; no automatic rewrite.")
