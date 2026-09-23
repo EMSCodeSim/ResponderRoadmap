@@ -39,6 +39,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: "https://responderroadmap.com/pricing",
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
       url: "https://responderroadmap.com/department-interest",
       lastModified: new Date(),
       changeFrequency: "monthly",

@@ -2,7 +2,21 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/constants";
 import { verifySessionToken } from "@/server/session";
 
-const PUBLIC = ["/login", "/register", "/join", "/invite", "/department-interest", "/demo", "/class-join"];
+const PUBLIC = [
+  "/login",
+  "/register",
+  "/join",
+  "/invite",
+  "/department-interest",
+  "/demo",
+  "/class-join",
+  "/pricing",
+  "/digital-firefighter-task-books",
+  "/training-captain-software",
+  "/fire-department-training-tracker",
+  "/probationary-firefighter-task-book",
+  "/firefighter-task-book-software",
+];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

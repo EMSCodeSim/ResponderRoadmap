@@ -134,7 +134,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <label className="block"><span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.12em] text-white/50">View as</span>
                 <select value={demoWalk} disabled={demoSwitching} onChange={(event) => void switchDemoPerspective(event.target.value as DemoWalkKey)} className="min-h-10 w-full rounded-md border border-white/15 bg-navy-800 px-3 text-sm font-semibold text-white outline-none disabled:opacity-60"><option value="to">Training Officer</option><option value="member">Firefighter</option><option value="evaluator">Evaluator</option></select>
               </label>
-              <Link href="/department-interest?source=demo-sidebar" className="flex min-h-10 items-center justify-center rounded-md bg-fire px-3 text-center text-xs font-semibold text-white hover:bg-fire-dark">Interested in using this at your department?</Link>
+              <Link href="/pricing" className="flex min-h-10 items-center justify-center rounded-md bg-fire px-3 text-center text-xs font-semibold text-white hover:bg-fire-dark">See pricing — Station is $299/year</Link>
               <a href="https://apps.apple.com/us/app/responder-roadmap/id6800092347" target="_blank" rel="noreferrer" className="flex min-h-10 items-center justify-center rounded-md border border-white/20 px-3 text-center text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white">Download the iPhone app</a>
             </div>
           ) : null}

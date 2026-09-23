@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { DashboardPreview } from "@/components/marketing/DashboardPreview";
-import { TrackedLink, TrackView } from "@/components/marketing/TrackedLink";
+import { PricingTiers } from "@/components/marketing/PricingTiers";
+import { TrackedLink } from "@/components/marketing/TrackedLink";
 import { DEMO_DEPARTMENT_NAME, DEMO_MEMBERS } from "@/lib/demo-story";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
@@ -34,6 +35,8 @@ const faqs = [
   ["What if we already have an LMS or training-record system?", "Keep it. Responder Roadmap focuses on Task Books, Assignments, evaluations, and development progress — the part that is hard to manage in a binder or spreadsheet."],
   ["Does a submitted skill automatically count?", "No. A requirement counts only after its required approvals are completed."],
   ["Can members use an iPhone?", "Yes. Members have access to the iPhone app, and the same workflow works in a phone browser."],
+  ["What if we have more than 5 members but fewer than 25?", "Station. $299/year. Full Task Book workflow. Up to 25 active members."],
+  ["How do you count members?", "Active members — not the whole roster. Someone counts if they are assigned a Task Book or signed in during the last 90 days."],
 ];
 
 function Ctas({ demoHref, centered = false }: { demoHref: string; centered?: boolean }) {
@@ -57,54 +60,6 @@ function Ctas({ demoHref, centered = false }: { demoHref: string; centered?: boo
   );
 }
 
-function Price({
-  title,
-  price,
-  term,
-  description,
-  bullets,
-  href,
-  cta,
-  featured = false,
-  event,
-}: {
-  title: string;
-  price: string;
-  term?: string;
-  description: string;
-  bullets: string[];
-  href: string;
-  cta: string;
-  featured?: boolean;
-  event: "signup_clicked" | "homepage_demo_clicked";
-}) {
-  return (
-    <article className={`flex h-full flex-col rounded-2xl border p-6 sm:p-7 ${featured ? "border-[#E11D48] bg-[#172236] shadow-[0_25px_70px_rgba(0,0,0,.25)]" : "border-white/15 bg-[#111D2F]"}`}>
-      <p className="text-sm font-bold text-[#FDA4AF]">{title}</p>
-      <div className="mt-3 flex items-baseline gap-1">
-        <span className="text-4xl font-bold tracking-tight">{price}</span>
-        {term ? <span className="text-sm text-white/50">{term}</span> : null}
-      </div>
-      <p className="mt-2 text-sm text-white/60">{description}</p>
-      <ul className="my-7 flex-1 space-y-3">
-        {bullets.map((bullet) => (
-          <li key={bullet} className="flex gap-2 text-sm text-white/75">
-            <span className="text-[#FDA4AF]" aria-hidden="true">✓</span>
-            {bullet}
-          </li>
-        ))}
-      </ul>
-      <TrackedLink
-        href={href}
-        event={event}
-        className={`inline-flex min-h-12 items-center justify-center rounded-lg px-4 py-3 text-center text-sm font-bold transition ${featured ? "bg-[#E11D48] hover:bg-[#BE123C]" : "border border-white/25 hover:bg-white/10"}`}
-      >
-        {cta}
-      </TrackedLink>
-    </article>
-  );
-}
-
 export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
   const demoHref = demoAvailable ? "/demo" : "/department-interest?source=demo-unavailable";
   return (
@@ -117,7 +72,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <nav aria-label="Main navigation" className="order-3 flex w-full items-center justify-between gap-4 text-sm font-semibold text-white/70 sm:order-none sm:w-auto sm:gap-6">
             <Link href={demoHref} className="hover:text-white">Demo</Link>
             <a href="#product" className="hover:text-white">Product</a>
-            <a href="#pricing" className="hover:text-white">Pricing</a>
+            <Link href="/pricing" className="hover:text-white">Pricing</Link>
             <Link href="/login" className="hover:text-white">Sign in</Link>
           </nav>
           <TrackedLink href={demoHref} event="homepage_demo_clicked" className="hidden min-h-10 items-center rounded-lg bg-[#E11D48] px-4 text-sm font-bold transition hover:bg-[#BE123C] lg:inline-flex">
@@ -140,6 +95,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               </p>
               <div className="mt-8"><Ctas demoHref={demoHref} /></div>
               <p className="mt-4 text-sm text-white/50">Built specifically for Fire & EMS training. No account required for the demo.</p>
+              <p className="mt-2 text-sm text-white/45">A 12-person volunteer station is Station — $299/year. Same workflow as Free.</p>
             </div>
             <DashboardPreview href={demoHref} compact />
           </div>
@@ -148,7 +104,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         <section className="border-y border-white/10 bg-[#101B2C]">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-12 gap-y-3 px-5 py-5 text-center text-sm font-semibold text-white/60 sm:justify-between sm:px-8">
             <span>AI does the tedious work. Humans decide.</span>
-            <span>Free for up to 5 members</span>
+            <span>Start with five. Station is $299/year for 25.</span>
             <span>Not a full LMS or RMS</span>
           </div>
         </section>
@@ -241,17 +197,10 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         </section>
 
         <section id="pricing" className="border-y border-white/10 bg-[#101B2C]">
-          <TrackView event="pricing_viewed" />
           <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">Clear pricing</p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">What will this cost my department?</h2>
-            <div className="mt-10 grid gap-5 lg:grid-cols-3">
-              <Price title="Free" price="$0" description="Up to 5 active members" bullets={["Task Book and Assignment workflow", "No card required", "Start with one crew"]} href="/register" cta="Start Free" event="signup_clicked" />
-              <Price featured title="Founding" price="$500" term="/year" description="Up to 75 active members" bullets={["Unlimited Task Books", "Unlimited evaluators and admins", "No setup fee", "Price locked while subscribed"]} href="/department-interest?plan=founding" cta="Ask about founding access" event="signup_clicked" />
-              <Price title="Department" price="76+" description="Active members · Contact for pricing" bullets={["Department-scale onboarding", "Task Books, rosters and reporting", "Request a quote or invoice"]} href="/department-interest?plan=department" cta="Contact for pricing" event="signup_clicked" />
-            </div>
+            <PricingTiers />
             <div className="mt-8"><Ctas demoHref={demoHref} /></div>
-            <p className="mt-5 text-sm leading-6 text-white/50">Pricing is based on active department members. Municipal purchasing inquiries, including quotes, invoices, W-9s, and purchase orders, can be submitted through department contact.</p>
+            <p className="mt-5 text-sm leading-6 text-white/50">Municipal purchasing — quotes, invoices, W-9s, and purchase orders — goes through Department / Agency contact.</p>
           </div>
         </section>
 
@@ -287,6 +236,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <div className="flex flex-wrap gap-5">
             <Link href="/login" className="hover:text-white">Sign in</Link>
             <Link href={demoHref} className="hover:text-white">Demo</Link>
+            <Link href="/pricing" className="hover:text-white">Pricing</Link>
             <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="hover:text-white">iPhone app</a>
             <Link href="/department-interest" className="hover:text-white">Contact</Link>
           </div>

@@ -121,8 +121,8 @@ export default function InterestListPage() {
     <div>
       <PageHeader
         kicker="Sales Pipeline"
-        title="Founding Department Interest"
-        description="People who explicitly asked to be contacted when paid department memberships are ready."
+        title="Department Interest"
+        description="Station, Founding, and department-scale inquiries. Free (5), Station ($299 / 25), Founding ($500 / 75), custom above that."
         actions={<Button variant="secondary" onClick={exportRows}>Export CSV</Button>}
       />
 

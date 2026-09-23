@@ -90,6 +90,7 @@ function RegisterContent() {
             <div className="kicker">Start free · 0–5 active members</div>
             <h1 className="display mt-1 text-4xl font-bold">Create your training organization</h1>
             <p className="mt-3 text-sm text-navy-500">For a Training Captain, Chief, Training Officer, administrator or CPR instructor testing ResponderRoadmap. Full Task Book workflow. $0, no credit card. Your account counts as one of the five active members.</p>
+            <p className="mt-2 text-sm text-navy-500">Need more than five? Station is $299/year for up to 25. Founding is $500/year for 75. Custom above that.</p>
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <Flash message={error} tone="danger" />
               <Field label="Organization or department name"><Input value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} minLength={2} maxLength={180} required placeholder="Your fire department or training company" /></Field>
@@ -101,7 +102,12 @@ function RegisterContent() {
             <div className="mt-5 border-t border-navy-200 pt-5 text-sm text-navy-600">
               <p className="font-semibold">Joining an existing department?</p>
               <p className="mt-1">Members use their department invitation or join code. Creating a new organization does not grant access to any existing department.</p>
-              <div className="mt-3 flex gap-4"><Link href="/join" className="font-semibold text-fire">Enter join code</Link><Link href="/login" className="font-semibold text-fire">Sign in</Link></div>
+              <div className="mt-3 flex flex-wrap gap-4">
+                <Link href="/join" className="font-semibold text-fire">Enter join code</Link>
+                <Link href="/department-interest?plan=station" className="font-semibold text-fire">Start Station</Link>
+                <Link href="/pricing" className="font-semibold text-fire">See pricing</Link>
+                <Link href="/login" className="font-semibold text-fire">Sign in</Link>
+              </div>
             </div>
           </>
         )}
