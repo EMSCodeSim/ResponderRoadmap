@@ -79,6 +79,19 @@ export async function handleApi(req: Request, path: string[]) {
       await clearSessionCookie();
       return jsonOk({ ok: true });
     }
+    if (method === "POST" && match(path, "auth/web-signin/request")) {
+      return jsonOk(await auth.createWebSignInRequest(), 201);
+    }
+    if (method === "POST" && match(path, "auth/web-signin/consume")) {
+      const body = await readBody(req);
+      return jsonOk(await auth.consumeWebSignInRequest(body.requestId || "", body.browserSecret || ""));
+    }
+    if (method === "POST" && match(path, "auth/web-signin/approve")) {
+      const appSession = await getRequestSession(req);
+      if (!appSession) return jsonError("Authentication required.", 401);
+      const body = await readBody(req);
+      return jsonOk(await auth.approveWebSignInRequest(appSession, body.requestId || "", body.approvalToken || ""));
+    }
     if (method === "GET" && match(path, "auth/me")) {
       const session = await getRequestSession(req);
       if (!session) return jsonError("Authentication required.", 401);

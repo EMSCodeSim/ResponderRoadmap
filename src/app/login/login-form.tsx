@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { WalkDemoButton } from "@/components/walk-demo";
 import { BrandLockup, BrandMark } from "@/components/brand";
 import { Button, Field, Flash, Input } from "@/components/ui";
+import { AppWebSignIn } from "@/components/auth/AppWebSignIn";
 
 export default function LoginForm({ demoAvailable }: { demoAvailable: boolean }) {
   const router = useRouter();
@@ -81,6 +82,19 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
               {autoWalk ? <WalkDemoButton walk={autoWalk} auto /> : <WalkDemoButton walk="to">Start Live Demo</WalkDemoButton>}
             </div>
           ) : null}
+
+          <AppWebSignIn
+            onSignedIn={(needsDepartment) => {
+              router.push(needsDepartment && next === "/dashboard" ? "/onboarding" : next);
+              router.refresh();
+            }}
+          />
+
+          <div className="mt-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-navy-400">
+            <span className="h-px flex-1 bg-navy-200" />
+            <span>or use password</span>
+            <span className="h-px flex-1 bg-navy-200" />
+          </div>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
             <Flash message={error} tone="danger" />

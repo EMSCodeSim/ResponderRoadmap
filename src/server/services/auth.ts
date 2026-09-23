@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { assertFreeCapacity } from "@/server/services/free-plan";
 import { prisma } from "@/server/db";
 import { HttpError } from "@/server/http";
@@ -42,6 +42,121 @@ async function loadUser(email: string) {
       },
     },
   });
+}
+
+async function loadUserById(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      memberships: {
+        include: { department: true },
+        orderBy: { joinedAt: "desc" },
+      },
+    },
+  });
+}
+
+function hashWebSignInSecret(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function safeHashMatch(raw: string, expectedHex: string) {
+  try {
+    const actual = Buffer.from(hashWebSignInSecret(raw), "hex");
+    const expected = Buffer.from(expectedHex, "hex");
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
+  } catch {
+    return false;
+  }
+}
+
+const WEB_SIGNIN_TTL_MS = 2 * 60 * 1000;
+
+export async function createWebSignInRequest() {
+  const approvalToken = randomBytes(32).toString("base64url");
+  const browserSecret = randomBytes(32).toString("base64url");
+  const request = await prisma.webSignInRequest.create({
+    data: {
+      approvalTokenHash: hashWebSignInSecret(approvalToken),
+      browserSecretHash: hashWebSignInSecret(browserSecret),
+      expiresAt: new Date(Date.now() + WEB_SIGNIN_TTL_MS),
+    },
+    select: { id: true, expiresAt: true },
+  });
+
+  return {
+    requestId: request.id,
+    approvalToken,
+    browserSecret,
+    expiresAt: request.expiresAt,
+    deepLink: `responderroadmap:///web-signin?id=${encodeURIComponent(request.id)}&token=${encodeURIComponent(approvalToken)}`,
+    approvalUrl: `https://responderroadmap.com/app-signin?id=${encodeURIComponent(request.id)}&token=${encodeURIComponent(approvalToken)}`,
+  };
+}
+
+export async function approveWebSignInRequest(session: SessionPayload, requestId: string, approvalToken: string) {
+  const request = await prisma.webSignInRequest.findUnique({ where: { id: requestId } });
+  if (!request || request.status !== "PENDING" || request.expiresAt.getTime() <= Date.now()) {
+    throw new HttpError(410, "This web sign-in request has expired. Start again from the website.");
+  }
+  if (!safeHashMatch(approvalToken, request.approvalTokenHash)) {
+    throw new HttpError(403, "This web sign-in request is not valid.");
+  }
+
+  await prisma.webSignInRequest.update({
+    where: { id: request.id },
+    data: {
+      approvedUserId: session.userId,
+      status: "APPROVED",
+      approvedAt: new Date(),
+    },
+  });
+
+  return {
+    ok: true,
+    requestId: request.id,
+    userName: session.name,
+    departmentName: session.departmentName,
+  };
+}
+
+export async function consumeWebSignInRequest(requestId: string, browserSecret: string) {
+  const request = await prisma.webSignInRequest.findUnique({ where: { id: requestId } });
+  if (!request) throw new HttpError(404, "Web sign-in request not found.");
+  if (request.expiresAt.getTime() <= Date.now()) {
+    throw new HttpError(410, "This web sign-in request has expired.");
+  }
+  if (!safeHashMatch(browserSecret, request.browserSecretHash)) {
+    throw new HttpError(403, "This browser is not authorized to complete the sign-in.");
+  }
+  if (request.status === "PENDING") {
+    return { status: "PENDING" as const };
+  }
+  if (request.status !== "APPROVED" || !request.approvedUserId || request.consumedAt) {
+    throw new HttpError(409, "This web sign-in request can no longer be used.");
+  }
+
+  const user = await loadUserById(request.approvedUserId);
+  if (!user) throw new HttpError(404, "Approved account no longer exists.");
+  const session = toSession(user);
+  if (session.membershipId) {
+    const membership = user.memberships.find((item) => item.id === session.membershipId);
+    if (membership && membership.status !== "ACTIVE") {
+      throw new HttpError(403, "Your department membership is no longer active.");
+    }
+  }
+
+  await prisma.webSignInRequest.update({
+    where: { id: request.id },
+    data: { status: "CONSUMED", consumedAt: new Date() },
+  });
+  await setSessionCookie(session);
+
+  return {
+    status: "APPROVED" as const,
+    session,
+    needsDepartment: !session.departmentId,
+  };
 }
 
 export async function login(email: string, password: string) {
