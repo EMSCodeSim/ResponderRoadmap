@@ -11,8 +11,8 @@ const statusClass: Record<string, string> = {
 export function DashboardPreview({ href, compact = false }: { href: string; compact?: boolean }) {
   const rows = compact ? DEMO_MEMBERS.slice(0, 5) : DEMO_MEMBERS;
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/20 bg-[#F3F5F8] text-[#0C1524] shadow-[0_35px_100px_rgba(0,0,0,.5)]">
-      <div className="flex items-center justify-between gap-2 border-b border-[#D6DDE8] bg-[#132038] px-4 py-3 text-[11px] font-semibold text-white/80">
+    <div className="overflow-hidden rounded-lg border border-white/15 bg-[#F3F5F8] text-[#0C1524] shadow-[0_16px_40px_rgba(0,0,0,.28)]">
+      <div className="flex items-center justify-between gap-2 border-b border-[#D6DDE8] bg-[#0C1524] px-4 py-3 text-[11px] font-semibold text-white/80">
         <span>{DEMO_DEPARTMENT_NAME} · Training Officer</span>
         <span className="shrink-0 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-1 text-emerald-200">Live product preview</span>
       </div>

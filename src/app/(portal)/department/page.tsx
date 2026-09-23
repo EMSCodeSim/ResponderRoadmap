@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { ROLE_LABELS, type Role } from "@/lib/constants";
@@ -7,6 +8,7 @@ import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select } from "@/
 
 type Department = {
   name: string;
+  plan?: string;
   publicId: string;
   joinCode: string;
   address: string | null;
@@ -78,6 +80,24 @@ export default function DepartmentPage() {
   return (
     <div>
       <PageHeader kicker="Organization" title={dept.name} description="Department settings, join code, invitations, and roles." />
+      <Card className="mb-6 p-5">
+        <h2 className="text-lg font-bold text-navy-900">Department plan</h2>
+        <p className="mt-2 text-sm text-navy-600">
+          {dept.plan === "FREE"
+            ? "Free — up to 5 active members. Station is $299/year for 25. Founding is $500/year for 75. Custom above that."
+            : dept.plan === "STATION"
+              ? "Station — $299/year for up to 25 active members. Founding is $500/year for 75. Custom above that."
+              : dept.plan === "FOUNDING"
+                ? "Founding — $500/year for up to 75 active members. Custom pricing above that."
+                : "Free (5), Station ($299 / 25), Founding ($500 / 75), custom above that."}
+        </p>
+        {dept.plan === "FREE" || !dept.plan ? (
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/department-interest?plan=station&source=department" className="inline-flex min-h-10 items-center rounded-md bg-fire px-4 text-sm font-semibold text-white">Start Station</Link>
+            <Link href="/department-interest?plan=founding&source=department" className="inline-flex min-h-10 items-center rounded-md border border-navy-200 px-4 text-sm font-semibold text-navy-800">Ask about founding access</Link>
+          </div>
+        ) : null}
+      </Card>
       <Flash message={error} tone="danger" />
       <div className="mb-4">
         <Flash message={message} tone="current" />

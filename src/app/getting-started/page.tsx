@@ -98,6 +98,7 @@ export default function GettingStartedPage() {
         <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Get {department.name} ready</h1>
         <p className="mt-3 max-w-2xl text-white/75">Four steps to your first assignment. Pick up where you left off whenever you return.</p>
         <div className="mt-6 flex flex-wrap items-center gap-3 text-sm"><strong className="rounded-lg bg-white/10 px-3 py-2">{completeCount} of 4 steps complete</strong>{free ? <span className="rounded-lg bg-white/10 px-3 py-2">{activeMembers} of 5 free seats used</span> : null}<Button variant="secondary" onClick={() => void refresh()}>Refresh progress</Button></div>
+        {free ? <p className="mt-3 text-sm text-white/65">Free (5). Station is $299/year for 25. Founding is $500/year for 75. Custom above that.</p> : null}
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-label="Department setup progress" aria-valuemin={0} aria-valuemax={4} aria-valuenow={completeCount}><div className="h-full rounded-full bg-[#E11D48] transition-all" style={{ width: `${completeCount * 25}%` }} /></div>
       </header>
 
@@ -141,7 +142,12 @@ export default function GettingStartedPage() {
         </form>
         {message ? <p role="status" className="mt-3 text-sm text-navy-700">{message}</p> : null}
         {inviteLink ? <p className="mt-2 break-all text-sm text-navy-700">Email delivery was not confirmed. Share this invitation securely: <a className="font-semibold text-fire underline" href={inviteLink}>{inviteLink}</a></p> : null}
-        {free && activeMembers >= 5 ? <p className="mt-3 text-sm text-navy-600">All five free seats are occupied. A sixth active member requires upgrading.</p> : null}
+        {free && activeMembers >= 5 ? (
+          <p className="mt-3 text-sm text-navy-600">
+            All five free seats are occupied. Station is $299/year for up to 25 active members.{" "}
+            <Link href="/department-interest?plan=station&source=getting-started" className="font-semibold text-fire underline">Start Station</Link>
+          </p>
+        ) : null}
         {enrollment ? <div className="mt-6 rounded-lg border border-navy-200 bg-navy-50 p-4"><div className="flex flex-wrap justify-between gap-2"><h3 className="font-bold text-navy-900">Enrollment status</h3><Link href="/enrollment" className="text-sm font-semibold text-fire underline">Manage invitations and approvals</Link></div><p className="mt-2 text-sm text-navy-600">{pendingInvitations.length} pending invitation{pendingInvitations.length === 1 ? "" : "s"} · {pendingApprovals} join request{pendingApprovals === 1 ? "" : "s"} awaiting approval</p>{pendingInvitations.length ? <ul className="mt-3 space-y-2">{pendingInvitations.slice(0, 5).map(item => <li key={item.id} className="flex flex-wrap justify-between gap-2 text-sm text-navy-700"><span className="break-all">{item.email || "Invitation link"}</span><span className="text-amber-800">Awaiting acceptance</span></li>)}</ul> : null}</div> : null}
         <div className="mt-5 flex flex-wrap gap-4 text-sm"><Link href="/members" className="font-semibold text-fire underline">People and evaluator management</Link><Link href="/enrollment" className="font-semibold text-fire underline">Join codes and CSV import</Link></div>
       </Card> : null}
