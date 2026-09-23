@@ -7,7 +7,8 @@ import { activityText } from "@/lib/activity";
 import { Badge, Button, Card, PageHeader, ProgressBar } from "@/components/ui";
 import { ManagementDashboard } from "@/components/ManagementDashboard";
 import { isManagementRole } from "@/lib/command-center";
-import { daysRemainingLabel, relativeTime } from "@/lib/dates";
+import { relativeTime } from "@/lib/dates";
+import { dashboardPriorities } from "@/lib/dashboard-priority";
 
 type AiDraft = {
   description: string;
@@ -126,6 +127,14 @@ export default function DashboardPage() {
   const today = data.today;
   const signCount = today?.signOffTotal ?? data.summary.awaitingSignOff;
   const overduePeople = data.summary.overdueMembers ?? 0;
+  const priorities = today ? dashboardPriorities([
+    { kind: "evaluation", items: today.signOffs },
+    { kind: "follow-up", items: today.followUp },
+    { kind: "due-soon", items: today.dueSoon },
+  ]) : [];
+  const peopleNeedingAttention = today
+    ? new Set([...today.signOffs, ...today.followUp, ...today.dueSoon].map((item) => item.memberId)).size
+    : overduePeople;
 
   return (
     <div>
@@ -159,7 +168,7 @@ export default function DashboardPage() {
 
       {data.personal ? <ProofRail data={data} /> : null}
 
-      <div className={`grid gap-3 ${data.personal ? "sm:grid-cols-2 xl:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
+      <div className={`grid gap-3 ${data.personal ? "sm:grid-cols-2 xl:grid-cols-3" : "sm:grid-cols-3"}`}>
         {data.personal ? (
           <>
             <CountCard href="/my-task-books" label="Active Task Books" value={data.summary.activeTaskBooks} />
@@ -168,65 +177,14 @@ export default function DashboardPage() {
           </>
         ) : (
           <>
-            <CountCard href="/evaluate" label="Waiting on sign-off" value={signCount} warn={signCount > 0} />
-            <CountCard href="/assignments?status=OVERDUE" label="Members overdue" value={overduePeople} danger={overduePeople > 0} />
-            <CountCard href="/assignments?stalled=30" label="Stalled > 30 days" value={data.summary.stalledOver30 ?? 0} warn={(data.summary.stalledOver30 ?? 0) > 0} />
+            <CountCard href="/evaluate" label="Ready for sign-off" value={signCount} warn={signCount > 0} />
+            <CountCard href="#department-overview" label="People needing attention" value={peopleNeedingAttention} danger={peopleNeedingAttention > 0} />
             <CountCard href="/certifications?window=60" label="Certs expiring" value={data.summary.expiringSoon} warn={data.summary.expiringSoon > 0} />
-            <CountCard href="/task-books" label="Active Task Books" value={data.summary.activeTaskBooks} />
           </>
         )}
       </div>
 
-      {!data.personal && today ? (
-        <div className="mt-6 grid gap-4 xl:grid-cols-3">
-          <WorkList
-            title="Evaluations waiting"
-            empty="Nothing waiting on an evaluator."
-            moreHref={today.signOffTotal > today.signOffs.length ? "/evaluate" : undefined}
-            moreLabel={`See all ${today.signOffTotal}`}
-            items={today.signOffs.map((item) => ({
-              key: item.id || item.href,
-              href: item.href,
-              name: item.memberName,
-              place: place(item),
-              detail: `${item.requirementTitle} · ${item.taskBookTitle}`,
-              meta: relativeTime(item.submittedAt),
-              action: "Review",
-              tone: "warn" as const,
-            }))}
-          />
-          <WorkList
-            title="Overdue or stalled"
-            empty="No overdue or stalled assignments."
-            moreHref="/assignments?status=OVERDUE"
-            items={today.followUp.map((item) => ({
-              key: item.assignmentId || item.href,
-              href: item.href,
-              name: item.memberName,
-              place: place(item),
-              detail: `${item.taskBookTitle} · ${item.percent}%`,
-              meta: item.reason || "",
-              action: "View member",
-              tone: "danger" as const,
-            }))}
-          />
-          <WorkList
-            title="Due this week"
-            empty="No Task Books due in the next 7 days."
-            moreHref="/assignments"
-            items={today.dueSoon.map((item) => ({
-              key: item.assignmentId || item.href,
-              href: item.href,
-              name: item.memberName,
-              place: place(item),
-              detail: item.taskBookTitle,
-              meta: daysRemainingLabel(item.dueDate),
-              action: "Open",
-              tone: "info" as const,
-            }))}
-          />
-        </div>
-      ) : null}
+      {!data.personal && today ? <PriorityActions items={priorities} total={peopleNeedingAttention} /> : null}
 
       {isManagementRole(role) ? <ManagementDashboard awaitingSignOff={signCount} /> : null}
 
@@ -246,7 +204,7 @@ export default function DashboardPage() {
         </Card>
       ) : null}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+      {!isManagementRole(role) ? <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <Card className="p-5 xl:col-span-1">
           <h2 className="display text-2xl font-bold">Needs Attention</h2>
           {data.attention.length === 0 ? (
@@ -312,7 +270,7 @@ export default function DashboardPage() {
             </div>
           )}
         </Card>
-      </div>
+      </div> : null}
 
       <Card className="mt-6 p-5">
         <h2 className="display text-2xl font-bold">Recent Activity</h2>
@@ -383,56 +341,40 @@ function CountCard({
   );
 }
 
-function WorkList({
-  title,
-  empty,
-  items,
-  moreHref,
-  moreLabel,
-}: {
-  title: string;
-  empty: string;
-  moreHref?: string;
-  moreLabel?: string;
-  items: Array<{ key: string; href: string; name: string; place: string | null; detail: string; meta: string; action: string; tone: "warn" | "danger" | "info" }>;
-}) {
+function PriorityActions({ items, total }: { items: Array<TodayItem & { kind: "evaluation" | "follow-up" | "due-soon" }>; total: number }) {
   return (
-    <Card className="p-5">
+    <Card className="mt-6 p-5">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="display text-2xl font-bold">{title}</h2>
-        <span className="text-sm font-semibold text-navy-500">{items.length}</span>
+        <div><div className="kicker">Today</div><h2 className="display mt-1 text-2xl font-bold">Priority actions</h2></div>
+        <span className="text-sm font-semibold text-navy-500">Showing {items.length}{total > items.length ? ` of ${total}` : ""}</span>
       </div>
       {items.length === 0 ? (
-        <p className="mt-3 text-sm text-navy-500">{empty}</p>
+        <p className="mt-3 text-sm text-navy-500">No one needs immediate follow-up.</p>
       ) : (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-4 grid gap-3 lg:grid-cols-2">
           {items.map((item) => (
-            <li key={item.key}>
+            <li key={`${item.kind}-${item.memberId}`}>
               <Link
                 href={item.href}
-                className={`block rounded-md border px-3 py-3 hover:border-navy-400 ${
-                  item.tone === "danger" ? "border-danger/30 bg-danger-soft/40" : item.tone === "warn" ? "border-warn/30 bg-warn-soft/50" : "border-navy-200"
+                className={`block rounded-md border px-4 py-3 hover:border-navy-400 ${
+                  item.kind === "follow-up" ? "border-danger/30 bg-danger-soft/40" : item.kind === "evaluation" ? "border-warn/30 bg-warn-soft/50" : "border-navy-200"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="font-semibold">{item.name}</div>
-                    {item.place ? <div className="text-xs text-navy-500">{item.place}</div> : null}
-                    <div className="mt-1 text-sm text-navy-700">{item.detail}</div>
-                    <div className="mt-1 text-xs font-semibold text-navy-500">{item.meta}</div>
+                    <div className="font-semibold">{item.memberName}</div>
+                    {place(item) ? <div className="text-xs text-navy-500">{place(item)}</div> : null}
+                    <div className="mt-1 text-sm text-navy-700">{item.kind === "evaluation" ? `${item.requirementTitle} · ${item.taskBookTitle}` : `${item.taskBookTitle}${item.percent !== undefined ? ` · ${item.percent}%` : ""}`}</div>
+                    <div className="mt-1 text-xs font-semibold text-navy-500">{item.kind === "evaluation" ? relativeTime(item.submittedAt) : item.reason || (item.dueDate ? `Due ${new Date(item.dueDate).toLocaleDateString()}` : "")}</div>
                   </div>
-                  <span className="shrink-0 text-sm font-semibold text-navy-800">{item.action}</span>
+                  <span className="shrink-0 text-sm font-semibold text-navy-800">{item.kind === "evaluation" ? "Review" : item.kind === "follow-up" ? "View member" : "Open"}</span>
                 </div>
               </Link>
             </li>
           ))}
         </ul>
       )}
-      {moreHref && moreLabel ? (
-        <Link href={moreHref} className="mt-3 inline-block text-sm font-semibold text-navy-700">
-          {moreLabel}
-        </Link>
-      ) : null}
+      {total > items.length ? <a href="#department-overview" className="mt-4 inline-block text-sm font-semibold text-fire underline">See everyone needing attention</a> : null}
     </Card>
   );
 }
