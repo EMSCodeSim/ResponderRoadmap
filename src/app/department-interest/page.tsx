@@ -7,9 +7,9 @@ type Search = { plan?: string; source?: string };
 export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<Search> | Search;
+  searchParams: Promise<Search>;
 }): Promise<Metadata> {
-  const params = await Promise.resolve(searchParams);
+  const params = await searchParams;
   const copy = interestCopy(planFromQuery(params.plan));
   return {
     title: copy.formTitle,
@@ -21,9 +21,9 @@ export async function generateMetadata({
 export default async function DepartmentInterestPage({
   searchParams,
 }: {
-  searchParams: Promise<Search> | Search;
+  searchParams: Promise<Search>;
 }) {
-  const params = await Promise.resolve(searchParams);
+  const params = await searchParams;
   return (
     <DepartmentInterestForm
       plan={planFromQuery(params.plan)}
