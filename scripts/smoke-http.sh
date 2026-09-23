@@ -16,8 +16,19 @@ expect_page() {
 
 rm -f "$COOKIE"
 expect_page "$BASE/"
+expect_page "$BASE/demo"
 expect_page "$BASE/login"
 expect_page "$BASE/department-interest"
+
+HOME=$(curl -fsS "$BASE/")
+echo "$HOME" | grep -q 'Know exactly where your department stands.' || { echo 'Homepage missing hero headline'; exit 1; }
+echo "$HOME" | grep -q 'See the 3-Minute Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
+ok 'homepage Training Officer positioning'
+DEMO=$(curl -fsS "$BASE/demo")
+echo "$DEMO" | grep -q 'Welcome to the Responder Roadmap Department Demo' || { echo 'Demo missing start screen'; exit 1; }
+ok 'guided department demo start screen'
+curl -sS -o /dev/null -w '%{http_code}' -X POST "$BASE/api/v1/public/events" -H 'Content-Type: application/json' -d '{"event":"homepage_demo_clicked"}' | grep -q '204' || { echo 'public events did not accept homepage_demo_clicked'; exit 1; }
+ok 'public marketing event'
 
 # Training Officer perspective
 TO=$(json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}')

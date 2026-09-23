@@ -18,11 +18,11 @@ const barlow = Barlow_Condensed({
 export const metadata: Metadata = {
   metadataBase: new URL("https://responderroadmap.com"),
   title: {
-    default: "ResponderRoadmap | Firefighter & EMS Digital Task Books",
-    template: "%s | ResponderRoadmap",
+    default: "Fire & EMS Task Book Software | Responder Roadmap",
+    template: "%s | Responder Roadmap",
   },
   description:
-    "Digital firefighter and EMS task books for departments. Build qualification books, assign members, complete field skill evaluations, track sign-offs, certifications, expirations, and training readiness.",
+    "Digital Task Books, Assignments, evaluations, and member progress for Fire & EMS Training Officers. AI drafts the paperwork. Humans approve the work.",
   keywords: [
     "firefighter task book",
     "digital firefighter task book",
@@ -53,15 +53,15 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://responderroadmap.com/",
     siteName: "ResponderRoadmap",
-    title: "ResponderRoadmap | Firefighter & EMS Digital Task Books",
+    title: "Fire & EMS Task Book Software | Responder Roadmap",
     description:
-      "Build, assign, evaluate, and track firefighter and EMS qualification Task Books with field sign-offs and department readiness reporting.",
+      "Create Task Books and Assignments, manage evaluations, and see what needs attention — built for Fire & EMS training.",
   },
   twitter: {
     card: "summary",
-    title: "ResponderRoadmap | Firefighter & EMS Digital Task Books",
+    title: "Fire & EMS Task Book Software | Responder Roadmap",
     description:
-      "Digital Task Books, field skill evaluations, sign-offs, certifications, and readiness tracking for fire and EMS departments.",
+      "Digital Task Books, Assignments, evaluations, and training progress for Fire & EMS departments.",
   },
   category: "Fire and EMS training software",
 };
@@ -75,7 +75,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     description:
-      "Digital firefighter and EMS Task Book software for qualification tracking, field skill evaluations, sign-offs, certifications, and department training readiness.",
+      "Fire and EMS Task Book software for creating Assignments, documenting evaluations, and tracking member development progress.",
     audience: {
       "@type": "Audience",
       audienceType: "Fire departments, EMS agencies, training officers, firefighters, EMTs, and paramedics",
