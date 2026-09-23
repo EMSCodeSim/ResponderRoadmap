@@ -85,7 +85,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login" className="text-[13px] font-medium text-white/60 hover:text-white md:hidden">Sign in</Link>
-            <TrackedLink href={demoHref} event="homepage_demo_clicked" className={`${ctaPrimary} min-h-9 px-3.5 text-[13px]`}>
+            <TrackedLink href={demoHref} event="homepage_demo_clicked" className={`${ctaPrimary} hidden min-h-9 px-3.5 text-[13px] md:inline-flex`}>
               See the 3-Minute Demo
             </TrackedLink>
           </div>
