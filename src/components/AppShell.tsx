@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, Menu, Settings, Users, X } from "lucide-react";
+import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, Menu, Settings, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -21,8 +21,9 @@ type Session = {
   nav: string[];
 };
 
-const TRAINING_PATHS = ["/task-books", "/my-task-books", "/task-book-progress", "/assignments", "/evaluate"];
-const SETTINGS_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/enrollment", "/evaluators"];
+const TRAINING_PATHS = ["/task-books", "/my-task-books", "/task-book-progress"];
+const ASSIGNMENT_PATHS = ["/assignments", "/single-assignments", "/training-assignments", "/my-assignments"];
+const SETTINGS_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/enrollment", "/evaluators", "/reports"];
 
 function demoWalkForRole(role: Role | null | undefined): DemoWalkKey {
   if (role === "MEMBER") return "member";
@@ -51,14 +52,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const nav = useMemo(() => {
     const allowed = new Set(session?.nav ?? ["dashboard", "settings"]);
-    const trainingHref = allowed.has("my-task-books") ? "/my-task-books" : allowed.has("task-books") ? "/task-books" : allowed.has("evaluate") ? "/evaluate" : allowed.has("assignments") ? "/assignments" : null;
+    const trainingHref = allowed.has("my-task-books") ? "/my-task-books" : allowed.has("task-books") ? "/task-books" : allowed.has("evaluate") ? "/evaluate" : null;
+    const assignmentHref = allowed.has("assignments") || allowed.has("training-assignments") ? "/assignments" : allowed.has("my-assignments") ? "/my-assignments" : null;
     return [
       { href: "/dashboard", label: "Home", icon: LayoutDashboard, visible: allowed.has("dashboard"), paths: ["/dashboard", "/inbox"] },
-      { href: trainingHref || "/task-books", label: "Task Books", icon: BookOpen, visible: Boolean(trainingHref), paths: TRAINING_PATHS },
-      { href: allowed.has("training-assignments") ? "/single-assignments" : "/my-assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments") || allowed.has("my-task-books"), paths: ["/single-assignments", "/training-assignments", "/my-assignments"] },
-      { href: "/classes", label: "Classes", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
-      { href: "/members", label: "People", icon: Users, visible: allowed.has("members"), paths: ["/members", "/enrollment", "/evaluators"] },
-      { href: "/reports", label: "Reports", icon: BarChart3, visible: allowed.has("reports"), paths: ["/reports"] },
+      { href: trainingHref || "/task-books", label: "Task Books", icon: BookOpen, visible: Boolean(trainingHref), paths: [...TRAINING_PATHS, "/evaluate"] },
+      { href: assignmentHref || "/assignments", label: "Assignments", icon: ClipboardList, visible: Boolean(assignmentHref), paths: ASSIGNMENT_PATHS },
+      { href: "/members", label: "Members", icon: Users, visible: allowed.has("members"), paths: ["/members"] },
+      { href: "/classes", label: "Instructor", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
     ].filter((item) => item.visible);
   }, [session]);
 
@@ -124,7 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="border-t border-white/10 p-4">
-          <Link href="/settings" onClick={() => setOpen(false)} aria-current={settingsActive ? "page" : undefined} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", settingsActive ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><Settings size={18} />Settings</Link>
+          <Link href="/settings" onClick={() => setOpen(false)} aria-current={settingsActive ? "page" : undefined} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", settingsActive ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><Settings size={18} />{session?.role === "TRAINING_OFFICER" || session?.role === "DEPARTMENT_ADMINISTRATOR" ? "Admin" : "Settings"}</Link>
           <div className="mt-3 border-t border-white/10 pt-3 text-sm font-semibold">{session?.name ?? "…"}</div>
           <div className="text-xs text-white/60">{session?.departmentName ?? "No department"}</div>
           <div className="mt-1 text-xs font-semibold text-white/80">{session?.role ? ROLE_LABELS[session.role] : ""}{session?.rank ? ` · ${session.rank}` : ""}</div>

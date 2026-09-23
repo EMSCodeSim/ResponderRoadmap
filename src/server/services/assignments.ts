@@ -6,6 +6,7 @@ import { computeUpNext, deserializeRequirement, evaluationPasses, nextApprovalLe
 import { reviewerSeparationConflict, reviewStageForRequirement } from "@/lib/signoff";
 import { parseJsonArray, type SignOffResult } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
+import { assignmentRecordPath } from "@/lib/routes";
 import { notifyUser } from "@/server/services/inbox";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
 
@@ -275,7 +276,7 @@ export async function createAssignments(
       body: `${ctx.name} assigned ${version.template.title}${dueDate ? `, due ${dueDate.toLocaleDateString()}` : ""}.`,
       referenceType: "TaskBookAssignment",
       referenceId: assignment.id,
-      actionPath: `/department/assignments/${assignment.id}`,
+      actionPath: assignmentRecordPath(assignment.id),
       dedupeKey: `assignment-created:${assignment.id}`,
     });
   }
@@ -607,7 +608,7 @@ export async function reviewSignOff(
         : `${completion.requirement.title} advanced to the next approval level.`,
     referenceType: "RequirementCompletion",
     referenceId: completion.id,
-    actionPath: `/department/assignments/${completion.assignmentId}`,
+    actionPath: assignmentRecordPath(completion.assignmentId),
     dedupeKey: `review:${signOff.id}`,
   });
   if (nextStatus === "SUBMITTED" && verdict.passed) {

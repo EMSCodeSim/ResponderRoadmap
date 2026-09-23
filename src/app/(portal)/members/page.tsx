@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { relativeTime } from "@/lib/dates";
-import { Badge, Card, EmptyState, Input, PageHeader, ProgressBar, Select, certTone } from "@/components/ui";
+import { Badge, Card, EmptyState, Input, PageHeader, ProgressBar, Select } from "@/components/ui";
+import { operationalStatusTone, type OperationalStatus } from "@/lib/member-status";
+import { formatDate } from "@/lib/dates";
 
 type MemberRow = {
   id: string;
@@ -16,6 +18,9 @@ type MemberRow = {
   status: string;
   lastActivity: string | null;
   overallProgress: number | null;
+  currentWork?: string;
+  dueDate?: string | null;
+  operationalStatus?: OperationalStatus;
   certificationHealth: string;
   activeTaskBooks: Array<{ taskBookTitle: string; percent: number }>;
 };
@@ -102,9 +107,9 @@ export default function MembersPage() {
   return (
     <div>
       <PageHeader
-        kicker="Roster"
-        title="People"
-        description="Manage your department roster and authorized personnel tools. Personal Career Road history is not visible here."
+        kicker="Members"
+        title="Member Progress"
+        description="Who is working on what, how far they are, and who needs attention. This is operational status, not a performance rating."
         actions={peopleActions.includes("enrollment") || peopleActions.includes("evaluators") ? (
           <div className="flex flex-wrap gap-2">
             {peopleActions.includes("enrollment") ? (
@@ -163,17 +168,17 @@ export default function MembersPage() {
         ) : data.members.length === 0 ? (
           <p className="p-6 text-navy-500">No members match these filters.</p>
         ) : (
+          <>
+          <div className="hidden md:block">
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Rank / Position</th>
-                  <th>Station / Shift</th>
-                  <th>Active Task Books</th>
-                  <th>Overall Progress</th>
-                  <th>Certification</th>
+                    <th>Member</th>
+                  <th>Current Work</th>
+                  <th>Progress</th>
                   <th>Last Activity</th>
+                  <th>Due Date</th>
                   <th>Status</th>
                   {canRemoveMembers ? <th>Manage</th> : null}
                 </tr>
@@ -186,24 +191,17 @@ export default function MembersPage() {
                         {member.name}
                       </Link>
                     </td>
-                    <td>{member.rank ?? "—"}</td>
-                    <td>
-                      {member.station ?? "—"}
-                      {member.shift ? ` · ${member.shift} Shift` : ""}
-                    </td>
-                    <td>
-                      {member.activeTaskBooks.length === 0
-                        ? "None"
-                        : member.activeTaskBooks.map((item) => `${item.taskBookTitle} (${item.percent}%)`).join(", ")}
+                    <td className="max-w-xs">
+                      {member.currentWork || (member.activeTaskBooks.length === 0
+                        ? "No active work"
+                        : member.activeTaskBooks.map((item) => `${item.taskBookTitle} (${item.percent}%)`).join("; "))}
                     </td>
                     <td>{member.overallProgress == null ? "—" : <ProgressBar value={member.overallProgress} />}</td>
-                    <td>
-                      <Badge tone={certTone(member.certificationHealth)}>{member.certificationHealth}</Badge>
-                    </td>
                     <td>{relativeTime(member.lastActivity)}</td>
+                    <td>{member.dueDate ? formatDate(member.dueDate) : "—"}</td>
                     <td>
-                      <Badge tone={member.status === "ACTIVE" ? "current" : member.status === "PENDING" ? "warn" : "neutral"}>
-                        {member.status.toLowerCase()}
+                      <Badge tone={member.operationalStatus ? operationalStatusTone(member.operationalStatus) : member.status === "ACTIVE" ? "current" : member.status === "PENDING" ? "warn" : "neutral"}>
+                        {member.operationalStatus || member.status.toLowerCase()}
                       </Badge>
                     </td>
                     {canRemoveMembers ? (
@@ -226,6 +224,25 @@ export default function MembersPage() {
               </tbody>
             </table>
           </div>
+          </div>
+          <ul className="grid gap-3 p-4 md:hidden">
+            {data.members.map((member) => (
+              <li key={member.id} className="rounded-md border border-navy-200 p-4">
+                <Link href={`/members/${member.id}`} className="block">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold">{member.name}</div>
+                    <Badge tone={member.operationalStatus ? operationalStatusTone(member.operationalStatus) : "neutral"}>
+                      {member.operationalStatus || member.status.toLowerCase()}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-navy-600">{member.currentWork || "No active work"}</p>
+                  <div className="mt-3">{member.overallProgress == null ? null : <ProgressBar value={member.overallProgress} />}</div>
+                  <p className="mt-2 text-xs text-navy-500">{relativeTime(member.lastActivity)}{member.dueDate ? ` · Due ${formatDate(member.dueDate)}` : ""}</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          </>
         )}
       </Card>
       {books.length ? <p className="mt-2 text-xs text-navy-400">{data?.members.length} members shown.</p> : null}

@@ -2,6 +2,7 @@ import { prisma } from "@/server/db";
 import { reviewStageForRequirement } from "@/lib/signoff";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
+import { assignmentRecordPath } from "@/lib/routes";
 import { notifyUser } from "@/server/services/inbox";
 
 const REVIEWER_ROLES = ["INSTRUCTOR", "EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"];
@@ -197,7 +198,7 @@ export async function reassignEvaluator(
       body: `${target.user.name} is now reviewing ${item.requirement.title}.`,
       referenceType: "RequirementCompletion",
       referenceId: item.id,
-      actionPath: `/department/assignments/${item.assignmentId}`,
+      actionPath: assignmentRecordPath(item.assignmentId),
       dedupeKey: `evaluator-changed:${item.id}:${target.userId}`,
     });
   }

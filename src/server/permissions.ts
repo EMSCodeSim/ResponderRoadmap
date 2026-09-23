@@ -118,17 +118,18 @@ export function navItemsForRole(role: Role): string[] {
   const items = ["dashboard", "inbox"];
   if (role === "MEMBER") {
     items.push("my-task-books");
+    items.push("my-assignments");
     items.push("settings");
     return items;
   }
-  if (hasPermission(role, "members.read")) items.push("members");
-  if (hasPermission(role, "invitations.write")) items.push("enrollment");
   if (hasPermission(role, "taskbooks.read")) items.push("task-books");
   if (hasPermission(role, "assignments.write")) items.push("training-assignments");
   if (hasPermission(role, "assignments.read")) items.push("assignments");
   if (hasPermission(role, "signoff.review")) items.push("evaluate");
-  if (hasPermission(role, "evaluators.manage")) items.push("evaluators");
+  if (hasPermission(role, "members.read")) items.push("members");
   if (hasPermission(role, "classes.read")) items.push("classes");
+  if (hasPermission(role, "invitations.write")) items.push("enrollment");
+  if (hasPermission(role, "evaluators.manage")) items.push("evaluators");
   if (hasPermission(role, "credentials.read")) items.push("certifications");
   if (hasPermission(role, "reports.read")) items.push("reports");
   if (hasPermission(role, "department.read") || hasPermission(role, "department.write")) {

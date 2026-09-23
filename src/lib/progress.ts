@@ -89,9 +89,9 @@ export function assignmentStatusLabel(status: AssignmentStatus | string): string
     case "IN_PROGRESS":
       return "In Progress";
     case "AWAITING_SIGN_OFF":
-      return "Awaiting Sign-Off";
+      return "Awaiting Evaluation";
     case "COMPLETE":
-      return "Complete";
+      return "Completed";
     case "OVERDUE":
       return "Overdue";
     default:

@@ -1,5 +1,6 @@
 import { GoogleAuth } from "google-auth-library";
 import { reviewStageForRequirement } from "@/lib/signoff";
+import { assignmentRecordPath } from "@/lib/routes";
 import { prisma } from "@/server/db";
 import { HttpError } from "@/server/http";
 import type { AuthContext } from "@/server/permissions";
@@ -191,7 +192,7 @@ export async function getInbox(ctx: AuthContext) {
     unreadCount,
     items,
     needsAction: [
-      ...memberActions.map((item) => ({ id: item.id, kind: "MEMBER_CORRECTION", title: item.requirement.title, subtitle: item.requirement.section.version.template.title, submittedAt: item.submittedAt, actionPath: `/department/assignments/${item.assignmentId}` })),
+      ...memberActions.map((item) => ({ id: item.id, kind: "MEMBER_CORRECTION", title: item.requirement.title, subtitle: item.requirement.section.version.template.title, submittedAt: item.submittedAt, actionPath: assignmentRecordPath(item.assignmentId) })),
       ...reviewerItems.map((item) => ({ id: item.id, kind: "EVALUATOR_REVIEW", title: item.requirement.title, subtitle: item.membership.user.name, submittedAt: item.submittedAt, actionPath: "/evaluate" })),
     ],
   };

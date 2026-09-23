@@ -4,6 +4,7 @@ import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { credentialStatus, worstCredentialHealth, type CredentialHealth } from "@/lib/dates";
 import { computeAssignmentProgress } from "@/lib/progress";
+import { memberOperationalStatus } from "@/lib/member-status";
 import type { Role, MembershipStatus } from "@/lib/constants";
 import { notifyUser } from "@/server/services/inbox";
 
@@ -86,6 +87,14 @@ export function summarizeMember(
     assignmentSummaries.length === 0
       ? null
       : Math.round(assignmentSummaries.reduce((sum, item) => sum + item.percent, 0) / assignmentSummaries.length);
+  const nearestDue = assignmentSummaries
+    .filter((item) => item.status !== "COMPLETE" && item.dueDate)
+    .map((item) => item.dueDate as Date)
+    .sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+  const currentWork = assignmentSummaries
+    .filter((item) => item.status !== "COMPLETE")
+    .map((item) => `${item.taskBookTitle} (${item.percent}%)`)
+    .join("; ");
 
   return {
     id: membership.id,
@@ -103,6 +112,16 @@ export function summarizeMember(
     joinedAt: membership.joinedAt,
     lastActivity,
     overallProgress: overall,
+    currentWork: currentWork || "No active work",
+    dueDate: nearestDue,
+    operationalStatus: memberOperationalStatus(
+      assignmentSummaries.map((item) => ({
+        status: item.status,
+        pendingApproval: item.pendingApproval,
+        overdue: item.overdue,
+        percent: item.percent,
+      })),
+    ),
     certificationHealth: certHealth as CredentialHealth,
     activeTaskBooks: assignmentSummaries.filter((item) => item.status !== "COMPLETE"),
     assignments: assignmentSummaries,

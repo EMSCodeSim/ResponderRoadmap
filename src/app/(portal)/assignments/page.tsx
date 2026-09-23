@@ -293,9 +293,14 @@ function AssignmentsInner() {
       <WorkspaceTabs />
       <PageHeader
         kicker="Assignments"
-        title="Task Book assignments"
-        description="Assign published Task Books, name reviewers, and complete documented electronic sign-offs. Sign-off history is append-only."
-        actions={canAssign ? <Button onClick={() => setOpen(true)}>Assign Task Book</Button> : undefined}
+        title="Assignments"
+        description="Create Assignments, assign published Task Books, and open records for evaluation. Nothing is complete until required human approval."
+        actions={canAssign ? (
+          <div className="flex flex-wrap gap-2">
+            <Link href="/assignments/new"><Button>Create Assignment</Button></Link>
+            <Button variant="secondary" onClick={() => setOpen(true)}>Assign Task Book</Button>
+          </div>
+        ) : undefined}
       />
 
       <div className="mb-4 flex flex-wrap gap-2">

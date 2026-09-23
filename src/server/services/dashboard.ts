@@ -1,6 +1,8 @@
 import { prisma } from "@/server/db";
 import { assertPermission, type AuthContext } from "@/server/permissions";
-import { computeAssignmentProgress } from "@/lib/progress";
+import { computeAssignmentProgress, daysStalled } from "@/lib/progress";
+import { memberOperationalStatus } from "@/lib/member-status";
+import { assignmentRecordPath, memberProgressPath } from "@/lib/routes";
 import { credentialStatus } from "@/lib/dates";
 import { parseMetadata as parseMeta } from "@/server/http";
 
@@ -183,14 +185,85 @@ export async function getDashboard(ctx: AuthContext) {
       href: `/members/${row.assignment.membershipId}?tab=task-books`,
     }));
 
+  const memberProgressMap = new Map<string, {
+    id: string;
+    name: string;
+    currentWork: string;
+    percent: number;
+    complete: number;
+    totalRequired: number;
+    pendingApproval: number;
+    overdue: number;
+    lastActivity: Date | null;
+    dueDate: Date | null;
+    assignments: Array<{ status: string; pendingApproval: number; overdue: number; percent: number; stalledDays: number }>;
+  }>();
+  for (const row of assignmentRows) {
+    const memberId = row.assignment.membershipId;
+    const stalledDays = daysStalled({ updatedAt: row.assignment.updatedAt, assignedDate: row.assignment.assignedDate });
+    const existing = memberProgressMap.get(memberId);
+    const work = `${row.assignment.version.template.title} (${row.progress.percent}%)`;
+    if (!existing) {
+      memberProgressMap.set(memberId, {
+        id: memberId,
+        name: row.assignment.membership.user.name,
+        currentWork: work,
+        percent: row.progress.percent,
+        complete: row.progress.complete,
+        totalRequired: row.progress.totalRequired,
+        pendingApproval: row.progress.pendingApproval,
+        overdue: row.progress.overdue,
+        lastActivity: row.assignment.updatedAt,
+        dueDate: row.assignment.dueDate,
+        assignments: [{ status: row.progress.status, pendingApproval: row.progress.pendingApproval, overdue: row.progress.overdue, percent: row.progress.percent, stalledDays }],
+      });
+    } else {
+      existing.currentWork = `${existing.currentWork}; ${work}`;
+      existing.complete += row.progress.complete;
+      existing.totalRequired += row.progress.totalRequired;
+      existing.pendingApproval += row.progress.pendingApproval;
+      existing.overdue += row.progress.overdue;
+      existing.percent = existing.totalRequired ? Math.round((existing.complete / existing.totalRequired) * 100) : 0;
+      if (row.assignment.updatedAt && (!existing.lastActivity || row.assignment.updatedAt > existing.lastActivity)) {
+        existing.lastActivity = row.assignment.updatedAt;
+      }
+      if (row.assignment.dueDate && (!existing.dueDate || row.assignment.dueDate < existing.dueDate)) {
+        existing.dueDate = row.assignment.dueDate;
+      }
+      existing.assignments.push({ status: row.progress.status, pendingApproval: row.progress.pendingApproval, overdue: row.progress.overdue, percent: row.progress.percent, stalledDays });
+    }
+  }
+  const memberProgress = [...memberProgressMap.values()]
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      currentWork: row.currentWork,
+      percent: row.percent,
+      lastActivity: row.lastActivity,
+      dueDate: row.dueDate,
+      status: memberOperationalStatus(row.assignments),
+      href: memberProgressPath(row.id),
+    }))
+    .sort((a, b) => {
+      const rank = { "Needs Attention": 0, "Awaiting Evaluation": 1, "On Track": 2, Completed: 3 };
+      return (rank[a.status] ?? 4) - (rank[b.status] ?? 4) || a.name.localeCompare(b.name);
+    });
+
   return {
     summary: {
       activeMembers: members.length,
       activeTaskBooks: templates.length,
+      activeAssignments: assignmentRows.filter((row) => row.progress.status !== "COMPLETE").length,
       awaitingSignOff: completions.length,
+      awaitingEvaluation: completions.length,
       expiringSoon: expiringSoon.length,
       overdueRequirements: overdueAssignments.reduce((sum, row) => sum + row.progress.overdue, 0),
       overdueMembers: overdueMembers.size,
+      needsAttention: new Set([
+        ...overdueMembers,
+        ...stalled.map((row) => row.assignment.membershipId),
+        ...completions.map((item) => item.membershipId),
+      ]).size,
       stalledOver30: stalled.length,
       completedThisMonth,
       membersAssigned: assignmentRows.length,
@@ -198,6 +271,7 @@ export async function getDashboard(ctx: AuthContext) {
         ? Math.round(assignmentRows.reduce((sum, row) => sum + row.progress.percent, 0) / assignmentRows.length)
         : 0,
     },
+    memberProgress,
     today: {
       signOffs: completions.slice(0, 8).map((item) => ({
         id: item.id,
@@ -210,6 +284,7 @@ export async function getDashboard(ctx: AuthContext) {
         taskBookTitle: item.requirement.section.version.template.title,
         submittedAt: item.submittedAt,
         href: `/evaluate?focus=${item.id}`,
+        recordHref: assignmentRecordPath(item.assignmentId),
       })),
       signOffTotal: completions.length,
       followUp,
@@ -230,7 +305,7 @@ export async function getDashboard(ctx: AuthContext) {
 export { activityText } from "@/lib/activity";
 
 async function getMemberDashboard(ctx: AuthContext) {
-  const [assignments, credentials, events] = await Promise.all([
+  const [assignments, credentials, events, returned] = await Promise.all([
     prisma.taskBookAssignment.findMany({
       where: { departmentId: ctx.departmentId, membershipId: ctx.membershipId },
       include: {
@@ -247,6 +322,10 @@ async function getMemberDashboard(ctx: AuthContext) {
       orderBy: { timestamp: "desc" },
       take: 12,
     }),
+    prisma.requirementCompletion.findMany({
+      where: { membershipId: ctx.membershipId, status: "RETURNED" },
+      include: { requirement: { include: { section: { include: { version: { include: { template: true } } } } } } },
+    }),
   ]);
 
   const assignmentRows = assignments.map((assignment) => {
@@ -260,14 +339,27 @@ async function getMemberDashboard(ctx: AuthContext) {
   });
   const credentialRows = credentials.map((item) => ({ item, status: credentialStatus(item.expirationDate, undefined, item.doesNotExpire) }));
 
+  const workItem = (row: (typeof assignmentRows)[number], extra?: string) => ({
+    id: row.assignment.id,
+    title: row.assignment.version.template.title,
+    percent: row.progress.percent,
+    status: row.progress.status,
+    dueDate: row.assignment.dueDate,
+    href: `/my-task-books/${row.assignment.id}`,
+    detail: extra || `${row.progress.complete} of ${row.progress.totalRequired} approved`,
+  });
+
   return {
     personal: true,
     summary: {
       activeMembers: 1,
       activeTaskBooks: assignmentRows.filter((row) => row.progress.status !== "COMPLETE").length,
+      activeAssignments: assignmentRows.filter((row) => row.progress.status !== "COMPLETE").length,
       awaitingSignOff: assignmentRows.reduce((sum, row) => sum + row.progress.pendingApproval, 0),
+      awaitingEvaluation: assignmentRows.reduce((sum, row) => sum + row.progress.pendingApproval, 0),
       expiringSoon: credentialRows.filter((row) => row.status.health === "expiring").length,
       overdueRequirements: assignmentRows.reduce((sum, row) => sum + row.progress.overdue, 0),
+      needsAttention: assignmentRows.filter((row) => row.progress.status === "OVERDUE" || row.progress.overdue > 0).length + returned.length,
       stalledOver30: 0,
       completedThisMonth: assignmentRows.filter((row) => row.progress.status === "COMPLETE").length,
       membersAssigned: assignmentRows.length,
@@ -275,13 +367,37 @@ async function getMemberDashboard(ctx: AuthContext) {
         ? Math.round(assignmentRows.reduce((sum, row) => sum + row.progress.percent, 0) / assignmentRows.length)
         : 0,
     },
-    attention: assignmentRows
-      .filter((row) => row.progress.status === "OVERDUE" || row.progress.pendingApproval > 0)
-      .map((row) => ({
-        tone: row.progress.status === "OVERDUE" ? "danger" : "info",
-        text: `${row.assignment.version.template.title} — ${row.progress.percent}%`,
-        href: `/my-task-books/${row.assignment.id}`,
+    work: {
+      needsAction: [
+        ...returned.map((item) => ({
+          id: item.id,
+          title: item.requirement.title,
+          percent: 0,
+          status: "RETURNED",
+          dueDate: null as Date | null,
+          href: assignmentRecordPath(item.assignmentId),
+          detail: `Returned · ${item.requirement.section.version.template.title}`,
+        })),
+        ...assignmentRows.filter((row) => row.progress.status === "OVERDUE" || (row.progress.status === "NOT_STARTED" && row.progress.overdue > 0)).map((row) => workItem(row, "Needs action")),
+      ],
+      inProgress: assignmentRows.filter((row) => row.progress.status === "IN_PROGRESS" || row.progress.status === "NOT_STARTED").map((row) => workItem(row)),
+      waiting: assignmentRows.filter((row) => row.progress.status === "AWAITING_SIGN_OFF").map((row) => workItem(row, "Awaiting evaluation")),
+      completed: assignmentRows.filter((row) => row.progress.status === "COMPLETE").map((row) => workItem(row, "Completed")),
+    },
+    attention: [
+      ...returned.map((item) => ({
+        tone: "danger",
+        text: `Returned: ${item.requirement.title}`,
+        href: assignmentRecordPath(item.assignmentId),
       })),
+      ...assignmentRows
+        .filter((row) => row.progress.status === "OVERDUE" || row.progress.pendingApproval > 0)
+        .map((row) => ({
+          tone: row.progress.status === "OVERDUE" ? "danger" : "info",
+          text: `${row.assignment.version.template.title} — ${row.progress.percent}%`,
+          href: `/my-task-books/${row.assignment.id}`,
+        })),
+    ],
     taskBookProgress: assignmentRows.map((row) => ({
       id: row.assignment.id,
       title: row.assignment.version.template.title,

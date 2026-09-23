@@ -53,7 +53,6 @@ export function ManagementDashboard({ awaitingSignOff }: { awaitingSignOff: numb
   const stalled = active.filter((row) => row.stalledDays >= threshold && row.pendingApproval === 0);
   const workload = [...reviewers].filter((row) => row.pendingCount || row.escalatedCount).sort((a, b) => b.escalatedCount - a.escalatedCount || b.pendingCount - a.pendingCount);
   const flaggedMemberCount = new Set([...overdue, ...pending, ...stalled].map((row) => row.memberId)).size;
-  const onTrackCount = active.filter((row) => assignmentReasons(row, threshold).length === 0).length;
   const visible = (assignments || []).filter((row) => {
     if (kind !== "ALL" && row.assignmentKind !== kind) return false;
     if (query.trim() && !`${row.memberName} ${row.taskBookTitle}`.toLowerCase().includes(query.trim().toLowerCase())) return false;
@@ -81,15 +80,15 @@ export function ManagementDashboard({ awaitingSignOff }: { awaitingSignOff: numb
   }
 
   const tabs: Array<{ id: Tab; label: string }> = [
-    { id: "attention", label: `Needs attention (${flaggedMemberCount})` },
-    { id: "all", label: `All training (${active.length})` },
-    { id: "approvals", label: `Approvals (${awaitingSignOff})` },
+    { id: "attention", label: `Needs Attention (${flaggedMemberCount})` },
+    { id: "all", label: `All work (${active.length})` },
+    { id: "approvals", label: `Awaiting Evaluation (${awaitingSignOff})` },
   ];
 
   return <section id="department-overview" className="mt-6 scroll-mt-4" aria-labelledby="department-operations-title">
     <Card className="overflow-hidden border-navy-200">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-navy-200 p-5">
-        <div><div className="kicker">Management</div><h2 id="department-operations-title" className="display mt-1 text-2xl font-bold">Department overview</h2><p className="mt-1 text-sm text-navy-500">Search department training and open the responsible workflow without repeating today&apos;s action queue.</p></div>
+        <div><div className="kicker">Search</div><h2 id="department-operations-title" className="display mt-1 text-2xl font-bold">Find a record</h2><p className="mt-1 text-sm text-navy-500">Search Task Books and Assignments without repeating the Home metrics.</p></div>
         <Button variant="secondary" disabled={busy} onClick={() => void refresh()}>{busy ? "Refreshing…" : "Refresh data"}</Button>
       </div>
       {error ? <p role="alert" className="mx-5 mt-4 text-sm text-danger">{error}</p> : null}
@@ -100,15 +99,9 @@ export function ManagementDashboard({ awaitingSignOff }: { awaitingSignOff: numb
       </div>
 
       {tab !== "approvals" ? <div id={`management-panel-${tab}`} role="tabpanel" aria-labelledby={`management-tab-${tab}`} className="p-4 sm:p-5">
-        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <OverviewStat label="On track" value={onTrackCount} />
-          <OverviewStat label="People needing attention" value={flaggedMemberCount} tone="danger" />
-          <OverviewStat label="Pending approvals" value={pending.reduce((sum, row) => sum + row.pendingApproval, 0)} tone="warn" />
-          <OverviewStat label={`Inactive ≥ ${threshold} days`} value={new Set(stalled.map((row) => row.memberId)).size} />
-        </div>
-        <div className={`grid gap-3 ${tab === "attention" ? "md:grid-cols-3" : "md:grid-cols-2"}`}><Input aria-label="Search members or training" placeholder="Search member or Task Book" value={query} onChange={(e) => setQuery(e.target.value)}/><Select aria-label="Training type" value={kind} onChange={(e) => setKind(e.target.value)}><option value="ALL">All training</option><option value="TASK_BOOK">Task Books</option><option value="TRAINING_TASK">Single tasks</option></Select>{tab === "attention" ? <Select aria-label="Attention filter" value={view} onChange={(e) => setView(e.target.value as View)}><option value="attention">All attention items</option><option value="overdue">Overdue</option><option value="pending">Awaiting approval</option><option value="stalled">No recent activity</option></Select> : null}</div>
+        <div className={`grid gap-3 ${tab === "attention" ? "md:grid-cols-3" : "md:grid-cols-2"}`}><Input aria-label="Search members or training" placeholder="Search member or Task Book" value={query} onChange={(e) => setQuery(e.target.value)}/><Select aria-label="Training type" value={kind} onChange={(e) => setKind(e.target.value)}><option value="ALL">All training</option><option value="TASK_BOOK">Task Books</option><option value="TRAINING_TASK">Assignments</option></Select>{tab === "attention" ? <Select aria-label="Attention filter" value={view} onChange={(e) => setView(e.target.value as View)}><option value="attention">All attention items</option><option value="overdue">Overdue</option><option value="pending">Awaiting evaluation</option><option value="stalled">No recent activity</option></Select> : null}</div>
         {tab === "attention" ? <div className="mt-4 flex justify-end"><label className="text-sm font-semibold text-navy-700">No-activity threshold<Select className="mt-1" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))}><option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option></Select></label></div> : null}
-        {visible.length === 0 ? <p className="mt-5 text-sm text-navy-500">No matching records. Try another filter or assign training to begin.</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">{visible.map((row) => <div key={row.id} className="rounded-lg border border-navy-200 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-bold text-navy-950">{row.memberName}</p><p className="text-sm text-navy-600">{row.taskBookTitle}</p><p className="mt-1 text-xs text-navy-500">{row.assignmentKind === "TASK_BOOK" ? "Task Book" : "Single task"}{row.dueDate ? ` · Due ${formatDate(row.dueDate)}` : ""}</p></div><Badge tone={assignmentTone(row.status)}>{assignmentStatusLabel(row.status)}</Badge></div><div className="mt-3 flex flex-wrap items-center gap-3"><ProgressBar value={row.progress}/><span className="text-xs text-navy-600">{row.complete}/{row.totalRequired} requirements approved</span></div><div className="mt-3 flex flex-wrap gap-1">{assignmentReasons(row, threshold).length ? assignmentReasons(row, threshold).map((reason) => <Badge key={reason} tone={reason === "Overdue" ? "danger" : "warn"}>{reason}</Badge>) : <Badge tone="current">No flagged blocker</Badge>}</div><div className="mt-4 flex flex-wrap gap-4 border-t border-navy-100 pt-3 text-sm font-semibold"><Link href={`/assignments/${row.id}`} className="text-fire underline">Open record</Link><Link href={`/members/${row.memberId}?tab=task-books`} className="text-fire underline">Member profile</Link>{row.pendingApproval > 0 ? <Link href="/evaluate" className="text-fire underline">Review queue</Link> : null}</div></div>)}</div>}
+        {visible.length === 0 ? <p className="mt-5 text-sm text-navy-500">No matching records. Try another filter or assign training to begin.</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">{visible.map((row) => <div key={row.id} className="rounded-lg border border-navy-200 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-bold text-navy-950">{row.memberName}</p><p className="text-sm text-navy-600">{row.taskBookTitle}</p><p className="mt-1 text-xs text-navy-500">{row.assignmentKind === "TASK_BOOK" ? "Task Book" : "Assignment"}{row.dueDate ? ` · Due ${formatDate(row.dueDate)}` : ""}</p></div><Badge tone={assignmentTone(row.status)}>{assignmentStatusLabel(row.status)}</Badge></div><div className="mt-3 flex flex-wrap items-center gap-3"><ProgressBar value={row.progress}/><span className="text-xs text-navy-600">{row.complete}/{row.totalRequired} requirements approved</span></div><div className="mt-3 flex flex-wrap gap-1">{assignmentReasons(row, threshold).length ? assignmentReasons(row, threshold).map((reason) => <Badge key={reason} tone={reason === "Overdue" ? "danger" : "warn"}>{reason}</Badge>) : <Badge tone="current">On Track</Badge>}</div><div className="mt-4 flex flex-wrap gap-4 border-t border-navy-100 pt-3 text-sm font-semibold"><Link href={`/assignments/${row.id}`} className="text-fire underline">Open Record</Link><Link href={`/members/${row.memberId}?tab=task-books`} className="text-fire underline">Member Progress</Link>{row.pendingApproval > 0 ? <Link href="/evaluate" className="text-fire underline">Needs My Evaluation</Link> : null}</div></div>)}</div>}
         <p className="mt-4 text-xs text-navy-500">No-activity indicators describe recorded activity, not actual training effort. Confirm context with the member. Approval and historical records cannot be modified here.</p>
       </div> : null}
 
@@ -116,8 +109,4 @@ export function ManagementDashboard({ awaitingSignOff }: { awaitingSignOff: numb
 
     </Card>
   </section>;
-}
-
-function OverviewStat({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "neutral" | "warn" | "danger" }) {
-  return <div className={`rounded-md border p-3 ${tone === "danger" ? "border-danger/30 bg-danger-soft/40" : tone === "warn" ? "border-warn/30 bg-warn-soft/50" : "border-navy-200 bg-navy-50"}`}><p className={`text-2xl font-bold ${tone === "danger" ? "text-danger" : tone === "warn" ? "text-warn" : "text-navy-900"}`}>{value}</p><p className="text-xs font-semibold text-navy-600">{label}</p></div>;
 }
