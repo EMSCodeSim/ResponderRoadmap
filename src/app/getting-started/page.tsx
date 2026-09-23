@@ -82,7 +82,7 @@ export default function GettingStartedPage() {
   const pendingApprovals = enrollment?.pendingMembers.length ?? 0;
   const steps = [
     { title: "Create department", description: "Your separate department and administrator account are ready.", complete: true, href: "/department", action: "Review department details" },
-    { title: "Add your people", description: "Invite a member or evaluator. Track invitations and approve join requests on the People screen.", complete: activeMembers > 1, href: "/members", action: "Open People" },
+    { title: "Add members", description: "Invite a member or evaluator. Track invitations and approve join requests on Members.", complete: activeMembers > 1, href: "/members", action: "Open Members" },
     { title: "Create your first Task Book", description: "Choose a template, import an existing PDF, or build from scratch. Review and publish before assigning.", complete: activeTaskBooks > 0, href: "/task-books/fast-start", action: "Create a Task Book" },
     { title: "Make your first assignment", description: "Choose a published Task Book and a member. Your first assignment is the finish line.", complete: assigned, href: "/assignments?assign=1", action: "Assign a Task Book" },
   ];

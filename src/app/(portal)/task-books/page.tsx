@@ -56,7 +56,7 @@ export default function TaskBooksPage() {
       <PageHeader
         kicker="Task Book library"
         title="Department Task Books"
-        description="Create, publish, and assign full Task Books. Single tasks live under Assignments in the left menu."
+        description="Create, publish, and assign Task Books. Individual training activities live under Assignments."
         actions={<Link href="/task-books/fast-start"><Button>Create Task Book</Button></Link>}
       />
       <Card className="mb-5 border-fire/20 p-5">

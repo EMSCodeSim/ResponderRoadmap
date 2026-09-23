@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeAssignmentProgress, requirementIsComplete } from "./progress";
+import { assignmentStatusLabel, computeAssignmentProgress, requirementIsComplete } from "./progress";
 
 const assignedDate = new Date("2026-09-01T12:00:00.000Z");
 const now = new Date("2026-09-02T12:00:00.000Z");
@@ -43,6 +43,11 @@ describe("official task-book approval integrity", () => {
     expect(result.percent).toBe(50);
     expect(result.status).not.toBe("COMPLETE");
     expect(requirementIsComplete(requirements[1], { requirementId: "skill-b", status: "APPROVED", repetitionCount: 1 })).toBe(false);
+  });
+
+  it("uses consistent operational labels for evaluation and completion", () => {
+    expect(assignmentStatusLabel("AWAITING_SIGN_OFF")).toBe("Awaiting Evaluation");
+    expect(assignmentStatusLabel("COMPLETE")).toBe("Completed");
   });
 
   it("marks the assignment complete only when all required approvals and repetitions are finished", () => {

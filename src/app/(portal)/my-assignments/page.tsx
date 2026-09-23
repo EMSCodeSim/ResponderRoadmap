@@ -31,7 +31,7 @@ export default function MyAssignmentsPage() {
 
   return (
     <div>
-      <PageHeader kicker="Assignments" title="My single tasks" description="Complete assigned one-off tasks and request evaluation when ready. Submitted work is not complete until approved." />
+      <PageHeader kicker="Assignments" title="My Assignments" description="Complete assigned work and request evaluation when ready. Submitted work is not complete until approved." />
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
       {!rows && !error ? <p className="text-navy-500">Loading assignments…</p> : null}
       {rows && rows.length === 0 ? <EmptyState title="No single tasks assigned" body="Any one-off tasks assigned by your Training Officer will appear here. Full Task Books are in the Task Books tab." /> : null}

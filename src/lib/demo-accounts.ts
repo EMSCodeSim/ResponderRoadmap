@@ -15,7 +15,7 @@ export const DEMO_WALKS = {
     email: "alex.morgan@metrofire.gov",
     name: "Alex Morgan",
     title: "Firefighter · Station 1",
-    next: "/my-task-books",
+    next: "/dashboard",
     cta: "See as Firefighter",
     after: "See assigned books, what is next, evidence, and the evaluation path.",
   },

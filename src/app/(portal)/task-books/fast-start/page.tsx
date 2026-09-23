@@ -10,11 +10,11 @@ type Starter = { id: string; title: string; description: string; category: strin
 type Book = { id: string; title: string; status: string; version: string };
 type Draft = { title: string; description: string; category: string; intendedPosition: string; estimatedDurationDays: number | null; sections: Array<{ title: string; description: string; sortOrder: number; requirements: Array<Record<string, unknown>> }> };
 const sources: Array<{ id: FastStartSource; title: string; detail: string }> = [
-  { id: "template", title: "Starter template", detail: "Use an existing structure with skills and requirements." },
-  { id: "existing", title: "Copy department book", detail: "Preserve the original book and assigned members." },
-  { id: "pdf", title: "Import a PDF", detail: "AI converts an existing document into an editable draft." },
-  { id: "ai", title: "Describe with AI", detail: "Generate an editable starting draft from your goals." },
-  { id: "blank", title: "Start manually", detail: "Create sections and paste requirement titles in bulk." },
+  { id: "blank", title: "Start Blank", detail: "Create sections and add requirements yourself." },
+  { id: "ai", title: "Generate with AI", detail: "Draft a Task Book from a Training Officer prompt, then edit in the builder." },
+  { id: "template", title: "Use Template", detail: "Start from a starter structure with skills and requirements." },
+  { id: "existing", title: "Duplicate Existing Task Book", detail: "Copy a department book. Original assignments stay unchanged." },
+  { id: "pdf", title: "Import a PDF", detail: "Optional. AI converts an existing document into the same builder." },
 ];
 function pdfBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

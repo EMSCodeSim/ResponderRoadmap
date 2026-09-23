@@ -1,11 +1,12 @@
 import { prisma } from "@/server/db";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
-import { assertPermission, type AuthContext } from "@/server/permissions";
+import { assertPermission, canOpenAssignmentRecord, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress } from "@/lib/progress";
 import { computeUpNext, deserializeRequirement, evaluationPasses, nextApprovalLevel } from "@/lib/taskbook";
 import { reviewerSeparationConflict, reviewStageForRequirement } from "@/lib/signoff";
 import { parseJsonArray, type SignOffResult } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
+import { assignmentRecordPath } from "@/lib/routes";
 import { notifyUser } from "@/server/services/inbox";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
 
@@ -105,6 +106,11 @@ function assertCanReadAssignment(ctx: AuthContext, membershipId: string) {
   if (ctx.role === "MEMBER" && ctx.membershipId !== membershipId) {
     throw new HttpError(403, "You can only view your own Task Books.");
   }
+}
+
+function assertCanOpenAssignmentRecord(ctx: AuthContext) {
+  if (canOpenAssignmentRecord(ctx.role)) return;
+  throw new HttpError(403, "You do not have permission to perform this action.");
 }
 
 export async function listAssignments(ctx: AuthContext) {
@@ -275,7 +281,7 @@ export async function createAssignments(
       body: `${ctx.name} assigned ${version.template.title}${dueDate ? `, due ${dueDate.toLocaleDateString()}` : ""}.`,
       referenceType: "TaskBookAssignment",
       referenceId: assignment.id,
-      actionPath: `/department/assignments/${assignment.id}`,
+      actionPath: assignmentRecordPath(assignment.id),
       dedupeKey: `assignment-created:${assignment.id}`,
     });
   }
@@ -607,7 +613,7 @@ export async function reviewSignOff(
         : `${completion.requirement.title} advanced to the next approval level.`,
     referenceType: "RequirementCompletion",
     referenceId: completion.id,
-    actionPath: `/department/assignments/${completion.assignmentId}`,
+    actionPath: assignmentRecordPath(completion.assignmentId),
     dedupeKey: `review:${signOff.id}`,
   });
   if (nextStatus === "SUBMITTED" && verdict.passed) {
@@ -808,7 +814,7 @@ export async function submitRequirement(
 }
 
 export async function getAssignment(ctx: AuthContext, assignmentId: string) {
-  assertPermission(ctx, "assignments.read");
+  assertCanOpenAssignmentRecord(ctx);
   const assignment = await assignmentWithGraph(assignmentId, ctx.departmentId);
   if (!assignment) throw new HttpError(404, "Assignment not found.");
   assertCanReadAssignment(ctx, assignment.membershipId);
@@ -816,7 +822,7 @@ export async function getAssignment(ctx: AuthContext, assignmentId: string) {
 }
 
 export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string) {
-  assertPermission(ctx, "assignments.read");
+  assertCanOpenAssignmentRecord(ctx);
   const assignment = await assignmentWithGraph(assignmentId, ctx.departmentId);
   if (!assignment) throw new HttpError(404, "Assignment not found.");
   assertCanReadAssignment(ctx, assignment.membershipId);

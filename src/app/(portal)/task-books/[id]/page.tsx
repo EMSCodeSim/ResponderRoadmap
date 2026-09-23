@@ -199,6 +199,7 @@ export default function TaskBookBuilderPage() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [aiToolBusy, setAiToolBusy] = useState(false);
+  const [aiAction, setAiAction] = useState("improve");
   const [aiReviewText, setAiReviewText] = useState("");
   const [dirty, setDirty] = useState(false);
   const [editorTab, setEditorTab] = useState<"basics" | "evaluation" | "signoff" | "standards">("basics");
@@ -477,6 +478,50 @@ Instructions: ${currentReq.instructions}`);
       setMessage("AI checklist added. Review each evaluation step before saving.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to generate checklist.");
+    } finally {
+      setAiToolBusy(false);
+    }
+  }
+
+  async function applyRequirementAi() {
+    if (aiAction === "checklist") return generateChecklistWithAi();
+    if (aiAction === "improve") return improveRequirementWithAi();
+    if (!currentReq || !current) return;
+    setAiToolBusy(true);
+    setError(null);
+    try {
+      const draft = await askTaskBookAi(
+        aiAction === "missing"
+          ? `Suggest missing requirements for this Fire/EMS Task Book section. Return one section titled "${current.title}" with 3-6 additional requirements the Training Officer may have omitted. Do not invent official standards.\n\nTask Book: ${title}\nExisting tasks: ${current.requirements.map((req) => req.title).join("; ")}`
+          : `Rewrite one Fire/EMS Task Book requirement more clearly. Return exactly one section with exactly one requirement. Keep the operational intent. ${aiAction === "criteria" ? "Focus on measurable evaluation criteria and evaluationSteps." : "Use plain field language."} Do not invent standards.\n\nTask Book: ${title}\nSection: ${current.title}\nTask: ${currentReq.title}\nDescription: ${currentReq.description}\nInstructions: ${currentReq.instructions}`,
+      );
+      if (aiAction === "missing") {
+        const added = (draft.sections[0]?.requirements || []).map((item, index) => ({
+          ...blankRequirement(current.requirements.length + index),
+          title: String(item.title || "Untitled requirement"),
+          description: String(item.description || ""),
+          instructions: String(item.instructions || ""),
+        }));
+        if (!added.length) throw new Error("AI did not return additional requirements.");
+        setSections((items) => items.map((section) => (section.clientId === current.clientId ? { ...section, requirements: [...section.requirements, ...added] } : section)));
+        markDirty();
+        setMessage("AI suggested missing requirements. Review, edit, or delete them before saving.");
+        return;
+      }
+      const suggestion = draft.sections[0]?.requirements[0];
+      if (!suggestion) throw new Error("AI did not return a usable requirement.");
+      updateReq({
+        title: suggestion.title || currentReq.title,
+        description: suggestion.description || currentReq.description,
+        instructions: suggestion.instructions || currentReq.instructions,
+        objectives: Array.isArray(suggestion.objectives) ? suggestion.objectives.filter((x): x is string => typeof x === "string") : currentReq.objectives,
+        evaluationSteps: Array.isArray(suggestion.evaluationSteps)
+          ? suggestion.evaluationSteps.map((step, index) => ({ id: typeof step?.id === "string" ? step.id : `ai-step-${index}-${uid()}`, text: typeof step?.text === "string" ? step.text : "" })).filter((step) => step.text)
+          : currentReq.evaluationSteps,
+      });
+      setMessage("AI updated this draft requirement. Review before saving or publishing.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "AI assistance is temporarily unavailable. You can continue manually.");
     } finally {
       setAiToolBusy(false);
     }
@@ -808,16 +853,20 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
             <div className="space-y-3">
               {!draftLocked ? (
                 <div className="rounded-md border border-fire/30 bg-fire-soft/40 p-3">
-                  <div className="text-xs font-bold uppercase tracking-wide text-fire">AI task tools</div>
+                  <div className="text-xs font-bold uppercase tracking-wide text-fire">Ask AI</div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={improveRequirementWithAi} disabled={aiToolBusy || !currentReq.title.trim()}>
-                      {aiToolBusy ? "AI working…" : "Improve This Task"}
-                    </Button>
-                    <Button variant="secondary" onClick={generateChecklistWithAi} disabled={aiToolBusy || !currentReq.title.trim()}>
-                      Generate Evaluation Checklist
+                    <Select aria-label="AI assistance" value={aiAction} onChange={(event) => setAiAction(event.target.value)} className="min-w-52">
+                      <option value="improve">Improve Requirement</option>
+                      <option value="criteria">Create Evaluation Criteria</option>
+                      <option value="checklist">Create Checklist</option>
+                      <option value="rewrite">Rewrite Clearly</option>
+                      <option value="missing">Suggest Missing Items</option>
+                    </Select>
+                    <Button variant="secondary" onClick={() => void applyRequirementAi()} disabled={aiToolBusy || !currentReq.title.trim()}>
+                      {aiToolBusy ? "AI working…" : "Apply to draft"}
                     </Button>
                   </div>
-                  <p className="mt-2 text-xs text-navy-500">Suggestions update the draft only. Review before saving or publishing.</p>
+                  <p className="mt-2 text-xs text-navy-500">Suggestions update the draft only. Review before saving or publishing. Core editing still works if AI is unavailable.</p>
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-1">

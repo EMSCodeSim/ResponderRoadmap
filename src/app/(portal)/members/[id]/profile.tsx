@@ -124,6 +124,20 @@ export default function MemberProfile() {
       ) ?? [],
     [member],
   );
+  const returnedCount = useMemo(
+    () =>
+      member?.assignmentDetails.reduce(
+        (sum, assignment) =>
+          sum +
+          assignment.sections.reduce(
+            (sectionSum, section) =>
+              sectionSum + section.requirements.filter((req) => req.completion?.status === "RETURNED").length,
+            0,
+          ),
+        0,
+      ) ?? 0,
+    [member],
+  );
 
   async function saveNote(event: FormEvent) {
     event.preventDefault();
@@ -178,8 +192,17 @@ export default function MemberProfile() {
 
       {tab === "overview" && (
         <div className="grid gap-6 xl:grid-cols-3">
+          <Card className="p-5 xl:col-span-3">
+            <h2 className="display text-2xl font-bold">Development status</h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-md border border-navy-200 p-3"><div className="kicker">Approved</div><div className="display text-3xl font-bold">{member.assignments.reduce((sum, item) => sum + item.complete, 0)}</div></div>
+              <div className="rounded-md border border-navy-200 p-3"><div className="kicker">Remaining</div><div className="display text-3xl font-bold">{member.assignments.reduce((sum, item) => sum + Math.max(0, item.totalRequired - item.complete), 0)}</div></div>
+              <div className="rounded-md border border-navy-200 p-3"><div className="kicker">Awaiting Evaluation</div><div className="display text-3xl font-bold">{member.assignments.reduce((sum, item) => sum + item.pendingApproval, 0)}</div></div>
+              <div className="rounded-md border border-navy-200 p-3"><div className="kicker">Returned</div><div className="display text-3xl font-bold">{returnedCount}</div></div>
+            </div>
+          </Card>
           <Card className="p-5 xl:col-span-2">
-            <h2 className="display text-2xl font-bold">Current Task Books</h2>
+            <h2 className="display text-2xl font-bold">Active Task Books and Assignments</h2>
             {member.assignments.length === 0 ? (
               <p className="mt-3 text-sm text-navy-500">No department Task Books assigned.</p>
             ) : (

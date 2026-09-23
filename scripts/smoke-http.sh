@@ -24,7 +24,9 @@ TO=$(json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}')
 echo "$TO" | $JQ '.data.session.role == "TRAINING_OFFICER"' >/dev/null
 ok 'demo Training Officer login'
 json "$BASE/api/v1/auth/me" | $JQ '.data.role == "TRAINING_OFFICER"' >/dev/null
-json "$BASE/api/v1/dashboard" | $JQ '.data.summary.activeTaskBooks >= 0' >/dev/null
+json "$BASE/api/v1/dashboard" | $JQ '.data.summary.activeTaskBooks >= 0 and ((.data.memberProgress | type) == "array")' >/dev/null
+json "$BASE/api/v1/inbox" | $JQ '[((.data.items // []) + (.data.needsAction // []))[] | select((.actionPath // "") | test("/department/assignments"))] | length == 0' >/dev/null
+json -X POST "$BASE/api/v1/ai/ask" -d '{"question":"How do I create a Task Book?","page":"/dashboard"}' | $JQ '.data.source == "facts"' >/dev/null
 json "$BASE/api/v1/department" | $JQ '.data.id != null' >/dev/null
 json "$BASE/api/v1/activity" | $JQ '.data | type == "array"' >/dev/null
 json "$BASE/api/v1/reports/task-book-progress" | $JQ '.data != null' >/dev/null
@@ -36,6 +38,10 @@ json "$BASE/api/v1/invitations" | $JQ '.data != null' >/dev/null
 expect_page "$BASE/dashboard"
 expect_page "$BASE/task-books"
 expect_page "$BASE/assignments"
+expect_page "$BASE/assignments/new"
+expect_page "$BASE/single-assignments"
+expect_page "$BASE/training-assignments"
+expect_page "$BASE/task-books/new"
 expect_page "$BASE/certifications"
 expect_page "$BASE/reports"
 expect_page "$BASE/department"
@@ -140,5 +146,12 @@ AI_CODE=$(curl -sS -b "$COOKIE" -c "$COOKIE" -H 'Content-Type: application/json'
 [[ "$AI_CODE" == "503" || "$AI_CODE" == "400" || "$AI_CODE" == "200" ]] || { cat /tmp/rr-ai.json; echo "Unexpected AI route status: $AI_CODE"; exit 1; }
 jq -e 'has("error") or has("data")' /tmp/rr-ai.json >/dev/null
 ok 'AI route permission and structured response'
+
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | $JQ '.data.session.role == "EVALUATOR"' >/dev/null
+if [[ -n "$MEMBER_ASSIGNMENT_ID" ]]; then
+  json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID" | $JQ '.data.id != null' >/dev/null
+  expect_page "$BASE/assignments/$MEMBER_ASSIGNMENT_ID"
+fi
+ok 'evaluator Open Record'
 
 echo 'ResponderRoadmap HTTP smoke test passed.'

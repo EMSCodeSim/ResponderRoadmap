@@ -42,13 +42,16 @@ export default function SettingsPage() {
 
   const tools = [
     { key: "department", href: "/department", title: "Department setup", description: "Department profile, access and configuration." },
+    { key: "enrollment", href: "/enrollment", title: "Enrollment", description: "Join codes, invitations, and roster import." },
+    { key: "evaluators", href: "/evaluators", title: "Evaluators", description: "Authorize evaluators and reassign reviews." },
     { key: "certifications", href: "/certifications", title: "Certification records", description: "Review department certification information." },
+    { key: "reports", href: "/reports", title: "Reports", description: "Task Book progress and compliance snapshots." },
     { key: "interest-list", href: "/interest-list", title: "Interest list", description: "Review department interest inquiries." },
   ].filter((item) => nav.includes(item.key));
 
   return (
     <div>
-      <PageHeader kicker="Account and department" title="Settings" description="Manage your account and authorized department tools." />
+      <PageHeader kicker="Admin" title={tools.length ? "Admin" : "Settings"} description="Account settings and advanced department configuration." />
       <Flash message={error} tone="danger" />
       <div className="mb-4"><Flash message={message} tone="current" /></div>
       {tools.length > 0 ? (

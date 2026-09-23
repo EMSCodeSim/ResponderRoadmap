@@ -11,11 +11,6 @@ import { STEP_RATING_LABELS, STEP_RATINGS } from "@/lib/constants";
 import { TASKBOOK_ATTESTATION_TEXT } from "@/lib/taskbook-attestation";
 import { Badge, Button, Card, EmptyState, Field, Flash, PageHeader, TextArea } from "@/components/ui";
 
-type AiDraft = {
-  description: string;
-  sections: Array<{ requirements: Array<{ title?: string; description?: string; instructions?: string; objectives?: string[] }> }>;
-};
-
 type QueueItem = {
   id: string;
   assignmentId: string;
@@ -97,15 +92,14 @@ function EvaluateInner() {
     setAiBusy(true);
     setError(null);
     try {
-      const draft = await api<AiDraft>("task-books/ai/draft", {
+      const result = await api<{ answer: string }>("ai/ask", {
         method: "POST",
         body: JSON.stringify({
-          prompt: `Create a short remediation coaching plan for a firefighter/EMS Task Book skill. Do not decide pass/fail and do not invent policy or standards. Base the plan only on the skill, evaluator notes, marked critical failures, and prior attempts below. Put a concise coaching summary in the description and return one requirement whose instructions contain the practice plan and whose objectives contain 2-4 reassessment goals.\n\nMember: ${selected.memberName}\nTask Book: ${selected.taskBookTitle}\nSkill: ${selected.requirementTitle}\nInstructions: ${selected.instructions}\nCurrent evaluator comments: ${note || "None yet"}\nTriggered critical failures: ${critical.join(", ") || "None marked"}\nPrevious attempts: ${JSON.stringify(selected.attempts).slice(0, 8000)}`,
+          question: `Draft coaching notes only for this returned skill. Do not approve or decide pass/fail. Skill: ${selected.requirementTitle}. Task Book: ${selected.taskBookTitle}. Member: ${selected.memberName}. Instructions: ${selected.instructions}. Evaluator comments: ${note || "None yet"}.`,
+          page: "/evaluate",
         }),
       });
-      const req = draft.sections[0]?.requirements[0];
-      const text = [draft.description, req?.instructions, ...(req?.objectives || []).map((item) => `• ${item}`)].filter(Boolean).join("\n");
-      setRemediationSuggestion(text || "No remediation suggestion was returned.");
+      setRemediationSuggestion(result.answer || "No remediation suggestion was returned.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to create remediation suggestion.");
     } finally {
@@ -230,6 +224,9 @@ function EvaluateInner() {
               <p className="text-navy-600">
                 {selected.memberName} · {selected.taskBookTitle} · {selected.sectionTitle}
               </p>
+              <div className="mt-2">
+                <Link href={`/assignments/${selected.assignmentId}`} className="text-sm font-semibold text-fire underline">Open Record</Link>
+              </div>
               {view === "recent" ? (
                 <div className="mt-3 rounded-md border border-navy-200 bg-navy-50 p-3 text-sm font-semibold text-navy-700">
                   Completed review · Read-only audit history
