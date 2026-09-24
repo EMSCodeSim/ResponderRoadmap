@@ -22,10 +22,19 @@ type Department = {
   requireApproval: boolean;
   evaluationEscalationHours: number;
   trainingSheetRequiredFieldsJson: string;
+  agencyType: string;
+  operationalCapabilitiesJson: string;
+  customCapabilitiesJson: string;
 };
 
 type Invitation = { id: string; email: string | null; token: string; role: string; status: string };
 type Member = { id: string; name: string; role: Role; status: string; rank: string | null };
+
+const AGENCY_TYPES = [["FIRE", "Fire department"], ["EMS", "EMS-only agency"], ["FIRE_EMS", "Fire & EMS"], ["RESCUE", "Rescue agency"], ["TRAINING", "Training organization"]] as const;
+const CAPABILITIES = [
+  ["STRUCTURAL_FIRE","Structural fire"],["WILDLAND","Wildland fire"],["EMS_BLS","EMS — BLS"],["EMS_ALS","EMS — ALS"],["HAZMAT","HazMat"],["DRIVER_APPARATUS","Driver / apparatus"],
+  ["TECHNICAL_RESCUE","Technical rescue"],["ROPE_HIGH_ANGLE","High-angle / rope rescue"],["SWIFT_WATER","Swift water rescue"],["DIVE","Dive rescue"],["TRENCH","Trench rescue"],["CONFINED_SPACE","Confined space"],["COLLAPSE","Structural collapse"],["ARFF","Airport / ARFF"]
+] as const;
 
 const TRAINING_SHEET_FIELDS = [
   ["TITLE", "Training title"], ["DATE", "Date / start time"], ["END_TIME", "End time"], ["INSTRUCTOR", "Instructor / proctor"],
@@ -59,7 +68,9 @@ export default function DepartmentPage() {
     if (!dept) return;
     try {
       const trainingSheetRequiredFields = (() => { try { const value = JSON.parse(dept.trainingSheetRequiredFieldsJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
-      await api("department", { method: "PATCH", body: JSON.stringify({ ...dept, trainingSheetRequiredFields }) });
+      const operationalCapabilities = (() => { try { const value = JSON.parse(dept.operationalCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
+      const customCapabilities = (() => { try { const value = JSON.parse(dept.customCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
+      await api("department", { method: "PATCH", body: JSON.stringify({ ...dept, trainingSheetRequiredFields, operationalCapabilities, customCapabilities }) });
       setMessage("Department settings saved.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to save.");
@@ -86,6 +97,9 @@ export default function DepartmentPage() {
   if (!dept) return <p className="text-navy-500">Loading department…</p>;
   const requiredTrainingFields: string[] = (() => { try { const value = JSON.parse(dept.trainingSheetRequiredFieldsJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
   const toggleTrainingField = (field: string) => setDept({ ...dept, trainingSheetRequiredFieldsJson: JSON.stringify(requiredTrainingFields.includes(field) ? requiredTrainingFields.filter((item) => item !== field) : [...requiredTrainingFields, field]) });
+  const capabilities: string[] = (() => { try { const value = JSON.parse(dept.operationalCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
+  const toggleCapability = (value: string) => setDept({ ...dept, operationalCapabilitiesJson: JSON.stringify(capabilities.includes(value) ? capabilities.filter((item) => item !== value) : [...capabilities, value]) });
+  const customCapabilities: string[] = (() => { try { const value = JSON.parse(dept.customCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
 
   return (
     <div>
@@ -151,6 +165,13 @@ export default function DepartmentPage() {
                 onChange={(e) => setDept({ ...dept, evaluationEscalationHours: Number(e.target.value) || 48 })}
               />
             </Field>
+            <div className="md:col-span-2 rounded-lg border border-navy-200 p-4">
+              <div className="font-semibold text-navy-900">What does your department do?</div>
+              <p className="mt-1 text-sm text-navy-500">Configure Roadmap around the services your agency actually provides. These selections organize training options; your department still defines its own requirements and expectations.</p>
+              <div className="mt-4 max-w-md"><Field label="Agency type"><Select value={dept.agencyType} onChange={(e) => setDept({...dept, agencyType:e.target.value})}>{AGENCY_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</Select></Field></div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{CAPABILITIES.map(([value,label])=><label key={value} className="flex min-h-10 items-center gap-2 rounded-md bg-navy-50 px-3 text-sm"><input type="checkbox" checked={capabilities.includes(value)} onChange={()=>toggleCapability(value)}/>{label}</label>)}</div>
+              <div className="mt-4"><Field label="Other specialties" hint="Comma-separated department-specific capabilities."><Input value={customCapabilities.join(", ")} onChange={(e)=>setDept({...dept,customCapabilitiesJson:JSON.stringify(e.target.value.split(",").map(v=>v.trim()).filter(Boolean))})} placeholder="Ice rescue, mountain rescue, bike medic…" /></Field></div>
+            </div>
             <div className="md:col-span-2 rounded-lg border border-navy-200 p-4">
               <div className="font-semibold text-navy-900">Required RMS training-sheet fields</div>
               <p className="mt-1 text-sm text-navy-500">Select the information your department needs before a Digital Training Sheet can be completed for transfer to your current RMS or records system.</p>
