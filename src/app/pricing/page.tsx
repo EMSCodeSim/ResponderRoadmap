@@ -7,15 +7,15 @@ import { PRICING_HEADLINE, PRICING_SUMMARY } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `${PRICING_HEADLINE} ${PRICING_SUMMARY} Same Task Book workflow on every plan.`,
+  description: `${PRICING_HEADLINE} ${PRICING_SUMMARY} Focused training-readiness workflow on every plan.`,
   alternates: { canonical: "/pricing" },
 };
 
 const faqs = [
-  ["What if we have more than 5 members but fewer than 25?", "Station. $299/year. Full Task Book workflow. Up to 25 active members."],
+  ["What if we have more than 5 members but fewer than 25?", "Station. $299/year. Focused training-readiness workflow. Up to 25 active members."],
   ["How do you count members?", "Active members — not the whole roster. Someone counts if they are assigned a Task Book or signed in during the last 90 days."],
-  ["What changes between plans?", "Only the active-member cap. Approvals, version history, remediation, reports, and PDF import stay on every plan."],
-  ["Is the $500 Founding plan going away?", "No. Founding stays $500/year for current and early department buyers, up to 75 active members, locked while you stay subscribed."],
+  ["What changes between plans?", "The core training-readiness workflow stays consistent: Task Books, Assignments, training records, verification, readiness tracking, and reporting. Plans primarily scale by active-member capacity."],
+  ["Is the $500 Founding plan going away?", "No. Founding Department stays $500/year for current and early department buyers, up to 75 active members, locked while you stay subscribed."],
 ];
 
 export default function PricingPage() {
