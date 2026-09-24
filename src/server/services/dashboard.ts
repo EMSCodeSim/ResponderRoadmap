@@ -11,6 +11,9 @@ export async function getDashboard(ctx: AuthContext) {
   if (ctx.role === "MEMBER") {
     return getMemberDashboard(ctx);
   }
+  if (ctx.role === "INSTRUCTOR") {
+    return getInstructorDashboard(ctx);
+  }
   const departmentId = ctx.departmentId;
 
   const [members, assignments, completions, credentials, events, templates] = await Promise.all([
@@ -497,5 +500,53 @@ async function getMemberDashboard(ctx: AuthContext) {
       actorName: event.user?.name ?? null,
       metadata: parseMeta(event.metadataJson),
     })),
+  };
+}
+
+
+async function getInstructorDashboard(ctx: AuthContext) {
+  const now = new Date();
+  const classes = await prisma.trainingClass.findMany({
+    where: {
+      departmentId: ctx.departmentId,
+      OR: [
+        { createdById: ctx.userId },
+        { proctors: { some: { userId: ctx.userId } } },
+      ],
+    },
+    include: {
+      roster: { select: { id: true, finalResult: true, attendance: true } },
+      proctors: { select: { userId: true } },
+    },
+    orderBy: { startsAt: "asc" },
+  });
+
+  const rows = classes.map((row) => ({
+    id: row.id,
+    title: row.title,
+    startsAt: row.startsAt,
+    endsAt: row.endsAt,
+    location: row.location,
+    status: row.status,
+    rosterCount: row.roster.length,
+    presentCount: row.roster.filter((item) => item.attendance === "PRESENT").length,
+    completeCount: row.roster.filter((item) => item.finalResult !== "PENDING").length,
+    href: `/classes/${row.id}`,
+  }));
+  const upcoming = rows.filter((row) => row.status !== "COMPLETE" && row.status !== "CANCELLED" && row.startsAt >= now);
+  const inProgress = rows.filter((row) => row.status === "ACTIVE" && row.startsAt < now);
+  const recentlyCompleted = rows.filter((row) => row.status === "COMPLETE").sort((a,b) => b.startsAt.getTime() - a.startsAt.getTime()).slice(0,5);
+  const nextClass = upcoming[0] || inProgress[0] || null;
+
+  return {
+    instructor: true,
+    instructorHome: { nextClass, upcoming: upcoming.slice(0,8), inProgress: inProgress.slice(0,8), recentlyCompleted },
+    summary: {
+      activeMembers: 0, activeTaskBooks: 0, awaitingSignOff: 0, awaitingEvaluation: 0,
+      expiringSoon: 0, overdueRequirements: 0, needsAttention: 0,
+    },
+    attention: [],
+    taskBookProgress: [],
+    recentActivity: [],
   };
 }
