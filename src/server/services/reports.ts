@@ -445,7 +445,7 @@ export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
 
 
 type TrainingGap = {
-  kind: "MISSING" | "EXPIRED" | "EXPIRING" | "OVERDUE_TASK_BOOK" | "INCOMPLETE_TASK_BOOK";
+  kind: "MISSING" | "EXPIRED" | "EXPIRING" | "OVERDUE_TASK_BOOK" | "INCOMPLETE_TASK_BOOK" | "TRAINING_HOURS";
   name: string;
   detail: string;
 };
@@ -461,13 +461,21 @@ function parseStringArray(value: string) {
 
 export async function trainingGapsReport(ctx: AuthContext) {
   assertPermission(ctx, "reports.read");
-  const [members, types] = await Promise.all([
+  const year = new Date().getFullYear();
+  const yearStart = new Date(year, 0, 1);
+  const yearEnd = new Date(year + 1, 0, 1);
+  const [members, types, expectations, completedTraining] = await Promise.all([
     prisma.departmentMembership.findMany({
       where: { departmentId: ctx.departmentId, status: "ACTIVE" },
       include: { user: true, credentials: true, assignments: { include: { version: { include: { template: true, sections: { include: { requirements: true } } } }, completions: true } } },
       orderBy: { user: { name: "asc" } },
     }),
     prisma.credentialType.findMany({ where: { departmentId: ctx.departmentId }, orderBy: { name: "asc" } }),
+    prisma.trainingExpectation.findMany({ where: { departmentId: ctx.departmentId, active: true } }),
+    prisma.trainingClass.findMany({
+      where: { departmentId: ctx.departmentId, status: "COMPLETE", startsAt: { gte: yearStart, lt: yearEnd } },
+      select: { trainingCategory: true, creditHours: true, startsAt: true, endsAt: true, roster: { select: { membershipId: true, attendance: true } } },
+    }),
   ]);
 
   const requiredTypes = types.map((type) => ({
@@ -475,10 +483,34 @@ export async function trainingGapsReport(ctx: AuthContext) {
     requiredRanks: parseStringArray(type.requiredRanksJson),
     requiredPositions: parseStringArray(type.requiredPositionsJson),
   }));
+  const profiles = expectations.map((profile) => ({
+    ...profile,
+    matchRanks: parseStringArray(profile.matchRanksJson),
+    matchPositions: parseStringArray(profile.matchPositionsJson),
+    credentialTypeIds: parseStringArray(profile.credentialTypeIdsJson),
+    taskBookTemplateIds: parseStringArray(profile.taskBookTemplateIdsJson),
+    annualHours: (() => { try { const value = JSON.parse(profile.annualHoursJson); return value && typeof value === "object" ? value as Record<string, number> : {}; } catch { return {}; } })(),
+  }));
+  const hoursByMember = new Map<string, Record<string, number>>();
+  for (const training of completedTraining) {
+    const fallback = training.endsAt ? Math.max(0, (training.endsAt.getTime() - training.startsAt.getTime()) / 3_600_000) : 0;
+    const hours = training.creditHours > 0 ? training.creditHours : fallback;
+    for (const enrollment of training.roster) {
+      if (!enrollment.membershipId || enrollment.attendance !== "PRESENT") continue;
+      const current = hoursByMember.get(enrollment.membershipId) || {};
+      current[training.trainingCategory] = (current[training.trainingCategory] || 0) + hours;
+      hoursByMember.set(enrollment.membershipId, current);
+    }
+  }
 
   const rows = members.map((member) => {
+    const matchingProfiles = profiles.filter((profile) =>
+      (member.rank ? profile.matchRanks.includes(member.rank) : false) ||
+      (member.position ? profile.matchPositions.includes(member.position) : false),
+    );
+    const profileCredentialIds = new Set(matchingProfiles.flatMap((profile) => profile.credentialTypeIds));
     const applicable = requiredTypes.filter((type) =>
-      type.requiredForAll ||
+      profileCredentialIds.has(type.id) || type.requiredForAll ||
       (member.rank ? type.requiredRanks.includes(member.rank) : false) ||
       (member.position ? type.requiredPositions.includes(member.position) : false),
     );
@@ -487,8 +519,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
         credential.credentialTypeId === type.id || credential.credentialName.toLowerCase() === type.name.toLowerCase(),
       );
       if (!matching.length) return [{ kind: "MISSING" as const, name: type.name, detail: "Required credential not on file" }];
-      const best = matching
-        .map((credential) => ({ credential, status: credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire) }))
+      const best = matching.map((credential) => ({ credential, status: credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire) }))
         .sort((a, b) => (a.status.health === "current" ? -1 : b.status.health === "current" ? 1 : 0))[0];
       if (!best) return [];
       if (best.status.health === "expired") return [{ kind: "EXPIRED" as const, name: type.name, detail: best.status.label }];
@@ -496,45 +527,41 @@ export async function trainingGapsReport(ctx: AuthContext) {
       return [];
     });
 
-    const taskBookGaps = member.assignments.flatMap<TrainingGap>((assignment) => {
-      const progress = computeAssignmentProgress({
-        requirements: assignment.version.sections.flatMap((section) => section.requirements),
-        completions: assignment.completions,
-        assignedDate: assignment.assignedDate,
-        dueDate: assignment.dueDate,
-      });
+    const normalTaskBookGaps = member.assignments.flatMap<TrainingGap>((assignment) => {
+      const progress = computeAssignmentProgress({ requirements: assignment.version.sections.flatMap((section) => section.requirements), completions: assignment.completions, assignedDate: assignment.assignedDate, dueDate: assignment.dueDate });
       if (progress.status === "COMPLETE") return [];
-      return [{
-        kind: progress.status === "OVERDUE" ? "OVERDUE_TASK_BOOK" as const : "INCOMPLETE_TASK_BOOK" as const,
-        name: assignment.version.template.title,
-        detail: `${progress.percent}% complete`,
-      }];
+      return [{ kind: progress.status === "OVERDUE" ? "OVERDUE_TASK_BOOK" as const : "INCOMPLETE_TASK_BOOK" as const, name: assignment.version.template.title, detail: `${progress.percent}% complete` }];
+    });
+    const requiredTemplateIds = new Set(matchingProfiles.flatMap((profile) => profile.taskBookTemplateIds));
+    const missingTaskBooks: TrainingGap[] = [...requiredTemplateIds].flatMap((templateId) => {
+      const assignments = member.assignments.filter((assignment) => assignment.version.templateId === templateId);
+      if (assignments.length) return [];
+      const profile = matchingProfiles.find((item) => item.taskBookTemplateIds.includes(templateId));
+      return [{ kind: "INCOMPLETE_TASK_BOOK" as const, name: "Required task book", detail: `Not assigned · ${profile?.name || "role expectation"}` }];
     });
 
-    return {
-      memberId: member.id,
-      memberName: member.user.name,
-      rank: member.rank,
-      position: member.position,
-      station: member.station,
-      shift: member.shift,
-      gaps: [...credentialGaps, ...taskBookGaps],
-      gapCount: credentialGaps.length + taskBookGaps.length,
-    };
+    const expectedHours: Record<string, number> = {};
+    for (const profile of matchingProfiles) for (const [category, target] of Object.entries(profile.annualHours)) expectedHours[category] = Math.max(expectedHours[category] || 0, Number(target) || 0);
+    const actualHours = hoursByMember.get(member.id) || {};
+    const hourGaps: TrainingGap[] = Object.entries(expectedHours).flatMap(([category, target]) => {
+      const actual = Math.round((actualHours[category] || 0) * 100) / 100;
+      return actual >= target ? [] : [{ kind: "TRAINING_HOURS" as const, name: `${category.replaceAll("_", " ")} training`, detail: `${actual} / ${target} hours in ${year}` }];
+    });
+
+    const gaps = [...credentialGaps, ...normalTaskBookGaps, ...missingTaskBooks, ...hourGaps];
+    return { memberId: member.id, memberName: member.user.name, rank: member.rank, position: member.position, station: member.station, shift: member.shift, expectationProfiles: matchingProfiles.map((profile) => profile.name), gaps, gapCount: gaps.length };
   });
 
   const withGaps = rows.filter((row) => row.gapCount > 0);
   return {
-    members: rows.length,
-    membersWithGaps: withGaps.length,
-    totalGaps: withGaps.reduce((sum, row) => sum + row.gapCount, 0),
+    year, members: rows.length, membersWithGaps: withGaps.length, totalGaps: withGaps.reduce((sum, row) => sum + row.gapCount, 0),
     missingCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "MISSING").length, 0),
     expiredCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRED").length, 0),
     expiringCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRING").length, 0),
+    trainingHourGaps: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "TRAINING_HOURS").length, 0),
     rows: withGaps,
   };
 }
-
 
 export async function classTrainingSheetReport(ctx: AuthContext, classId: string) {
   assertPermission(ctx, "reports.read");
