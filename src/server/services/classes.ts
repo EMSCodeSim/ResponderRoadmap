@@ -332,13 +332,21 @@ export async function registerGuestStudent(token: string, raw: unknown, source =
       where: { classId: row.id, OR: [{ guestEmail: input.email }, { membership: { user: { email: input.email } } }] }, select: { id: true },
     });
     if (existing) throw new HttpError(409, "This email is already on the class roster.");
-    const created = await tx.trainingClassEnrollment.create({ data: { classId: row.id, guestName: input.name, guestEmail: input.email, guestOrganization: input.organization } });
-    return { id: created.id, classId: row.id, departmentId: row.departmentId };
+    const departmentMember = await tx.departmentMembership.findFirst({
+      where: { departmentId: row.departmentId, status: "ACTIVE", user: { email: input.email } },
+      select: { id: true },
+    });
+    const created = await tx.trainingClassEnrollment.create({
+      data: departmentMember
+        ? { classId: row.id, membershipId: departmentMember.id }
+        : { classId: row.id, guestName: input.name, guestEmail: input.email, guestOrganization: input.organization },
+    });
+    return { id: created.id, classId: row.id, departmentId: row.departmentId, matchedMember: Boolean(departmentMember) };
   }).catch((error: unknown) => {
     if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw new HttpError(409, "This email is already on the class roster.");
     throw error;
   });
-  await writeActivity(enrollment.departmentId, "CLASS_GUEST_REGISTERED", { referenceId: enrollment.classId, metadata: { enrollmentId: enrollment.id, source: "CLASS_QR", accountCreated: false } });
+  await writeActivity(enrollment.departmentId, "CLASS_GUEST_REGISTERED", { referenceId: enrollment.classId, metadata: { enrollmentId: enrollment.id, source: "CLASS_QR", accountCreated: false, matchedDepartmentMember: enrollment.matchedMember } });
   return { registered: true };
 }
 
