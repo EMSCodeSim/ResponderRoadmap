@@ -358,6 +358,10 @@ model TrainingClass {
   department    Department      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   title         String
   classType     String          @default("GENERAL")
+  /// Simple reporting category for training-hour exports; not an ISO rules engine.
+  trainingCategory String        @default("COMPANY")
+  /// Credit awarded to each PRESENT department member when the class is COMPLETE.
+  creditHours   Float           @default(0)
   checklistVersionId String
   checklistVersion TaskBookVersion @relation(fields: [checklistVersionId], references: [id])
   startsAt      DateTime
