@@ -5,14 +5,14 @@ import { isDemoAvailable } from "@/server/demo";
 import { LandingPage } from "./landing";
 
 export const metadata: Metadata = {
-  title: { absolute: "Digital Firefighter Task Books | Responder Roadmap" },
+  title: { absolute: "Fire & EMS Training Readiness | Responder Roadmap" },
   description:
-    "Digital Task Books and training Assignments for Fire & EMS departments. Help Training Captains see what every member is working on, what is waiting for evaluation, and what needs attention next.",
+    "Fire & EMS training readiness software for Task Books, Assignments, digital training sheets, QR attendance, training hours, certifications, role expectations, training gaps, and RMS-ready exports.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Digital Firefighter Task Books | Responder Roadmap",
+    title: "Fire & EMS Training Readiness | Responder Roadmap",
     description:
-      "Create Task Books and Assignments, manage evaluations and approvals, and see member qualification progress in one place.",
+      "Know what every member has completed, what they are working on, and what they need next — without replacing your RMS.",
     url: "https://responderroadmap.com/",
   },
 };

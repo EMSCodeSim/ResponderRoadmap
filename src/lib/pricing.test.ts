@@ -13,8 +13,8 @@ describe("public pricing catalog", () => {
     expect(PUBLIC_PLANS.map((plan) => plan.id)).toEqual(["FREE", "STATION", "FOUNDING", "DEPARTMENT"]);
     expect(PUBLIC_PLANS.map((plan) => plan.activeMemberCap)).toEqual([5, 25, 75, null]);
     expect(PUBLIC_PLANS[1]).toMatchObject({ price: "$299", cta: "Start Station", featured: true });
-    expect(PUBLIC_PLANS[2]).toMatchObject({ price: "$500", name: "Founding / Department" });
-    expect(PRICING_HEADLINE).toBe("Start with five. Grow with your department.");
+    expect(PUBLIC_PLANS[2]).toMatchObject({ price: "$500", name: "Founding Department" });
+    expect(PRICING_HEADLINE).toBe("Fire & EMS training readiness without enterprise software pricing.");
   });
 
   it("does not invent add-ons or gated product features", () => {
@@ -37,7 +37,7 @@ describe("public pricing catalog", () => {
   it("keeps Station interest copy priced and founding access intact", () => {
     expect(interestCopy("STATION")).toMatchObject({ price: "$299/year", submit: "Start Station" });
     expect(interestCopy("FOUNDING")).toMatchObject({ price: "$500/year", submit: "Ask about founding access" });
-    expect(PRICING_SUMMARY).toContain("Station ($299 / 25)");
-    expect(PRICING_SUMMARY).toContain("Founding ($500 / 75)");
+    expect(PRICING_SUMMARY).toContain("Station $299/year for 25");
+    expect(PRICING_SUMMARY).toContain("Founding Department $500/year for 75");
   });
 });

@@ -59,7 +59,7 @@ export function PricingTiers({
 export function PricingSummaryLine({ className = "text-sm text-white/50" }: { className?: string }) {
   return (
     <p className={className}>
-      Free (5) · Station ($299 / 25) · Founding ($500 / 75) · custom above that.
+      Free (5) · Station ($299 / 25) · Founding Department ($500 / 75) · custom above that.
     </p>
   );
 }
