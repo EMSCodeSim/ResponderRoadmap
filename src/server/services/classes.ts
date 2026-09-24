@@ -538,6 +538,22 @@ export async function updateClassStatus(ctx: AuthContext, classId: string, statu
   await canAccessClass(ctx, classId);
   const status = String(statusInput || "").trim().toUpperCase();
   if (!CLASS_STATUS_VALUES.has(status)) throw new HttpError(400, "Invalid class status.");
+  if (status === "COMPLETE") {
+    const row = await prisma.trainingClass.findUnique({
+      where: { id: classId },
+      include: {
+        checklistVersion: { include: { sections: { include: { requirements: true } } } },
+        roster: { include: { skillResults: true } },
+      },
+    });
+    if (!row) throw new HttpError(404, "Class not found.");
+    if (row.roster.length === 0) throw new HttpError(409, "Add at least one person to the roster before closing training.");
+    const unresolvedAttendance = row.roster.filter((item) => item.attendance === "REGISTERED");
+    if (unresolvedAttendance.length) throw new HttpError(409, `Confirm attendance for all roster members before closing training. ${unresolvedAttendance.length} still need attendance.`);
+    const requiredIds = row.checklistVersion?.sections.flatMap((section) => section.requirements.filter((item) => item.isRequired).map((item) => item.id)) || [];
+    const incompleteSkills = row.roster.filter((item) => item.attendance === "PRESENT" && requiredIds.some((id) => !item.skillResults.some((result) => result.requirementId === id && result.result !== "NOT_EVALUATED")));
+    if (incompleteSkills.length) throw new HttpError(409, `Finish required skill results for all present members before closing training. ${incompleteSkills.length} member${incompleteSkills.length === 1 ? "" : "s"} still need evaluation.`);
+  }
   await prisma.trainingClass.update({ where: { id: classId }, data: { status, ...(["COMPLETE", "CANCELLED"].includes(status) ? { registrationEnabled: false } : {}) } });
   await writeAudit(ctx, "class.status.updated", "TrainingClass", classId, { status });
   return getClass(ctx, classId);

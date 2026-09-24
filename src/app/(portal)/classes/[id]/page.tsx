@@ -110,6 +110,7 @@ export default function ClassDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [correction, setCorrection] = useState<{ skill: Skill; result: string } | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState("");
+  const [closeOpen, setCloseOpen] = useState(false);
 
   async function load() {
     const row = await api<ClassDetail>(`classes/${params.id}`);
@@ -161,6 +162,7 @@ export default function ClassDetailPage() {
     setBusy(true);
     try {
       setDetail(await api<ClassDetail>(`classes/${detail.id}/status`, { method: "POST", body: JSON.stringify({ status }) }));
+      if (status === "COMPLETE") setCloseOpen(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Only a training officer can change class status.");
     } finally { setBusy(false); }
@@ -177,7 +179,7 @@ export default function ClassDetailPage() {
         kicker={`${detail.classType.replaceAll("_", " ")} · ${detail.checklistVersion ? `${detail.checklistTitle} v${detail.checklistVersion}` : detail.checklistTitle}`}
         title={detail.title}
         description={`${formatDate(detail.startsAt)}${detail.location ? ` · ${detail.location}` : ""} · Proctors: ${detail.proctors.map((item) => item.name).join(", ")}`}
-        actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => updateStatus("COMPLETE")} disabled={busy}>Complete training</Button> : null}</>}
+        actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => setCloseOpen(true)} disabled={busy}>Close Training</Button> : null}</>}
       />
       <Flash message={error} tone="danger" />
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
@@ -232,6 +234,18 @@ export default function ClassDetailPage() {
         </div> : null}
       </div>
 
+      <Modal open={closeOpen} title="Close training" onClose={() => setCloseOpen(false)}>
+        <p className="text-sm text-navy-600">Verify the training record before finalizing it. Closing training locks roster results and turns off QR registration.</p>
+        <div className="mt-4 space-y-3 rounded-md border border-navy-200 p-4 text-sm">
+          <div className="flex justify-between gap-3"><span>Roster</span><strong>{detail.roster.length} people</strong></div>
+          <div className="flex justify-between gap-3"><span>Attendance confirmed</span><strong>{detail.roster.filter((item) => item.attendance !== "REGISTERED").length} / {detail.roster.length}</strong></div>
+          <div className="flex justify-between gap-3"><span>Present</span><strong>{detail.roster.filter((item) => item.attendance === "PRESENT").length}</strong></div>
+          <div className="flex justify-between gap-3"><span>Skills / results documented</span><strong>{detail.roster.filter((item) => item.attendance !== "PRESENT" || detail.sections.every((section) => section.skills.filter((skill) => skill.required).every((skill) => item.results.some((result) => result.requirementId === skill.id && result.result !== "NOT_EVALUATED")))).length} / {detail.roster.length}</strong></div>
+          <div className="flex justify-between gap-3"><span>Training record</span><strong>{detail.trainingCategory.replaceAll("_", " ")} · {detail.creditHours > 0 ? `${detail.creditHours} hr` : "scheduled duration"}</strong></div>
+        </div>
+        <p className="mt-4 text-sm text-navy-600">After closing, use Training sheet / RMS export for the department record.</p>
+        <div className="mt-5 flex flex-wrap gap-2"><Button variant="success" disabled={busy} onClick={() => updateStatus("COMPLETE")}>{busy ? "Closing…" : "Finalize & Close Training"}</Button><Button variant="secondary" disabled={busy} onClick={() => setCloseOpen(false)}>Keep editing</Button></div>
+      </Modal>
       <Modal open={Boolean(correction)} title={correction?.result === "FAIL" ? "Record failed skill" : "Record remediation needed"} onClose={() => setCorrection(null)}>
         <Field label="What must the student correct?" hint="This explanation stays with the result and appears for the training captain."><TextArea rows={5} value={correctionNotes} onChange={(event) => setCorrectionNotes(event.target.value)} /></Field>
         <div className="mt-4 flex gap-2"><Button variant={correction?.result === "FAIL" ? "danger" : "primary"} disabled={busy || !correctionNotes.trim()} onClick={() => correction && record(correction.skill, correction.result, correctionNotes)}>Save result</Button><Button variant="secondary" onClick={() => setCorrection(null)}>Cancel</Button></div>
