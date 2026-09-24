@@ -130,7 +130,7 @@ export async function upsertCredential(
   return record;
 }
 
-export async function createCredentialType(ctx: AuthContext, input: { name: string; issuerDefault?: string }) {
+export async function createCredentialType(ctx: AuthContext, input: { name: string; issuerDefault?: string; requiredForAll?: boolean; requiredRanks?: string[]; requiredPositions?: string[] }) {
   assertPermission(ctx, "credentials.write");
   const name = input.name.trim();
   if (!name) throw new HttpError(400, "Credential name is required.");
@@ -144,6 +144,9 @@ export async function createCredentialType(ctx: AuthContext, input: { name: stri
       name,
       issuerDefault: input.issuerDefault?.trim() || null,
       isCustom: true,
+      requiredForAll: input.requiredForAll === true,
+      requiredRanksJson: JSON.stringify(input.requiredRanks || []),
+      requiredPositionsJson: JSON.stringify(input.requiredPositions || []),
     },
   });
 }
@@ -154,4 +157,31 @@ export async function listCredentialTypes(ctx: AuthContext) {
     where: { departmentId: ctx.departmentId },
     orderBy: [{ isCustom: "asc" }, { name: "asc" }],
   });
+}
+
+
+export async function updateCredentialTypeRequirements(
+  ctx: AuthContext,
+  id: string,
+  input: { requiredForAll?: boolean; requiredRanks?: string[]; requiredPositions?: string[] },
+) {
+  assertPermission(ctx, "credentials.write");
+  const existing = await prisma.credentialType.findFirst({ where: { id, departmentId: ctx.departmentId } });
+  if (!existing) throw new HttpError(404, "Credential type not found.");
+  const clean = (values?: string[]) => [...new Set((values || []).map((v) => v.trim()).filter(Boolean))];
+  const updated = await prisma.credentialType.update({
+    where: { id },
+    data: {
+      requiredForAll: input.requiredForAll === true,
+      requiredRanksJson: JSON.stringify(clean(input.requiredRanks)),
+      requiredPositionsJson: JSON.stringify(clean(input.requiredPositions)),
+    },
+  });
+  await writeAudit(ctx, "credential.requirements.updated", "CredentialType", id, {
+    name: updated.name,
+    requiredForAll: updated.requiredForAll,
+    requiredRanks: clean(input.requiredRanks),
+    requiredPositions: clean(input.requiredPositions),
+  });
+  return updated;
 }

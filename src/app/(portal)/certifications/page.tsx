@@ -26,7 +26,8 @@ type Credential = {
   window: string;
 };
 
-type Payload = { credentials: Credential[]; types: Array<{ id: string; name: string; isCustom: boolean }> };
+type CredentialType = { id: string; name: string; isCustom: boolean; requiredForAll: boolean; requiredRanksJson: string; requiredPositionsJson: string };
+type Payload = { credentials: Credential[]; types: CredentialType[] };
 
 const WINDOWS = [
   ["expired", "Expired"],
@@ -45,6 +46,11 @@ function CertificationsInner() {
   const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [open, setOpen] = useState(false);
   const [typeOpen, setTypeOpen] = useState(false);
+  const [requirementsOpen, setRequirementsOpen] = useState(false);
+  const [requirementTypeId, setRequirementTypeId] = useState("");
+  const [requiredForAll, setRequiredForAll] = useState(false);
+  const [requiredRanks, setRequiredRanks] = useState("");
+  const [requiredPositions, setRequiredPositions] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -94,6 +100,31 @@ function CertificationsInner() {
     }
   }
 
+
+  function selectRequirementType(id: string) {
+    setRequirementTypeId(id);
+    const type = data?.types.find((item) => item.id === id);
+    if (!type) return;
+    const parse = (value: string) => { try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed.join(", ") : ""; } catch { return ""; } };
+    setRequiredForAll(type.requiredForAll);
+    setRequiredRanks(parse(type.requiredRanksJson));
+    setRequiredPositions(parse(type.requiredPositionsJson));
+  }
+
+  async function saveRequirements(event: FormEvent) {
+    event.preventDefault();
+    if (!requirementTypeId) return;
+    try {
+      const split = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
+      await api(`credential-types/${requirementTypeId}/requirements`, { method: "PATCH", body: JSON.stringify({ requiredForAll, requiredRanks: split(requiredRanks), requiredPositions: split(requiredPositions) }) });
+      setRequirementsOpen(false);
+      setMessage("Training gap requirements updated.");
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Unable to update requirements.");
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -110,6 +141,9 @@ function CertificationsInner() {
             </Button>
             <Button variant="secondary" onClick={() => setTypeOpen(true)}>
               Custom credential
+            </Button>
+            <Button variant="secondary" onClick={() => { setRequirementsOpen(true); if (!requirementTypeId && data?.types[0]) selectRequirementType(data.types[0].id); }}>
+              Gap requirements
             </Button>
             <Button onClick={() => setOpen(true)}>Add credential</Button>
           </>
@@ -214,6 +248,27 @@ function CertificationsInner() {
             <TextArea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </Field>
           <Button type="submit">Save credential</Button>
+        </form>
+      </Modal>
+
+
+      <Modal open={requirementsOpen} title="Training gap requirements" onClose={() => setRequirementsOpen(false)}>
+        <form onSubmit={saveRequirements} className="space-y-3">
+          <p className="text-sm text-navy-600">Define which credentials Roadmap should expect. These rules power the Training Gaps report; they do not change a member&apos;s certification record.</p>
+          <Field label="Credential">
+            <Select value={requirementTypeId} onChange={(e) => selectRequirementType(e.target.value)} required>
+              <option value="">Select credential</option>
+              {data?.types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
+            </Select>
+          </Field>
+          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={requiredForAll} onChange={(e) => setRequiredForAll(e.target.checked)} /> Required for every active member</label>
+          <Field label="Required ranks" hint="Comma-separated, using the same rank names in member profiles. Example: Firefighter, Engineer">
+            <Input value={requiredRanks} onChange={(e) => setRequiredRanks(e.target.value)} placeholder="Firefighter, Engineer" />
+          </Field>
+          <Field label="Required positions" hint="Comma-separated. Example: Driver/Operator, Company Officer">
+            <Input value={requiredPositions} onChange={(e) => setRequiredPositions(e.target.value)} placeholder="Driver/Operator, Company Officer" />
+          </Field>
+          <Button type="submit">Save requirements</Button>
         </form>
       </Modal>
 

@@ -442,3 +442,88 @@ export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
     records,
   };
 }
+
+
+function parseStringArray(value: string) {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function trainingGapsReport(ctx: AuthContext) {
+  assertPermission(ctx, "reports.read");
+  const [members, types] = await Promise.all([
+    prisma.departmentMembership.findMany({
+      where: { departmentId: ctx.departmentId, status: "ACTIVE" },
+      include: { user: true, credentials: true, assignments: { include: { version: { include: { template: true, sections: { include: { requirements: true } } } }, completions: true } } },
+      orderBy: { user: { name: "asc" } },
+    }),
+    prisma.credentialType.findMany({ where: { departmentId: ctx.departmentId }, orderBy: { name: "asc" } }),
+  ]);
+
+  const requiredTypes = types.map((type) => ({
+    ...type,
+    requiredRanks: parseStringArray(type.requiredRanksJson),
+    requiredPositions: parseStringArray(type.requiredPositionsJson),
+  }));
+
+  const rows = members.map((member) => {
+    const applicable = requiredTypes.filter((type) =>
+      type.requiredForAll ||
+      (member.rank ? type.requiredRanks.includes(member.rank) : false) ||
+      (member.position ? type.requiredPositions.includes(member.position) : false),
+    );
+    const credentialGaps = applicable.flatMap((type) => {
+      const matching = member.credentials.filter((credential) =>
+        credential.credentialTypeId === type.id || credential.credentialName.toLowerCase() === type.name.toLowerCase(),
+      );
+      if (!matching.length) return [{ kind: "MISSING" as const, name: type.name, detail: "Required credential not on file" }];
+      const best = matching
+        .map((credential) => ({ credential, status: credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire) }))
+        .sort((a, b) => (a.status.health === "current" ? -1 : b.status.health === "current" ? 1 : 0))[0];
+      if (best.status.health === "expired") return [{ kind: "EXPIRED" as const, name: type.name, detail: best.status.label }];
+      if (best.status.health === "expiring") return [{ kind: "EXPIRING" as const, name: type.name, detail: best.status.label }];
+      return [];
+    });
+
+    const taskBookGaps = member.assignments.flatMap((assignment) => {
+      const progress = computeAssignmentProgress({
+        requirements: assignment.version.sections.flatMap((section) => section.requirements),
+        completions: assignment.completions,
+        assignedDate: assignment.assignedDate,
+        dueDate: assignment.dueDate,
+      });
+      if (progress.status === "COMPLETE") return [];
+      return [{
+        kind: progress.status === "OVERDUE" ? "OVERDUE_TASK_BOOK" as const : "INCOMPLETE_TASK_BOOK" as const,
+        name: assignment.version.template.title,
+        detail: `${progress.percent}% complete`,
+      }];
+    });
+
+    return {
+      memberId: member.id,
+      memberName: member.user.name,
+      rank: member.rank,
+      position: member.position,
+      station: member.station,
+      shift: member.shift,
+      gaps: [...credentialGaps, ...taskBookGaps],
+      gapCount: credentialGaps.length + taskBookGaps.length,
+    };
+  });
+
+  const withGaps = rows.filter((row) => row.gapCount > 0);
+  return {
+    members: rows.length,
+    membersWithGaps: withGaps.length,
+    totalGaps: withGaps.reduce((sum, row) => sum + row.gapCount, 0),
+    missingCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "MISSING").length, 0),
+    expiredCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRED").length, 0),
+    expiringCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRING").length, 0),
+    rows: withGaps,
+  };
+}
