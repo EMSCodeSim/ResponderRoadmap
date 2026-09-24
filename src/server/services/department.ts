@@ -35,6 +35,7 @@ export async function updateDepartment(
     requireApproval?: boolean;
     logoUrl?: string | null;
     evaluationEscalationHours?: number;
+    trainingSheetRequiredFields?: string[];
   },
 ) {
   assertPermission(ctx, "department.write");
@@ -55,6 +56,7 @@ export async function updateDepartment(
       evaluationEscalationHours: input.evaluationEscalationHours === undefined
         ? undefined
         : Math.max(1, Math.min(720, Math.round(input.evaluationEscalationHours))),
+      trainingSheetRequiredFieldsJson: input.trainingSheetRequiredFields === undefined ? undefined : JSON.stringify([...new Set(input.trainingSheetRequiredFields.map((item) => String(item).trim().toUpperCase()).filter(Boolean))]),
     },
   });
   await writeAudit(ctx, "department.updated", "Department", department.id, {});
