@@ -10,7 +10,7 @@ type SetupDashboard = {
   personal?: boolean;
   summary: { activeMembers: number; activeTaskBooks: number; membersAssigned?: number };
 };
-type Department = { name: string; plan?: string };
+type Department = { name: string; plan?: string; agencyType?: string; operationalCapabilitiesJson?: string };
 type Invitation = { id: string; email: string | null; role: Role; status: string; expiresAt: string };
 type Enrollment = { invitations: Invitation[]; pendingMembers: Array<{ id: string }> };
 type InviteResult = { token: string; delivery?: { status: string; message: string } };
@@ -24,7 +24,7 @@ export default function GettingStartedPage() {
   const [inviteLink, setInviteLink] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("MEMBER");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false);\n  const [savingProfile, setSavingProfile] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -76,15 +76,17 @@ export default function GettingStartedPage() {
   }
 
   const { activeMembers, activeTaskBooks, membersAssigned = 0 } = dashboard.summary;
+  const capabilities: string[] = (() => { try { const value = JSON.parse(department.operationalCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
+  const profileConfigured = Boolean(department.agencyType) && capabilities.length > 0;
   const free = department.plan === "FREE";
   const assigned = membersAssigned > 0;
   const pendingInvitations = enrollment?.invitations.filter(item => item.status === "PENDING" && new Date(item.expiresAt).getTime() > Date.now()) ?? [];
   const pendingApprovals = enrollment?.pendingMembers.length ?? 0;
   const steps = [
-    { title: "Create department", description: "Your separate department and administrator account are ready.", complete: true, href: "/department", action: "Review department details" },
-    { title: "Add members", description: "Invite a member or evaluator. Track invitations and approve join requests on Members.", complete: activeMembers > 1, href: "/members", action: "Open Members" },
-    { title: "Create your first Task Book", description: "Choose a template, import an existing PDF, or build from scratch. Review and publish before assigning.", complete: activeTaskBooks > 0, href: "/task-books/fast-start", action: "Create a Task Book" },
-    { title: "Make your first assignment", description: "Choose a published Task Book and a member. Your first assignment is the finish line.", complete: assigned, href: "/assignments?assign=1", action: "Assign a Task Book" },
+    { title: "Department basics", description: "Tell Roadmap what kind of agency you run and the services you actually provide.", complete: profileConfigured, href: "/department#agency-profile", action: "Choose agency and services" },
+    { title: "Add your first person", description: "Invite one member, evaluator, instructor, or officer. You can build the rest of the roster later.", complete: activeMembers > 1, href: "#invite-member", action: "Add a person" },
+    { title: "Start real training", description: "Choose the workflow that matches what you need today: Task Book, Assignment, or Class / QR roster.", complete: activeTaskBooks > 0 || assigned, href: "#first-action", action: "Choose first action" },
+    { title: "Complete the training loop", description: "Have a member complete or submit real work, then review or evaluate it. Home will guide the next action.", complete: assigned && (dashboard.summary.membersAssigned ?? 0) > 0, href: "/dashboard", action: "Continue on Home" },
   ];
   const completeCount = steps.filter(step => step.complete).length;
   const nextStep = steps.find(step => !step.complete);
@@ -96,7 +98,7 @@ export default function GettingStartedPage() {
       <header className="rounded-2xl bg-navy-950 p-6 text-white shadow-lg md:p-8">
         <p className="text-xs font-bold uppercase tracking-[.16em] text-white/60">First department setup</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Get {department.name} ready</h1>
-        <p className="mt-3 max-w-2xl text-white/75">Four steps to your first assignment. Pick up where you left off whenever you return.</p>
+        <p className="mt-3 max-w-2xl text-white/75">One five-minute path to get Roadmap useful. Configure only what you need now; the rest can wait.</p>
         <div className="mt-6 flex flex-wrap items-center gap-3 text-sm"><strong className="rounded-lg bg-white/10 px-3 py-2">{completeCount} of 4 steps complete</strong>{free ? <span className="rounded-lg bg-white/10 px-3 py-2">{activeMembers} of 5 free seats used</span> : null}<Button variant="secondary" onClick={() => void refresh()}>Refresh progress</Button></div>
         {free ? <p className="mt-3 text-sm text-white/65">Free (5). Station is $299/year for 25. Founding is $500/year for 75. Custom above that.</p> : null}
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-label="Department setup progress" aria-valuemin={0} aria-valuemax={4} aria-valuenow={completeCount}><div className="h-full rounded-full bg-[#E11D48] transition-all" style={{ width: `${completeCount * 25}%` }} /></div>
@@ -106,9 +108,9 @@ export default function GettingStartedPage() {
       {assigned ? (
         <Card className="border border-green-300 bg-green-50 p-6 md:p-8">
           <p className="text-xs font-bold uppercase tracking-widest text-green-800">Setup complete</p>
-          <h2 className="mt-2 text-2xl font-bold text-navy-900">Your first assignment is out.</h2>
+          <h2 className="mt-2 text-2xl font-bold text-navy-900">Your first training workflow is active.</h2>
           <p className="mt-2 text-navy-700">{activeMembers} active members · {activeTaskBooks} published Task Book{activeTaskBooks === 1 ? "" : "s"} · {membersAssigned} assignment{membersAssigned === 1 ? "" : "s"}.</p>
-          <p className="mt-2 text-sm text-navy-600">Your member can submit work for evaluation. Progress counts only after all required approvals.</p>
+          <p className="mt-2 text-sm text-navy-600">Now complete the loop: have a member submit or complete work, then review it. Home will surface the next useful action.</p>
           <div className="mt-5 flex flex-wrap gap-3"><Link href="/assignments" className="inline-flex min-h-11 items-center rounded-lg bg-fire px-5 py-2 font-semibold text-white">View assignments</Link><Link href="/dashboard" className="inline-flex min-h-11 items-center rounded-lg border border-green-300 px-5 py-2 font-semibold text-navy-800">Open dashboard</Link></div>
         </Card>
       ) : nextStep ? (
@@ -117,8 +119,8 @@ export default function GettingStartedPage() {
           <h2 className="mt-2 text-2xl font-bold text-navy-900">{nextStep.title}</h2>
           <p className="mt-2 max-w-2xl text-navy-600">{nextStep.description}</p>
           {needMember ? <p className="mt-3 text-sm text-navy-600">Use the invitation form below. You can also continue building your Task Book while invitations are pending.</p> : null}
-          {needBook && !needMember ? <div className="mt-5 grid gap-2 sm:grid-cols-2"><Link href="/task-books/fast-start" className="rounded-lg bg-fire px-4 py-3 text-center text-sm font-semibold text-white">Create Task Book</Link><Link href="/task-books" className="rounded-lg border border-navy-200 px-4 py-3 text-center text-sm font-semibold text-navy-800">Browse Task Books</Link></div> : null}
-          {(!needMember && !needBook) ? <Link href={nextStep.href} className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-fire px-5 py-2 font-semibold text-white">{nextStep.action} →</Link> : null}
+          {!needMember && completeCount >= 2 && !assigned ? <div id="first-action" className="mt-5 grid gap-2 sm:grid-cols-3"><Link href="/task-books/fast-start" className="rounded-lg bg-fire px-4 py-3 text-center text-sm font-semibold text-white">Start Task Book</Link><Link href="/assignments?assign=1" className="rounded-lg border border-navy-200 px-4 py-3 text-center text-sm font-semibold text-navy-800">Create Assignment</Link><Link href="/classes" className="rounded-lg border border-navy-200 px-4 py-3 text-center text-sm font-semibold text-navy-800">Create Class / QR</Link></div> : null}
+          {(!needMember && !needBook && completeCount !== 2) ? <Link href={nextStep.href} className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-fire px-5 py-2 font-semibold text-white">{nextStep.action} →</Link> : null}
           {needMember ? <a href="#invite-member" className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-fire px-5 py-2 font-semibold text-white">Invite your first member →</a> : null}
         </Card>
       ) : null}
