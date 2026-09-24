@@ -99,7 +99,7 @@ async function getAttendanceOnlyVersion(ctx: AuthContext) {
 
 export async function getClassSetup(ctx: AuthContext) {
   assertPermission(ctx, "classes.write");
-  const [versions, memberships] = await Promise.all([
+  const [versions, memberships, department] = await Promise.all([
     prisma.taskBookVersion.findMany({
       where: { template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } }, status: "PUBLISHED" },
       include: { template: true, sections: { include: { requirements: true } } },
@@ -110,8 +110,10 @@ export async function getClassSetup(ctx: AuthContext) {
       include: { user: true },
       orderBy: { user: { name: "asc" } },
     }),
+    prisma.department.findUniqueOrThrow({ where: { id: ctx.departmentId }, select: { trainingSheetRequiredFieldsJson: true } }),
   ]);
   return {
+    requiredFields: parseJsonArray(department.trainingSheetRequiredFieldsJson),
     checklists: versions.map((version) => ({
       id: version.id,
       title: version.template.title,
@@ -183,6 +185,8 @@ export async function createClass(
   assertPermission(ctx, "classes.write");
   const title = input.title?.trim().slice(0, 180) || "";
   if (!title) throw new HttpError(400, "Class title is required.");
+  const department = await prisma.department.findUniqueOrThrow({ where: { id: ctx.departmentId }, select: { trainingSheetRequiredFieldsJson: true } });
+  const requiredFields = new Set(parseJsonArray(department.trainingSheetRequiredFieldsJson).map((item) => String(item).toUpperCase()));
   const classType = input.classType?.trim().toUpperCase() || "GENERAL";
   if (!CLASS_TYPE_VALUES.has(classType)) throw new HttpError(400, "Invalid class type.");
   const trainingCategory = input.trainingCategory?.trim().toUpperCase() || "COMPANY";
@@ -211,6 +215,9 @@ export async function createClass(
   });
   if (validMembers.length !== memberIds.length) throw new HttpError(400, "One or more roster members are invalid.");
   if (validProctors.length !== proctorIds.length) throw new HttpError(400, "One or more proctors are invalid.");
+  if (requiredFields.has("LOCATION") && !input.location?.trim()) throw new HttpError(400, "Location is required by your department RMS training-sheet settings.");
+  if (requiredFields.has("DESCRIPTION") && !input.notes?.trim()) throw new HttpError(400, "Training description / notes are required by your department RMS training-sheet settings.");
+  if (requiredFields.has("HOURS") && !(creditHours > 0 || (input.startsAt && input.endsAt))) throw new HttpError(400, "Credit hours or both start and end times are required by your department RMS training-sheet settings.");
   const startsAt = parseDate(input.startsAt, "Start date", true)!;
   const endsAt = parseDate(input.endsAt, "End date");
   if (endsAt && endsAt < startsAt) throw new HttpError(400, "End date cannot be before the start date.");
