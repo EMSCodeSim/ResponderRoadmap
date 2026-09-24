@@ -21,10 +21,17 @@ type Department = {
   contactPhone: string | null;
   requireApproval: boolean;
   evaluationEscalationHours: number;
+  trainingSheetRequiredFieldsJson: string;
 };
 
 type Invitation = { id: string; email: string | null; token: string; role: string; status: string };
 type Member = { id: string; name: string; role: Role; status: string; rank: string | null };
+
+const TRAINING_SHEET_FIELDS = [
+  ["TITLE", "Training title"], ["DATE", "Date / start time"], ["END_TIME", "End time"], ["INSTRUCTOR", "Instructor / proctor"],
+  ["CATEGORY", "Training category"], ["HOURS", "Training / credit hours"], ["LOCATION", "Location"], ["DESCRIPTION", "Description / objectives"],
+  ["ATTENDANCE", "Member roster / attendance"], ["RANK", "Member rank"], ["STATION", "Station"], ["SHIFT", "Shift"], ["RESULT", "Result / completion status"], ["NOTES", "Member notes"],
+] as const;
 
 export default function DepartmentPage() {
   const [dept, setDept] = useState<Department | null>(null);
@@ -51,7 +58,8 @@ export default function DepartmentPage() {
     event.preventDefault();
     if (!dept) return;
     try {
-      await api("department", { method: "PATCH", body: JSON.stringify(dept) });
+      const trainingSheetRequiredFields = (() => { try { const value = JSON.parse(dept.trainingSheetRequiredFieldsJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
+      await api("department", { method: "PATCH", body: JSON.stringify({ ...dept, trainingSheetRequiredFields }) });
       setMessage("Department settings saved.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to save.");
@@ -76,6 +84,8 @@ export default function DepartmentPage() {
   }
 
   if (!dept) return <p className="text-navy-500">Loading department…</p>;
+  const requiredTrainingFields: string[] = (() => { try { const value = JSON.parse(dept.trainingSheetRequiredFieldsJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
+  const toggleTrainingField = (field: string) => setDept({ ...dept, trainingSheetRequiredFieldsJson: JSON.stringify(requiredTrainingFields.includes(field) ? requiredTrainingFields.filter((item) => item !== field) : [...requiredTrainingFields, field]) });
 
   return (
     <div>
@@ -141,6 +151,13 @@ export default function DepartmentPage() {
                 onChange={(e) => setDept({ ...dept, evaluationEscalationHours: Number(e.target.value) || 48 })}
               />
             </Field>
+            <div className="md:col-span-2 rounded-lg border border-navy-200 p-4">
+              <div className="font-semibold text-navy-900">Required RMS training-sheet fields</div>
+              <p className="mt-1 text-sm text-navy-500">Select the information your department needs before a Digital Training Sheet can be completed for transfer to your current RMS or records system.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {TRAINING_SHEET_FIELDS.map(([value, label]) => <label key={value} className="flex min-h-10 items-center gap-2 rounded-md bg-navy-50 px-3 text-sm"><input type="checkbox" checked={requiredTrainingFields.includes(value)} onChange={() => toggleTrainingField(value)} />{label}</label>)}
+              </div>
+            </div>
             <label className="flex items-center gap-2 text-sm md:col-span-2">
               <input type="checkbox" checked={dept.requireApproval} onChange={(e) => setDept({ ...dept, requireApproval: e.target.checked })} />
               Require approval when members join by code

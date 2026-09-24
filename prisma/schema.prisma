@@ -73,6 +73,7 @@ model Department {
   evaluationEscalationHours Int                    @default(48)
   trainingClasses          TrainingClass[]
   trainingExpectations     TrainingExpectation[]
+  trainingSheetRequiredFieldsJson String @default("[\"TITLE\",\"DATE\",\"INSTRUCTOR\",\"CATEGORY\",\"HOURS\",\"ATTENDANCE\"]")
 }
 
 model DepartmentMembership {
