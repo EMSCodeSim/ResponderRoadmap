@@ -335,6 +335,10 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await credentials.createCredentialType(ctx, body), 201);
     }
+    const credentialTypeRequirements = match(path, "credential-types/:id/requirements");
+    if (method === "PATCH" && credentialTypeRequirements) {
+      return jsonOk(await credentials.updateCredentialTypeRequirements(ctx, credentialTypeRequirements.id, await readBody(req)));
+    }
 
     if (method === "GET" && match(path, "department")) return jsonOk(await department.getDepartment(ctx));
     if (method === "PATCH" && match(path, "department")) {
@@ -384,6 +388,9 @@ export async function handleApi(req: Request, path: string[]) {
     }
     if (method === "GET" && match(path, "reports/training-hours")) {
       return jsonOk(await reports.trainingHoursReport(ctx, q.year));
+    }
+    if (method === "GET" && match(path, "reports/training-gaps")) {
+      return jsonOk(await reports.trainingGapsReport(ctx));
     }
     const trainingSheet = match(path, "reports/training-sheet/:id");
     if (method === "GET" && trainingSheet) return jsonOk(await reports.trainingSheetReport(ctx, trainingSheet.id));
