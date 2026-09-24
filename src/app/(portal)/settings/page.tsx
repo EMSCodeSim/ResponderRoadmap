@@ -45,6 +45,7 @@ export default function SettingsPage() {
     { key: "enrollment", href: "/enrollment", title: "Enrollment", description: "Join codes, invitations, and roster import." },
     { key: "evaluators", href: "/evaluators", title: "Evaluators", description: "Authorize evaluators and reassign reviews." },
     { key: "certifications", href: "/certifications", title: "Certification records", description: "Review department certification information." },
+    { key: "department", href: "/training-expectations", title: "Training expectations", description: "Define credential, task-book, and annual-hour expectations by rank or position." },
     { key: "reports", href: "/reports", title: "Reports", description: "Task Book progress and compliance snapshots." },
     { key: "interest-list", href: "/interest-list", title: "Interest list", description: "Review department interest inquiries." },
   ].filter((item) => nav.includes(item.key));

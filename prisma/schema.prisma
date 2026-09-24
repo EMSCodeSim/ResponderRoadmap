@@ -72,6 +72,7 @@ model Department {
   pushDevices               PushDevice[]
   evaluationEscalationHours Int                    @default(48)
   trainingClasses          TrainingClass[]
+  trainingExpectations     TrainingExpectation[]
 }
 
 model DepartmentMembership {
@@ -335,6 +336,24 @@ model EvaluationAttempt {
   createdAt            DateTime              @default(now())
 
   @@index([departmentId, completionId])
+}
+
+model TrainingExpectation {
+  id                    String     @id @default(cuid())
+  departmentId          String
+  department            Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                  String
+  matchRanksJson        String     @default("[]")
+  matchPositionsJson    String     @default("[]")
+  credentialTypeIdsJson String     @default("[]")
+  taskBookTemplateIdsJson String   @default("[]")
+  annualHoursJson       String     @default("{}")
+  active                Boolean    @default(true)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  @@unique([departmentId, name])
+  @@index([departmentId, active])
 }
 
 model CredentialType {

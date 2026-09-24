@@ -12,6 +12,7 @@ import * as memberApp from "@/server/services/memberApp";
 import * as inbox from "@/server/services/inbox";
 import * as classes from "@/server/services/classes";
 import * as evaluators from "@/server/services/evaluators";
+import * as trainingExpectations from "@/server/services/training-expectations";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
@@ -339,6 +340,12 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "PATCH" && credentialTypeRequirements) {
       return jsonOk(await credentials.updateCredentialTypeRequirements(ctx, credentialTypeRequirements.id, await readBody(req)));
     }
+
+    if (method === "GET" && match(path, "training-expectations")) return jsonOk(await trainingExpectations.listTrainingExpectations(ctx));
+    if (method === "POST" && match(path, "training-expectations")) return jsonOk(await trainingExpectations.createTrainingExpectation(ctx, await readBody(req)), 201);
+    const trainingExpectation = match(path, "training-expectations/:id");
+    if (method === "PATCH" && trainingExpectation) return jsonOk(await trainingExpectations.updateTrainingExpectation(ctx, trainingExpectation.id, await readBody(req)));
+    if (method === "DELETE" && trainingExpectation) return jsonOk(await trainingExpectations.deleteTrainingExpectation(ctx, trainingExpectation.id));
 
     if (method === "GET" && match(path, "department")) return jsonOk(await department.getDepartment(ctx));
     if (method === "PATCH" && match(path, "department")) {
