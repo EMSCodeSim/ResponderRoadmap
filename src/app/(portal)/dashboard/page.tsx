@@ -8,7 +8,6 @@ import { Badge, Button, Card, Input, PageHeader, ProgressBar, Select } from "@/c
 import { ManagementDashboard } from "@/components/ManagementDashboard";
 import { isManagementRole } from "@/lib/command-center";
 import { relativeTime } from "@/lib/dates";
-import { dashboardPriorities } from "@/lib/dashboard-priority";
 import { operationalStatusTone, type OperationalStatus } from "@/lib/member-status";
 import { createAssignmentPath, createTaskBookPath } from "@/lib/routes";
 
@@ -138,16 +137,8 @@ export default function DashboardPage() {
   }
   if (!data) return <p className="text-navy-500">Loading dashboard…</p>;
 
-  const today = data.today;
   const awaiting = data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff;
   const needsAttention = data.summary.needsAttention ?? data.summary.overdueMembers ?? 0;
-  const priorities = today
-    ? dashboardPriorities([
-        { kind: "evaluation", items: today.signOffs },
-        { kind: "follow-up", items: today.followUp },
-        { kind: "due-soon", items: today.dueSoon },
-      ])
-    : [];
 
   return (
     <div>
@@ -427,47 +418,3 @@ function CountCard({ href, label, value, warn, danger }: { href: string; label: 
   );
 }
 
-function NeedsAttention({ items, total }: { items: Array<TodayItem & { kind: "evaluation" | "follow-up" | "due-soon" }>; total: number }) {
-  return (
-    <Card id="needs-attention" className="mt-6 scroll-mt-4 p-5">
-      <div className="flex items-baseline justify-between gap-2">
-        <div>
-          <div className="kicker">Do this next</div>
-          <h2 className="display mt-1 text-2xl font-bold">Needs My Attention</h2>
-        </div>
-        <span className="text-sm font-semibold text-navy-500">{items.length} action{items.length === 1 ? "" : "s"}</span>
-      </div>
-      {items.length === 0 ? (
-        <p className="mt-3 text-sm text-navy-500">Nothing needs immediate action.</p>
-      ) : (
-        <ul className="mt-4 grid gap-3 lg:grid-cols-2">
-          {items.map((item) => (
-            <li key={`${item.kind}-${item.memberId}`}>
-              <Link
-                href={item.href}
-                className={`block rounded-md border px-4 py-3 hover:border-navy-400 ${
-                  item.kind === "follow-up" ? "border-danger/30 bg-danger-soft/40" : item.kind === "evaluation" ? "border-warn/30 bg-warn-soft/50" : "border-navy-200"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold">{item.memberName}</div>
-                    {place(item) ? <div className="text-xs text-navy-500">{place(item)}</div> : null}
-                    <div className="mt-1 text-sm text-navy-700">
-                      {item.kind === "evaluation" ? `${item.requirementTitle} · ${item.taskBookTitle}` : `${item.taskBookTitle}${item.percent !== undefined ? ` · ${item.percent}%` : ""}`}
-                    </div>
-                    <div className="mt-1 text-xs font-semibold text-navy-500">
-                      {item.kind === "evaluation" ? relativeTime(item.submittedAt) : item.reason || (item.dueDate ? `Due ${new Date(item.dueDate).toLocaleDateString()}` : "")}
-                    </div>
-                  </div>
-                  <span className="shrink-0 text-sm font-semibold text-navy-800">{item.kind === "evaluation" ? "Evaluate" : item.kind === "follow-up" ? "Open member" : "Open"}</span>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-      {total > items.length ? <Link href="/members" className="mt-4 inline-block text-sm font-semibold text-fire underline">See all member progress</Link> : null}
-    </Card>
-  );
-}
