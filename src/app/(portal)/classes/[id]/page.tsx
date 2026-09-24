@@ -46,6 +46,8 @@ type ClassDetail = {
   id: string;
   title: string;
   classType: string;
+  trainingCategory: string;
+  creditHours: number;
   startsAt: string;
   endsAt: string | null;
   location: string;
@@ -172,13 +174,22 @@ export default function ClassDetailPage() {
     <div>
       <div className="no-print mb-3"><Link href="/classes" className="text-sm font-semibold text-fire">← Classes & rosters</Link></div>
       <PageHeader
-        kicker={`${detail.classType.replaceAll("_", " ")} · ${detail.checklistTitle} v${detail.checklistVersion}`}
+        kicker={`${detail.classType.replaceAll("_", " ")} · ${detail.checklistVersion ? `${detail.checklistTitle} v${detail.checklistVersion}` : detail.checklistTitle}`}
         title={detail.title}
         description={`${formatDate(detail.startsAt)}${detail.location ? ` · ${detail.location}` : ""} · Proctors: ${detail.proctors.map((item) => item.name).join(", ")}`}
-        actions={<><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start class</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => updateStatus("COMPLETE")} disabled={busy}>Complete class</Button> : null}</>}
+        actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => updateStatus("COMPLETE")} disabled={busy}>Complete training</Button> : null}</>}
       />
       <Flash message={error} tone="danger" />
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
+
+      <Card className="no-print mb-4 p-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div><div className="kicker">Training category</div><div className="font-semibold">{detail.trainingCategory.replaceAll("_", " ")}</div></div>
+          <div><div className="kicker">Credit</div><div className="font-semibold">{detail.creditHours > 0 ? `${detail.creditHours} hr` : "Uses scheduled duration"}</div></div>
+          <div><div className="kicker">Record</div><div className="font-semibold">{detail.sections.length ? "Attendance + skills checklist" : "Attendance-only training sheet"}</div></div>
+        </div>
+        {detail.notes ? <div className="mt-3 border-t border-navy-100 pt-3"><div className="kicker">Description / notes</div><p className="mt-1 whitespace-pre-wrap text-sm text-navy-600">{detail.notes}</p></div> : null}
+      </Card>
 
       <section className="print-page hidden print:block">
         <h1 className="text-2xl font-bold">{detail.title} — Class roster</h1>
@@ -213,6 +224,7 @@ export default function ClassDetailPage() {
             </div>
           </Card>
 
+          {detail.sections.length === 0 ? <Card className="p-5"><h2 className="font-bold">Attendance-only training</h2><p className="mt-1 text-sm text-navy-600">Mark each member Present, Absent, or Excused. When attendance is complete, choose Complete training. Present department members will receive the training credit in Training Hours.</p></Card> : null}
           {detail.sections.map((section) => <Card key={section.id} className="overflow-hidden"><div className="border-b border-navy-100 bg-navy-50 px-4 py-3"><h2 className="font-bold">{section.title}</h2>{section.description ? <p className="text-sm text-navy-500">{section.description}</p> : null}</div><div className="divide-y divide-navy-100">{section.skills.map((skill) => {
             const existing = results.get(skill.id);
             return <div key={skill.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="max-w-2xl"><div className="flex items-center gap-2"><h3 className="font-semibold">{skill.title}</h3>{skill.required ? <Badge tone="fire">Required</Badge> : null}</div>{skill.description ? <p className="mt-1 text-sm text-navy-500">{skill.description}</p> : null}{existing ? <p className="mt-2 text-xs text-navy-500">Recorded by {existing.evaluatorName} · {new Date(existing.evaluatedAt).toLocaleString()}{existing.notes ? ` · ${existing.notes}` : ""}</p> : <p className="mt-2 text-xs font-semibold text-navy-400">No result recorded</p>}</div><Badge tone={tone(existing?.result || "NOT_EVALUATED")}>{resultLabels[existing?.result || "NOT_EVALUATED"]}</Badge></div><div className="mt-3 flex flex-wrap gap-2"><Button variant="success" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "PASS")}>Pass</Button><Button variant="secondary" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "NEEDS_REMEDIATION")}>Remediation</Button><Button variant="danger" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "FAIL")}>Fail</Button><Button variant="ghost" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "NOT_APPLICABLE")}>N/A</Button></div></div>;
