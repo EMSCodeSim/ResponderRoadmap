@@ -165,6 +165,8 @@ export default function DashboardPage() {
         <MemberHome data={data} />
       ) : (
         <>
+          <RecommendedNextStep data={data} />
+
           <DepartmentReadiness
             members={data.summary.activeMembers}
             current={data.summary.currentMembers ?? 0}
@@ -205,6 +207,40 @@ export default function DashboardPage() {
       </Card>
     </div>
   );
+}
+
+function RecommendedNextStep({ data }: { data: Dashboard }) {
+  const awaiting = data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff;
+  const members = data.summary.activeMembers;
+  const activeWork = data.summary.activeAssignments ?? data.summary.membersAssigned ?? 0;
+  const hasTaskBooks = data.summary.activeTaskBooks > 0;
+  const stalled = data.summary.stalledOver30 ?? 0;
+  const expiring = data.summary.expiringSoon;
+
+  const step =
+    members <= 1
+      ? { title: "Add your first member", text: "Roadmap becomes useful when another member can receive training and complete work.", href: "/department#add-people", action: "Add a member" }
+      : activeWork === 0 && !hasTaskBooks
+        ? { title: "Assign your first training", text: "Your roster is ready. Start the first real training loop by assigning work or a Task Book.", href: createAssignmentPath(), action: "Assign training" }
+        : awaiting > 0
+          ? { title: "Review submitted work", text: `${awaiting} requirement${awaiting === 1 ? " is" : "s are"} waiting for evaluation. Completing this closes the training loop for your members.`, href: "/evaluate", action: "Review evaluations" }
+          : stalled > 0
+            ? { title: "Follow up on stalled training", text: `${stalled} active assignment${stalled === 1 ? " has" : "s have"} had no movement for more than 30 days.`, href: "/assignments?stalled=30", action: "Review stalled work" }
+            : expiring > 0
+              ? { title: "Review upcoming certification expirations", text: `${expiring} certification${expiring === 1 ? " expires" : "s expire"} within 60 days.`, href: "/certifications?window=60", action: "Review certifications" }
+              : null;
+
+  if (!step) return null;
+  return <Card className="mb-6 border-fire/20 p-5">
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="max-w-2xl">
+        <div className="kicker">Recommended next step</div>
+        <h2 className="display mt-1 text-xl font-bold">{step.title}</h2>
+        <p className="mt-1 text-sm text-navy-600">{step.text}</p>
+      </div>
+      <Link href={step.href} className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">{step.action} →</Link>
+    </div>
+  </Card>;
 }
 
 function DepartmentReadiness({ members, current, readiness, attention, overdue, awaiting }: { members: number; current: number; readiness: number; attention: number; overdue: number; awaiting: number }) {
