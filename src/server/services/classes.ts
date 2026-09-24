@@ -458,6 +458,7 @@ export async function updateEnrollment(
     ccfScore: input.ccfScore,
     notesUpdated: input.notes !== undefined,
   });
+  await recalculateEnrollment(enrollment.id);
   return getClass(ctx, classId);
 }
 
