@@ -24,7 +24,7 @@ export const PUBLIC_PLANS: PublicPlan[] = [
     name: "Free / Crew",
     price: "$0",
     description: "Up to 5 active members",
-    bullets: ["Full Task Book workflow", "No card required", "Start with one crew"],
+    bullets: ["Training readiness workflow", "Task Books and Assignments", "No card required"],
     href: "/register",
     cta: "Start Free",
     activeMemberCap: 5,
@@ -35,7 +35,7 @@ export const PUBLIC_PLANS: PublicPlan[] = [
     price: "$299",
     term: "/ year",
     description: "Up to 25 active members",
-    bullets: ["Full Task Book workflow", "Unlimited Task Books", "Unlimited evaluators and admins", "No setup fee"],
+    bullets: ["Task Books and Assignments", "Digital training sheets + QR attendance", "Training hours, certifications, and gaps", "No setup fee"],
     href: "/department-interest?plan=station",
     cta: "Start Station",
     featured: true,
@@ -43,11 +43,11 @@ export const PUBLIC_PLANS: PublicPlan[] = [
   },
   {
     id: "FOUNDING",
-    name: "Founding / Department",
+    name: "Founding Department",
     price: "$500",
     term: "/ year",
     description: "Up to 75 active members",
-    bullets: ["Unlimited Task Books", "Unlimited evaluators and admins", "No setup fee", "Price locked while subscribed"],
+    bullets: ["Full training readiness workflow", "Role expectations + training gaps", "Digital training sheets + RMS export", "Price locked while subscribed"],
     href: "/department-interest?plan=founding",
     cta: "Ask about founding access",
     activeMemberCap: 75,
@@ -57,17 +57,17 @@ export const PUBLIC_PLANS: PublicPlan[] = [
     name: "Department / Agency",
     price: "76+",
     description: "Active members · Contact for pricing",
-    bullets: ["Department-scale onboarding", "Quotes, invoices, W-9s, and POs"],
+    bullets: ["Full training readiness workflow", "Department-scale onboarding", "Quotes, invoices, W-9s, and POs"],
     href: "/department-interest?plan=department",
     cta: "Contact for pricing",
     activeMemberCap: null,
   },
 ];
 
-export const PRICING_HEADLINE = "Start with five. Grow with your department.";
+export const PRICING_HEADLINE = "Fire & EMS training readiness without enterprise software pricing.";
 export const PRICING_FOOTNOTE =
-  "Plans differ only by how many active members you can run. An active member is someone assigned a Task Book or who signed in during the last 90 days — not the whole roster.";
-export const PRICING_SUMMARY = "Free (5), Station ($299 / 25), Founding ($500 / 75), custom above that.";
+  "Every plan is built around the same focused training-readiness workflow. Plans differ primarily by active-member capacity. An active member is someone assigned a Task Book or who signed in during the last 90 days — not the whole roster.";
+export const PRICING_SUMMARY = "Free for 5 active members, Station $299/year for 25, Founding Department $500/year for 75, and custom pricing above that.";
 
 export type InterestCopy = {
   kicker: string;
@@ -93,11 +93,11 @@ export function interestCopy(plan: PlanId): InterestCopy {
     return {
       kicker: "Station plan",
       title: "Start Station for your crew.",
-      intro: "Station is $299/year for up to 25 active members. Same Task Book workflow as Free. No setup fee. We’ll follow up with checkout — the price is $299 either way.",
+      intro: "Station is $299/year for up to 25 active members. Same focused training-readiness workflow as Free. No setup fee. We’ll follow up with checkout — the price is $299 either way.",
       priceLabel: "Station pricing",
       price: "$299/year",
-      priceDetail: "Up to 25 active members. Same product as every other paid plan.",
-      bullets: ["Full Task Book workflow", "Unlimited Task Books", "Unlimited evaluators and admins", "No setup fee"],
+      priceDetail: "Up to 25 active members. Task Books, Assignments, training records, readiness tracking, and reporting.",
+      bullets: ["Task Books and Assignments", "Digital training sheets + QR attendance", "Training hours, certifications, and gaps", "No setup fee"],
       formKicker: "Start Station",
       formTitle: "Station interest",
       formIntro: "Tell us who to contact. Station is $299/year for a 6–25 person crew.",
@@ -115,8 +115,8 @@ export function interestCopy(plan: PlanId): InterestCopy {
       intro: "Department-scale onboarding for larger agencies. Ask for a quote, invoice, W-9, or purchase order.",
       priceLabel: "Department pricing",
       price: "Contact for pricing",
-      priceDetail: "76+ active members. Same Task Book workflow. Custom onboarding.",
-      bullets: ["Department-scale onboarding", "Quotes, invoices, W-9s, and POs", "Unlimited Task Books", "Unlimited evaluators and admins"],
+      priceDetail: "76+ active members. Full training-readiness workflow with custom onboarding.",
+      bullets: ["Full training-readiness workflow", "Department-scale onboarding", "Quotes, invoices, W-9s, and POs", "Unlimited Task Books"],
       formKicker: "Department contact",
       formTitle: "Request department pricing",
       formIntro: "Tell us about the agency. We’ll send a quote or the purchasing paperwork you need.",
