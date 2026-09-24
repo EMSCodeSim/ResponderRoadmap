@@ -52,6 +52,26 @@ type TrainingHoursReport = {
   }>;
 };
 
+
+type TrainingGapsReport = {
+  members: number;
+  membersWithGaps: number;
+  totalGaps: number;
+  missingCredentials: number;
+  expiredCredentials: number;
+  expiringCredentials: number;
+  rows: Array<{
+    memberId: string;
+    memberName: string;
+    rank: string | null;
+    position: string | null;
+    station: string | null;
+    shift: string | null;
+    gapCount: number;
+    gaps: Array<{ kind: string; name: string; detail: string }>;
+  }>;
+};
+
 type TrainingSheetBatch = {
   id: string;
   title: string;
@@ -76,6 +96,7 @@ function ReportsInner() {
   const [record, setRecord] = useState<{ memberName: string; timeline: Array<{ at: string; title: string; kind: string; detail: string }> } | null>(null);
   const [trainingSheets, setTrainingSheets] = useState<TrainingSheetBatch[]>([]);
   const [trainingHours, setTrainingHours] = useState<TrainingHoursReport | null>(null);
+  const [trainingGaps, setTrainingGaps] = useState<TrainingGapsReport | null>(null);
 
   useEffect(() => {
     api<ProgressRow[]>("reports/task-book-progress").then(setProgress);
@@ -83,6 +104,7 @@ function ReportsInner() {
     api<Compliance>("reports/compliance").then(setCompliance);
     api<TrainingSheetBatch[]>("reports/training-sheets").then(setTrainingSheets);
     api<TrainingHoursReport>("reports/training-hours").then(setTrainingHours);
+    api<TrainingGapsReport>("reports/training-gaps").then(setTrainingGaps);
     api<{ members: Array<{ id: string; name: string }> }>("members").then((payload) => setMembers(payload.members));
   }, []);
 
@@ -126,6 +148,7 @@ function ReportsInner() {
           ["record", "Member Training Record"],
           ["training-sheets", "RMS Training Sheets"],
           ["training-hours", "Training Hours"],
+          ["training-gaps", "Training Gaps"],
           ["compliance", "Department Compliance"],
         ].map(([id, label]) => {
           const active = report === id;
@@ -340,6 +363,29 @@ function ReportsInner() {
                 </tbody>
               </table>
             </div>
+          </Card>
+        </div>
+      )}
+
+      {report === "training-gaps" && trainingGaps && (
+        <div className="space-y-4">
+          <Card className="p-5">
+            <div className="kicker">Readiness</div>
+            <h2 className="display mt-1 text-2xl font-bold">Training Gaps</h2>
+            <p className="mt-1 max-w-3xl text-sm text-navy-600">Shows missing, expired, and expiring required credentials plus incomplete assigned task books. Credential requirements are configured by the department.</p>
+          </Card>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="p-4"><div className="kicker">Members with gaps</div><div className="mt-1 text-3xl font-bold">{trainingGaps.membersWithGaps} / {trainingGaps.members}</div></Card>
+            <Card className="p-4"><div className="kicker">Missing credentials</div><div className="mt-1 text-3xl font-bold text-danger">{trainingGaps.missingCredentials}</div></Card>
+            <Card className="p-4"><div className="kicker">Expired credentials</div><div className="mt-1 text-3xl font-bold text-danger">{trainingGaps.expiredCredentials}</div></Card>
+            <Card className="p-4"><div className="kicker">Expiring credentials</div><div className="mt-1 text-3xl font-bold text-warn">{trainingGaps.expiringCredentials}</div></Card>
+          </div>
+          <Card>
+            {trainingGaps.rows.length === 0 ? <p className="p-6 text-sm text-navy-500">No current training gaps found.</p> : (
+              <div className="table-wrap"><table className="table"><thead><tr><th>Member</th><th>Rank / Position</th><th>Station / Shift</th><th>Gaps</th></tr></thead><tbody>
+                {trainingGaps.rows.map((row) => <tr key={row.memberId}><td className="font-semibold"><Link href={`/members/${row.memberId}`}>{row.memberName}</Link></td><td>{row.rank || row.position || "—"}</td><td>{row.station || "—"}{row.shift ? ` · ${row.shift}` : ""}</td><td><div className="space-y-1">{row.gaps.map((gap, index) => <div key={`${gap.kind}-${gap.name}-${index}`} className="text-sm"><Badge tone={gap.kind === "EXPIRING" ? "warn" : gap.kind === "MISSING" || gap.kind === "EXPIRED" || gap.kind === "OVERDUE_TASK_BOOK" ? "danger" : "info"}>{gap.kind.toLowerCase().replaceAll("_", " ")}</Badge> <span className="font-semibold">{gap.name}</span> <span className="text-navy-500">· {gap.detail}</span></div>)}</div></td></tr>)}
+              </tbody></table></div>
+            )}
           </Card>
         </div>
       )}
