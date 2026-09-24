@@ -92,7 +92,9 @@ async function getAttendanceOnlyVersion(ctx: AuthContext) {
     },
     include: { versions: true },
   });
-  return created.versions[0];
+  const version = created.versions[0];
+  if (!version) throw new HttpError(500, "Unable to initialize attendance training record.");
+  return version;
 }
 
 export async function getClassSetup(ctx: AuthContext) {
