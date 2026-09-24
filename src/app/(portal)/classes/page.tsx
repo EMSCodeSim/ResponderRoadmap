@@ -49,6 +49,7 @@ export default function ClassesPage() {
   const [setup, setSetup] = useState<Setup | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(false);
+  const [quickMode, setQuickMode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +80,19 @@ export default function ClassesPage() {
     }
   }
 
+  function localDateTimeNow() {
+    const date = new Date();
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+    return local.toISOString().slice(0, 16);
+  }
+
+  function openTraining(quick = false) {
+    const currentUser = setup?.proctors.find((item) => item.role === "TRAINING_OFFICER" || item.role === "DEPARTMENT_ADMINISTRATOR" || item.role === "INSTRUCTOR" || item.role === "EVALUATOR");
+    setQuickMode(quick);
+    setForm({ ...emptyForm, startsAt: quick ? localDateTimeNow() : "", selfRegistration: quick, proctorUserIds: currentUser ? [currentUser.userId] : [] });
+    setOpen(true);
+  }
+
   const required = new Set(setup?.requiredFields || []);
   const req = (field: string) => required.has(field);
 
@@ -88,9 +102,10 @@ export default function ClassesPage() {
         kicker="Training delivery"
         title="Training & class rosters"
         description="Replace paper training sheets: create training, capture attendance by roster or QR, complete the record, and export it for your RMS when needed."
-        actions={setup ? <Button onClick={() => setOpen(true)}>Create training</Button> : undefined}
+        actions={setup ? <div className="flex flex-wrap gap-2"><Button onClick={() => openTraining(true)} className="md:hidden">Quick training</Button><Button onClick={() => openTraining(false)}>Create training</Button></div> : undefined}
       />
       <Flash message={error} tone="danger" />
+      {setup ? <button type="button" onClick={() => openTraining(true)} className="fixed bottom-20 right-4 z-40 flex min-h-14 items-center rounded-full bg-fire px-5 text-sm font-bold text-white shadow-lg md:hidden" aria-label="Create quick training sheet">+ Quick training</button> : null}
       <div className="grid gap-4 xl:grid-cols-2">
         {rows.length === 0 ? (
           <Card className="p-6 text-navy-500">No classes are assigned to you.</Card>
@@ -117,8 +132,9 @@ export default function ClassesPage() {
         ))}
       </div>
 
-      <Modal open={open} title="Create digital training sheet" onClose={() => setOpen(false)} wide>
+      <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
+          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Phone / field mode</div><p className="mt-1 text-sm text-navy-600">Start with the essentials now. QR registration is on by default so the crew can scan in. Department-required RMS fields are still enforced.</p></div> : null}
           {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> fields marked * are required by your department before this training sheet is created or completed.</div> : null}
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Class title"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Fire Academy Skills Day 4" required /></Field>
@@ -144,12 +160,12 @@ export default function ClassesPage() {
             <Field label={`Credit hours${req("HOURS") ? " *" : ""}`} hint="Leave blank to use the time between Starts and Ends.">
               <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
             </Field>
-            <Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
+            {!quickMode ? <Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
               <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}>
                 <option value="">No checklist — attendance/training record only</option>
                 {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
-            </Field>
+            </Field> : null}
             <Field label={`Location${req("LOCATION") ? " *" : ""}`}><Input required={req("LOCATION")} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
             <Field label="Starts"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
             <Field label={`Ends${req("END_TIME") ? " *" : ""}`}><Input required={req("END_TIME")} type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field>
@@ -161,7 +177,7 @@ export default function ClassesPage() {
             <input type="checkbox" checked={form.selfRegistration} onChange={(event) => setForm({ ...form, selfRegistration: event.target.checked })} />
             Allow QR student registration (the class may start with an empty roster)
           </label>
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className={`grid gap-5 ${quickMode ? "" : "md:grid-cols-2"}`}>
             <Field label={`Roster (${form.membershipIds.length})`} hint={form.selfRegistration ? "Optional: pre-add department members." : "Select students or enable QR registration."}>
               <div className="max-h-64 space-y-1 overflow-auto rounded-md border border-navy-200 p-2">
                 {setup?.members.map((member) => (
@@ -172,7 +188,7 @@ export default function ClassesPage() {
                 ))}
               </div>
             </Field>
-            <Field label={`Proctors (${form.proctorUserIds.length})`} hint="Evaluators see only classes to which they are assigned.">
+            {!quickMode ? <Field label={`Proctors (${form.proctorUserIds.length})`} hint="Evaluators see only classes to which they are assigned.">
               <div className="max-h-64 space-y-1 overflow-auto rounded-md border border-navy-200 p-2">
                 {setup?.proctors.map((proctor) => (
                   <label key={proctor.userId} className="flex min-h-11 items-center gap-3 rounded px-2 hover:bg-navy-50">
@@ -181,9 +197,9 @@ export default function ClassesPage() {
                   </label>
                 ))}
               </div>
-            </Field>
+            </Field> : null}
           </div>
-          <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create training sheet"}</Button>
+          <Button type="submit" className={quickMode ? "w-full min-h-12" : undefined} disabled={busy}>{busy ? "Creating…" : "Create training sheet"}</Button>
         </form>
       </Modal>
     </div>
