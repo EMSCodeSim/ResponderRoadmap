@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
-import { Badge, Button, Card, Field, Flash, Input, Modal, PageHeader, Select } from "@/components/ui";
+import { Badge, Button, Card, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
 
 type ClassRow = {
@@ -37,6 +37,7 @@ const emptyForm = {
   startsAt: "",
   endsAt: "",
   location: "",
+  notes: "",
   membershipIds: [] as string[],
   selfRegistration: false,
   proctorUserIds: [] as string[],
@@ -81,9 +82,9 @@ export default function ClassesPage() {
     <div>
       <PageHeader
         kicker="Training delivery"
-        title="Classes & skills rosters"
-        description="Create a roster manually or let students join by class-specific QR code, then record attendance and results."
-        actions={setup ? <Button onClick={() => setOpen(true)}>Create class</Button> : undefined}
+        title="Training & class rosters"
+        description="Replace paper training sheets: create training, capture attendance by roster or QR, complete the record, and export it for your RMS when needed."
+        actions={setup ? <Button onClick={() => setOpen(true)}>Create training</Button> : undefined}
       />
       <Flash message={error} tone="danger" />
       <div className="grid gap-4 xl:grid-cols-2">
@@ -95,7 +96,7 @@ export default function ClassesPage() {
               <div>
                 <div className="kicker">{row.classType.replaceAll("_", " ")}</div>
                 <h2 className="mt-1 text-xl font-bold text-navy-900">{row.title}</h2>
-                <p className="mt-1 text-sm text-navy-500">{row.checklistTitle} v{row.checklistVersion}</p>
+                <p className="mt-1 text-sm text-navy-500">{row.checklistVersion ? `${row.checklistTitle} v${row.checklistVersion}` : row.checklistTitle}</p>
               </div>
               <Badge tone={row.status === "ACTIVE" ? "info" : row.status === "COMPLETE" ? "current" : "neutral"}>{row.status}</Badge>
             </div>
@@ -112,7 +113,7 @@ export default function ClassesPage() {
         ))}
       </div>
 
-      <Modal open={open} title="Create class roster" onClose={() => setOpen(false)} wide>
+      <Modal open={open} title="Create digital training sheet" onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Class title"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Fire Academy Skills Day 4" required /></Field>
@@ -138,9 +139,9 @@ export default function ClassesPage() {
             <Field label="Credit hours" hint="Leave blank to use the time between Starts and Ends.">
               <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
             </Field>
-            <Field label="Published checklist">
-              <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })} required>
-                <option value="">Choose checklist</option>
+            <Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
+              <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}>
+                <option value="">No checklist — attendance/training record only</option>
                 {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
             </Field>
@@ -148,6 +149,9 @@ export default function ClassesPage() {
             <Field label="Starts"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
             <Field label="Ends"><Input type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field>
           </div>
+          <Field label="Training description / notes" hint="Use this for topic, objectives, drill description, or information that would normally appear on the paper training sheet.">
+            <TextArea rows={4} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Topic, objectives, skills covered, instructor notes…" />
+          </Field>
           <label className="flex min-h-12 items-center gap-3 rounded-lg border border-fire/30 bg-fire-soft p-4 text-sm font-semibold">
             <input type="checkbox" checked={form.selfRegistration} onChange={(event) => setForm({ ...form, selfRegistration: event.target.checked })} />
             Allow QR student registration (the class may start with an empty roster)
@@ -174,7 +178,7 @@ export default function ClassesPage() {
               </div>
             </Field>
           </div>
-          <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create roster"}</Button>
+          <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create training sheet"}</Button>
         </form>
       </Modal>
     </div>
