@@ -539,10 +539,7 @@ export async function classTrainingSheetReport(ctx: AuthContext, classId: string
       proctors: { include: { user: true } },
       roster: {
         include: { membership: { include: { user: true } } },
-        orderBy: [
-          { membership: { user: { name: "asc" } } },
-          { guestName: "asc" },
-        ],
+        orderBy: { enrolledAt: "asc" },
       },
     },
   });
