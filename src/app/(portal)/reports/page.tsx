@@ -27,6 +27,31 @@ type Compliance = {
   expired: number;
 };
 
+type TrainingHoursReport = {
+  year: number;
+  departmentTotalHours: number;
+  categoryTotals: Record<string, number>;
+  members: Array<{
+    memberId: string;
+    memberName: string;
+    rank: string | null;
+    station: string | null;
+    shift: string | null;
+    totalHours: number;
+    categories: Record<string, number>;
+  }>;
+  records: Array<{
+    classId: string;
+    date: string;
+    title: string;
+    category: string;
+    hours: number;
+    memberId: string;
+    memberName: string;
+    instructor: string;
+  }>;
+};
+
 type TrainingSheetBatch = {
   id: string;
   title: string;
@@ -50,12 +75,14 @@ function ReportsInner() {
   const [recordId, setRecordId] = useState("");
   const [record, setRecord] = useState<{ memberName: string; timeline: Array<{ at: string; title: string; kind: string; detail: string }> } | null>(null);
   const [trainingSheets, setTrainingSheets] = useState<TrainingSheetBatch[]>([]);
+  const [trainingHours, setTrainingHours] = useState<TrainingHoursReport | null>(null);
 
   useEffect(() => {
     api<ProgressRow[]>("reports/task-book-progress").then(setProgress);
     api<typeof certs>("reports/certifications").then(setCerts);
     api<Compliance>("reports/compliance").then(setCompliance);
     api<TrainingSheetBatch[]>("reports/training-sheets").then(setTrainingSheets);
+    api<TrainingHoursReport>("reports/training-hours").then(setTrainingHours);
     api<{ members: Array<{ id: string; name: string }> }>("members").then((payload) => setMembers(payload.members));
   }, []);
 
@@ -78,7 +105,9 @@ function ReportsInner() {
                   "report.csv",
                   report === "certs"
                     ? (certs as unknown as Array<Record<string, unknown>>)
-                    : (progress as unknown as Array<Record<string, unknown>>),
+                    : report === "training-hours"
+                      ? ((trainingHours?.records || []) as unknown as Array<Record<string, unknown>>)
+                      : (progress as unknown as Array<Record<string, unknown>>),
                 )
               }
             >
@@ -96,6 +125,7 @@ function ReportsInner() {
           ["certs", "Certification Status"],
           ["record", "Member Training Record"],
           ["training-sheets", "RMS Training Sheets"],
+          ["training-hours", "Training Hours"],
           ["compliance", "Department Compliance"],
         ].map(([id, label]) => {
           const active = report === id;
@@ -246,6 +276,71 @@ function ReportsInner() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {report === "training-hours" && trainingHours && (
+        <div className="space-y-4">
+          <Card className="p-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <div className="kicker">Verified training hours</div>
+                <h2 className="display mt-1 text-2xl font-bold">{trainingHours.year} Training Hours</h2>
+                <p className="mt-1 max-w-3xl text-sm text-navy-600">
+                  Counts completed classes for department members marked PRESENT. Credit comes from the class credit-hours field, or from the scheduled duration when credit hours are left blank.
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-4xl font-bold">{trainingHours.departmentTotalHours}</div>
+                <div className="text-xs text-navy-500">department member-hours</div>
+              </div>
+            </div>
+          </Card>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Object.entries(trainingHours.categoryTotals).map(([category, hours]) => (
+              <Card key={category} className="p-4">
+                <div className="kicker">{category.replaceAll("_", " ")}</div>
+                <div className="mt-1 text-3xl font-bold">{hours}</div>
+                <div className="text-xs text-navy-500">member-hours</div>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Rank</th>
+                    <th>Station / Shift</th>
+                    <th>Company</th>
+                    <th>Facility</th>
+                    <th>HazMat</th>
+                    <th>Driver</th>
+                    <th>Officer</th>
+                    <th>EMS</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trainingHours.members.map((member) => (
+                    <tr key={member.memberId}>
+                      <td className="font-semibold">{member.memberName}</td>
+                      <td>{member.rank || "—"}</td>
+                      <td>{member.station || "—"}{member.shift ? ` · ${member.shift}` : ""}</td>
+                      <td>{member.categories.COMPANY || 0}</td>
+                      <td>{member.categories.FACILITY || 0}</td>
+                      <td>{member.categories.HAZMAT || 0}</td>
+                      <td>{member.categories.DRIVER || 0}</td>
+                      <td>{member.categories.OFFICER || 0}</td>
+                      <td>{member.categories.EMS || 0}</td>
+                      <td className="font-bold">{member.totalHours}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
       )}
 
