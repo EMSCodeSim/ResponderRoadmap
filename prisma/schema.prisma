@@ -345,6 +345,10 @@ model CredentialType {
   issuerDefault       String?
   isCustom            Boolean    @default(false)
   alertThresholdsJson String     @default("[180,90,60,30,14,7,0]")
+  /// Training-gap rules. Empty arrays mean this credential is not required by that dimension.
+  requiredForAll       Boolean    @default(false)
+  requiredRanksJson    String     @default("[]")
+  requiredPositionsJson String    @default("[]")
 
   credentials Credential[]
 
