@@ -60,6 +60,9 @@ type ClassDetail = {
   proctors: Array<{ userId: string; name: string }>;
   sections: Array<{ id: string; title: string; description: string; skills: Skill[] }>;
   roster: Student[];
+  finalizedAt?: string | null;
+  finalizedByName?: string | null;
+  amendmentCount?: number;
 };
 
 const resultLabels: Record<string, string> = {
@@ -177,9 +180,13 @@ export default function ClassDetailPage() {
         kicker={`${detail.classType.replaceAll("_", " ")} · ${detail.checklistVersion ? `${detail.checklistTitle} v${detail.checklistVersion}` : detail.checklistTitle}`}
         title={detail.title}
         description={`${formatDate(detail.startsAt)}${detail.location ? ` · ${detail.location}` : ""} · Proctors: ${detail.proctors.map((item) => item.name).join(", ")}`}
-        actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => updateStatus("COMPLETE")} disabled={busy}>Complete training</Button> : null}</>}
+        actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">{detail.status === "COMPLETE" ? "Archived training record" : "Training sheet / RMS export"}</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => updateStatus("COMPLETE")} disabled={busy}>Complete training</Button> : null}</>}
       />
       <Flash message={error} tone="danger" />
+      {detail.status === "COMPLETE" ? <Card className="no-print mb-4 border-success/30 bg-success/5 p-4">
+        <div className="font-semibold">Finalized training record</div>
+        <p className="mt-1 text-sm text-navy-600">This record is locked against silent edits. Use the archived training record for PDF/RMS export. Any correction must be recorded as an amendment with an audit history.</p>
+      </Card> : null}
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
 
       <Card className="no-print mb-4 p-4">

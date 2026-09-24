@@ -231,6 +231,10 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await classes.recordSkillResult(ctx, classSkill.id, classSkill.enrollmentId, classSkill.requirementId, body));
     }
+    const classArchive = match(path, "classes/:id/archive");
+    if (method === "GET" && classArchive) return jsonOk(await classes.getTrainingRecordArchive(ctx, classArchive.id));
+    const classAmendment = match(path, "classes/:id/amend");
+    if (method === "POST" && classAmendment) return jsonOk(await classes.amendTrainingRecord(ctx, classAmendment.id, await readBody(req)));
     const classDetail = match(path, "classes/:id");
     if (method === "GET" && classDetail) return jsonOk(await classes.getClass(ctx, classDetail.id));
 

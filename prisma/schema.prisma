@@ -73,6 +73,7 @@ model Department {
   evaluationEscalationHours Int                    @default(48)
   trainingClasses          TrainingClass[]
   trainingExpectations     TrainingExpectation[]
+  trainingRecordRetentionYears Int @default(7)
 }
 
 model DepartmentMembership {
@@ -398,11 +399,33 @@ model TrainingClass {
   createdBy     User            @relation("ClassCreator", fields: [createdById], references: [id])
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
+  finalizedAt   DateTime?
+  finalizedById String?
+  finalizedByName String?
+  recordSnapshotJson String?
+  amendmentCount Int @default(0)
 
   roster        TrainingClassEnrollment[]
   proctors      TrainingClassProctor[]
+  amendments    TrainingRecordAmendment[]
 
   @@index([departmentId, startsAt])
+}
+
+model TrainingRecordAmendment {
+  id          String        @id @default(cuid())
+  classId     String
+  class       TrainingClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  departmentId String
+  amendedById String
+  amendedByName String
+  reason      String
+  beforeSnapshotJson String
+  afterSnapshotJson  String
+  createdAt   DateTime      @default(now())
+
+  @@index([departmentId, createdAt])
+  @@index([classId, createdAt])
 }
 
 model TrainingClassProctor {
