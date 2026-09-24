@@ -335,3 +335,110 @@ export async function trainingSheetReport(ctx: AuthContext, assignmentId: string
     rows,
   };
 }
+
+
+const TRAINING_HOUR_CATEGORIES = ["COMPANY", "FACILITY", "HAZMAT", "DRIVER", "OFFICER", "EMS", "OTHER"] as const;
+
+export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
+  assertPermission(ctx, "reports.read");
+  const now = new Date();
+  const parsedYear = Number(rawYear || now.getFullYear());
+  const year = Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100 ? parsedYear : now.getFullYear();
+  const start = new Date(Date.UTC(year, 0, 1));
+  const end = new Date(Date.UTC(year + 1, 0, 1));
+
+  const classes = await prisma.trainingClass.findMany({
+    where: {
+      departmentId: ctx.departmentId,
+      status: "COMPLETE",
+      startsAt: { gte: start, lt: end },
+    },
+    include: {
+      createdBy: true,
+      proctors: { include: { user: true } },
+      roster: {
+        where: { attendance: "PRESENT", membershipId: { not: null } },
+        include: { membership: { include: { user: true } } },
+      },
+    },
+    orderBy: { startsAt: "asc" },
+  });
+
+  const categoryTotals: Record<string, number> = Object.fromEntries(TRAINING_HOUR_CATEGORIES.map((category) => [category, 0]));
+  const members = new Map<string, {
+    memberId: string;
+    memberName: string;
+    rank: string | null;
+    station: string | null;
+    shift: string | null;
+    totalHours: number;
+    categories: Record<string, number>;
+  }>();
+  const records: Array<{
+    classId: string;
+    date: Date;
+    title: string;
+    category: string;
+    hours: number;
+    memberId: string;
+    memberName: string;
+    instructor: string;
+  }> = [];
+
+  for (const training of classes) {
+    const fallbackHours = training.endsAt
+      ? Math.max(0, (training.endsAt.getTime() - training.startsAt.getTime()) / 3_600_000)
+      : 0;
+    const hours = training.creditHours > 0 ? training.creditHours : Math.round(fallbackHours * 100) / 100;
+    if (hours <= 0) continue;
+    const category = TRAINING_HOUR_CATEGORIES.includes(training.trainingCategory as typeof TRAINING_HOUR_CATEGORIES[number])
+      ? training.trainingCategory
+      : "OTHER";
+    const instructor = training.proctors.map((item) => item.user.name).join(", ") || training.createdBy.name;
+
+    for (const enrollment of training.roster) {
+      if (!enrollment.membership) continue;
+      categoryTotals[category] = (categoryTotals[category] || 0) + hours;
+      const current = members.get(enrollment.membershipId!) || {
+        memberId: enrollment.membershipId!,
+        memberName: enrollment.membership.user.name,
+        rank: enrollment.membership.rank,
+        station: enrollment.membership.station,
+        shift: enrollment.membership.shift,
+        totalHours: 0,
+        categories: Object.fromEntries(TRAINING_HOUR_CATEGORIES.map((item) => [item, 0])),
+      };
+      current.totalHours += hours;
+      current.categories[category] = (current.categories[category] || 0) + hours;
+      members.set(current.memberId, current);
+      records.push({
+        classId: training.id,
+        date: training.startsAt,
+        title: training.title,
+        category,
+        hours,
+        memberId: current.memberId,
+        memberName: current.memberName,
+        instructor,
+      });
+    }
+  }
+
+  const round = (value: number) => Math.round(value * 100) / 100;
+  const roundedCategories = Object.fromEntries(Object.entries(categoryTotals).map(([key, value]) => [key, round(value)]));
+  const memberRows = [...members.values()]
+    .map((member) => ({
+      ...member,
+      totalHours: round(member.totalHours),
+      categories: Object.fromEntries(Object.entries(member.categories).map(([key, value]) => [key, round(value)])),
+    }))
+    .sort((a, b) => a.memberName.localeCompare(b.memberName));
+
+  return {
+    year,
+    departmentTotalHours: round(memberRows.reduce((sum, member) => sum + member.totalHours, 0)),
+    categoryTotals: roundedCategories,
+    members: memberRows,
+    records,
+  };
+}
