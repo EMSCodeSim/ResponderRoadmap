@@ -100,10 +100,42 @@ export default function DepartmentPage() {
   const capabilities: string[] = (() => { try { const value = JSON.parse(dept.operationalCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
   const toggleCapability = (value: string) => setDept({ ...dept, operationalCapabilitiesJson: JSON.stringify(capabilities.includes(value) ? capabilities.filter((item) => item !== value) : [...capabilities, value]) });
   const customCapabilities: string[] = (() => { try { const value = JSON.parse(dept.customCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
+  const activeMembers = members.filter((member) => member.status === "ACTIVE").length;
+  const onboardingSteps = [
+    { label: "Department created", done: true, href: "/department" },
+    { label: "Choose agency type and services", done: capabilities.length > 0, href: "#agency-profile" },
+    { label: "Add your first member", done: activeMembers > 1 || invites.some((invite) => invite.status === "PENDING" || invite.status === "ACCEPTED"), href: "#add-people" },
+    { label: "Assign your first training or Task Book", done: false, href: "/assignments/new" },
+  ];
+  const onboardingDone = onboardingSteps.filter((step) => step.done).length;
+  const onboardingPercent = Math.round((onboardingDone / onboardingSteps.length) * 100);
 
   return (
     <div>
       <PageHeader kicker="Organization" title={dept.name} description="Department settings, join code, invitations, and roles." />
+      {onboardingPercent < 100 ? (
+        <Card className="mb-6 border-fire/20 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="kicker">Guided setup</div>
+              <h2 className="display mt-1 text-2xl font-bold">Get your department working in a few minutes</h2>
+              <p className="mt-2 max-w-2xl text-sm text-navy-600">Start with only what Roadmap needs to be useful. Advanced settings, RMS fields, evaluator rules, certifications, and position expectations can be configured later when they become relevant.</p>
+            </div>
+            <div className="text-right"><div className="display text-3xl font-bold">{onboardingPercent}%</div><div className="text-xs text-navy-500">initial setup</div></div>
+          </div>
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
+            {onboardingSteps.map((step) => <Link key={step.label} href={step.href} className="flex min-h-12 items-center justify-between rounded-md border border-navy-200 px-4 py-3 hover:border-fire"><span className="font-semibold">{step.done ? "✓ " : ""}{step.label}</span><span className="text-sm text-fire">{step.done ? "Done" : "Continue →"}</span></Link>)}
+          </div>
+          <div className="mt-4 rounded-md bg-navy-50 p-4">
+            <div className="font-semibold text-navy-900">What would you like to do first?</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href="/assignments/new" className="inline-flex min-h-10 items-center rounded-md bg-fire px-4 text-sm font-semibold text-white">Assign training</Link>
+              <Link href="/task-books/new" className="inline-flex min-h-10 items-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800">Start a Task Book</Link>
+              <Link href="/classes" className="inline-flex min-h-10 items-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800">Create a class / QR roster</Link>
+            </div>
+          </div>
+        </Card>
+      ) : null}
       <Card className="mb-6 p-5">
         <h2 className="text-lg font-bold text-navy-900">Department plan</h2>
         <p className="mt-2 text-sm text-navy-600">
@@ -165,8 +197,7 @@ export default function DepartmentPage() {
                 onChange={(e) => setDept({ ...dept, evaluationEscalationHours: Number(e.target.value) || 48 })}
               />
             </Field>
-            <div className="md:col-span-2 rounded-lg border border-navy-200 p-4">
-              <div className="font-semibold text-navy-900">What does your department do?</div>
+            <div id="agency-profile" className="md:col-span-2 scroll-mt-4 rounded-lg border border-navy-200 p-4">\n              <div className="font-semibold text-navy-900">What does your department do?</div>
               <p className="mt-1 text-sm text-navy-500">Configure Roadmap around the services your agency actually provides. These selections organize training options; your department still defines its own requirements and expectations.</p>
               <div className="mt-4 max-w-md"><Field label="Agency type"><Select value={dept.agencyType} onChange={(e) => setDept({...dept, agencyType:e.target.value})}>{AGENCY_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</Select></Field></div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{CAPABILITIES.map(([value,label])=><label key={value} className="flex min-h-10 items-center gap-2 rounded-md bg-navy-50 px-3 text-sm"><input type="checkbox" checked={capabilities.includes(value)} onChange={()=>toggleCapability(value)}/>{label}</label>)}</div>
@@ -186,8 +217,7 @@ export default function DepartmentPage() {
             <Button type="submit">Save department</Button>
           </form>
         </Card>
-        <Card className="p-5">
-          <div className="kicker">Join department</div>
+        <Card id="add-people" className="scroll-mt-4 p-5">\n          <div className="kicker">Add your people</div>\n          <p className="mt-1 text-sm text-navy-500">You do not need to build the whole roster now. Add one person or share the join code and keep moving.</p>\n          <div className="mt-4 text-xs font-bold uppercase tracking-wide text-navy-500">Join department</div>
           <div className="display mt-2 text-4xl font-bold tracking-wide">{dept.joinCode}</div>
           <p className="mt-2 text-sm text-navy-500">
             Members open ResponderRoadmap, choose My Department, Join Department, and enter this code.
