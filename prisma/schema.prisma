@@ -366,8 +366,8 @@ model TrainingClass {
   trainingCategory String        @default("COMPANY")
   /// Credit awarded to each PRESENT department member when the class is COMPLETE.
   creditHours   Float           @default(0)
-  checklistVersionId String?
-  checklistVersion TaskBookVersion? @relation(fields: [checklistVersionId], references: [id])
+  checklistVersionId String
+  checklistVersion TaskBookVersion @relation(fields: [checklistVersionId], references: [id])
   startsAt      DateTime
   endsAt        DateTime?
   location      String          @default("")
