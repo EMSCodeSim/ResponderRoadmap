@@ -444,6 +444,12 @@ export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
 }
 
 
+type TrainingGap = {
+  kind: "MISSING" | "EXPIRED" | "EXPIRING" | "OVERDUE_TASK_BOOK" | "INCOMPLETE_TASK_BOOK";
+  name: string;
+  detail: string;
+};
+
 function parseStringArray(value: string) {
   try {
     const parsed = JSON.parse(value);
@@ -476,7 +482,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
       (member.rank ? type.requiredRanks.includes(member.rank) : false) ||
       (member.position ? type.requiredPositions.includes(member.position) : false),
     );
-    const credentialGaps = applicable.flatMap((type) => {
+    const credentialGaps = applicable.flatMap<TrainingGap>((type) => {
       const matching = member.credentials.filter((credential) =>
         credential.credentialTypeId === type.id || credential.credentialName.toLowerCase() === type.name.toLowerCase(),
       );
@@ -490,7 +496,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
       return [];
     });
 
-    const taskBookGaps = member.assignments.flatMap((assignment) => {
+    const taskBookGaps = member.assignments.flatMap<TrainingGap>((assignment) => {
       const progress = computeAssignmentProgress({
         requirements: assignment.version.sections.flatMap((section) => section.requirements),
         completions: assignment.completions,
