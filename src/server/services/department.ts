@@ -36,6 +36,9 @@ export async function updateDepartment(
     logoUrl?: string | null;
     evaluationEscalationHours?: number;
     trainingSheetRequiredFields?: string[];
+    agencyType?: string;
+    operationalCapabilities?: string[];
+    customCapabilities?: string[];
   },
 ) {
   assertPermission(ctx, "department.write");
@@ -57,6 +60,9 @@ export async function updateDepartment(
         ? undefined
         : Math.max(1, Math.min(720, Math.round(input.evaluationEscalationHours))),
       trainingSheetRequiredFieldsJson: input.trainingSheetRequiredFields === undefined ? undefined : JSON.stringify([...new Set(input.trainingSheetRequiredFields.map((item) => String(item).trim().toUpperCase()).filter(Boolean))]),
+      agencyType: input.agencyType?.trim().toUpperCase() || undefined,
+      operationalCapabilitiesJson: input.operationalCapabilities === undefined ? undefined : JSON.stringify([...new Set(input.operationalCapabilities.map((item) => String(item).trim().toUpperCase()).filter(Boolean))]),
+      customCapabilitiesJson: input.customCapabilities === undefined ? undefined : JSON.stringify([...new Set(input.customCapabilities.map((item) => String(item).trim().slice(0, 80)).filter(Boolean))]),
     },
   });
   await writeAudit(ctx, "department.updated", "Department", department.id, {});
