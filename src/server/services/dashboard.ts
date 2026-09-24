@@ -435,8 +435,22 @@ async function getMemberDashboard(ctx: AuthContext) {
     detail: extra || `${row.progress.complete} of ${row.progress.totalRequired} approved`,
   });
 
+  const returnedItems = returned.map((item) => ({
+    id: item.id,
+    title: item.requirement.title,
+    percent: 0,
+    status: "RETURNED",
+    dueDate: null as Date | null,
+    href: assignmentRecordPath(item.assignmentId),
+    detail: `Returned — correction needed · ${item.requirement.section.version.template.title}`,
+  }));
+  const overdueItems = assignmentRows.filter((row) => row.progress.status === "OVERDUE" || (row.progress.status === "NOT_STARTED" && row.progress.overdue > 0)).map((row) => workItem(row, "Overdue — needs action"));
+  const normalItems = assignmentRows.filter((row) => row.progress.status === "IN_PROGRESS" || row.progress.status === "NOT_STARTED").map((row) => workItem(row, "Ready to do"));
+  const doThisNext = returnedItems[0] || overdueItems[0] || normalItems[0] || null;
+
   return {
     personal: true,
+    doThisNext,
     summary: {
       activeMembers: 1,
       activeTaskBooks: assignmentRows.filter((row) => row.progress.status !== "COMPLETE").length,
@@ -454,21 +468,10 @@ async function getMemberDashboard(ctx: AuthContext) {
         : 0,
     },
     work: {
-      needsAction: [
-        ...returned.map((item) => ({
-          id: item.id,
-          title: item.requirement.title,
-          percent: 0,
-          status: "RETURNED",
-          dueDate: null as Date | null,
-          href: assignmentRecordPath(item.assignmentId),
-          detail: `Returned · ${item.requirement.section.version.template.title}`,
-        })),
-        ...assignmentRows.filter((row) => row.progress.status === "OVERDUE" || (row.progress.status === "NOT_STARTED" && row.progress.overdue > 0)).map((row) => workItem(row, "Needs action")),
-      ],
-      inProgress: assignmentRows.filter((row) => row.progress.status === "IN_PROGRESS" || row.progress.status === "NOT_STARTED").map((row) => workItem(row)),
-      waiting: assignmentRows.filter((row) => row.progress.status === "AWAITING_SIGN_OFF").map((row) => workItem(row, "Awaiting evaluation")),
-      completed: assignmentRows.filter((row) => row.progress.status === "COMPLETE").map((row) => workItem(row, "Completed")),
+      needsAction: [...returnedItems, ...overdueItems],
+      inProgress: normalItems,
+      waiting: assignmentRows.filter((row) => row.progress.status === "AWAITING_SIGN_OFF").map((row) => workItem(row, "Waiting for evaluator")),
+      completed: assignmentRows.filter((row) => row.progress.status === "COMPLETE").map((row) => workItem(row, "Complete")),
     },
     attention: [
       ...returned.map((item) => ({

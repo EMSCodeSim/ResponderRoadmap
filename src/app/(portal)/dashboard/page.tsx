@@ -84,6 +84,7 @@ type Dashboard = {
     nextActionHref: string;
     href: string;
   }>;
+  doThisNext?: WorkItem | null;
   work?: {
     needsAction: WorkItem[];
     inProgress: WorkItem[];
@@ -309,17 +310,25 @@ function TrainingAreas({ rows }: { rows: Dashboard["taskBookProgress"] }) {
 
 function MemberHome({ data }: { data: Dashboard }) {
   const work = data.work;
+  const next = data.doThisNext;
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <CountCard href="/my-task-books" label="Active Task Books" value={data.summary.activeTaskBooks} />
-        <CountCard href="/my-assignments" label="Awaiting Evaluation" value={data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff} warn={(data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff) > 0} />
-        <CountCard href="/my-task-books" label="Needs Attention" value={data.summary.needsAttention ?? data.summary.overdueRequirements} danger={(data.summary.needsAttention ?? data.summary.overdueRequirements) > 0} />
+      {next ? <Card className="border-fire/30 p-5">
+        <div className="kicker">Do This Next</div>
+        <h2 className="display mt-1 text-2xl font-bold">{next.title}</h2>
+        <p className="mt-2 text-sm font-semibold text-navy-700">{next.detail}</p>
+        <div className="mt-4 max-w-md"><ProgressBar value={next.percent} /></div>
+        <p className="mt-1 text-xs text-navy-500">{next.percent}% approved{next.dueDate ? ` · Due ${new Date(next.dueDate).toLocaleDateString()}` : ""}</p>
+        <Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 text-sm font-semibold text-white">Continue Training →</Link>
+      </Card> : <Card className="p-5"><div className="kicker">My Training</div><h2 className="display mt-1 text-2xl font-bold">You're caught up</h2><p className="mt-2 text-sm text-navy-500">Nothing needs your action right now.</p></Card>}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <CountCard href="/my-task-books" label="Active Training" value={data.summary.activeTaskBooks} />
+        <CountCard href="/my-task-books" label="Waiting for Evaluator" value={data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff} warn={(data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff) > 0} />
+        <CountCard href="/my-task-books" label="Needs My Attention" value={data.summary.needsAttention ?? data.summary.overdueRequirements} danger={(data.summary.needsAttention ?? data.summary.overdueRequirements) > 0} />
       </div>
-      <WorkSection title="Needs Action" empty="Nothing needs your action." items={work?.needsAction ?? []} />
-      <WorkSection title="In Progress" empty="No active Task Books or Assignments." items={work?.inProgress ?? []} />
-      <WorkSection title="Waiting" empty="Nothing is waiting on evaluation or approval." items={work?.waiting ?? []} />
-      <WorkSection title="Completed" empty="No recently completed work." items={work?.completed ?? []} />
+      <WorkSection title="My Training" empty="No other active training." items={[...(work?.needsAction ?? []), ...(work?.inProgress ?? [])].filter((item) => item.id !== next?.id)} />
+      <WorkSection title="Waiting for Evaluator" empty="Nothing is waiting on someone else." items={work?.waiting ?? []} />
+      <WorkSection title="Recently Completed" empty="No recently completed work." items={(work?.completed ?? []).slice(0, 5)} />
     </div>
   );
 }
