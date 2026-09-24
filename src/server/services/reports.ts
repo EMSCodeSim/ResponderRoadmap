@@ -527,3 +527,80 @@ export async function trainingGapsReport(ctx: AuthContext) {
     rows: withGaps,
   };
 }
+
+
+export async function classTrainingSheetReport(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "reports.read");
+  const training = await prisma.trainingClass.findFirst({
+    where: { id: classId, departmentId: ctx.departmentId },
+    include: {
+      department: true,
+      createdBy: true,
+      proctors: { include: { user: true } },
+      roster: {
+        include: { membership: { include: { user: true } } },
+        orderBy: [
+          { membership: { user: { name: "asc" } } },
+          { guestName: "asc" },
+        ],
+      },
+    },
+  });
+  if (!training) throw new Error("Training record not found.");
+
+  const fallbackHours = training.endsAt
+    ? Math.max(0, (training.endsAt.getTime() - training.startsAt.getTime()) / 3_600_000)
+    : 0;
+  const creditHours = training.creditHours > 0
+    ? training.creditHours
+    : Math.round(fallbackHours * 100) / 100;
+  const instructors = training.proctors.map((item) => item.user.name);
+  const instructor = instructors.length ? instructors.join(", ") : training.createdBy.name;
+
+  const rows = training.roster.map((enrollment) => ({
+    enrollmentId: enrollment.id,
+    membershipId: enrollment.membershipId,
+    memberName: enrollment.membership?.user.name || enrollment.guestName || "Unknown student",
+    rank: enrollment.membership?.rank || null,
+    station: enrollment.membership?.station || null,
+    shift: enrollment.membership?.shift || null,
+    isGuest: enrollment.membershipId == null,
+    organization: enrollment.guestOrganization,
+    attendance: enrollment.attendance,
+    finalResult: enrollment.finalResult,
+    completedAt: enrollment.completedAt,
+    creditHours: enrollment.attendance === "PRESENT" && enrollment.membershipId ? creditHours : 0,
+    notes: enrollment.notes,
+  }));
+
+  return {
+    generatedAt: new Date(),
+    department: {
+      name: training.department.name,
+      city: training.department.city,
+      state: training.department.state,
+    },
+    training: {
+      id: training.id,
+      title: training.title,
+      date: training.startsAt,
+      endsAt: training.endsAt,
+      location: training.location,
+      category: training.trainingCategory,
+      classType: training.classType,
+      status: training.status,
+      notes: training.notes,
+      creditHours,
+      instructor,
+    },
+    summary: {
+      roster: rows.length,
+      present: rows.filter((row) => row.attendance === "PRESENT").length,
+      absent: rows.filter((row) => row.attendance === "ABSENT").length,
+      excused: rows.filter((row) => row.attendance === "EXCUSED").length,
+      unmarked: rows.filter((row) => row.attendance === "REGISTERED").length,
+      departmentMemberHours: rows.reduce((sum, row) => sum + row.creditHours, 0),
+    },
+    rows,
+  };
+}
