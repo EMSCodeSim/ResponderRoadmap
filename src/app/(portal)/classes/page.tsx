@@ -26,6 +26,7 @@ type Setup = {
   checklists: Array<{ id: string; title: string; version: string; skillCount: number }>;
   members: Array<{ id: string; name: string; rank: string | null }>;
   proctors: Array<{ userId: string; name: string; role: string }>;
+  requiredFields: string[];
 };
 
 const emptyForm = {
@@ -78,6 +79,9 @@ export default function ClassesPage() {
     }
   }
 
+  const required = new Set(setup?.requiredFields || []);
+  const req = (field: string) => required.has(field);
+
   return (
     <div>
       <PageHeader
@@ -115,6 +119,7 @@ export default function ClassesPage() {
 
       <Modal open={open} title="Create digital training sheet" onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
+          {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> fields marked * are required by your department before this training sheet is created or completed.</div> : null}
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Class title"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Fire Academy Skills Day 4" required /></Field>
             <Field label="Class type">
@@ -136,7 +141,7 @@ export default function ClassesPage() {
                 <option value="OTHER">Other</option>
               </Select>
             </Field>
-            <Field label="Credit hours" hint="Leave blank to use the time between Starts and Ends.">
+            <Field label={`Credit hours${req("HOURS") ? " *" : ""}`} hint="Leave blank to use the time between Starts and Ends.">
               <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
             </Field>
             <Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
@@ -145,12 +150,12 @@ export default function ClassesPage() {
                 {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
             </Field>
-            <Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
+            <Field label={`Location${req("LOCATION") ? " *" : ""}`}><Input required={req("LOCATION")} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
             <Field label="Starts"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
-            <Field label="Ends"><Input type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field>
+            <Field label={`Ends${req("END_TIME") ? " *" : ""}`}><Input required={req("END_TIME")} type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field>
           </div>
-          <Field label="Training description / notes" hint="Use this for topic, objectives, drill description, or information that would normally appear on the paper training sheet.">
-            <TextArea rows={4} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Topic, objectives, skills covered, instructor notes…" />
+          <Field label={`Training description / notes${req("DESCRIPTION") ? " *" : ""}`} hint="Use this for topic, objectives, drill description, or information that would normally appear on the paper training sheet.">
+            <TextArea required={req("DESCRIPTION")} rows={4} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Topic, objectives, skills covered, instructor notes…" />
           </Field>
           <label className="flex min-h-12 items-center gap-3 rounded-lg border border-fire/30 bg-fire-soft p-4 text-sm font-semibold">
             <input type="checkbox" checked={form.selfRegistration} onChange={(event) => setForm({ ...form, selfRegistration: event.target.checked })} />
