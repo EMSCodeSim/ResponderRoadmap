@@ -37,8 +37,12 @@ type WorkItem = {
   detail?: string;
 };
 
+type InstructorClass = { id: string; title: string; startsAt: string; endsAt?: string | null; location?: string | null; status: string; rosterCount: number; presentCount: number; completeCount: number; href: string };
+
 type Dashboard = {
   personal?: boolean;
+  instructor?: boolean;
+  instructorHome?: { nextClass: InstructorClass | null; upcoming: InstructorClass[]; inProgress: InstructorClass[]; recentlyCompleted: InstructorClass[] };
   summary: {
     activeMembers: number;
     activeTaskBooks: number;
@@ -144,14 +148,16 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         kicker="Home"
-        title={data.personal ? "What do I need to do next?" : "Department progress"}
+        title={data.instructor ? "My Classes" : data.personal ? "What do I need to do next?" : "Department progress"}
         description={
-          data.personal
-            ? "Needs action, in progress, waiting, and recently completed work."
-            : "Who is working on what, how far along they are, and what needs your attention."
+          data.instructor
+            ? "Teach, take attendance, evaluate skills, and finish the training record."
+            : data.personal
+              ? "Needs action, in progress, waiting, and recently completed work."
+              : "Who is working on what, how far along they are, and what needs your attention."
         }
         actions={
-          data.personal ? undefined : (
+          data.instructor ? <Link href="/classes"><Button>Create Class</Button></Link> : data.personal ? undefined : (
             <>
               <Link href="/evaluate"><Button variant={awaiting ? "primary" : "secondary"}>{awaiting ? `Needs Evaluation (${awaiting})` : "Needs Evaluation"}</Button></Link>
               <Link href={createTaskBookPath()}><Button variant="secondary">Create Task Book</Button></Link>
@@ -161,7 +167,9 @@ export default function DashboardPage() {
         }
       />
 
-      {data.personal ? (
+      {data.instructor ? (
+        <InstructorHome data={data} />
+      ) : data.personal ? (
         <MemberHome data={data} />
       ) : (
         <>
@@ -193,7 +201,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      <Card className="mt-6 p-5">
+      {!data.instructor ? <Card className="mt-6 p-5">
         <h2 className="display text-2xl font-bold">Recent Activity</h2>
         <ul className="mt-3 divide-y divide-navy-100">
           {data.recentActivity.slice(0, 5).map((event) => (
@@ -204,7 +212,7 @@ export default function DashboardPage() {
           ))}
           {data.recentActivity.length === 0 ? <li className="py-3 text-sm text-navy-500">No recent department activity.</li> : null}
         </ul>
-      </Card>
+      </Card> : null}
     </div>
   );
 }
@@ -241,6 +249,19 @@ function RecommendedNextStep({ data }: { data: Dashboard }) {
       <Link href={step.href} className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">{step.action} →</Link>
     </div>
   </Card>;
+}
+
+function InstructorHome({ data }: { data: Dashboard }) {
+  const home = data.instructorHome;
+  if (!home) return null;
+  const next = home.nextClass;
+  const ClassRow = ({ item }: { item: InstructorClass }) => <Link href={item.href} className="block rounded-md border border-navy-200 p-4 hover:border-fire"><div className="flex flex-wrap items-start justify-between gap-2"><div><div className="font-bold">{item.title}</div><div className="mt-1 text-sm text-navy-500">{new Date(item.startsAt).toLocaleString()}{item.location ? ` · ${item.location}` : ""}</div></div><span className="text-sm font-semibold text-fire">Open Class →</span></div><div className="mt-3 text-xs text-navy-500">{item.rosterCount} registered · {item.presentCount} present · {item.completeCount} documented</div></Link>;
+  return <div className="space-y-6">
+    {next ? <Card className="border-fire/30 p-5"><div className="kicker">Next class</div><h2 className="display mt-1 text-2xl font-bold">{next.title}</h2><p className="mt-2 text-sm text-navy-600">{new Date(next.startsAt).toLocaleString()}{next.location ? ` · ${next.location}` : ""}</p><p className="mt-2 text-sm text-navy-500">{next.rosterCount} registered · {next.presentCount} present · {next.completeCount} documented</p><Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">Open Class →</Link></Card> : <Card className="p-5"><h2 className="display text-2xl font-bold">No upcoming classes</h2><p className="mt-2 text-sm text-navy-500">Create a class when you are ready to teach, take attendance, or use a QR roster.</p><Link href="/classes" className="mt-4 inline-flex text-sm font-semibold text-fire underline">Create Class</Link></Card>}
+    {home.inProgress.length ? <section><div className="kicker">Teaching now</div><h2 className="display mt-1 text-2xl font-bold">In Progress</h2><div className="mt-3 grid gap-3 lg:grid-cols-2">{home.inProgress.map((item) => <ClassRow key={item.id} item={item} />)}</div></section> : null}
+    <section><div className="flex items-end justify-between gap-3"><div><div className="kicker">Instructor workspace</div><h2 className="display mt-1 text-2xl font-bold">Upcoming Classes</h2></div><Link href="/classes" className="text-sm font-semibold text-fire underline">View all my classes</Link></div>{home.upcoming.length ? <div className="mt-3 grid gap-3 lg:grid-cols-2">{home.upcoming.map((item) => <ClassRow key={item.id} item={item} />)}</div> : <p className="mt-3 text-sm text-navy-500">No upcoming classes.</p>}</section>
+    {home.recentlyCompleted.length ? <section><div className="kicker">Records</div><h2 className="display mt-1 text-2xl font-bold">Recently Completed</h2><div className="mt-3 grid gap-3 lg:grid-cols-2">{home.recentlyCompleted.map((item) => <ClassRow key={item.id} item={item} />)}</div></section> : null}
+  </div>;
 }
 
 function DepartmentReadiness({ members, current, readiness, attention, overdue, awaiting }: { members: number; current: number; readiness: number; attention: number; overdue: number; awaiting: number }) {
