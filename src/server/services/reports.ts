@@ -484,6 +484,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
       const best = matching
         .map((credential) => ({ credential, status: credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire) }))
         .sort((a, b) => (a.status.health === "current" ? -1 : b.status.health === "current" ? 1 : 0))[0];
+      if (!best) return [];
       if (best.status.health === "expired") return [{ kind: "EXPIRED" as const, name: type.name, detail: best.status.label }];
       if (best.status.health === "expiring") return [{ kind: "EXPIRING" as const, name: type.name, detail: best.status.label }];
       return [];
