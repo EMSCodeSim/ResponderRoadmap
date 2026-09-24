@@ -100,8 +100,8 @@ export async function listClasses(ctx: AuthContext, filter: { view?: string } = 
     classType: row.classType,
     trainingCategory: row.trainingCategory,
     creditHours: row.creditHours,
-    checklistTitle: row.checklistVersion.template.title,
-    checklistVersion: row.checklistVersion.version,
+    checklistTitle: row.checklistVersion?.template.title || "Attendance-only training",
+    checklistVersion: row.checklistVersion?.version || "",
     startsAt: row.startsAt,
     endsAt: row.endsAt,
     location: row.location,
@@ -132,17 +132,18 @@ export async function createClass(
   assertPermission(ctx, "classes.write");
   const title = input.title?.trim().slice(0, 180) || "";
   if (!title) throw new HttpError(400, "Class title is required.");
-  if (!input.checklistVersionId) throw new HttpError(400, "Choose a published checklist.");
   const classType = input.classType?.trim().toUpperCase() || "GENERAL";
   if (!CLASS_TYPE_VALUES.has(classType)) throw new HttpError(400, "Invalid class type.");
   const trainingCategory = input.trainingCategory?.trim().toUpperCase() || "COMPANY";
   if (!TRAINING_CATEGORY_VALUES.has(trainingCategory)) throw new HttpError(400, "Invalid training category.");
   const creditHours = Number(input.creditHours ?? 0);
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
-  const version = await prisma.taskBookVersion.findFirst({
-    where: { id: input.checklistVersionId, status: "PUBLISHED", template: { departmentId: ctx.departmentId } },
-  });
-  if (!version) throw new HttpError(404, "Published checklist not found.");
+  const version = input.checklistVersionId
+    ? await prisma.taskBookVersion.findFirst({
+        where: { id: input.checklistVersionId, status: "PUBLISHED", template: { departmentId: ctx.departmentId } },
+      })
+    : null;
+  if (input.checklistVersionId && !version) throw new HttpError(404, "Published checklist not found.");
   const memberIds = [...new Set(input.membershipIds || [])];
   const proctorIds = [...new Set(input.proctorUserIds || [])];
   if (memberIds.length === 0 && input.selfRegistration !== true) throw new HttpError(400, "Add at least one student or enable QR self-registration.");
@@ -169,7 +170,7 @@ export async function createClass(
       classType,
       trainingCategory,
       creditHours,
-      checklistVersionId: version.id,
+      checklistVersionId: version?.id || null,
       startsAt,
       endsAt,
       location: input.location?.trim().slice(0, 180) || "",
@@ -185,7 +186,7 @@ export async function createClass(
     title,
     rosterCount: memberIds.length,
     proctorCount: proctorIds.length,
-    checklistVersionId: version.id,
+    checklistVersionId: version?.id || null,
     trainingCategory,
     creditHours,
   });
@@ -233,10 +234,10 @@ export async function getClass(ctx: AuthContext, classId: string) {
     notes: row.notes,
     registrationEnabled: row.registrationEnabled,
     registrationToken: hasPermission(ctx.role, "classes.write") ? row.registrationToken : null,
-    checklistTitle: row.checklistVersion.template.title,
-    checklistVersion: row.checklistVersion.version,
+    checklistTitle: row.checklistVersion?.template.title || "Attendance-only training",
+    checklistVersion: row.checklistVersion?.version || "",
     proctors: row.proctors.map((item) => ({ userId: item.userId, name: item.user.name })),
-    sections: row.checklistVersion.sections.map((section) => ({
+    sections: (row.checklistVersion?.sections || []).map((section) => ({
       id: section.id,
       title: section.title,
       description: section.description,
@@ -350,6 +351,10 @@ async function recalculateEnrollment(enrollmentId: string) {
     },
   });
   if (!enrollment) return;
+  if (!enrollment.class.checklistVersion) {
+    await prisma.trainingClassEnrollment.update({ where: { id: enrollment.id }, data: { finalResult: enrollment.attendance === "PRESENT" ? "PASS" : "PENDING", completedAt: enrollment.attendance === "PRESENT" ? new Date() : null } });
+    return;
+  }
   const required = enrollment.class.checklistVersion.sections.flatMap((section) => section.requirements).filter((item) => item.isRequired);
   const byRequirement = new Map(enrollment.skillResults.map((item) => [item.requirementId, item.result]));
   const values = required.map((item) => byRequirement.get(item.id) || "NOT_EVALUATED");
@@ -381,6 +386,7 @@ export async function recordSkillResult(
   }
   const enrollment = await prisma.trainingClassEnrollment.findFirst({ where: { id: enrollmentId, classId } });
   if (!enrollment) throw new HttpError(404, "Student is not on this class roster.");
+  if (!classRow.checklistVersionId) throw new HttpError(409, "This training record does not use a skills checklist.");
   const requirement = await prisma.taskBookRequirement.findFirst({
     where: { id: requirementId, section: { versionId: classRow.checklistVersionId } },
   });
