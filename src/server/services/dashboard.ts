@@ -340,7 +340,13 @@ export async function getDashboard(ctx: AuthContext) {
         ...overdueMembers,
         ...stalled.map((row) => row.assignment.membershipId),
         ...completions.map((item) => item.membershipId),
+        ...expiringSoon.map((row) => row.item.membershipId),
+        ...expired.map((row) => row.item.membershipId),
       ]).size,
+      currentMembers: memberProgress.filter((row) => row.activeAssignments > 0 && row.status === "On Track").length,
+      readinessPercent: members.length
+        ? Math.round((memberProgress.filter((row) => row.activeAssignments > 0 && row.status === "On Track").length / members.length) * 100)
+        : 0,
       stalledOver30: stalled.length,
       completedThisMonth,
       membersAssigned: assignmentRows.length,
