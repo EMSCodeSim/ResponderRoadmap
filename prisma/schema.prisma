@@ -74,6 +74,9 @@ model Department {
   trainingClasses          TrainingClass[]
   trainingExpectations     TrainingExpectation[]
   trainingSheetRequiredFieldsJson String @default("[\"TITLE\",\"DATE\",\"INSTRUCTOR\",\"CATEGORY\",\"HOURS\",\"ATTENDANCE\"]")
+  agencyType                    String @default("FIRE_EMS")
+  operationalCapabilitiesJson  String @default("[\"STRUCTURAL_FIRE\",\"EMS_BLS\"]")
+  customCapabilitiesJson       String @default("[]")
 }
 
 model DepartmentMembership {
