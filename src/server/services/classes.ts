@@ -10,6 +10,7 @@ const RESULT_VALUES = new Set(["NOT_EVALUATED", "PASS", "NEEDS_REMEDIATION", "FA
 const ATTENDANCE_VALUES = new Set(["REGISTERED", "PRESENT", "ABSENT", "EXCUSED"]);
 const CLASS_STATUS_VALUES = new Set(["DRAFT", "ACTIVE", "COMPLETE", "CANCELLED"]);
 const CLASS_TYPE_VALUES = new Set(["GENERAL", "FIRE_ACADEMY", "CPR", "EMS"]);
+const TRAINING_CATEGORY_VALUES = new Set(["COMPANY", "FACILITY", "HAZMAT", "DRIVER", "OFFICER", "EMS", "OTHER"]);
 
 function parseDate(value: unknown, field: string, required = false) {
   if (value == null || value === "") {
@@ -97,6 +98,8 @@ export async function listClasses(ctx: AuthContext, filter: { view?: string } = 
     id: row.id,
     title: row.title,
     classType: row.classType,
+    trainingCategory: row.trainingCategory,
+    creditHours: row.creditHours,
     checklistTitle: row.checklistVersion.template.title,
     checklistVersion: row.checklistVersion.version,
     startsAt: row.startsAt,
@@ -115,6 +118,8 @@ export async function createClass(
     title?: string;
     classType?: string;
     checklistVersionId?: string;
+    trainingCategory?: string;
+    creditHours?: number;
     startsAt?: string;
     endsAt?: string | null;
     location?: string;
@@ -130,6 +135,10 @@ export async function createClass(
   if (!input.checklistVersionId) throw new HttpError(400, "Choose a published checklist.");
   const classType = input.classType?.trim().toUpperCase() || "GENERAL";
   if (!CLASS_TYPE_VALUES.has(classType)) throw new HttpError(400, "Invalid class type.");
+  const trainingCategory = input.trainingCategory?.trim().toUpperCase() || "COMPANY";
+  if (!TRAINING_CATEGORY_VALUES.has(trainingCategory)) throw new HttpError(400, "Invalid training category.");
+  const creditHours = Number(input.creditHours ?? 0);
+  if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
   const version = await prisma.taskBookVersion.findFirst({
     where: { id: input.checklistVersionId, status: "PUBLISHED", template: { departmentId: ctx.departmentId } },
   });
@@ -158,6 +167,8 @@ export async function createClass(
       departmentId: ctx.departmentId,
       title,
       classType,
+      trainingCategory,
+      creditHours,
       checklistVersionId: version.id,
       startsAt,
       endsAt,
@@ -175,6 +186,8 @@ export async function createClass(
     rosterCount: memberIds.length,
     proctorCount: proctorIds.length,
     checklistVersionId: version.id,
+    trainingCategory,
+    creditHours,
   });
   await writeActivity(ctx.departmentId, "CLASS_CREATED", {
     userId: ctx.userId,
@@ -211,6 +224,8 @@ export async function getClass(ctx: AuthContext, classId: string) {
     id: row.id,
     title: row.title,
     classType: row.classType,
+    trainingCategory: row.trainingCategory,
+    creditHours: row.creditHours,
     startsAt: row.startsAt,
     endsAt: row.endsAt,
     location: row.location,

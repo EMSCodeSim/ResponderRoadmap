@@ -10,6 +10,8 @@ type ClassRow = {
   id: string;
   title: string;
   classType: string;
+  trainingCategory: string;
+  creditHours: number;
   checklistTitle: string;
   checklistVersion: string;
   startsAt: string;
@@ -30,6 +32,8 @@ const emptyForm = {
   title: "",
   classType: "GENERAL",
   checklistVersionId: "",
+  trainingCategory: "COMPANY",
+  creditHours: "",
   startsAt: "",
   endsAt: "",
   location: "",
@@ -100,6 +104,8 @@ export default function ClassesPage() {
               <div><span className="font-semibold">Location:</span> {row.location || "—"}</div>
               <div><span className="font-semibold">Roster:</span> {row.rosterCount}</div>
               <div><span className="font-semibold">Finished:</span> {row.completeCount}/{row.rosterCount}</div>
+              <div><span className="font-semibold">Training category:</span> {row.trainingCategory.replaceAll("_", " ")}</div>
+              <div><span className="font-semibold">Credit:</span> {row.creditHours > 0 ? `${row.creditHours} hr` : "Uses class duration"}</div>
             </div>
             <p className="mt-3 text-xs text-navy-500">Proctors: {row.proctors.join(", ") || "None"}</p>
           </Link>
@@ -117,6 +123,20 @@ export default function ClassesPage() {
                 <option value="CPR">CPR class</option>
                 <option value="EMS">EMS skills testing</option>
               </Select>
+            </Field>
+            <Field label="Training-hours category">
+              <Select value={form.trainingCategory} onChange={(e) => setForm({ ...form, trainingCategory: e.target.value })}>
+                <option value="COMPANY">Company training</option>
+                <option value="FACILITY">Facility training</option>
+                <option value="HAZMAT">HazMat</option>
+                <option value="DRIVER">Driver / apparatus</option>
+                <option value="OFFICER">Officer development</option>
+                <option value="EMS">EMS</option>
+                <option value="OTHER">Other</option>
+              </Select>
+            </Field>
+            <Field label="Credit hours" hint="Leave blank to use the time between Starts and Ends.">
+              <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
             </Field>
             <Field label="Published checklist">
               <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })} required>
