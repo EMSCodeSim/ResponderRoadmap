@@ -54,10 +54,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const allowed = new Set(session?.nav ?? ["dashboard", "settings"]);
     const trainingHref = allowed.has("my-task-books") ? "/my-task-books" : allowed.has("task-books") ? "/task-books" : allowed.has("evaluate") ? "/evaluate" : null;
     const assignmentHref = allowed.has("assignments") || allowed.has("training-assignments") ? "/assignments" : allowed.has("my-assignments") ? "/my-assignments" : null;
+    const member = session?.role === "MEMBER";
     return [
-      { href: "/dashboard", label: "Home", icon: LayoutDashboard, visible: allowed.has("dashboard"), paths: ["/dashboard", "/inbox"] },
-      { href: trainingHref || "/task-books", label: "Task Books", icon: BookOpen, visible: Boolean(trainingHref), paths: [...TRAINING_PATHS, "/evaluate"] },
-      { href: assignmentHref || "/assignments", label: "Assignments", icon: ClipboardList, visible: Boolean(assignmentHref), paths: ASSIGNMENT_PATHS },
+      { href: "/dashboard", label: member ? "My Training" : "Home", icon: LayoutDashboard, visible: allowed.has("dashboard"), paths: ["/dashboard", "/inbox"] },
+      { href: trainingHref || "/task-books", label: member ? "Task Books" : "Task Books", icon: BookOpen, visible: Boolean(trainingHref) && !member, paths: [...TRAINING_PATHS, "/evaluate"] },
+      { href: assignmentHref || "/assignments", label: "Assignments", icon: ClipboardList, visible: Boolean(assignmentHref) && !member, paths: ASSIGNMENT_PATHS },
       { href: "/members", label: "Members", icon: Users, visible: allowed.has("members"), paths: ["/members"] },
       { href: "/classes", label: "Instructor", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
     ].filter((item) => item.visible);
