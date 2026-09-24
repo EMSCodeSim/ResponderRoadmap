@@ -136,7 +136,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
                 <span className="text-[11px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
                 <h3 className="mt-3 text-lg font-semibold">{item.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-white/60">{item.body}</p>
-                {item.extra ? <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">{item.extra}</p> : null}
+                
               </article>
             ))}
           </div>
