@@ -526,12 +526,111 @@ export async function updateEnrollment(
   return getClass(ctx, classId);
 }
 
+
+async function buildTrainingRecordSnapshot(classId: string) {
+  const row = await prisma.trainingClass.findUnique({
+    where: { id: classId },
+    include: {
+      department: true,
+      checklistVersion: { include: { template: true } },
+      createdBy: true,
+      proctors: { include: { user: true } },
+      roster: { include: { membership: { include: { user: true } }, skillResults: { include: { requirement: true, evaluator: true } } }, orderBy: { enrolledAt: "asc" } },
+    },
+  });
+  if (!row) throw new HttpError(404, "Class not found.");
+  const scheduledHours = row.endsAt ? Math.max(0, (row.endsAt.getTime() - row.startsAt.getTime()) / 3_600_000) : 0;
+  const creditHours = row.creditHours > 0 ? row.creditHours : Math.round(scheduledHours * 100) / 100;
+  return {
+    schemaVersion: 1,
+    classId: row.id,
+    department: { id: row.departmentId, name: row.department.name },
+    training: {
+      title: row.title, classType: row.classType, category: row.trainingCategory, startsAt: row.startsAt,
+      endsAt: row.endsAt, location: row.location, notes: row.notes, creditHours,
+      checklistTitle: row.checklistVersion?.template.title || "Attendance-only training",
+      checklistVersion: row.checklistVersion?.version || "",
+      createdBy: row.createdBy.name,
+      instructors: row.proctors.map((item) => ({ userId: item.userId, name: item.user.name })),
+    },
+    roster: row.roster.map((item) => ({
+      enrollmentId: item.id, membershipId: item.membershipId,
+      name: item.membership?.user.name || item.guestName || "Unknown student",
+      email: item.membership?.user.email || item.guestEmail || "",
+      rank: item.membership?.rank || null, position: item.membership?.position || null,
+      station: item.membership?.station || null, shift: item.membership?.shift || null,
+      guestOrganization: item.guestOrganization, attendance: item.attendance,
+      finalResult: item.finalResult, notes: item.notes, completedAt: item.completedAt,
+      creditedHours: item.membershipId && item.attendance === "PRESENT" ? creditHours : 0,
+      skillResults: item.skillResults.map((result) => ({
+        requirementId: result.requirementId, skill: result.requirement.title, result: result.result,
+        notes: result.notes, evaluator: result.evaluator.name, evaluatedAt: result.evaluatedAt,
+      })),
+    })),
+  };
+}
+
+export async function getTrainingRecordArchive(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.read");
+  await canAccessClass(ctx, classId);
+  const row = await prisma.trainingClass.findFirst({
+    where: { id: classId, departmentId: ctx.departmentId },
+    include: { amendments: { orderBy: { createdAt: "desc" } } },
+  });
+  if (!row) throw new HttpError(404, "Training record not found.");
+  return {
+    finalizedAt: row.finalizedAt,
+    finalizedByName: row.finalizedByName,
+    amendmentCount: row.amendmentCount,
+    snapshot: row.recordSnapshotJson ? JSON.parse(row.recordSnapshotJson) : null,
+    amendments: row.amendments.map((item) => ({ id: item.id, reason: item.reason, amendedByName: item.amendedByName, createdAt: item.createdAt })),
+  };
+}
+
+export async function amendTrainingRecord(ctx: AuthContext, classId: string, raw: unknown) {
+  assertPermission(ctx, "classes.write");
+  await canAccessClass(ctx, classId);
+  const input = (raw || {}) as { reason?: string; notes?: string };
+  const reason = input.reason?.trim().slice(0, 1000) || "";
+  if (!reason) throw new HttpError(400, "A reason is required for every amendment.");
+  const row = await prisma.trainingClass.findFirst({ where: { id: classId, departmentId: ctx.departmentId } });
+  if (!row || row.status !== "COMPLETE" || !row.recordSnapshotJson) throw new HttpError(409, "Only finalized training records can be amended.");
+  const beforeSnapshotJson = row.recordSnapshotJson;
+  if (input.notes !== undefined) {
+    await prisma.trainingClass.update({ where: { id: classId }, data: { notes: input.notes.trim().slice(0, 4000) } });
+  }
+  const snapshot = await buildTrainingRecordSnapshot(classId);
+  const afterSnapshotJson = JSON.stringify(snapshot);
+  await prisma.$transaction([
+    prisma.trainingRecordAmendment.create({ data: {
+      classId, departmentId: ctx.departmentId, amendedById: ctx.userId, amendedByName: ctx.name,
+      reason, beforeSnapshotJson, afterSnapshotJson,
+    } }),
+    prisma.trainingClass.update({ where: { id: classId }, data: {
+      recordSnapshotJson: afterSnapshotJson, amendmentCount: { increment: 1 },
+    } }),
+  ]);
+  await writeAudit(ctx, "training_record.amended", "TrainingClass", classId, { reason });
+  return getClass(ctx, classId);
+}
+
 export async function updateClassStatus(ctx: AuthContext, classId: string, statusInput: unknown) {
   assertPermission(ctx, "classes.write");
   await canAccessClass(ctx, classId);
   const status = String(statusInput || "").trim().toUpperCase();
   if (!CLASS_STATUS_VALUES.has(status)) throw new HttpError(400, "Invalid class status.");
-  await prisma.trainingClass.update({ where: { id: classId }, data: { status, ...(["COMPLETE", "CANCELLED"].includes(status) ? { registrationEnabled: false } : {}) } });
-  await writeAudit(ctx, "class.status.updated", "TrainingClass", classId, { status });
+  if (status === "COMPLETE") {
+    const existing = await prisma.trainingClass.findUnique({ where: { id: classId }, select: { status: true, finalizedAt: true } });
+    if (existing?.finalizedAt) throw new HttpError(409, "This training record is finalized. Use Amend Record instead of reopening or overwriting it.");
+    const snapshot = await buildTrainingRecordSnapshot(classId);
+    await prisma.trainingClass.update({ where: { id: classId }, data: {
+      status, registrationEnabled: false, finalizedAt: new Date(), finalizedById: ctx.userId,
+      finalizedByName: ctx.name, recordSnapshotJson: JSON.stringify(snapshot),
+    } });
+    await writeAudit(ctx, "training_record.finalized", "TrainingClass", classId, { status, retainedSnapshot: true });
+  } else {
+    await prisma.trainingClass.update({ where: { id: classId }, data: { status, ...(["CANCELLED"].includes(status) ? { registrationEnabled: false } : {}) } });
+    await writeAudit(ctx, "class.status.updated", "TrainingClass", classId, { status });
+  }
   return getClass(ctx, classId);
 }
