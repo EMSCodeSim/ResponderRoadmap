@@ -42,7 +42,7 @@ const glance = [
 const faqs = [
   ["Do I need an account to see the demo?", "No. The 3-minute Department Demo requires no signup and no credit card."],
   ["Does AI approve training?", "No. Responder AI drafts Task Books, Assignments, criteria, and answers. Required human evaluation and final approval still create the official record."],
-  ["What if we already have an LMS or RMS?", "Keep it. Responder Roadmap is the training-readiness layer between planning training and entering the final record in your existing systems."],
+  ["Do we have to replace our current RMS or records system?", "No. Keep it. Responder Roadmap is intentionally designed to work alongside your current system. Manage the training workflow in Roadmap, then export completed records to the system your department already uses."],
   ["Does a submitted skill automatically count?", "No. A requirement counts only after its required approvals are completed."],
   ["Can members use an iPhone?", "Yes. Members have access to the iPhone app, and the same workflow works in a phone browser."],
   ["What if we have more than 5 members but fewer than 25?", "Station. $299/year. Full Task Book workflow. Up to 25 active members."],
@@ -106,7 +106,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               Know what every member has done — and what they need next.
             </h1>
             <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/68">
-              Define expectations, assign and document training, verify completion, identify gaps, and export clean records to your existing RMS — without buying a giant enterprise platform.
+              Keep your current RMS. Responder Roadmap handles the training workflow around it: define expectations, assign and document training, verify completion, identify gaps, and export clean records back to the system your department already uses.
             </p>
             <div className="mt-8"><Ctas demoHref={demoHref} /></div>
             <p className="mt-5 text-[13px] leading-6 text-white/45">
@@ -123,7 +123,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
             <span>Founding Department: $500/year for up to 75 active members.</span>
             <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
-            <span>Keep your LMS and RMS</span>
+            <span>Works alongside your current RMS — no replacement required</span>
           </div>
         </section>
 
@@ -208,10 +208,10 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         </section>
 
         <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>Focused on purpose</p>
-          <h2 className={heading}>Works alongside the systems you already use.</h2>
+          <p className={kicker}>Keep your current records system</p>
+          <h2 className={heading}>Don’t replace your RMS. Make the training workflow around it better.</h2>
           <p className="mt-5 max-w-3xl text-[15px] leading-7 text-white/68">
-            Responder Roadmap manages the work that happens before the final RMS entry: expectations, Task Books, Assignments, group training, QR attendance, evaluations, training hours, certifications, and gaps. Keep your existing RMS as the official system of record and export clean training records when the work is complete.
+            Responder Roadmap is intentionally designed to work alongside the records system your department already uses — not replace it. Manage expectations, Task Books, Assignments, group training, QR attendance, evaluations, training hours, certifications, and gaps in Roadmap. When training is complete, export a clean digital training record to your existing RMS or records process. No major data migration. No need to rebuild the department’s official records system.
           </p>
         </section>
 

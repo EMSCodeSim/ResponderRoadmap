@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 const faqs = [
+  ["Do we have to replace our RMS?", "No. Responder Roadmap is designed to work alongside your current records system. Use Roadmap for the training workflow and export completed records to the RMS or records process your department already uses."],
   ["What if we have more than 5 members but fewer than 25?", "Station. $299/year. Focused training-readiness workflow. Up to 25 active members."],
   ["How do you count members?", "Active members — not the whole roster. Someone counts if they are assigned a Task Book or signed in during the last 90 days."],
   ["What changes between plans?", "The core training-readiness workflow stays consistent: Task Books, Assignments, training records, verification, readiness tracking, and reporting. Plans primarily scale by active-member capacity."],
@@ -38,6 +39,7 @@ export default function PricingPage() {
         <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
           <PricingTiers />
           <PricingSummaryLine className="mt-8 text-sm text-white/45" />
+          <div className="mt-6 rounded-lg border border-white/[0.08] bg-[#121A2A] p-5"><p className="text-sm font-semibold text-white">Keep your current RMS.</p><p className="mt-2 max-w-3xl text-sm leading-6 text-white/55">Responder Roadmap is the training-readiness layer that works alongside your existing records system. No RMS replacement or major records migration is required.</p></div>
           <p className="mt-3 text-[13px] leading-6 text-white/40">
             Municipal purchasing — quotes, invoices, W-9s, and purchase orders — goes through Department / Agency contact.
           </p>
