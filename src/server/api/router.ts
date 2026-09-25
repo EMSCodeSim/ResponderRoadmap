@@ -232,6 +232,10 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await classes.manageClassRegistration(ctx, classRegistration.id, body.action));
     }
+    const classCloseValidation = match(path, "classes/:id/close-validation");
+    if (method === "GET" && classCloseValidation) {
+      return jsonOk(await classes.validateClassClosure(ctx, classCloseValidation.id));
+    }
     const classStatus = match(path, "classes/:id/status");
     if (method === "POST" && classStatus) {
       const body = await readBody(req);
