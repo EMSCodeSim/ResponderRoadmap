@@ -28,8 +28,10 @@ check_status 200 "$BASE/classes"
 api -X POST "$BASE/api/v1/ai/ask" -d '{"question":"Who needs my attention?","page":"/dashboard"}' | jq -e '.data.source == "facts" and ((.data.links | length) > 0)' >/dev/null
 SETUP=$(api "$BASE/api/v1/classes/setup")
 MEMBER=$(echo "$SETUP" | jq -r '.data.members[] | select(.role == "MEMBER") | .id' | head -n1)
-PROCTOR=$(echo "$SETUP" | jq -r '.data.proctors[0].userId')
-[[ -n "$MEMBER" && "$MEMBER" != null && -n "$PROCTOR" && "$PROCTOR" != null ]] || { echo 'Missing demo member or proctor' >&2; exit 1; }
+# Class creation runs as the Training Officer. Use that authenticated officer as
+# the proctor instead of assuming the first setup proctor is permitted to create.
+PROCTOR=$(echo "$SETUP" | jq -r '.data.proctors[] | select(.role == "TRAINING_OFFICER") | .userId' | head -n1)
+[[ -n "$MEMBER" && "$MEMBER" != null && -n "$PROCTOR" && "$PROCTOR" != null ]] || { echo 'Missing demo member or Training Officer proctor' >&2; exit 1; }
 echo 'QA: Create, publish, and assign single task'
 STARTER=$(api "$BASE/api/v1/task-books/starters" | jq -r '.data[0].id')
 TASK=$(api -X POST "$BASE/api/v1/task-books" -d "$(jq -nc --arg starter "$STARTER" '{title:"QA Single Task Smoke", templateKind:"TRAINING_TASK", starterId:$starter}')")
