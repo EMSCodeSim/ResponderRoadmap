@@ -156,6 +156,16 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await memberApp.syncMySharedCertifications(ctx, body.certifications));
     }
+    if (method === "POST" && match(path, "app/member-qr")) {
+      return jsonOk(await classes.rotateMemberQrToken(ctx), 201);
+    }
+    if (method === "POST" && match(path, "app/member-qr/revoke")) {
+      return jsonOk(await classes.revokeMemberQrToken(ctx));
+    }
+    if (method === "POST" && match(path, "app/classes/register")) {
+      const body = await readBody(req);
+      return jsonOk(await classes.registerAuthenticatedMemberByClassQr(ctx, body.registrationToken || ""));
+    }
     const appAssignment = match(path, "app/assignments/:id");
     if (method === "GET" && appAssignment) {
       return jsonOk(await memberApp.getMyAssignment(ctx, appAssignment.id));
@@ -220,6 +230,16 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "POST" && classStatus) {
       const body = await readBody(req);
       return jsonOk(await classes.updateClassStatus(ctx, classStatus.id, body.status));
+    }
+    const classMemberQrResolve = match(path, "classes/:id/roster/member-qr/resolve");
+    if (method === "POST" && classMemberQrResolve) {
+      const body = await readBody(req);
+      return jsonOk(await classes.resolveMemberQrForClass(ctx, classMemberQrResolve.id, body.token || ""));
+    }
+    const classMemberQrAdd = match(path, "classes/:id/roster/member-qr/add");
+    if (method === "POST" && classMemberQrAdd) {
+      const body = await readBody(req);
+      return jsonOk(await classes.addMemberQrToClass(ctx, classMemberQrAdd.id, body.token || ""));
     }
     const classEnrollment = match(path, "classes/:id/roster/:enrollmentId");
     if (method === "POST" && classEnrollment) {
