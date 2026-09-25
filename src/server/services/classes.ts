@@ -12,6 +12,172 @@ const CLASS_STATUS_VALUES = new Set(["DRAFT", "ACTIVE", "COMPLETE", "CANCELLED"]
 const CLASS_TYPE_VALUES = new Set(["GENERAL", "FIRE_ACADEMY", "CPR", "EMS"]);
 const TRAINING_CATEGORY_VALUES = new Set(["COMPANY", "FACILITY", "HAZMAT", "DRIVER", "OFFICER", "EMS", "OTHER"]);
 
+
+const MEMBER_QR_TTL_MS = 15 * 60 * 1000;
+
+function memberQrHash(token: string) {
+  if (!/^[a-f0-9]{64}$/.test(token)) throw new HttpError(404, "Member QR code is invalid or expired.");
+  return createHash("sha256").update(token).digest("hex");
+}
+
+async function resolveActiveMemberQr(ctx: AuthContext, token: string) {
+  const tokenHash = memberQrHash(token);
+  const row = await prisma.memberQrToken.findUnique({
+    where: { tokenHash },
+    include: { membership: { include: { user: true } } },
+  });
+  if (
+    !row ||
+    row.revokedAt ||
+    row.expiresAt <= new Date() ||
+    row.membership.status !== "ACTIVE" ||
+    row.membership.departmentId !== ctx.departmentId
+  ) {
+    throw new HttpError(404, "Member QR code is invalid or expired.");
+  }
+  await prisma.memberQrToken.update({
+    where: { id: row.id },
+    data: { lastUsedAt: new Date() },
+  });
+  return row.membership;
+}
+
+function memberQrProfile(membership: {
+  id: string;
+  userId: string;
+  rank: string | null;
+  position: string | null;
+  station: string | null;
+  shift: string | null;
+  employeeNumber: string | null;
+  user: { name: string; email: string };
+}) {
+  return {
+    membershipId: membership.id,
+    userId: membership.userId,
+    name: membership.user.name,
+    rank: membership.rank,
+    position: membership.position,
+    station: membership.station,
+    shift: membership.shift,
+    employeeNumber: membership.employeeNumber,
+  };
+}
+
+export async function rotateMemberQrToken(ctx: AuthContext) {
+  const membership = await prisma.departmentMembership.findFirst({
+    where: { id: ctx.membershipId, departmentId: ctx.departmentId, userId: ctx.userId, status: "ACTIVE" },
+    include: { user: true },
+  });
+  if (!membership) throw new HttpError(404, "Active department membership not found.");
+
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + MEMBER_QR_TTL_MS);
+  await prisma.$transaction([
+    prisma.memberQrToken.updateMany({
+      where: { membershipId: membership.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+    prisma.memberQrToken.create({
+      data: { membershipId: membership.id, tokenHash: memberQrHash(token), expiresAt },
+    }),
+  ]);
+  await writeAudit(ctx, "member.qr.rotated", "DepartmentMembership", membership.id, {
+    expiresAt: expiresAt.toISOString(),
+  });
+  return {
+    token,
+    expiresAt,
+    departmentId: ctx.departmentId,
+    departmentName: ctx.departmentName,
+    member: memberQrProfile(membership),
+  };
+}
+
+export async function revokeMemberQrToken(ctx: AuthContext) {
+  await prisma.memberQrToken.updateMany({
+    where: { membershipId: ctx.membershipId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+  await writeAudit(ctx, "member.qr.revoked", "DepartmentMembership", ctx.membershipId, {});
+  return { revoked: true };
+}
+
+export async function resolveMemberQrForClass(ctx: AuthContext, classId: string, token: string) {
+  await canAccessClass(ctx, classId, true);
+  const membership = await resolveActiveMemberQr(ctx, token);
+  const existing = await prisma.trainingClassEnrollment.findFirst({
+    where: { classId, membershipId: membership.id },
+    select: { id: true },
+  });
+  return {
+    member: memberQrProfile(membership),
+    alreadyOnRoster: Boolean(existing),
+  };
+}
+
+export async function addMemberQrToClass(ctx: AuthContext, classId: string, token: string) {
+  const classRow = await canAccessClass(ctx, classId, true);
+  if (["COMPLETE", "CANCELLED"].includes(classRow.status)) {
+    throw new HttpError(409, "This training record is closed.");
+  }
+  const membership = await resolveActiveMemberQr(ctx, token);
+  let enrollment = await prisma.trainingClassEnrollment.findFirst({
+    where: { classId, membershipId: membership.id },
+  });
+  if (!enrollment) {
+    enrollment = await prisma.trainingClassEnrollment.create({
+      data: { classId, membershipId: membership.id },
+    });
+    await writeAudit(ctx, "class.roster.member_added_qr", "TrainingClassEnrollment", enrollment.id, {
+      classId,
+      membershipId: membership.id,
+      method: "QR",
+    });
+    await writeActivity(ctx.departmentId, "CLASS_MEMBER_REGISTERED", {
+      userId: ctx.userId,
+      referenceId: classId,
+      metadata: { enrollmentId: enrollment.id, membershipId: membership.id, method: "QR" },
+    });
+  }
+  return {
+    member: memberQrProfile(membership),
+    alreadyOnRoster: Boolean(enrollment && enrollment.enrolledAt < new Date(Date.now() - 1000)),
+    class: await getClass(ctx, classId),
+  };
+}
+
+export async function registerAuthenticatedMemberByClassQr(ctx: AuthContext, token: string) {
+  const row = await findRegistrationClass(token);
+  if (row.departmentId !== ctx.departmentId) throw new HttpError(403, "This training QR code belongs to a different department.");
+  if (!row.registrationEnabled || !["DRAFT", "ACTIVE"].includes(row.status)) {
+    throw new HttpError(409, "Registration is closed for this class.");
+  }
+  const existing = await prisma.trainingClassEnrollment.findFirst({
+    where: { classId: row.id, membershipId: ctx.membershipId },
+    select: { id: true },
+  });
+  if (existing) return { registered: true, alreadyRegistered: true, classId: row.id };
+
+  const rosterCount = await prisma.trainingClassEnrollment.count({ where: { classId: row.id } });
+  if (rosterCount >= 250) throw new HttpError(409, "Registration is full. Contact the instructor.");
+
+  const created = await prisma.trainingClassEnrollment.create({
+    data: { classId: row.id, membershipId: ctx.membershipId },
+  });
+  await writeAudit(ctx, "class.self_registered_qr", "TrainingClassEnrollment", created.id, {
+    classId: row.id,
+    membershipId: ctx.membershipId,
+    method: "QR",
+  });
+  await writeActivity(ctx.departmentId, "CLASS_MEMBER_REGISTERED", {
+    userId: ctx.userId,
+    referenceId: row.id,
+    metadata: { enrollmentId: created.id, membershipId: ctx.membershipId, method: "QR_SELF" },
+  });
+  return { registered: true, alreadyRegistered: false, classId: row.id };
+}
+
 function parseDate(value: unknown, field: string, required = false) {
   if (value == null || value === "") {
     if (required) throw new HttpError(400, `${field} is required.`);
