@@ -105,10 +105,26 @@ model DepartmentMembership {
   credentials Credential[]
   completions RequirementCompletion[]
   classEnrollments TrainingClassEnrollment[]
+  memberQrTokens MemberQrToken[]
 
   @@unique([departmentId, userId])
   @@index([departmentId, status])
   @@index([departmentId, role])
+}
+
+/// Short-lived opaque tokens presented by a member for department QR identification.
+/// Only a SHA-256 hash is stored; no PII or raw membership/user id is encoded in the QR.
+model MemberQrToken {
+  id           String               @id @default(cuid())
+  membershipId String
+  membership   DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  tokenHash    String               @unique
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime             @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([membershipId, expiresAt])
 }
 
 /// Department training notes. Not part of the member's personal Career Road.
