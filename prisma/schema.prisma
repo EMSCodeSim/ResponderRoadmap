@@ -72,6 +72,7 @@ model Department {
   pushDevices               PushDevice[]
   evaluationEscalationHours Int                    @default(48)
   trainingClasses          TrainingClass[]
+  trainingSheetTemplates   TrainingSheetTemplate[]
   trainingExpectations     TrainingExpectation[]
   trainingSheetRequiredFieldsJson String @default("[\"TITLE\",\"DATE\",\"INSTRUCTOR\",\"CATEGORY\",\"HOURS\",\"ATTENDANCE\"]")
   agencyType                    String @default("FIRE_EMS")
@@ -375,6 +376,33 @@ model CredentialType {
 
   credentials Credential[]
 
+  @@unique([departmentId, name])
+}
+
+
+/// Department-owned reusable defaults for creating a Training Sheet.
+/// Templates never contain attendance, results, signatures, or completed records.
+model TrainingSheetTemplate {
+  id                  String     @id @default(cuid())
+  departmentId        String
+  department          Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                String
+  defaultTitle        String     @default("")
+  classType           String     @default("GENERAL")
+  trainingCategory    String     @default("COMPANY")
+  creditHours         Float      @default(0)
+  checklistVersionId  String?
+  location            String     @default("")
+  notes               String     @default("")
+  requiredFieldsJson  String     @default("[]")
+  selfRegistration    Boolean    @default(false)
+  proctorUserIdsJson  String     @default("[]")
+  archived            Boolean    @default(false)
+  createdById         String
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@index([departmentId, archived])
   @@unique([departmentId, name])
 }
 
