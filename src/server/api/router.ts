@@ -251,6 +251,13 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await classes.recordSkillResult(ctx, classSkill.id, classSkill.enrollmentId, classSkill.requirementId, body));
     }
+    const classCsvExport = match(path, "classes/:id/export.csv");
+    if (method === "GET" && classCsvExport) {
+      const csv = await classes.getClassCsvExport(ctx, classCsvExport.id);
+      return new Response(csv, { status: 200, headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="training-${classCsvExport.id}.csv"`, "cache-control": "private, no-store" } });
+    }
+    const classExportRecord = match(path, "classes/:id/export");
+    if (method === "GET" && classExportRecord) return jsonOk(await classes.getClassExportRecord(ctx, classExportRecord.id));
     const classDetail = match(path, "classes/:id");
     if (method === "GET" && classDetail) return jsonOk(await classes.getClass(ctx, classDetail.id));
 
