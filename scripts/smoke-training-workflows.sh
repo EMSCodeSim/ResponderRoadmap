@@ -30,7 +30,7 @@ SETUP=$(api "$BASE/api/v1/classes/setup")
 MEMBER=$(echo "$SETUP" | jq -r '.data.members[] | select(.role == "MEMBER") | .id' | head -n1)
 # Class creation runs as the Training Officer. Use that authenticated officer as
 # the proctor instead of assuming the first setup proctor is permitted to create.
-PROCTOR=$(echo "$SETUP" | jq -r '.data.currentUser.userId // .data.proctors[] | select(.role == "TRAINING_OFFICER") | .userId' | head -n1)
+PROCTOR=$(echo "$SETUP" | jq -r '.data.proctors[] | select(.role == "TRAINING_OFFICER") | .userId' | head -n1)
 [[ -n "$MEMBER" && "$MEMBER" != null && -n "$PROCTOR" && "$PROCTOR" != null ]] || { echo 'Missing demo member or Training Officer proctor' >&2; exit 1; }
 echo 'QA: Create, publish, and assign single task'
 STARTER=$(api "$BASE/api/v1/task-books/starters" | jq -r '.data[0].id')
