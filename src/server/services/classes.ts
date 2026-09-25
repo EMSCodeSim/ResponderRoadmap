@@ -337,6 +337,54 @@ export async function getClass(ctx: AuthContext, classId: string) {
   };
 }
 
+function csvCell(value: unknown) {
+  const text = value == null ? "" : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+export async function getClassCsvExport(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.read");
+  const detail = await getClass(ctx, classId);
+  if (detail.status !== "COMPLETE") throw new HttpError(409, "Close Training before exporting the official record.");
+  const headers = [
+    "Department","Training ID","Training Title","Category","Start","End","Hours","Location",
+    "Proctors","Member","Rank","Email","Attendance","Final Result","Completed At",
+    "Checklist","Skill","Skill Required","Skill Result","Evaluator","Evaluated At","Skill Notes","Training Notes",
+  ];
+  const department = await prisma.department.findUnique({ where: { id: ctx.departmentId }, select: { name: true } });
+  const rows: string[][] = [];
+  for (const member of detail.roster) {
+    const results = member.results.length ? member.results : [{ requirementId: "", result: "", notes: "", evaluatorName: "", evaluatedAt: null }];
+    for (const result of results) {
+      const skill = detail.sections.flatMap((section) => section.skills).find((item) => item.id === result.requirementId);
+      rows.push([
+        department?.name || "", detail.id, detail.title, detail.trainingCategory,
+        detail.startsAt?.toISOString() || "", detail.endsAt?.toISOString() || "",
+        String(detail.creditHours || ""), detail.location || "",
+        detail.proctors.map((item) => item.name).join("; "),
+        member.name, member.rank || "", member.email, member.attendance, member.finalResult,
+        member.completedAt?.toISOString() || "", detail.checklistTitle,
+        skill?.title || "", skill?.required ? "YES" : "", result.result || "",
+        result.evaluatorName || "", result.evaluatedAt?.toISOString() || "", result.notes || "", detail.notes || "",
+      ]);
+    }
+  }
+  return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+}
+
+export async function getClassExportRecord(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.read");
+  const detail = await getClass(ctx, classId);
+  if (detail.status !== "COMPLETE") throw new HttpError(409, "Close Training before exporting the official record.");
+  const department = await prisma.department.findUnique({ where: { id: ctx.departmentId }, select: { name: true } });
+  return {
+    exportVersion: 1,
+    generatedAt: new Date().toISOString(),
+    department: { name: department?.name || "" },
+    training: detail,
+  };
+}
+
 export async function manageClassRegistration(ctx: AuthContext, classId: string, rawAction: unknown) {
   assertPermission(ctx, "classes.write");
   const row = await canAccessClass(ctx, classId);
