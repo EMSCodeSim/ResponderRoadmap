@@ -275,7 +275,7 @@ export async function trainingSheetReport(ctx: AuthContext, assignmentId: string
     const hours = assignment.completions.reduce((sum, completion) => sum + completion.hoursLogged, 0);
     const ready = progress.status === "COMPLETE";
     const statusLabel = ready
-      ? "Ready for RMS"
+      ? "Record ready"
       : progress.pendingApproval > 0
         ? "Evaluation pending"
         : progress.status === "OVERDUE"
