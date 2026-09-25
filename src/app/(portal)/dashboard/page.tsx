@@ -320,7 +320,7 @@ function MemberHome({ data }: { data: Dashboard }) {
         <div className="mt-4 max-w-md"><ProgressBar value={next.percent} /></div>
         <p className="mt-1 text-xs text-navy-500">{next.percent}% approved{next.dueDate ? ` · Due ${new Date(next.dueDate).toLocaleDateString()}` : ""}</p>
         <Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 text-sm font-semibold text-white">Continue Training →</Link>
-      </Card> : <Card className="p-5"><div className="kicker">My Training</div><h2 className="display mt-1 text-2xl font-bold">You're caught up</h2><p className="mt-2 text-sm text-navy-500">Nothing needs your action right now.</p></Card>}
+      </Card> : <Card className="p-5"><div className="kicker">My Training</div><h2 className="display mt-1 text-2xl font-bold">You&apos;re caught up</h2><p className="mt-2 text-sm text-navy-500">Nothing needs your action right now.</p></Card>}
       <div className="grid gap-3 sm:grid-cols-3">
         <CountCard href="/my-task-books" label="Active Training" value={data.summary.activeTaskBooks} />
         <CountCard href="/my-task-books" label="Waiting for Evaluator" value={data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff} warn={(data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff) > 0} />
