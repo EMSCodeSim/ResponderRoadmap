@@ -125,6 +125,7 @@ export async function addMemberQrToClass(ctx: AuthContext, classId: string, toke
   let enrollment = await prisma.trainingClassEnrollment.findFirst({
     where: { classId, membershipId: membership.id },
   });
+  const alreadyOnRoster = Boolean(enrollment);
   if (!enrollment) {
     enrollment = await prisma.trainingClassEnrollment.create({
       data: { classId, membershipId: membership.id },
@@ -142,7 +143,7 @@ export async function addMemberQrToClass(ctx: AuthContext, classId: string, toke
   }
   return {
     member: memberQrProfile(membership),
-    alreadyOnRoster: Boolean(enrollment && enrollment.enrolledAt < new Date(Date.now() - 1000)),
+    alreadyOnRoster,
     class: await getClass(ctx, classId),
   };
 }
