@@ -42,7 +42,7 @@ api -X POST "$BASE/api/v1/assignments" -d "$(jq -nc --arg id "$TASK_ID" --arg me
 api "$BASE/api/v1/single-assignments" | jq -e --arg id "$TASK_ID" '.data.templates | any(.id == $id)' >/dev/null
 api "$BASE/api/v1/assignments" | jq -e --arg id "$TASK_ID" '([.data[] | select(.templateId == $id)] | length) == 1 and ([.data[] | select(.templateId == $id)][0].complete == 0)' >/dev/null
 echo 'QA: Create class, enroll member and rotate registration'
-VERSION=$(echo "$SETUP" | jq -r '.data.checklists[0].id')
+VERSION=$(echo "$SETUP" | jq -r '.data.checklists[] | select(.status == "PUBLISHED") | .id' | head -n1)
 [[ -n "$VERSION" && "$VERSION" != null ]]
 CLASS=$(api -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION" --arg member "$MEMBER" --arg proctor "$PROCTOR" '{title:"QA Isolated Training Class",classType:"GENERAL",checklistVersionId:$version,startsAt:"2026-10-15T12:00:00.000Z",membershipIds:[$member],proctorUserIds:[$proctor],selfRegistration:true}')")
 CLASS_ID=$(echo "$CLASS" | jq -r '.data.id')
