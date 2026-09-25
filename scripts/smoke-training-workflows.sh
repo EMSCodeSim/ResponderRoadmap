@@ -44,7 +44,7 @@ api "$BASE/api/v1/assignments" | jq -e --arg id "$TASK_ID" '([.data[] | select(.
 echo 'QA: Create class, enroll member and rotate registration'
 VERSION=$(echo "$SETUP" | jq -r '.data.checklists[0].id')
 [[ -n "$VERSION" && "$VERSION" != null ]]
-CLASS=$(api -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION" --arg member "$MEMBER" --arg proctor "$PROCTOR" '{title:"QA Isolated Training Class",classType:"GENERAL",checklistVersionId:$version,startsAt:"2026-10-15T12:00:00.000Z",membershipIds:[$member],proctorUserIds:[$proctor],selfRegistration:true}')")
+CLASS=$(api -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION" --arg member "$MEMBER" --arg proctor "$PROCTOR" '{title:"QA Isolated Training Class",classType:"GENERAL",trainingCategory:"COMPANY",creditHours:1,checklistVersionId:$version,startsAt:"2026-10-15T12:00:00.000Z",endsAt:"2026-10-15T13:00:00.000Z",location:"QA Station",notes:"Isolated CI training workflow",membershipIds:[$member],proctorUserIds:[$proctor],selfRegistration:true}')")
 CLASS_ID=$(echo "$CLASS" | jq -r '.data.id')
 [[ -n "$CLASS_ID" && "$CLASS_ID" != null ]]
 echo "$CLASS" | jq -e --arg member "$MEMBER" '(.data.registrationEnabled == true) and ((.data.registrationToken | length) == 64) and (.data.roster | any(.membershipId == $member))' >/dev/null
