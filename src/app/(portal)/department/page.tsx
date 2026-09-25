@@ -172,8 +172,8 @@ export default function DepartmentPage() {
               <div className="mt-4"><Field label="Other specialties" hint="Comma-separated department-specific capabilities."><Input value={customCapabilities.join(", ")} onChange={(e)=>setDept({...dept,customCapabilitiesJson:JSON.stringify(e.target.value.split(",").map(v=>v.trim()).filter(Boolean))})} placeholder="Ice rescue, mountain rescue, bike medic…" /></Field></div>
             </div>
             <div className="md:col-span-2 rounded-lg border border-navy-200 p-4">
-              <div className="font-semibold text-navy-900">Required RMS training-sheet fields</div>
-              <p className="mt-1 text-sm text-navy-500">Select the information your department needs before a Digital Training Sheet can be completed for transfer to your current RMS or records system.</p>
+              <div className="font-semibold text-navy-900">Required training-sheet fields</div>
+              <p className="mt-1 text-sm text-navy-500">Select the information your department needs before a Digital Training Sheet can be completed and used when finishing the official RMS or records entry.</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {TRAINING_SHEET_FIELDS.map(([value, label]) => <label key={value} className="flex min-h-10 items-center gap-2 rounded-md bg-navy-50 px-3 text-sm"><input type="checkbox" checked={requiredTrainingFields.includes(value)} onChange={() => toggleTrainingField(value)} />{label}</label>)}
               </div>

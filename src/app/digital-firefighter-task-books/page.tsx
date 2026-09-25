@@ -24,7 +24,7 @@ export default function Page() {
       { title: "Department-wide visibility", body: "Training Captains can see who is progressing, who is waiting for evaluation, and where follow-up is needed." },
     ]}
     secondTitle="A Task Book should be a development tool, not just a completed packet."
-    secondBody="Responder Roadmap keeps the qualification workflow simple while giving Training Captains enough visibility to help members move forward. It is designed to work alongside an existing RMS, LMS, or training-record system rather than forcing a department to replace everything."
+    secondBody="Responder Roadmap keeps the qualification workflow simple while giving Training Captains enough visibility to help members move forward. Keep your existing RMS. Roadmap manages the training workflow before the information reaches your official records system."
     related={[
       { href: "/training-captain-software", label: "Training Captain software" },
       { href: "/fire-department-training-tracker", label: "Fire department training tracker" },

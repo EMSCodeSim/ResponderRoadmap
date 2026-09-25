@@ -47,7 +47,7 @@ export const PUBLIC_PLANS: PublicPlan[] = [
     price: "$500",
     term: "/ year",
     description: "Up to 75 active members",
-    bullets: ["Full training readiness workflow", "Role expectations + training gaps", "Digital training sheets + RMS export", "Price locked while subscribed"],
+    bullets: ["Full training readiness workflow", "Role expectations + training gaps", "Digital training sheets and prepared records", "Price locked while subscribed"],
     href: "/department-interest?plan=founding",
     cta: "Ask about founding access",
     activeMemberCap: 75,
