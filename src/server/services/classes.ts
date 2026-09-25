@@ -581,26 +581,64 @@ export async function updateEnrollment(
   return getClass(ctx, classId);
 }
 
+export async function validateClassClosure(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.write");
+  await canAccessClass(ctx, classId);
+  const row = await prisma.trainingClass.findUnique({
+    where: { id: classId },
+    include: {
+      department: { select: { trainingSheetRequiredFieldsJson: true } },
+      checklistVersion: { include: { sections: { include: { requirements: true } } } },
+      roster: { include: { skillResults: true } },
+      proctors: true,
+    },
+  });
+  if (!row) throw new HttpError(404, "Class not found.");
+
+  const requiredFields = new Set(parseJsonArray(row.department.trainingSheetRequiredFieldsJson).map((item) => String(item).toUpperCase()));
+  const missing: Array<{ code: string; message: string; action: string }> = [];
+  const add = (code: string, message: string, action: string) => missing.push({ code, message, action });
+
+  if (requiredFields.has("TITLE") && !row.title.trim()) add("TITLE", "Training title is missing.", "Edit the training title.");
+  if (requiredFields.has("DATE") && !row.startsAt) add("DATE", "Training date/time is missing.", "Set the training date and time.");
+  if (requiredFields.has("INSTRUCTOR") && row.proctors.length === 0) add("INSTRUCTOR", "No instructor/proctor is assigned.", "Assign at least one approved instructor or proctor.");
+  if (requiredFields.has("CATEGORY") && !row.trainingCategory.trim()) add("CATEGORY", "Training category is missing.", "Choose a training category.");
+  if (requiredFields.has("LOCATION") && !row.location.trim()) add("LOCATION", "Training location is missing.", "Enter the training location.");
+  if (requiredFields.has("DESCRIPTION") && !row.notes.trim()) add("DESCRIPTION", "Training description / notes are missing.", "Enter the required training description or notes.");
+  if (requiredFields.has("HOURS") && !(row.creditHours > 0 || (row.startsAt && row.endsAt))) {
+    add("HOURS", "Training hours are missing.", "Enter credit hours or both start and end times.");
+  }
+  if (row.roster.length === 0) add("ROSTER", "The roster is empty.", "Add at least one person to the training roster.");
+
+  const unresolvedAttendance = row.roster.filter((item) => item.attendance === "REGISTERED");
+  if (unresolvedAttendance.length) {
+    add("ATTENDANCE", `${unresolvedAttendance.length} roster member${unresolvedAttendance.length === 1 ? "" : "s"} still need attendance confirmed.`, "Mark each roster member Present, Absent, or Excused.");
+  }
+
+  const requiredIds = row.checklistVersion?.sections.flatMap((section) =>
+    section.requirements.filter((item) => item.isRequired).map((item) => item.id),
+  ) || [];
+  const incompleteSkills = row.roster.filter((item) =>
+    item.attendance === "PRESENT" &&
+    requiredIds.some((id) => !item.skillResults.some((result) => result.requirementId === id && result.result !== "NOT_EVALUATED")),
+  );
+  if (incompleteSkills.length) {
+    add("REQUIRED_SKILLS", `${incompleteSkills.length} present member${incompleteSkills.length === 1 ? "" : "s"} still need required skill results.`, "Finish required skill evaluations for each present member.");
+  }
+
+  return { canClose: missing.length === 0, missing };
+}
+
 export async function updateClassStatus(ctx: AuthContext, classId: string, statusInput: unknown) {
   assertPermission(ctx, "classes.write");
   await canAccessClass(ctx, classId);
   const status = String(statusInput || "").trim().toUpperCase();
   if (!CLASS_STATUS_VALUES.has(status)) throw new HttpError(400, "Invalid class status.");
   if (status === "COMPLETE") {
-    const row = await prisma.trainingClass.findUnique({
-      where: { id: classId },
-      include: {
-        checklistVersion: { include: { sections: { include: { requirements: true } } } },
-        roster: { include: { skillResults: true } },
-      },
-    });
-    if (!row) throw new HttpError(404, "Class not found.");
-    if (row.roster.length === 0) throw new HttpError(409, "Add at least one person to the roster before closing training.");
-    const unresolvedAttendance = row.roster.filter((item) => item.attendance === "REGISTERED");
-    if (unresolvedAttendance.length) throw new HttpError(409, `Confirm attendance for all roster members before closing training. ${unresolvedAttendance.length} still need attendance.`);
-    const requiredIds = row.checklistVersion?.sections.flatMap((section) => section.requirements.filter((item) => item.isRequired).map((item) => item.id)) || [];
-    const incompleteSkills = row.roster.filter((item) => item.attendance === "PRESENT" && requiredIds.some((id) => !item.skillResults.some((result) => result.requirementId === id && result.result !== "NOT_EVALUATED")));
-    if (incompleteSkills.length) throw new HttpError(409, `Finish required skill results for all present members before closing training. ${incompleteSkills.length} member${incompleteSkills.length === 1 ? "" : "s"} still need evaluation.`);
+    const validation = await validateClassClosure(ctx, classId);
+    if (!validation.canClose) {
+      throw new HttpError(409, validation.missing.map((item) => item.message).join(" "));
+    }
   }
   await prisma.trainingClass.update({ where: { id: classId }, data: { status, ...(["COMPLETE", "CANCELLED"].includes(status) ? { registrationEnabled: false } : {}) } });
   await writeAudit(ctx, "class.status.updated", "TrainingClass", classId, { status });
