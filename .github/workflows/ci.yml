@@ -78,3 +78,4 @@ jobs:
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-training-workflows.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-class-results.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-qr-registration.sh
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-close-training-validation.sh
