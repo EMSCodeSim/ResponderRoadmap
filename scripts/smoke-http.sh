@@ -23,16 +23,16 @@ expect_page "$BASE/department-interest"
 expect_page "$BASE/department-interest?plan=station"
 
 HOME=$(curl -fsS "$BASE/")
-echo "$HOME" | grep -q 'Know exactly where your department stands.' || { echo 'Homepage missing hero headline'; exit 1; }
+echo "$HOME" | grep -q 'Know what every member has done — and what they need next.' || { echo 'Homepage missing current hero headline'; exit 1; }
 echo "$HOME" | grep -q 'See the 3-Minute Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
-echo "$HOME" | grep -q 'Start with five. Grow with your department.' || { echo 'Homepage missing pricing headline'; exit 1; }
+echo "$HOME" | grep -q 'Fire & EMS training readiness without enterprise software pricing.' || { echo 'Homepage missing current pricing headline'; exit 1; }
 echo "$HOME" | grep -q 'Station' || { echo 'Homepage missing Station plan'; exit 1; }
 echo "$HOME" | grep -q '\$299' || { echo 'Homepage missing Station price'; exit 1; }
 echo "$HOME" | grep -q 'Start Station' || { echo 'Homepage missing Start Station CTA'; exit 1; }
 echo "$HOME" | grep -q '\$500' || { echo 'Homepage missing Founding price'; exit 1; }
 ok 'homepage Training Officer positioning'
 PRICING=$(curl -fsS "$BASE/pricing")
-echo "$PRICING" | grep -q 'Start with five. Grow with your department.' || { echo 'Pricing page missing headline'; exit 1; }
+echo "$PRICING" | grep -q 'Fire & EMS training readiness without enterprise software pricing.' || { echo 'Pricing page missing current headline'; exit 1; }
 echo "$PRICING" | grep -q 'Start Station' || { echo 'Pricing page missing Station CTA'; exit 1; }
 echo "$PRICING" | grep -q 'How do you count members?' || { echo 'Pricing page missing member-count FAQ'; exit 1; }
 ok 'public pricing page'
