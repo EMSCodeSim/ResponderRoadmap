@@ -16,9 +16,9 @@ expect_status() {
 admin -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}' | jq -e '.data.session.role == "TRAINING_OFFICER"' >/dev/null
 SETUP=$(admin "$BASE/api/v1/classes/setup")
 VERSION=$(echo "$SETUP" | jq -r '.data.checklists[0].id')
-PROCTOR=$(echo "$SETUP" | jq -r '.data.proctors[0].userId')
+PROCTOR=$(echo "$SETUP" | jq -r '.data.proctors[] | select(.role == "TRAINING_OFFICER") | .userId' | head -n1)
 [[ -n "$VERSION" && "$VERSION" != null && -n "$PROCTOR" && "$PROCTOR" != null ]]
-CREATED=$(admin -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION" --arg proctor "$PROCTOR" '{title:"QA Anonymous QR Registration",classType:"GENERAL",checklistVersionId:$version,startsAt:"2026-10-15T12:00:00.000Z",membershipIds:[],proctorUserIds:[$proctor],selfRegistration:true}')")
+CREATED=$(admin -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION" --arg proctor "$PROCTOR" '{title:"QA Anonymous QR Registration",classType:"GENERAL",trainingCategory:"COMPANY",creditHours:1,checklistVersionId:$version,startsAt:"2026-10-15T12:00:00.000Z",endsAt:"2026-10-15T13:00:00.000Z",location:"QA Station",notes:"Anonymous QR registration QA",membershipIds:[],proctorUserIds:[$proctor],selfRegistration:true}')")
 CLASS_ID=$(echo "$CREATED" | jq -r '.data.id')
 TOKEN=$(echo "$CREATED" | jq -r '.data.registrationToken')
 [[ -n "$CLASS_ID" && "${#TOKEN}" -eq 64 ]]
