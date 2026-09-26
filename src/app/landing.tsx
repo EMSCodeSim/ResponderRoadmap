@@ -3,24 +3,29 @@ import { BrandLockup } from "@/components/brand";
 import { DashboardPreview } from "@/components/marketing/DashboardPreview";
 import { PricingTiers } from "@/components/marketing/PricingTiers";
 import { TrackedLink } from "@/components/marketing/TrackedLink";
-import { DEMO_DEPARTMENT_NAME, DEMO_MEMBERS } from "@/lib/demo-story";
+import { DEMO_DEPARTMENT_NAME } from "@/lib/demo-story";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
 
 const kicker = "text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40";
 const heading = "mt-3 max-w-3xl text-[1.85rem] font-semibold leading-tight tracking-tight text-white sm:text-[2.35rem]";
 const body = "mt-4 max-w-2xl text-[15px] leading-7 text-white/68";
-const card = "rounded-lg border border-white/[0.08] bg-[#121A2A]";
 const ctaPrimary =
   "inline-flex min-h-11 items-center justify-center rounded-md bg-[#C8102E] px-5 text-sm font-semibold text-white transition hover:bg-[#9E0C24] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 const ctaGhost =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-transparent px-5 text-sm font-semibold text-white/90 transition hover:bg-white/5";
 
-const capabilities = [
-  { title: "Define", body: "Set the training expectations your department uses for roles, certifications, Task Books, and annual hours." },
-  { title: "Assign", body: "Assign Task Books, individual training, or group training without chasing spreadsheets and paper." },
-  { title: "Document", body: "Capture attendance, evaluations, approvals, training hours, and digital training sheets in one workflow." },
-  { title: "Find the gaps", body: "See who is on track, what is overdue or expiring, and what training needs attention next." },
+const covers = [
+  "Task Books",
+  "Assignments",
+  "Digital Training Sheets",
+  "QR attendance",
+  "Training hours",
+  "Certifications",
+  "Evaluations",
+  "Department training expectations",
+  "Training gaps",
+  "Member progress",
 ];
 
 const workflow = [
@@ -29,32 +34,21 @@ const workflow = [
   { title: "Train", body: "Run individual or group training with QR attendance." },
   { title: "Document", body: "Record training sheets, hours, certifications, and progress." },
   { title: "Verify", body: "Human evaluators and officers complete required approvals." },
-  { title: "Identify", body: "Training Gaps show who needs attention next." },
-  { title: "Export", body: "Produce clean records for the department RMS." },
-];
-
-const glance = [
-  DEMO_MEMBERS.find((member) => member.id === "mem_smith")!,
-  DEMO_MEMBERS.find((member) => member.id === "mem_jones")!,
-  DEMO_MEMBERS.find((member) => member.id === "mem_garcia")!,
+  { title: "Identify gaps", body: "See who needs attention next." },
+  { title: "Prepare records", body: "Create clear records for the department’s official process." },
 ];
 
 const faqs = [
   ["Do I need an account to see the demo?", "No. The 3-minute Department Demo requires no signup and no credit card."],
-  ["Does AI approve training?", "No. Responder AI drafts Task Books, Assignments, criteria, and answers. Required human evaluation and final approval still create the official record."],
-  ["Do we have to replace our current RMS or records system?", "No. Keep it. Responder Roadmap is intentionally designed to work alongside your current system. Manage the training workflow in Roadmap, then export completed records to the system your department already uses."],
+  [
+    "Do we have to replace our current RMS or records system?",
+    "No. Keep your existing RMS. Responder Roadmap manages the training workflow before the information reaches your official records system. When training is complete, it creates a clear training record that can be reviewed, printed, downloaded, or referenced when completing the department’s official RMS record.",
+  ],
   ["Does a submitted skill automatically count?", "No. A requirement counts only after its required approvals are completed."],
   ["Can members use an iPhone?", "Yes. Members have access to the iPhone app, and the same workflow works in a phone browser."],
   ["What if we have more than 5 members but fewer than 25?", "Station. $299/year. Full Task Book workflow. Up to 25 active members."],
-  ["How do you count members?", "Active members — not the whole roster. Someone counts if they are assigned a Task Book or signed in during the last 90 days."],
+  ["How do you count members?", "Active members, not the whole roster. Someone counts if they are assigned a Task Book or signed in during the last 90 days."],
 ];
-
-function glanceStatus(member: (typeof glance)[number]) {
-  if (member.status === "Awaiting Evaluation") return { label: `${member.awaitingEvaluation} awaiting evaluation`, tone: "text-[#C47A0A]" };
-  if (member.status === "Completed") return { label: "Completed", tone: "text-white/50" };
-  if (member.status === "Needs Attention") return { label: "Needs attention", tone: "text-[#C8102E]" };
-  return { label: member.status, tone: "text-white/60" };
-}
 
 function Ctas({ demoHref, centered = false }: { demoHref: string; centered?: boolean }) {
   return (
@@ -99,150 +93,101 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-14 lg:pb-20 lg:pt-16">
+        <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-14 lg:pb-20 lg:pt-16">
           <div>
-            <p className={kicker}>Fire & EMS Training Readiness</p>
+            <p className={kicker}>Fire &amp; EMS Training Readiness</p>
             <h1 className="mt-4 max-w-xl text-[2.35rem] font-semibold leading-[1.12] tracking-tight text-white sm:text-5xl">
-              Know what every member has done — and what they need next.
+              Know where every member stands.
             </h1>
             <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/68">
-              Keep your current RMS. Responder Roadmap handles the training workflow around it: define expectations, assign and document training, verify completion, identify gaps, and export clean records back to the system your department already uses.
+              Fire &amp; EMS training readiness software for Training Officers, Chiefs, Captains, and instructors. Know what every member has completed, what they are working on, and what they need next.
             </p>
             <div className="mt-8"><Ctas demoHref={demoHref} /></div>
             <p className="mt-5 text-[13px] leading-6 text-white/45">
-              Built specifically for Fire & EMS Training Officers. No account required for the demo.
-              <span className="mt-1 block">A 12-person volunteer station is Station — $299/year. Same workflow as Free.</span>
+              Built for Fire &amp; EMS departments. No account required for the demo.
+              <span className="mt-1 block">A 12-person volunteer station is Station, $299/year.</span>
             </p>
           </div>
           <DashboardPreview href={demoHref} compact />
         </section>
 
-        <section className="border-y border-white/[0.08] bg-[#0E1624]">
-          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-4 text-[13px] text-white/50 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-            <span>AI does the tedious work. Humans decide.</span>
-            <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
-            <span>Founding Department: $500/year for up to 75 active members.</span>
-            <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
-            <span>Works alongside your current RMS — no replacement required</span>
-          </div>
-        </section>
-
-        <section id="product" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>One focused training-readiness workflow</p>
-          <h2 className={heading}>Define. Assign. Document. Verify. Find the gaps.</h2>
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {capabilities.map((item, index) => (
-              <article key={item.title} className={`${card} p-6`}>
-                <span className="text-[11px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
-                <h3 className="mt-3 text-lg font-semibold">{item.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-white/60">{item.body}</p>
-                
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="border-y border-white/[0.08] bg-[#0E1624]">
+        <section id="product" className="border-y border-white/[0.08] bg-[#0E1624]">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-            <p className={kicker}>Training Officer view</p>
-            <h2 className={heading}>Your department at a glance.</h2>
-            <p className={body}>Training readiness — not employee rankings or performance scores. See what each member has completed, what is in progress, and what requires attention.</p>
-            <div className="mt-10 grid gap-4 lg:grid-cols-3">
-              {glance.map((member) => {
-                const status = glanceStatus(member);
-                return (
-                  <article key={member.id} className={`${card} p-6`}>
-                    <p className="text-base font-semibold">{member.name}</p>
-                    <p className="mt-1 text-sm text-white/50">{member.currentWork}</p>
-                    <div className="mt-5 h-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
-                      <div className="h-full bg-[#C8102E]" style={{ width: `${member.percent}%` }} />
-                    </div>
-                    <p className="mt-3 text-2xl font-semibold tabular-nums">{member.percent}% <span className="text-sm font-medium text-white/40">complete</span></p>
-                    <p className={`mt-2 text-sm font-medium ${status.tone}`}>{status.label}</p>
-                  </article>
-                );
-              })}
-            </div>
-            <TrackedLink href={demoHref} event="homepage_demo_clicked" className="mt-8 inline-flex min-h-10 items-center text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">
-              See It in the Demo →
-            </TrackedLink>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>Responder AI</p>
-          <h2 className={heading}>AI that removes work — not control.</h2>
-          <p className="mt-4 max-w-3xl text-[15px] leading-7 text-white/68">
-            Responder AI helps Training Officers build Task Books, create Assignments, write requirements, draft evaluation criteria, summarize department progress, identify pending work, and answer how-to questions. You review it. You edit it. You approve it.
-          </p>
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            <article className={`${card} p-6`}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Task Book draft</p>
-              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Training Officer:</span> “Create a probationary firefighter Task Book covering SCBA, hose deployment, ladders, forcible entry, apparatus checks, and radio operations.”</p>
-              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Responder AI:</span> Generates the initial Task Book structure and requirements.</p>
-              <p className="mt-5 border-l-2 border-[#C8102E] pl-4 text-sm leading-6 text-white/70">AI never replaces required human evaluation or final approval.</p>
-            </article>
-            <article className={`${card} p-6`}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Support desk + department assistant</p>
-              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Training Officer:</span> “Why is Smith’s Task Book still at 80%?”</p>
-              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Responder AI:</span> “Smith has 20 requirements. 16 are approved, 2 are awaiting evaluator approval, and 2 remain incomplete.”</p>
-              <p className="mt-5 text-sm text-white/45">Ask how to use Responder Roadmap, or what needs attention in the department.</p>
-            </article>
-          </div>
-        </section>
-
-        <section id="how-it-works" className="border-y border-white/[0.08] bg-[#0E1624]">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-            <p className={kicker}>The workflow</p>
-            <h2 className={heading}>Define expectations → Assign → Train → Document → Verify → Identify gaps → Export</h2>
-            <ol className="mt-10 grid gap-px overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.08] sm:grid-cols-2 lg:grid-cols-7">
-              {workflow.map((item, index) => (
-                <li key={item.title} className="bg-[#121A2A] p-5">
-                  <span className="text-[11px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
-                  <h3 className="mt-3 text-base font-semibold">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-white/50">{item.body}</p>
+            <p className={kicker}>What it is</p>
+            <h2 className={heading}>One place for the training workflow.</h2>
+            <p className={body}>
+              Responder Roadmap gives departments a single system to manage training expectations, assignments, documentation, verification, and readiness, without replacing the records system they already use.
+            </p>
+            <ul className="mt-10 columns-1 gap-x-12 sm:columns-2 lg:columns-3">
+              {covers.map((item) => (
+                <li key={item} className="mb-3 break-inside-avoid border-l border-white/15 pl-3 text-[15px] text-white/75">
+                  {item}
                 </li>
               ))}
-            </ol>
+            </ul>
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>Keep your current records system</p>
-          <h2 className={heading}>Don’t replace your RMS. Make the training workflow around it better.</h2>
-          <p className="mt-5 max-w-3xl text-[15px] leading-7 text-white/68">
-            Responder Roadmap is intentionally designed to work alongside the records system your department already uses — not replace it. Manage expectations, Task Books, Assignments, group training, QR attendance, evaluations, training hours, certifications, and gaps in Roadmap. When training is complete, export a clean digital training record to your existing RMS or records process. No major data migration. No need to rebuild the department’s official records system.
+        <section id="how-it-works" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+          <p className={kicker}>How it works</p>
+          <h2 className={heading}>Define expectations. Assign. Train. Document. Verify. Identify gaps. Prepare records.</h2>
+          <p className={body}>
+            The same operational sequence Training Officers already follow, organized in one place so progress stays visible and records stay ready for the department’s official process.
           </p>
-        </section>
-
-        <section id="pricing" className="border-y border-white/[0.08] bg-[#0E1624]">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-            <PricingTiers />
-            <div className="mt-10"><Ctas demoHref={demoHref} /></div>
-            <p className="mt-5 text-[13px] leading-6 text-white/40">Municipal purchasing — quotes, invoices, W-9s, and purchase orders — goes through Department / Agency contact.</p>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-3xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>Questions</p>
-          <h2 className={heading}>Answers before you start.</h2>
-          <div className="mt-8 divide-y divide-white/[0.08] border-y border-white/[0.08]">
-            {faqs.map(([question, answer]) => (
-              <details key={question} className="group py-4">
-                <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium text-white/90">
-                  {question}
-                  <span aria-hidden="true" className="text-white/30 group-open:rotate-45">+</span>
-                </summary>
-                <p className="mt-2 max-w-2xl pb-1 text-sm leading-7 text-white/55">{answer}</p>
-              </details>
+          <ol className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {workflow.map((item, index) => (
+              <li key={item.title} className="max-w-xs">
+                <span className="text-[11px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
+                <h3 className="mt-2 text-base font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-white/55">{item.body}</p>
+              </li>
             ))}
+          </ol>
+        </section>
+
+        <section className="border-y border-white/[0.08] bg-[#0E1624]">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+            <p className={kicker}>Keep your existing RMS</p>
+            <h2 className={heading}>Keep your existing RMS.</h2>
+            <p className="mt-5 max-w-3xl text-[15px] leading-7 text-white/68">
+              Responder Roadmap manages the training workflow before the information reaches your official records system. When training is complete, it creates a clear training record that can be reviewed, printed, downloaded, or referenced when completing the department’s official RMS record.
+            </p>
+            <p className="mt-4 max-w-3xl text-[15px] leading-7 text-white/55">
+              No RMS replacement. No claim of an automatic push into another vendor’s system.
+            </p>
           </div>
         </section>
 
-        <section className="border-t border-white/[0.08] bg-[#0E1624] px-5 py-16 text-center sm:py-20">
+        <section id="pricing" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+          <PricingTiers />
+          <div className="mt-10"><Ctas demoHref={demoHref} /></div>
+          <p className="mt-5 text-[13px] leading-6 text-white/40">Municipal purchasing (quotes, invoices, W-9s, and purchase orders) goes through Department / Agency contact.</p>
+        </section>
+
+        <section className="border-y border-white/[0.08] bg-[#0E1624]">
+          <div className="mx-auto max-w-3xl px-5 py-16 sm:px-8 lg:py-20">
+            <p className={kicker}>Questions</p>
+            <h2 className={heading}>Answers before you start.</h2>
+            <div className="mt-8 divide-y divide-white/[0.08] border-y border-white/[0.08]">
+              {faqs.map(([question, answer]) => (
+                <details key={question} className="group py-4">
+                  <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium text-white/90">
+                    {question}
+                    <span aria-hidden="true" className="text-white/30 group-open:rotate-45">+</span>
+                  </summary>
+                  <p className="mt-2 max-w-2xl pb-1 text-sm leading-7 text-white/55">{answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="px-5 py-16 text-center sm:py-20">
           <p className={kicker}>See it in three minutes</p>
-          <h2 className="mx-auto mt-3 max-w-2xl text-[1.85rem] font-semibold tracking-tight sm:text-[2.35rem]">Stop chasing training progress.</h2>
-          <p className="mx-auto mb-8 mt-4 max-w-xl text-[15px] leading-7 text-white/60">See how Responder Roadmap gives your Training Officer one place to define expectations, manage training, verify completion, identify gaps, and prepare records for the RMS.</p>
+          <h2 className="mx-auto mt-3 max-w-2xl text-[1.85rem] font-semibold tracking-tight sm:text-[2.35rem]">See the training readiness workflow.</h2>
+          <p className="mx-auto mb-8 mt-4 max-w-xl text-[15px] leading-7 text-white/60">
+            Open the demo to see how a Training Officer defines expectations, manages training, verifies completion, identifies gaps, and prepares records for the department’s official process.
+          </p>
           <Ctas demoHref={demoHref} centered />
           <p className="mt-6 text-sm text-white/40">Already invited? <Link href="/login" className="font-medium text-white/70 underline underline-offset-4 hover:text-white">Sign in</Link></p>
         </section>
@@ -253,7 +198,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <div>
             <p className="font-medium text-white/70">Responder Roadmap</p>
             <p className="mt-1">{DEMO_DEPARTMENT_NAME} is a fictional demo · Fire · EMS · Training Division</p>
-            <p className="mt-3 text-xs">Fire & EMS training readiness — with AI reducing the administrative work.</p>
+            <p className="mt-3 text-xs">Fire &amp; EMS training readiness software.</p>
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             <Link href="/login" className="hover:text-white">Sign in</Link>

@@ -179,7 +179,7 @@ export default function ClassDetailPage() {
         kicker={`${detail.classType.replaceAll("_", " ")} · ${detail.checklistVersion ? `${detail.checklistTitle} v${detail.checklistVersion}` : detail.checklistTitle}`}
         title={detail.title}
         description={`${formatDate(detail.startsAt)}${detail.location ? ` · ${detail.location}` : ""} · Proctors: ${detail.proctors.map((item) => item.name).join(", ")}`}
-        actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => setCloseOpen(true)} disabled={busy}>Close Training</Button> : null}</>}
+        actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => setCloseOpen(true)} disabled={busy}>Close Training</Button> : null}</>}
       />
       <Flash message={error} tone="danger" />
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
@@ -243,7 +243,7 @@ export default function ClassDetailPage() {
           <div className="flex justify-between gap-3"><span>Skills / results documented</span><strong>{detail.roster.filter((item) => item.attendance !== "PRESENT" || detail.sections.every((section) => section.skills.filter((skill) => skill.required).every((skill) => item.results.some((result) => result.requirementId === skill.id && result.result !== "NOT_EVALUATED")))).length} / {detail.roster.length}</strong></div>
           <div className="flex justify-between gap-3"><span>Training record</span><strong>{detail.trainingCategory.replaceAll("_", " ")} · {detail.creditHours > 0 ? `${detail.creditHours} hr` : "scheduled duration"}</strong></div>
         </div>
-        <p className="mt-4 text-sm text-navy-600">After closing, use Training sheet / RMS export for the department record.</p>
+        <p className="mt-4 text-sm text-navy-600">After closing, open the training sheet to review, print, or download the record for the department’s official process.</p>
         <div className="mt-5 flex flex-wrap gap-2"><Button variant="success" disabled={busy} onClick={() => updateStatus("COMPLETE")}>{busy ? "Closing…" : "Finalize & Close Training"}</Button><Button variant="secondary" disabled={busy} onClick={() => setCloseOpen(false)}>Keep editing</Button></div>
       </Modal>
       <Modal open={Boolean(correction)} title={correction?.result === "FAIL" ? "Record failed skill" : "Record remediation needed"} onClose={() => setCorrection(null)}>

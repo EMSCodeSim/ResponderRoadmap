@@ -101,7 +101,7 @@ export default function ClassesPage() {
       <PageHeader
         kicker="Training delivery"
         title="Training & class rosters"
-        description="Replace paper training sheets: create training, capture attendance by roster or QR, complete the record, and export it for your RMS when needed."
+        description="Replace paper training sheets: create training, capture attendance by roster or QR, complete the record, then print or download it for the department’s official process."
         actions={setup ? <div className="flex flex-wrap gap-2"><Button onClick={() => openTraining(true)} className="md:hidden">Quick training</Button><Button onClick={() => openTraining(false)}>Create training</Button></div> : undefined}
       />
       <Flash message={error} tone="danger" />
@@ -134,8 +134,8 @@ export default function ClassesPage() {
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
-          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Phone / field mode</div><p className="mt-1 text-sm text-navy-600">Start with the essentials now. QR registration is on by default so the crew can scan in. Department-required RMS fields are still enforced.</p></div> : null}
-          {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> fields marked * are required by your department before this training sheet is created or completed.</div> : null}
+          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Phone / field mode</div><p className="mt-1 text-sm text-navy-600">Start with the essentials now. QR registration is on by default so the crew can scan in. Department-required training-sheet fields are still enforced.</p></div> : null}
+          {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">Complete record:</span> fields marked * are required by your department before this training sheet is created or completed.</div> : null}
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Class title"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Fire Academy Skills Day 4" required /></Field>
             <Field label="Class type">

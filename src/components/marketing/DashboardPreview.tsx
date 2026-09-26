@@ -14,7 +14,7 @@ export function DashboardPreview({ href, compact = false }: { href: string; comp
     <div className="overflow-hidden rounded-lg border border-white/15 bg-[#F3F5F8] text-[#0C1524] shadow-[0_16px_40px_rgba(0,0,0,.28)]">
       <div className="flex items-center justify-between gap-2 border-b border-[#D6DDE8] bg-[#0C1524] px-4 py-3 text-[11px] font-semibold text-white/80">
         <span>{DEMO_DEPARTMENT_NAME} · Training Officer</span>
-        <span className="shrink-0 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-1 text-emerald-200">Live product preview</span>
+        <span className="shrink-0 text-white/45">Product preview</span>
       </div>
       <div className="p-4 sm:p-5">
         <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#5A7196]">Home</p>
