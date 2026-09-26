@@ -365,9 +365,16 @@ export async function getDashboard(ctx: AuthContext) {
     });
   }
 
+  const certificateAttentionByMember = new Map<string, (typeof certificateAttention)[number]>();
+  for (const issue of certificateAttention) {
+    if (!certificateAttentionByMember.has(issue.memberId)) certificateAttentionByMember.set(issue.memberId, issue);
+  }
+
   const memberProgress = [...memberProgressMap.values()]
     .map((row) => {
-      const status = memberOperationalStatus(row.assignments);
+      const certificateIssue = certificateAttentionByMember.get(row.id);
+      const assignmentStatus = memberOperationalStatus(row.assignments);
+      const status = certificateIssue && assignmentStatus !== "Awaiting Evaluation" ? "Needs Attention" : assignmentStatus;
       const percent = row.activeAssignments > 0 && row.totalRequired
         ? Math.round((row.complete / row.totalRequired) * 100)
         : row.assignments.length > 0 && row.assignments.every((item) => item.status === "COMPLETE")
@@ -378,6 +385,8 @@ export async function getDashboard(ctx: AuthContext) {
           ? `${row.pendingApproval} awaiting evaluation`
           : row.overdue > 0
             ? `${row.overdue} overdue requirement${row.overdue === 1 ? "" : "s"}`
+            : certificateIssue
+              ? `${certificateIssue.taskBookTitle}: ${certificateIssue.reason}`
             : row.activeAssignments > 0 && row.maxStalledDays >= 14
               ? `No recorded activity for ${row.maxStalledDays} days`
               : row.activeAssignments === 0
@@ -388,6 +397,8 @@ export async function getDashboard(ctx: AuthContext) {
           ? { label: "Review evaluation", href: "/evaluate" }
           : row.overdue > 0
             ? { label: "Open overdue work", href: memberProgressPath(row.id) }
+            : certificateIssue
+              ? { label: "Review certificate", href: certificateIssue.href }
             : row.activeAssignments > 0 && row.maxStalledDays >= 14
               ? { label: "Follow up", href: memberProgressPath(row.id) }
               : row.activeAssignments === 0
@@ -430,6 +441,7 @@ export async function getDashboard(ctx: AuthContext) {
       awaitingSignOff: completions.length,
       awaitingEvaluation: completions.length,
       expiringSoon: expiringSoon.length,
+      certificateIssues: certificateAttention.length,
       overdueRequirements: overdueAssignments.reduce((sum, row) => sum + row.progress.overdue, 0),
       overdueMembers: overdueMembers.size,
       needsAttention: new Set([
@@ -438,6 +450,7 @@ export async function getDashboard(ctx: AuthContext) {
         ...completions.map((item) => item.membershipId),
         ...expiringSoon.map((row) => row.item.membershipId),
         ...expired.map((row) => row.item.membershipId),
+        ...certificateAttention.map((item) => item.memberId),
       ]).size,
       currentMembers: memberProgress.filter((row) => row.activeAssignments > 0 && row.status === "On Track").length,
       readinessPercent: members.length
@@ -468,6 +481,8 @@ export async function getDashboard(ctx: AuthContext) {
       signOffTotal: completions.length,
       followUp,
       dueSoon,
+      certificates: certificateAttention.slice(0, 8),
+      certificateTotal: certificateAttention.length,
     },
     attention,
     taskBookProgress,
