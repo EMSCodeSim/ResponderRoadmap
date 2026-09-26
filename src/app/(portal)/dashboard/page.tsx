@@ -247,20 +247,21 @@ function ActivationChecklist({ data }: { data: Dashboard }) {
   const items = [
     { label: "Department created", done: true, href: "/settings" },
     { label: "Add members", done: data.summary.activeMembers > 1, href: "/enrollment" },
-    { label: "Approve evaluators", done: false, href: "/evaluators" },
+    { label: "Review evaluator access", done: null, href: "/evaluators" },
     { label: "Publish a Task Book", done: data.summary.activeTaskBooks > 0, href: createTaskBookPath() },
     { label: "Create the first assignment", done: activeWork > 0, href: createAssignmentPath() },
   ];
-  const completed = items.filter((item) => item.done).length;
-  if (completed === items.length) return null;
+  const automaticItems = items.filter((item) => item.done !== null);
+  const completed = automaticItems.filter((item) => item.done).length;
+  if (automaticItems.every((item) => item.done)) return null;
   return <Card className="mb-6 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><div className="kicker">First-use checklist</div><h2 className="display mt-1 text-xl font-bold">Activate your department</h2><p className="mt-1 text-sm text-navy-600">Complete these setup steps before relying on readiness totals.</p></div>
-      <span className="rounded-full bg-navy-100 px-3 py-1 text-sm font-bold text-navy-700">{completed} of {items.length}</span>
+      <span className="rounded-full bg-navy-100 px-3 py-1 text-sm font-bold text-navy-700">{completed} of {automaticItems.length} detected</span>
     </div>
     <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
       {items.map((item) => <Link key={item.label} href={item.href} className="flex min-h-12 items-center gap-2 rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold hover:border-fire">
-        <span aria-hidden="true" className={item.done ? "text-success" : "text-navy-400"}>{item.done ? "✓" : "○"}</span>
+        <span aria-hidden="true" className={item.done ? "text-current" : "text-navy-400"}>{item.done ? "✓" : item.done === null ? "→" : "○"}</span>
         <span>{item.label}</span>
       </Link>)}
     </div>
