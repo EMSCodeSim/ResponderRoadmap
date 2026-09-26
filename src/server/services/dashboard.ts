@@ -6,6 +6,15 @@ import { assignmentRecordPath, createAssignmentPath, memberProgressPath } from "
 import { credentialStatus } from "@/lib/dates";
 import { parseMetadata as parseMeta } from "@/server/http";
 
+function parseStringArray(value: string) {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getDashboard(ctx: AuthContext) {
   assertPermission(ctx, "dashboard.read");
   if (ctx.role === "MEMBER") {
@@ -16,7 +25,7 @@ export async function getDashboard(ctx: AuthContext) {
   }
   const departmentId = ctx.departmentId;
 
-  const [members, assignments, completions, credentials, events, templates] = await Promise.all([
+  const [members, assignments, completions, credentials, events, templates, credentialTypes, expectations] = await Promise.all([
     prisma.departmentMembership.findMany({
       where: { departmentId, status: "ACTIVE" },
       include: { user: true },
@@ -52,6 +61,8 @@ export async function getDashboard(ctx: AuthContext) {
       where: { departmentId, status: "ACTIVE" },
       include: { versions: { include: { _count: { select: { assignments: true } } } } },
     }),
+    prisma.credentialType.findMany({ where: { departmentId } }),
+    prisma.trainingExpectation.findMany({ where: { departmentId, active: true } }),
   ]);
 
   const assignmentRows = assignments.map((assignment) => {
