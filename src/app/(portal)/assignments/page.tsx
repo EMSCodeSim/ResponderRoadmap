@@ -120,6 +120,7 @@ function AssignmentsInner() {
   const statusFilter = search.get("status") || "";
   const stalled = search.get("stalled") || "";
   const [rows, setRows] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [books, setBooks] = useState<Array<{ id: string; title: string; status: string }>>([]);
@@ -164,7 +165,7 @@ function AssignmentsInner() {
   }
 
   useEffect(() => {
-    load().catch((err) => setError(err.message));
+    load().catch((err) => setError(err.message)).finally(() => setLoading(false));
     if (search.get("assign") === "1") setOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -570,11 +571,15 @@ function AssignmentsInner() {
         )
       ) : (
         <Card>
-          {filtered.length === 0 ? (
+          {loading ? (
+            <p role="status" className="p-5 text-sm text-navy-500">Loading assignments…</p>
+          ) : filtered.length === 0 ? (
             <EmptyState
-              title="No assignments"
-              body="Assign a published Task Book to a member, rank, station, or shift."
-              action={canAssign ? <Button onClick={() => setOpen(true)}>Assign Task Book</Button> : undefined}
+              title={rows.length ? "No matching assignments" : "No assignments yet"}
+              body={rows.length
+                ? "Clear or change the status filters to see assignments."
+                : "Assign a published Task Book to a member, rank, station, or shift."}
+              action={!rows.length && canAssign ? <Button onClick={() => setOpen(true)}>Assign Task Book</Button> : undefined}
             />
           ) : (
             <div className="table-wrap">
