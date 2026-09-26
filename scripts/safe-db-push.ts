@@ -5,22 +5,18 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 function schemaConnectionUrl() {
-  const configured = process.env.DATABASE_URL_UNPOOLED?.trim();
-  if (configured) return configured;
+  const runtime = process.env.DATABASE_URL?.trim();
+  if (!runtime) throw new Error("DATABASE_URL is required for schema updates.");
 
-  const pooled = process.env.DATABASE_URL?.trim();
-  if (!pooled) throw new Error("DATABASE_URL is required for schema updates.");
-
-  // Netlify functions should use Neon's pooled endpoint, but Prisma schema
-  // operations need a direct connection. Neon direct endpoints use the same
-  // URL with the `-pooler` suffix removed from the hostname.
-  const url = new URL(pooled);
+  // Keep schema updates on the same Neon branch used by the running app.
+  // A separately configured unpooled URL can accidentally target a different branch.
+  const url = new URL(runtime);
   if (url.hostname.endsWith(".neon.tech") && url.hostname.includes("-pooler.")) {
     url.hostname = url.hostname.replace("-pooler.", ".");
     return url.toString();
   }
 
-  return pooled;
+  return runtime;
 }
 
 type ConstraintCheck = {
@@ -130,6 +126,23 @@ async function existingColumns(table: string) {
   return new Set(rows.map((row) => row.column_name));
 }
 
+async function verifyRequiredSchema() {
+  const required = [
+    { table: "TrainingClass", column: "trainingCategory" },
+    { table: "CredentialType", column: "requiredForAll" },
+    { table: "Department", column: "trainingSheetRequiredFieldsJson" },
+  ];
+  const missing: string[] = [];
+  for (const item of required) {
+    if (!(await existingColumns(item.table)).has(item.column)) {
+      missing.push(`${item.table}.${item.column}`);
+    }
+  }
+  if (missing.length) {
+    throw new Error(`Schema update did not reach the runtime database. Missing columns: ${missing.join(", ")}`);
+  }
+}
+
 async function verifyNoConflictingRows() {
   for (const check of checks) {
     const columns = await existingColumns(check.table);
@@ -150,7 +163,7 @@ async function main() {
   if (!(await verifyNoConflictingRows())) return;
   await prisma.$disconnect();
   const executable = path.join(process.cwd(), "node_modules", ".bin", process.platform === "win32" ? "prisma.cmd" : "prisma");
-  const result = spawnSync(executable, ["db", "push", "--accept-data-loss"], {
+  const result = spawnSync(executable, ["db", "push"], {
     stdio: "inherit",
     env: {
       ...process.env,
@@ -158,7 +171,12 @@ async function main() {
     },
   });
   if (result.error) throw result.error;
-  if (result.status !== 0) process.exitCode = result.status ?? 1;
+  if (result.status !== 0) {
+    process.exitCode = result.status ?? 1;
+    return;
+  }
+  await prisma.$connect();
+  await verifyRequiredSchema();
 }
 
 main()
