@@ -91,6 +91,88 @@ export async function getDashboard(ctx: AuthContext) {
   const expiringSoon = credentialRows.filter((row) => row.status.health === "expiring");
   const expired = credentialRows.filter((row) => row.status.health === "expired");
 
+  const expectationProfiles = expectations.map((profile) => ({
+    matchRanks: parseStringArray(profile.matchRanksJson),
+    matchPositions: parseStringArray(profile.matchPositionsJson),
+    credentialTypeIds: parseStringArray(profile.credentialTypeIdsJson),
+  }));
+  const credentialRequirements = credentialTypes.map((type) => ({
+    ...type,
+    requiredRanks: parseStringArray(type.requiredRanksJson),
+    requiredPositions: parseStringArray(type.requiredPositionsJson),
+  }));
+  const certificateAttention: Array<{
+    memberId: string;
+    memberName: string;
+    taskBookTitle: string;
+    reason: string;
+    href: string;
+    severity: number;
+  }> = [];
+  const certificateKeys = new Set<string>();
+  const addCertificateAttention = (item: (typeof certificateAttention)[number], key: string) => {
+    if (certificateKeys.has(key)) return;
+    certificateKeys.add(key);
+    certificateAttention.push(item);
+  };
+
+  const credentialGroups = new Map<string, typeof credentials>();
+  for (const credential of credentials) {
+    const key = `${credential.membershipId}:${credential.credentialTypeId || credential.credentialName.toLowerCase()}`;
+    const group = credentialGroups.get(key) ?? [];
+    group.push(credential);
+    credentialGroups.set(key, group);
+  }
+  for (const [key, group] of credentialGroups) {
+    const rows = group.map((credential) => ({ credential, status: credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire) }));
+    if (rows.some((row) => row.status.health === "current")) continue;
+    const issue = rows.find((row) => row.status.health === "expired")
+      ?? rows.find((row) => !row.credential.doesNotExpire && !row.credential.expirationDate)
+      ?? rows.find((row) => row.status.health === "expiring");
+    if (!issue) continue;
+    const reason = issue.status.health === "expired"
+      ? issue.status.label
+      : !issue.credential.expirationDate
+        ? "Expiration date missing"
+        : issue.status.label;
+    addCertificateAttention({
+      memberId: issue.credential.membershipId,
+      memberName: issue.credential.membership.user.name,
+      taskBookTitle: issue.credential.credentialName,
+      reason,
+      href: `/members/${issue.credential.membershipId}?tab=certifications`,
+      severity: issue.status.health === "expired" ? 0 : !issue.credential.expirationDate ? 1 : 2,
+    }, key);
+  }
+
+  for (const member of members) {
+    const profileCredentialIds = new Set(expectationProfiles
+      .filter((profile) =>
+        (member.rank ? profile.matchRanks.includes(member.rank) : false) ||
+        (member.position ? profile.matchPositions.includes(member.position) : false),
+      )
+      .flatMap((profile) => profile.credentialTypeIds));
+    const applicable = credentialRequirements.filter((type) =>
+      profileCredentialIds.has(type.id) || type.requiredForAll ||
+      (member.rank ? type.requiredRanks.includes(member.rank) : false) ||
+      (member.position ? type.requiredPositions.includes(member.position) : false));
+    for (const type of applicable) {
+      const matching = credentials.some((credential) =>
+        credential.membershipId === member.id &&
+        (credential.credentialTypeId === type.id || credential.credentialName.toLowerCase() === type.name.toLowerCase()));
+      if (matching) continue;
+      addCertificateAttention({
+        memberId: member.id,
+        memberName: member.user.name,
+        taskBookTitle: type.name,
+        reason: "Required certificate missing",
+        href: `/members/${member.id}?tab=certifications`,
+        severity: 0,
+      }, `${member.id}:${type.id}`);
+    }
+  }
+  certificateAttention.sort((a, b) => a.severity - b.severity || a.memberName.localeCompare(b.memberName) || a.taskBookTitle.localeCompare(b.taskBookTitle));
+
   const attention = [];
   if (expiringSoon.length) {
     attention.push({
