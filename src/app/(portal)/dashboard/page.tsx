@@ -5,8 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { activityText } from "@/lib/activity";
 import { Badge, Button, Card, Input, PageHeader, ProgressBar, Select } from "@/components/ui";
-import { ManagementDashboard } from "@/components/ManagementDashboard";
-import { isManagementRole } from "@/lib/command-center";
 import { relativeTime } from "@/lib/dates";
 import { operationalStatusTone, type OperationalStatus } from "@/lib/member-status";
 import { createAssignmentPath, createTaskBookPath } from "@/lib/routes";
@@ -117,14 +115,11 @@ function place(item: TodayItem) {
 
 export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
-  const [role, setRole] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setError(null);
-    const [session, dashboard] = await Promise.all([api<{ role: string | null }>("auth/me"), api<Dashboard>("dashboard")]);
-    setRole(session.role);
-    setData(dashboard);
+    setData(await api<Dashboard>("dashboard"));
   }, []);
 
   useEffect(() => {
@@ -149,20 +144,19 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         kicker="Home"
-        title={data.instructor ? "My Classes" : data.personal ? "What do I need to do next?" : "Department progress"}
+        title={data.instructor ? "My Classes" : data.personal ? "What do I need to do next?" : "Today’s Training Priorities"}
         description={
           data.instructor
             ? "Teach, take attendance, evaluate skills, and finish the training record."
             : data.personal
               ? "Needs action, in progress, waiting, and recently completed work."
-              : "Who is working on what, how far along they are, and what needs your attention."
+              : "Start with the work that needs action today, then check overall team readiness."
         }
         actions={
           data.instructor ? <Link href="/classes"><Button>Create Class</Button></Link> : data.personal ? undefined : (
             <>
               <Link href="/evaluate"><Button variant={awaiting ? "primary" : "secondary"}>{awaiting ? `Needs Evaluation (${awaiting})` : "Needs Evaluation"}</Button></Link>
-              <Link href={createTaskBookPath()}><Button variant="secondary">Create Task Book</Button></Link>
-              <Link href={createAssignmentPath()}><Button variant="secondary">Create Assignment</Button></Link>
+              <Link href={createAssignmentPath()}><Button variant="secondary">Assign Training</Button></Link>
             </>
           )
         }
@@ -174,9 +168,8 @@ export default function DashboardPage() {
         <MemberHome data={data} />
       ) : (
         <>
-          <OfficerWorkflow data={data} />
+          <OfficerToday data={data} />
           <ActivationChecklist data={data} />
-          <RecommendedNextStep data={data} />
 
           <DepartmentReadiness
             members={data.summary.activeMembers}
@@ -187,24 +180,11 @@ export default function DashboardPage() {
             awaiting={awaiting}
           />
 
-          <AttentionSummary attention={data.attention} total={needsAttention} />
-
-          <TrainingOpportunities
-            stalled={data.summary.stalledOver30 ?? 0}
-            expiring={data.summary.expiringSoon}
-            awaiting={awaiting}
-            taskBooks={data.taskBookProgress}
-          />
-
           {data.memberProgress ? <MemberProgressTable rows={data.memberProgress} /> : null}
-
-          <TrainingAreas rows={data.taskBookProgress} />
-
-          {isManagementRole(role) ? <ManagementDashboard awaitingSignOff={awaiting} /> : null}
         </>
       )}
 
-      {!data.instructor ? <Card className="mt-6 p-5">
+      {data.personal ? <Card className="mt-6 p-5">
         <h2 className="display text-2xl font-bold">Recent Activity</h2>
         <ul className="mt-3 divide-y divide-navy-100">
           {data.recentActivity.slice(0, 5).map((event) => (
@@ -220,25 +200,87 @@ export default function DashboardPage() {
   );
 }
 
-function OfficerWorkflow({ data }: { data: Dashboard }) {
-  const awaiting = data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff;
-  const steps = [
-    { label: "1. Create", detail: "Build or select a Task Book", href: createTaskBookPath() },
-    { label: "2. Assign", detail: "Choose members and due dates", href: createAssignmentPath() },
-    { label: "3. Complete", detail: "Members submit work and evidence", href: "/assignments" },
-    { label: "4. Evaluate", detail: awaiting ? `${awaiting} waiting for review` : "Review and approve submitted work", href: "/evaluate" },
-    { label: "5. Export", detail: "Prepare completed training for RMS entry", href: "/reports?type=training-sheets" },
+function OfficerToday({ data }: { data: Dashboard }) {
+  const today = data.today ?? { signOffs: [], signOffTotal: 0, followUp: [], dueSoon: [] };
+  const groups = [
+    {
+      title: "Review now",
+      count: today.signOffTotal,
+      empty: "No evaluations are waiting.",
+      href: "/evaluate",
+      items: today.signOffs,
+      action: "Review",
+      tone: "border-fire/30 bg-fire/5",
+    },
+    {
+      title: "Follow up",
+      count: today.followUp.length,
+      empty: "No stalled or overdue work.",
+      href: "/assignments?status=OVERDUE",
+      items: today.followUp,
+      action: "Open",
+      tone: "border-amber-300 bg-amber-50/60",
+    },
+    {
+      title: "Due soon",
+      count: today.dueSoon.length,
+      empty: "Nothing is due soon.",
+      href: "/assignments",
+      items: today.dueSoon,
+      action: "Open",
+      tone: "border-navy-200 bg-white",
+    },
   ];
-  return <section className="mb-6" aria-labelledby="officer-workflow-title">
-    <div className="kicker">Training Officer workflow</div>
-    <h2 id="officer-workflow-title" className="display mt-1 text-2xl font-bold">From assignment to RMS-ready training sheet</h2>
-    <p className="mt-1 text-sm text-navy-600">One operational path: create, assign, complete, evaluate, then prepare the verified training sheet for entry into your department records system.</p>
-    <div className="mt-3 grid gap-2 md:grid-cols-5">
-      {steps.map((step) => <Link key={step.label} href={step.href} className="rounded-lg border border-navy-200 bg-white p-3 hover:border-fire">
-        <div className="text-sm font-bold text-navy-950">{step.label}</div>
-        <div className="mt-1 text-xs text-navy-500">{step.detail}</div>
-      </Link>)}
-    </div>
+  const total = groups.reduce((sum, group) => sum + group.count, 0);
+
+  return <section className="mb-6" aria-labelledby="today-priorities-title">
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="kicker">Training Officer action board</div>
+          <h2 id="today-priorities-title" className="display mt-1 text-2xl font-bold">
+            {total > 0 ? `${total} item${total === 1 ? "" : "s"} need attention` : "Your department is caught up"}
+          </h2>
+          <p className="mt-1 text-sm text-navy-600">
+            {total > 0 ? "Work left to right: evaluations first, follow-up second, upcoming deadlines third." : "No evaluations, overdue follow-up, or upcoming deadlines need action right now."}
+          </p>
+        </div>
+        <Link href="/assignments" className="text-sm font-semibold text-fire underline">View all assignments</Link>
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        {groups.map((group) => (
+          <div key={group.title} className={`rounded-lg border p-4 ${group.tone}`}>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-bold text-navy-950">{group.title}</h3>
+              <span className="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-navy-800 shadow-sm">{group.count}</span>
+            </div>
+            {group.items.length === 0 ? (
+              <p className="mt-4 text-sm text-navy-500">{group.empty}</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-navy-200">
+                {group.items.slice(0, 4).map((item, index) => (
+                  <li key={item.id ?? `${group.title}-${item.memberId}-${index}`}>
+                    <Link href={item.href} className="block py-3 hover:text-fire">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-semibold">{item.memberName}</div>
+                          <div className="mt-0.5 text-sm text-navy-600">{item.requirementTitle ?? item.taskBookTitle}</div>
+                          {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
+                          {item.dueDate ? <div className="mt-1 text-xs text-navy-500">Due {new Date(item.dueDate).toLocaleDateString()}</div> : null}
+                        </div>
+                        <span className="shrink-0 text-xs font-bold text-fire">{group.action} →</span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {group.count > group.items.slice(0, 4).length ? <Link href={group.href} className="mt-3 inline-block text-sm font-semibold text-fire underline">View all {group.count}</Link> : null}
+          </div>
+        ))}
+      </div>
+    </Card>
   </section>;
 }
 
