@@ -457,6 +457,60 @@ export async function registerGuestStudent(token: string, raw: unknown, source =
   return { registered: true };
 }
 
+export async function registerDepartmentMember(ctx: AuthContext, token: string) {
+  const row = await findRegistrationClass(token);
+  if (row.departmentId !== ctx.departmentId) {
+    throw new HttpError(403, "This class belongs to another department.");
+  }
+  if (!row.registrationEnabled || !["DRAFT", "ACTIVE"].includes(row.status)) {
+    throw new HttpError(409, "Registration is closed for this class.");
+  }
+
+  const enrollment = await prisma.$transaction(async (tx) => {
+    const membership = await tx.departmentMembership.findFirst({
+      where: { id: ctx.membershipId, userId: ctx.userId, departmentId: ctx.departmentId, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (!membership) throw new HttpError(403, "Your active department membership could not be verified.");
+
+    const existing = await tx.trainingClassEnrollment.findFirst({
+      where: { classId: row.id, membershipId: membership.id },
+      select: { id: true },
+    });
+    if (existing) return { id: existing.id, alreadyRegistered: true };
+
+    const rosterCount = await tx.trainingClassEnrollment.count({ where: { classId: row.id } });
+    if (rosterCount >= 250) throw new HttpError(409, "Registration is full. Contact the instructor.");
+
+    const created = await tx.trainingClassEnrollment.create({
+      data: { classId: row.id, membershipId: membership.id },
+      select: { id: true },
+    });
+    return { id: created.id, alreadyRegistered: false };
+  }).catch((error: unknown) => {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      return { id: "", alreadyRegistered: true };
+    }
+    throw error;
+  });
+
+  if (!enrollment.alreadyRegistered) {
+    await writeActivity(ctx.departmentId, "CLASS_MEMBER_REGISTERED", {
+      referenceId: row.id,
+      userId: ctx.userId,
+      metadata: { enrollmentId: enrollment.id, source: "CLASS_QR_APP", membershipId: ctx.membershipId, memberName: ctx.name },
+    });
+  }
+  return {
+    registered: true,
+    alreadyRegistered: enrollment.alreadyRegistered,
+    classId: row.id,
+    title: row.title,
+    startsAt: row.startsAt,
+    location: row.location,
+  };
+}
+
 async function recalculateEnrollment(enrollmentId: string) {
   const enrollment = await prisma.trainingClassEnrollment.findUnique({
     where: { id: enrollmentId },
