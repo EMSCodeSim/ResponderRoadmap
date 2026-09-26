@@ -129,6 +129,11 @@ export async function handleApi(req: Request, path: string[]) {
 
     const ctx = requireDepartmentSession(session);
 
+    const appClassRegistration = match(path, "app/classes/register/:token");
+    if (method === "POST" && appClassRegistration) {
+      return jsonOk(await classes.registerDepartmentMember(ctx, appClassRegistration.token), 201);
+    }
+
     // Companion Roadmap app endpoints. These are intentionally scoped to the
     // authenticated member's own membership and never expose other members or
     // the user's private, device-local Career Road data.
