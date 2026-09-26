@@ -497,8 +497,8 @@ export async function registerDepartmentMember(ctx: AuthContext, token: string) 
   if (!enrollment.alreadyRegistered) {
     await writeActivity(ctx.departmentId, "CLASS_MEMBER_REGISTERED", {
       referenceId: row.id,
-      actorId: ctx.userId,
-      metadata: { enrollmentId: enrollment.id, source: "CLASS_QR_APP", membershipId: ctx.membershipId },
+      userId: ctx.userId,
+      metadata: { enrollmentId: enrollment.id, source: "CLASS_QR_APP", membershipId: ctx.membershipId, memberName: ctx.name },
     });
   }
   return {
