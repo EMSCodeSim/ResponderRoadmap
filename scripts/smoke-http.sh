@@ -51,7 +51,7 @@ TO=$(json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}')
 echo "$TO" | $JQ '.data.session.role == "TRAINING_OFFICER"' >/dev/null
 ok 'demo Training Officer login'
 json "$BASE/api/v1/auth/me" | $JQ '.data.role == "TRAINING_OFFICER"' >/dev/null
-json "$BASE/api/v1/dashboard" | $JQ '.data.summary.activeTaskBooks >= 0 and ((.data.memberProgress | type) == "array")' >/dev/null
+json "$BASE/api/v1/dashboard" | $JQ '.data.summary.activeTaskBooks >= 0 and ((.data.memberProgress | type) == "array") and ((.data.today.certificates | type) == "array") and any(.data.today.certificates[]?; .reason == "Expiration date missing")' >/dev/null
 json "$BASE/api/v1/inbox" | $JQ '[((.data.items // []) + (.data.needsAction // []))[] | select((.actionPath // "") | test("/department/assignments"))] | length == 0' >/dev/null
 json -X POST "$BASE/api/v1/ai/ask" -d '{"question":"How do I create a Task Book?","page":"/dashboard"}' | $JQ '.data.source == "facts"' >/dev/null
 json "$BASE/api/v1/department" | $JQ '.data.id != null' >/dev/null

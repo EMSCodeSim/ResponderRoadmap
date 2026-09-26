@@ -48,6 +48,7 @@ type Dashboard = {
     awaitingSignOff: number;
     awaitingEvaluation?: number;
     expiringSoon: number;
+    certificateIssues?: number;
     overdueRequirements: number;
     overdueMembers?: number;
     needsAttention?: number;
@@ -63,6 +64,8 @@ type Dashboard = {
     signOffTotal: number;
     followUp: TodayItem[];
     dueSoon: TodayItem[];
+    certificates: TodayItem[];
+    certificateTotal: number;
   };
   memberProgress?: Array<{
     id: string;
@@ -196,7 +199,7 @@ export default function DashboardPage() {
 }
 
 function OfficerToday({ data }: { data: Dashboard }) {
-  const today = data.today ?? { signOffs: [], signOffTotal: 0, followUp: [], dueSoon: [] };
+  const today = data.today ?? { signOffs: [], signOffTotal: 0, followUp: [], dueSoon: [], certificates: [], certificateTotal: 0 };
   const groups = [
     {
       title: "Review now",
@@ -208,13 +211,22 @@ function OfficerToday({ data }: { data: Dashboard }) {
       tone: "border-fire/30 bg-fire/5",
     },
     {
+      title: "Certificates",
+      count: today.certificateTotal,
+      empty: "No certificate records need attention.",
+      href: "/certifications",
+      items: today.certificates,
+      action: "Review",
+      tone: "border-amber-300 bg-amber-50/60",
+    },
+    {
       title: "Follow up",
       count: today.followUp.length,
       empty: "No stalled or overdue work.",
       href: "/assignments?status=OVERDUE",
       items: today.followUp,
       action: "Open",
-      tone: "border-amber-300 bg-amber-50/60",
+      tone: "border-navy-200 bg-white",
     },
     {
       title: "Due soon",
@@ -237,13 +249,13 @@ function OfficerToday({ data }: { data: Dashboard }) {
             {total > 0 ? `${total} item${total === 1 ? "" : "s"} need attention` : "Your department is caught up"}
           </h2>
           <p className="mt-1 text-sm text-navy-600">
-            {total > 0 ? "Work left to right: evaluations first, follow-up second, upcoming deadlines third." : "No evaluations, overdue follow-up, or upcoming deadlines need action right now."}
+            {total > 0 ? "Work left to right: evaluations, certificate records, member follow-up, then upcoming deadlines." : "No evaluations, certificate issues, overdue follow-up, or upcoming deadlines need action right now."}
           </p>
         </div>
         <Link href="/assignments" className="text-sm font-semibold text-fire underline">View all assignments</Link>
       </div>
 
-      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+      <div className="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
         {groups.map((group) => (
           <div key={group.title} className={`rounded-lg border p-4 ${group.tone}`}>
             <div className="flex items-center justify-between gap-3">
