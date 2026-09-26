@@ -103,12 +103,13 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <div>
             <p className={kicker}>Fire & EMS Training Readiness</p>
             <h1 className="mt-4 max-w-xl text-[2.35rem] font-semibold leading-[1.12] tracking-tight text-white sm:text-5xl">
-              Know what every member has done — and what they need next.
+              Digital Task Books and training tracking for Fire & EMS.
             </h1>
             <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/68">
-              Keep your current RMS. Responder Roadmap handles the training workflow around it: define expectations, assign and document training, verify completion, identify gaps, and export clean records back to the system your department already uses.
+              Create and assign firefighter Task Books, document evaluations, track member progress, and see what training needs attention next — while keeping your existing RMS.
             </p>
             <div className="mt-8"><Ctas demoHref={demoHref} /></div>
+            <Link href="/digital-firefighter-task-books" className="mt-4 inline-flex text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">Explore Digital Firefighter Task Books →</Link>
             <p className="mt-5 text-[13px] leading-6 text-white/45">
               Built specifically for Fire & EMS Training Officers. No account required for the demo.
               <span className="mt-1 block">A 12-person volunteer station is Station — $299/year. Same workflow as Free.</span>
