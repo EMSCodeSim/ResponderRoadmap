@@ -573,7 +573,7 @@ function AssignmentsInner() {
         <Card>
           {loading ? (
             <p role="status" className="p-5 text-sm text-navy-500">Loading assignments…</p>
-          ) : filtered.length === 0 ? (
+          ) : error ? null : filtered.length === 0 ? (
             <EmptyState
               title={rows.length ? "No matching assignments" : "No assignments yet"}
               body={rows.length
