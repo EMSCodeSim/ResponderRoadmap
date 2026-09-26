@@ -445,7 +445,7 @@ export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
 
 
 type TrainingGap = {
-  kind: "MISSING" | "EXPIRED" | "EXPIRING" | "OVERDUE_TASK_BOOK" | "INCOMPLETE_TASK_BOOK" | "TRAINING_HOURS";
+  kind: "MISSING" | "MISSING_DATE" | "EXPIRED" | "EXPIRING" | "OVERDUE_TASK_BOOK" | "INCOMPLETE_TASK_BOOK" | "TRAINING_HOURS";
   name: string;
   detail: string;
 };
@@ -522,6 +522,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
       const best = matching.map((credential) => ({ credential, status: credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire) }))
         .sort((a, b) => (a.status.health === "current" ? -1 : b.status.health === "current" ? 1 : 0))[0];
       if (!best) return [];
+      if (!best.credential.doesNotExpire && !best.credential.expirationDate) return [{ kind: "MISSING_DATE" as const, name: type.name, detail: "Expiration date missing" }];
       if (best.status.health === "expired") return [{ kind: "EXPIRED" as const, name: type.name, detail: best.status.label }];
       if (best.status.health === "expiring") return [{ kind: "EXPIRING" as const, name: type.name, detail: best.status.label }];
       return [];
@@ -556,6 +557,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
   return {
     year, members: rows.length, membersWithGaps: withGaps.length, totalGaps: withGaps.reduce((sum, row) => sum + row.gapCount, 0),
     missingCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "MISSING").length, 0),
+    missingCredentialDates: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "MISSING_DATE").length, 0),
     expiredCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRED").length, 0),
     expiringCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRING").length, 0),
     trainingHourGaps: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "TRAINING_HOURS").length, 0),
