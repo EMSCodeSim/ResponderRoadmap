@@ -15,16 +15,16 @@ export const metadata: Metadata = {
 export default function Page() {
   return <SeoProductPage
     kicker="Digital Firefighter Task Books"
-    title="Digital Task Books that show exactly where every member stands."
-    description="Responder Roadmap replaces paper packets and scattered spreadsheets with one focused workflow: create the Task Book, assign it, document evaluations, complete required approvals, and see progress across the department."
+    title="Digital Firefighter Task Books for qualification, evaluation, and progress tracking."
+    description="Move firefighter Task Books out of paper packets and scattered spreadsheets. Create department-specific digital Task Books, assign them to members, document evaluator sign-offs, complete required approvals, and track qualification progress from one Training Captain view."
     features={[
-      { title: "Create and reuse Task Books", body: "Build department-specific Task Books once, then assign the same approved structure to future members." },
+      { title: "Create and reuse firefighter Task Books", body: "Build department-specific Task Books once, then reuse them for probationary firefighters, driver/operators, company officers, specialty teams, and other qualification paths." },
       { title: "Track approved progress", body: "See how much of each Task Book is complete based on documented requirements and required approvals." },
-      { title: "Field-ready evaluations", body: "Evaluators can open a requirement, review the work, add notes, approve it, or return it for correction." },
+      { title: "Digital evaluator sign-offs", body: "Evaluators can open a requirement in the field, review the work, add notes, approve it, or return it for correction while preserving the department’s human evaluation process." },
       { title: "Department-wide visibility", body: "Training Captains can see who is progressing, who is waiting for evaluation, and where follow-up is needed." },
     ]}
-    secondTitle="A Task Book should be a development tool, not just a completed packet."
-    secondBody="Responder Roadmap keeps the qualification workflow simple while giving Training Captains enough visibility to help members move forward. It is designed to work alongside an existing RMS, LMS, or training-record system rather than forcing a department to replace everything."
+    secondTitle="Replace paper firefighter Task Books without replacing your department’s training records system."
+    secondBody="Responder Roadmap is built for the working life of a firefighter Task Book: assignment, individual requirements, evaluator notes and sign-offs, returned work, required approvals, and final completion. Training Captains can follow probationary firefighters, driver/operators, officers, and specialty qualifications without chasing paper packets or separate spreadsheets. Completed training records can then follow the department’s existing RMS or records process, so Roadmap improves the qualification workflow instead of trying to replace the official records system."
     related={[
       { href: "/training-captain-software", label: "Training Captain software" },
       { href: "/fire-department-training-tracker", label: "Fire department training tracker" },
