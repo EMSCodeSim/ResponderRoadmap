@@ -108,11 +108,6 @@ type Dashboard = {
   }>;
 };
 
-function place(item: TodayItem) {
-  const bits = [item.station, item.shift ? `Shift ${item.shift}` : null].filter(Boolean);
-  return bits.length ? bits.join(" · ") : null;
-}
-
 export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -311,40 +306,6 @@ function ActivationChecklist({ data }: { data: Dashboard }) {
   </Card>;
 }
 
-function RecommendedNextStep({ data }: { data: Dashboard }) {
-  const awaiting = data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff;
-  const members = data.summary.activeMembers;
-  const activeWork = data.summary.activeAssignments ?? data.summary.membersAssigned ?? 0;
-  const hasTaskBooks = data.summary.activeTaskBooks > 0;
-  const stalled = data.summary.stalledOver30 ?? 0;
-  const expiring = data.summary.expiringSoon;
-
-  const step =
-    members <= 1
-      ? { title: "Add your first member", text: "Roadmap becomes useful when another member can receive training and complete work.", href: "/department#add-people", action: "Add a member" }
-      : activeWork === 0 && !hasTaskBooks
-        ? { title: "Assign your first training", text: "Your roster is ready. Start the first real training loop by assigning work or a Task Book.", href: createAssignmentPath(), action: "Assign training" }
-        : awaiting > 0
-          ? { title: "Review submitted work", text: `${awaiting} requirement${awaiting === 1 ? " is" : "s are"} waiting for evaluation. Completing this closes the training loop for your members.`, href: "/evaluate", action: "Review evaluations" }
-          : stalled > 0
-            ? { title: "Follow up on stalled training", text: `${stalled} active assignment${stalled === 1 ? " has" : "s have"} had no movement for more than 30 days.`, href: "/assignments?stalled=30", action: "Review stalled work" }
-            : expiring > 0
-              ? { title: "Review upcoming certification expirations", text: `${expiring} certification${expiring === 1 ? " expires" : "s expire"} within 60 days.`, href: "/certifications?window=60", action: "Review certifications" }
-              : null;
-
-  if (!step) return null;
-  return <Card className="mb-6 border-fire/20 p-5">
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <div className="max-w-2xl">
-        <div className="kicker">Recommended next step</div>
-        <h2 className="display mt-1 text-xl font-bold">{step.title}</h2>
-        <p className="mt-1 text-sm text-navy-600">{step.text}</p>
-      </div>
-      <Link href={step.href} className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">{step.action} →</Link>
-    </div>
-  </Card>;
-}
-
 function InstructorHome({ data }: { data: Dashboard }) {
   const home = data.instructorHome;
   if (!home) return null;
@@ -374,31 +335,6 @@ function DepartmentReadiness({ members, current, readiness, attention, overdue, 
     <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">{items.map((item) => <Link key={item.label} href={item.href} className="rounded-md border border-navy-200 p-3 hover:border-navy-400"><div className="text-xs font-semibold text-navy-500">{item.label}</div><div className="mt-1 text-2xl font-bold text-navy-900">{item.value}</div></Link>)}</div>
     <p className="mt-3 text-xs text-navy-500">Readiness counts active members with active work and no current action flags. Members with no active work are shown separately in Team Readiness rather than assumed ready.</p>
   </Card>;
-}
-
-function AttentionSummary({ attention, total }: { attention: Dashboard["attention"]; total: number }) {
-  return <Card id="needs-attention" className="mt-6 scroll-mt-4 p-5">
-    <div className="flex items-baseline justify-between gap-3"><div><div className="kicker">Do this next</div><h2 className="display mt-1 text-2xl font-bold">Needs Attention</h2></div><span className="text-sm font-semibold text-navy-500">{total} member{total === 1 ? "" : "s"}</span></div>
-    {attention.length === 0 ? <p className="mt-3 text-sm text-navy-500">Nothing needs immediate attention.</p> : <ul className="mt-4 divide-y divide-navy-100">{attention.map((item, index) => <li key={index}><Link href={item.href} className="flex items-center justify-between gap-3 py-3 hover:text-fire"><span className="font-medium">{item.text}</span><span className="shrink-0 text-sm font-semibold">Review →</span></Link></li>)}</ul>}
-  </Card>;
-}
-
-function TrainingOpportunities({ stalled, expiring, awaiting, taskBooks }: { stalled: number; expiring: number; awaiting: number; taskBooks: Dashboard["taskBookProgress"] }) {
-  const weakest = taskBooks.filter((row) => row.assignedMembers > 0).sort((a,b) => a.averageProgress - b.averageProgress)[0];
-  const opportunities = [
-    stalled > 0 ? { title: "Stalled training", text: `${stalled} active assignment${stalled === 1 ? "" : "s"} have had no movement for more than 30 days.`, href: "/assignments?stalled=30", action: "Review stalled work" } : null,
-    awaiting > 0 ? { title: "Evaluation queue", text: `${awaiting} requirement${awaiting === 1 ? "" : "s"} are waiting for evaluator action.`, href: "/evaluate", action: "Review evaluations" } : null,
-    expiring > 0 ? { title: "Certification window", text: `${expiring} certification${expiring === 1 ? "" : "s"} expire within 60 days.`, href: "/certifications?window=60", action: "Review certifications" } : null,
-    weakest && weakest.averageProgress < 75 ? { title: "Training focus", text: `${weakest.title} has the lowest active average progress at ${weakest.averageProgress}%.`, href: "/task-books", action: "Review task book" } : null,
-  ].filter(Boolean).slice(0,3) as Array<{title:string;text:string;href:string;action:string}>;
-  if (!opportunities.length) return null;
-  return <section className="mt-6"><div className="kicker">Readiness intelligence</div><h2 className="display mt-1 text-2xl font-bold">Training Opportunities</h2><div className="mt-3 grid gap-3 lg:grid-cols-3">{opportunities.map((item) => <Card key={item.title} className="p-4"><h3 className="font-bold">{item.title}</h3><p className="mt-2 text-sm text-navy-600">{item.text}</p><Link href={item.href} className="mt-3 inline-block text-sm font-semibold text-fire underline">{item.action}</Link></Card>)}</div></section>;
-}
-
-function TrainingAreas({ rows }: { rows: Dashboard["taskBookProgress"] }) {
-  const active = rows.filter((row) => row.assignedMembers > 0);
-  if (!active.length) return null;
-  return <Card className="mt-6 p-5"><div><div className="kicker">Training areas</div><h2 className="display mt-1 text-2xl font-bold">Task Book Readiness</h2><p className="mt-1 text-sm text-navy-500">A compact view of real assigned task-book progress. This is not a compliance score.</p></div><div className="mt-4 divide-y divide-navy-100">{active.map((row) => <Link key={row.id} href="/task-books" className="grid grid-cols-[1fr_auto] items-center gap-4 py-3 hover:text-fire"><div><div className="font-semibold">{row.title}</div><div className="mt-1 text-xs text-navy-500">{row.assignedMembers} assigned · {row.overdue} overdue · {row.waitingSignOff} waiting evaluation</div></div><div className="text-right"><div className="font-bold">{row.averageProgress}%</div><div className="text-xs text-navy-500">avg progress</div></div></Link>)}</div></Card>;
 }
 
 function MemberHome({ data }: { data: Dashboard }) {
