@@ -43,7 +43,10 @@ jobs:
         run: npm ci
 
       - name: Apply production database schema
-        run: npx prisma db push
+        run: npm run db:push
+
+      - name: Apply isolated demo database schema
+        run: npm run db:demo:push
 
       - name: Provision isolated demo database
         run: npm run db:demo:setup
