@@ -174,6 +174,8 @@ export default function DashboardPage() {
         <MemberHome data={data} />
       ) : (
         <>
+          <OfficerWorkflow data={data} />
+          <ActivationChecklist data={data} />
           <RecommendedNextStep data={data} />
 
           <DepartmentReadiness
@@ -216,6 +218,55 @@ export default function DashboardPage() {
       </Card> : null}
     </div>
   );
+}
+
+function OfficerWorkflow({ data }: { data: Dashboard }) {
+  const awaiting = data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff;
+  const steps = [
+    { label: "1. Create", detail: "Build or select a Task Book", href: createTaskBookPath() },
+    { label: "2. Assign", detail: "Choose members and due dates", href: createAssignmentPath() },
+    { label: "3. Complete", detail: "Members submit work and evidence", href: "/assignments" },
+    { label: "4. Evaluate", detail: awaiting ? `${awaiting} waiting for review` : "Review and approve submitted work", href: "/evaluate" },
+    { label: "5. Export", detail: "Prepare completed training for RMS entry", href: "/reports?type=training-sheets" },
+  ];
+  return <section className="mb-6" aria-labelledby="officer-workflow-title">
+    <div className="kicker">Training Officer workflow</div>
+    <h2 id="officer-workflow-title" className="display mt-1 text-2xl font-bold">From assignment to RMS-ready training sheet</h2>
+    <p className="mt-1 text-sm text-navy-600">One operational path: create, assign, complete, evaluate, then prepare the verified training sheet for entry into your department records system.</p>
+    <div className="mt-3 grid gap-2 md:grid-cols-5">
+      {steps.map((step) => <Link key={step.label} href={step.href} className="rounded-lg border border-navy-200 bg-white p-3 hover:border-fire">
+        <div className="text-sm font-bold text-navy-950">{step.label}</div>
+        <div className="mt-1 text-xs text-navy-500">{step.detail}</div>
+      </Link>)}
+    </div>
+  </section>;
+}
+
+function ActivationChecklist({ data }: { data: Dashboard }) {
+  const activeWork = data.summary.activeAssignments ?? data.summary.membersAssigned ?? 0;
+  const items = [
+    { label: "Department created", done: true, href: "/settings" },
+    { label: "Add members", done: data.summary.activeMembers > 1, href: "/enrollment" },
+    { label: "Review evaluator access", done: null, href: "/evaluators" },
+    { label: "Publish a Task Book", done: data.summary.activeTaskBooks > 0, href: createTaskBookPath() },
+    { label: "Create the first assignment", done: activeWork > 0, href: createAssignmentPath() },
+  ];
+  const automaticItems = items.filter((item) => item.done !== null);
+  const completed = automaticItems.filter((item) => item.done).length;
+  if (automaticItems.every((item) => item.done)) return null;
+  return <Card className="mb-6 p-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><div className="kicker">First-use checklist</div><h2 className="display mt-1 text-xl font-bold">Activate your department</h2><p className="mt-1 text-sm text-navy-600">Complete these setup steps before relying on readiness totals.</p></div>
+      <span className="rounded-full bg-navy-100 px-3 py-1 text-sm font-bold text-navy-700">{completed} of {automaticItems.length} detected</span>
+    </div>
+    <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      {items.map((item) => <Link key={item.label} href={item.href} className="flex min-h-12 items-center gap-2 rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold hover:border-fire">
+        <span aria-hidden="true" className={item.done ? "text-current" : "text-navy-400"}>{item.done ? "✓" : item.done === null ? "→" : "○"}</span>
+        <span>{item.label}</span>
+      </Link>)}
+    </div>
+    <p className="mt-3 text-xs text-navy-500">Sample content can be copied into your department; the original demo content stays unchanged.</p>
+  </Card>;
 }
 
 function RecommendedNextStep({ data }: { data: Dashboard }) {

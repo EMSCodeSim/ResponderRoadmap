@@ -117,7 +117,7 @@ function ReportsInner() {
       <PageHeader
         kicker="Reports"
         title="Department reports"
-        description="Operational snapshots for training officers. Export is available now as CSV; print uses the browser dialog."
+        description="Operational snapshots for training officers. Export completed records for entry into your department RMS; no direct RMS connection is implied."
         actions={
           <>
             <Button
@@ -146,7 +146,7 @@ function ReportsInner() {
           ["progress", "Task Book Progress"],
           ["certs", "Certification Status"],
           ["record", "Member Training Record"],
-          ["training-sheets", "RMS Training Sheets"],
+          ["training-sheets", "Completed Training Sheets for RMS Entry"],
           ["training-hours", "Training Hours"],
           ["training-gaps", "Training Gaps"],
           ["compliance", "Department Compliance"],
@@ -265,9 +265,9 @@ function ReportsInner() {
       {report === "training-sheets" && (
         <div className="space-y-4">
           <Card className="p-5">
-            <h2 className="display text-2xl font-bold">RMS Training Sheets</h2>
+            <h2 className="display text-2xl font-bold">Completed Training Sheets for RMS Entry</h2>
             <p className="mt-1 max-w-3xl text-sm text-navy-600">
-              Each sheet groups members assigned to the same training at the same time. When the training window closes, use the completed list to enter the verified training into your department RMS or official record system.
+              Each sheet groups members assigned to the same training at the same time. When the training window closes, use the completed list to enter verified training into your department RMS or official record system.
             </p>
           </Card>
           {trainingSheets.length === 0 ? (

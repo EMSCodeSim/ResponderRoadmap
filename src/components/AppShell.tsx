@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, Menu, Settings, Users, X } from "lucide-react";
+import { AlertTriangle, BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -66,9 +66,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     return [
       home,
-      { href: "/task-books", label: "Training", icon: BookOpen, visible: allowed.has("task-books") || allowed.has("training-assignments") || allowed.has("classes"), paths: [...TRAINING_PATHS, ...ASSIGNMENT_PATHS, "/classes", "/evaluate"] },
-      { href: "/members", label: "Members", icon: Users, visible: allowed.has("members"), paths: ["/members", "/enrollment", "/evaluators"] },
-      { href: "/reports", label: "Records", icon: ClipboardList, visible: allowed.has("reports") || allowed.has("certifications"), paths: ["/reports", "/certifications"] },
+      { href: "/dashboard#needs-attention", label: "Needs Attention", icon: AlertTriangle, visible: allowed.has("dashboard"), paths: [] },
+      { href: "/evaluate", label: "Evaluations", icon: ListChecks, visible: allowed.has("evaluate"), paths: ["/evaluate"] },
+      { href: "/task-books", label: "Task Books", icon: BookOpen, visible: allowed.has("task-books"), paths: TRAINING_PATHS },
+      { href: "/assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments"), paths: ASSIGNMENT_PATHS },
+      { href: "/classes", label: "Classes & Rosters", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
+      { href: "/members", label: "People", icon: Users, visible: allowed.has("members"), paths: ["/members", "/enrollment", "/evaluators"] },
+      { href: "/reports", label: "Reports", icon: ClipboardList, visible: allowed.has("reports") || allowed.has("certifications"), paths: ["/reports", "/certifications"] },
     ].filter((item) => item.visible);
   }, [session]);
 
