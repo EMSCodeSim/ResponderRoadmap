@@ -23,6 +23,7 @@ type Attempt = {
   signedAt: string;
   repetitionIndex: number;
   criticalFailures: string[];
+  stepResults: Array<{ id: string; rating: string }>;
 };
 
 type Evidence = {
@@ -61,6 +62,7 @@ type RecordPayload = {
       title: string;
       isRequired: boolean;
       repetitionsRequired: number;
+      evaluationSteps: Array<{ id: string; text: string }>;
       standards: Array<{ organization: string; standardName: string; section: string; edition: string }>;
       completion: {
         id: string;
@@ -178,7 +180,7 @@ export default function PrintRecordPage() {
                         {completion.signOffs.map((sign) => (
                           <li key={sign.id} className="border-l-2 border-navy-200 pl-3">
                             <div className="font-semibold">{sign.evaluatorName} · {human(sign.approvalLevel)} · {human(sign.result)}</div>
-                            <div className="text-xs text-navy-500">{formatDateTime(sign.signedAt)} · Repetition {sign.repetitionIndex}</div>
+                            <div className="text-xs text-navy-500">{formatDateTime(sign.signedAt)} · Repetition {sign.repetitionIndex} · Event ID {sign.id}</div>
                             {sign.notes ? <div className="mt-1">{sign.notes}</div> : null}
                           </li>
                         ))}
@@ -193,7 +195,17 @@ export default function PrintRecordPage() {
                         {completion.attempts.map((attempt) => (
                           <li key={attempt.id} className="border-l-2 border-navy-200 pl-3">
                             <div className="font-semibold">{attempt.evaluatorName} · {human(attempt.result)}</div>
-                            <div className="text-xs text-navy-500">{formatDateTime(attempt.signedAt)} · Repetition {attempt.repetitionIndex}</div>
+                            <div className="text-xs text-navy-500">{formatDateTime(attempt.signedAt)} · Repetition {attempt.repetitionIndex} · Attempt ID {attempt.id}</div>
+                            {attempt.stepResults.length ? (
+                              <ul className="mt-2 space-y-1 text-xs">
+                                {attempt.stepResults.map((step) => (
+                                  <li key={step.id} className="flex justify-between gap-4 border-b border-navy-100 pb-1">
+                                    <span>{req.evaluationSteps.find((criterion) => criterion.id === step.id)?.text || `Criterion ${step.id}`}</span>
+                                    <span className="font-semibold">{human(step.rating)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
                             {attempt.comments ? <div className="mt-1">{attempt.comments}</div> : null}
                             {attempt.criticalFailures.length ? <div className="mt-1 text-xs">Critical failures: {attempt.criticalFailures.join(", ")}</div> : null}
                           </li>
@@ -235,6 +247,8 @@ export default function PrintRecordPage() {
 
       <footer className="mt-8 border-t border-navy-200 pt-3 text-xs text-navy-500">
         Assignment record created {formatDateTime(data.recordCreatedAt)} · Last server update {formatDateTime(data.recordUpdatedAt)}
+        <br />
+        Assignment ID {params.id} · Issued Task Book version ID {data.issuedVersionId}. Sign-off and attempt event IDs are included above for audit traceability.
       </footer>
     </div>
   );
