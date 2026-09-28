@@ -239,17 +239,18 @@ function OfficerToday({ data }: { data: Dashboard }) {
     },
   ];
   const total = groups.reduce((sum, group) => sum + group.count, 0);
+  const urgent = today.signOffTotal + today.certificateTotal + today.followUp.length;
 
-  return <section className="mb-6" aria-labelledby="today-priorities-title">
+  return <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="kicker">Training Officer action board</div>
           <h2 id="today-priorities-title" className="display mt-1 text-2xl font-bold">
-            {total > 0 ? `${total} item${total === 1 ? "" : "s"} need attention` : "Your department is caught up"}
+            {urgent > 0 ? `${urgent} action${urgent === 1 ? "" : "s"} need you today` : total > 0 ? `${total} upcoming item${total === 1 ? "" : "s"} to watch` : "Your department is caught up"}
           </h2>
           <p className="mt-1 text-sm text-navy-600">
-            {total > 0 ? "Work left to right: evaluations, certificate records, member follow-up, then upcoming deadlines." : "No evaluations, certificate issues, overdue follow-up, or upcoming deadlines need action right now."}
+            {urgent > 0 ? "Work left to right: evaluations, certificate records, then stalled or overdue members. Due-soon work is shown for awareness, not counted as an action until it needs intervention." : total > 0 ? "Nothing requires intervention right now. Due-soon work is listed so you can stay ahead." : "No evaluations, certificate issues, overdue follow-up, or upcoming deadlines need action right now."}
           </p>
         </div>
         <Link href="/assignments" className="text-sm font-semibold text-fire underline">View all assignments</Link>
