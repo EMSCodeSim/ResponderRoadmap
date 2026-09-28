@@ -175,17 +175,25 @@ export async function getInbox(ctx: AuthContext) {
       ? Promise.resolve(null)
       : prisma.departmentMembership.findUnique({ where: { id: ctx.membershipId }, select: { evaluatorStatus: true } }),
   ]);
-  const reviewerItems = evaluatorMembership?.evaluatorStatus === "SUSPENDED" ? [] : evaluatorActions.filter((item) => {
-    if (ctx.role !== "EVALUATOR") return true;
+  const canReview = ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(ctx.role);
+  const reviewerItems = !canReview || evaluatorMembership?.evaluatorStatus === "SUSPENDED" ? [] : evaluatorActions.filter((item) => {
     const stage = reviewStageForRequirement({
       evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
       supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
       signOffs: item.signOffs,
       submittedAt: item.submittedAt,
     });
+
+    if (stage === "SUPERVISOR") {
+      const supervisor = item.assignment.supervisorId;
+      if (supervisor) return supervisor === ctx.userId;
+      return ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
+    }
+
     if (stage !== "EVALUATOR") return false;
-    const owner = item.requestedEvaluatorId || item.assignment.evaluatorId;
-    return !owner || owner === ctx.userId;
+    const evaluator = item.requestedEvaluatorId || item.assignment.evaluatorId;
+    if (evaluator) return evaluator === ctx.userId;
+    return ctx.role === "EVALUATOR" || ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
   });
   return {
     serverTime: new Date(),
@@ -193,7 +201,22 @@ export async function getInbox(ctx: AuthContext) {
     items,
     needsAction: [
       ...memberActions.map((item) => ({ id: item.id, kind: "MEMBER_CORRECTION", title: item.requirement.title, subtitle: item.requirement.section.version.template.title, submittedAt: item.submittedAt, actionPath: assignmentRecordPath(item.assignmentId) })),
-      ...reviewerItems.map((item) => ({ id: item.id, kind: "EVALUATOR_REVIEW", title: item.requirement.title, subtitle: item.membership.user.name, submittedAt: item.submittedAt, actionPath: "/evaluate" })),
+      ...reviewerItems.map((item) => {
+        const stage = reviewStageForRequirement({
+          evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+          supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
+          signOffs: item.signOffs,
+          submittedAt: item.submittedAt,
+        });
+        return {
+          id: item.id,
+          kind: stage === "SUPERVISOR" ? "SUPERVISOR_REVIEW" : "EVALUATOR_REVIEW",
+          title: item.requirement.title,
+          subtitle: `${item.membership.user.name} · ${stage === "SUPERVISOR" ? "Supervisor approval" : "Evaluator review"}`,
+          submittedAt: item.submittedAt,
+          actionPath: `/evaluate?focus=${encodeURIComponent(item.id)}`,
+        };
+      }),
     ],
   };
 }
