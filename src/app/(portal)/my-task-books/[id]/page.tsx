@@ -120,7 +120,7 @@ export default function MyTaskBookDetailPage() {
     setMessage("Saving submission…");
 
     const send = () =>
-      api<Detail & { submissionReceipt?: { receiptId: string; recordedAt: string | null; status: string } }>(
+      api<Detail & { submissionReceipt?: { receiptId: string; recordedAt: string | null; status: string; replayed?: boolean } }>(
         `assignments/${params.id}/requirements/${requirementId}/submit`,
         { method: "POST", body: JSON.stringify(payload) },
       );
@@ -142,7 +142,7 @@ export default function MyTaskBookDetailPage() {
       setMessage(
         detail.submissionReceipt?.recordedAt
           ? `Submitted and synced · ${new Date(detail.submissionReceipt.recordedAt).toLocaleString()}`
-          : "Submitted and synced.",
+          : detail.submissionReceipt?.replayed ? "Submission already received · safely synced." : "Submitted and synced.",
       );
       setNotes("");
       setEvidence("");
