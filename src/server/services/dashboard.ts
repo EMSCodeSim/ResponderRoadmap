@@ -392,9 +392,10 @@ export async function getDashboard(ctx: AuthContext) {
               : row.activeAssignments === 0
                 ? "No active work"
                 : "On track";
+      const memberPending = completions.find((item) => item.membershipId === row.id);
       const nextAction =
         row.pendingApproval > 0
-          ? { label: "Review evaluation", href: "/evaluate" }
+          ? { label: "Review evaluation", href: memberPending ? `/evaluate?focus=${memberPending.id}` : "/evaluate" }
           : row.overdue > 0
             ? { label: "Open overdue work", href: memberProgressPath(row.id) }
             : certificateIssue
