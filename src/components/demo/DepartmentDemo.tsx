@@ -200,9 +200,10 @@ function Welcome({ liveDemoHref, onStart }: { liveDemoHref: string; onStart: () 
       </ol>
       <p className="mt-6 text-sm text-white/50">{DEMO_DEPARTMENT_NAME} — {DEMO_DEPARTMENT_TAG}. Isolated fictional records. Nothing you do here touches a real department.</p>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <button type="button" onClick={onStart} className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#E11D48] px-6 text-sm font-bold hover:bg-[#BE123C]">Start Demo</button>
-        <Link href={liveDemoHref} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/30 px-6 text-sm font-bold hover:bg-white/10">Explore on My Own</Link>
+        <Link href={liveDemoHref} className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#E11D48] px-6 text-sm font-bold hover:bg-[#BE123C]">Open Current Department Dashboard</Link>
+        <button type="button" onClick={onStart} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/30 px-6 text-sm font-bold hover:bg-white/10">Guided Product Tour</button>
       </div>
+      <p className="mt-3 text-xs text-white/45">The live workspace uses the same current dashboard as a department account. The guided tour is a simplified walkthrough of the core workflow.</p>
     </main>
   );
 }

@@ -103,6 +103,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
               Fire &amp; EMS training readiness software for Training Officers, Chiefs, Captains, and instructors. Know what every member has completed, what they are working on, and what they need next.
             </p>
             <div className="mt-8"><Ctas demoHref={demoHref} /></div>
+            <Link href="/digital-firefighter-task-books" className="mt-4 inline-flex text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">Explore Digital Firefighter Task Books →</Link>
             <p className="mt-5 text-[13px] leading-6 text-white/45">
               Built for Fire &amp; EMS departments. No account required for the demo.
               <span className="mt-1 block">A 12-person volunteer station is Station, $299/year.</span>

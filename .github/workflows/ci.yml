@@ -43,7 +43,10 @@ jobs:
         run: npm ci
 
       - name: Apply production database schema
-        run: npx prisma db push
+        run: npm run db:push
+
+      - name: Apply isolated demo database schema
+        run: npm run db:demo:push
 
       - name: Provision isolated demo database
         run: npm run db:demo:setup
@@ -78,3 +81,5 @@ jobs:
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-training-workflows.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-class-results.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-qr-registration.sh
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-training-sheet-templates.sh
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-close-training-validation.sh

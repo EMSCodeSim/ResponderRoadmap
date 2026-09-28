@@ -6,6 +6,15 @@ import { assignmentRecordPath, createAssignmentPath, memberProgressPath } from "
 import { credentialStatus } from "@/lib/dates";
 import { parseMetadata as parseMeta } from "@/server/http";
 
+function parseStringArray(value: string) {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getDashboard(ctx: AuthContext) {
   assertPermission(ctx, "dashboard.read");
   if (ctx.role === "MEMBER") {
@@ -16,7 +25,7 @@ export async function getDashboard(ctx: AuthContext) {
   }
   const departmentId = ctx.departmentId;
 
-  const [members, assignments, completions, credentials, events, templates] = await Promise.all([
+  const [members, assignments, completions, credentials, events, templates, credentialTypes, expectations] = await Promise.all([
     prisma.departmentMembership.findMany({
       where: { departmentId, status: "ACTIVE" },
       include: { user: true },
@@ -52,6 +61,8 @@ export async function getDashboard(ctx: AuthContext) {
       where: { departmentId, status: "ACTIVE" },
       include: { versions: { include: { _count: { select: { assignments: true } } } } },
     }),
+    prisma.credentialType.findMany({ where: { departmentId } }),
+    prisma.trainingExpectation.findMany({ where: { departmentId, active: true } }),
   ]);
 
   const assignmentRows = assignments.map((assignment) => {
@@ -79,6 +90,88 @@ export async function getDashboard(ctx: AuthContext) {
   const credentialRows = credentials.map((item) => ({ item, status: credentialStatus(item.expirationDate, undefined, item.doesNotExpire) }));
   const expiringSoon = credentialRows.filter((row) => row.status.health === "expiring");
   const expired = credentialRows.filter((row) => row.status.health === "expired");
+
+  const expectationProfiles = expectations.map((profile) => ({
+    matchRanks: parseStringArray(profile.matchRanksJson),
+    matchPositions: parseStringArray(profile.matchPositionsJson),
+    credentialTypeIds: parseStringArray(profile.credentialTypeIdsJson),
+  }));
+  const credentialRequirements = credentialTypes.map((type) => ({
+    ...type,
+    requiredRanks: parseStringArray(type.requiredRanksJson),
+    requiredPositions: parseStringArray(type.requiredPositionsJson),
+  }));
+  const certificateAttention: Array<{
+    memberId: string;
+    memberName: string;
+    taskBookTitle: string;
+    reason: string;
+    href: string;
+    severity: number;
+  }> = [];
+  const certificateKeys = new Set<string>();
+  const addCertificateAttention = (item: (typeof certificateAttention)[number], key: string) => {
+    if (certificateKeys.has(key)) return;
+    certificateKeys.add(key);
+    certificateAttention.push(item);
+  };
+
+  const credentialGroups = new Map<string, typeof credentials>();
+  for (const credential of credentials) {
+    const key = `${credential.membershipId}:${credential.credentialTypeId || credential.credentialName.toLowerCase()}`;
+    const group = credentialGroups.get(key) ?? [];
+    group.push(credential);
+    credentialGroups.set(key, group);
+  }
+  for (const [key, group] of credentialGroups) {
+    const rows = group.map((credential) => ({ credential, status: credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire) }));
+    if (rows.some((row) => row.status.health === "current")) continue;
+    const issue = rows.find((row) => row.status.health === "expired")
+      ?? rows.find((row) => !row.credential.doesNotExpire && !row.credential.expirationDate)
+      ?? rows.find((row) => row.status.health === "expiring");
+    if (!issue) continue;
+    const reason = issue.status.health === "expired"
+      ? issue.status.label
+      : !issue.credential.expirationDate
+        ? "Expiration date missing"
+        : issue.status.label;
+    addCertificateAttention({
+      memberId: issue.credential.membershipId,
+      memberName: issue.credential.membership.user.name,
+      taskBookTitle: issue.credential.credentialName,
+      reason,
+      href: `/members/${issue.credential.membershipId}?tab=certifications`,
+      severity: issue.status.health === "expired" ? 0 : !issue.credential.expirationDate ? 1 : 2,
+    }, key);
+  }
+
+  for (const member of members) {
+    const profileCredentialIds = new Set(expectationProfiles
+      .filter((profile) =>
+        (member.rank ? profile.matchRanks.includes(member.rank) : false) ||
+        (member.position ? profile.matchPositions.includes(member.position) : false),
+      )
+      .flatMap((profile) => profile.credentialTypeIds));
+    const applicable = credentialRequirements.filter((type) =>
+      profileCredentialIds.has(type.id) || type.requiredForAll ||
+      (member.rank ? type.requiredRanks.includes(member.rank) : false) ||
+      (member.position ? type.requiredPositions.includes(member.position) : false));
+    for (const type of applicable) {
+      const matching = credentials.some((credential) =>
+        credential.membershipId === member.id &&
+        (credential.credentialTypeId === type.id || credential.credentialName.toLowerCase() === type.name.toLowerCase()));
+      if (matching) continue;
+      addCertificateAttention({
+        memberId: member.id,
+        memberName: member.user.name,
+        taskBookTitle: type.name,
+        reason: "Required certificate missing",
+        href: `/members/${member.id}?tab=certifications`,
+        severity: 0,
+      }, `${member.id}:${type.id}`);
+    }
+  }
+  certificateAttention.sort((a, b) => a.severity - b.severity || a.memberName.localeCompare(b.memberName) || a.taskBookTitle.localeCompare(b.taskBookTitle));
 
   const attention = [];
   if (expiringSoon.length) {
@@ -272,9 +365,16 @@ export async function getDashboard(ctx: AuthContext) {
     });
   }
 
+  const certificateAttentionByMember = new Map<string, (typeof certificateAttention)[number]>();
+  for (const issue of certificateAttention) {
+    if (!certificateAttentionByMember.has(issue.memberId)) certificateAttentionByMember.set(issue.memberId, issue);
+  }
+
   const memberProgress = [...memberProgressMap.values()]
     .map((row) => {
-      const status = memberOperationalStatus(row.assignments);
+      const certificateIssue = certificateAttentionByMember.get(row.id);
+      const assignmentStatus = memberOperationalStatus(row.assignments);
+      const status = certificateIssue && assignmentStatus !== "Awaiting Evaluation" ? "Needs Attention" : assignmentStatus;
       const percent = row.activeAssignments > 0 && row.totalRequired
         ? Math.round((row.complete / row.totalRequired) * 100)
         : row.assignments.length > 0 && row.assignments.every((item) => item.status === "COMPLETE")
@@ -285,6 +385,8 @@ export async function getDashboard(ctx: AuthContext) {
           ? `${row.pendingApproval} awaiting evaluation`
           : row.overdue > 0
             ? `${row.overdue} overdue requirement${row.overdue === 1 ? "" : "s"}`
+            : certificateIssue
+              ? `${certificateIssue.taskBookTitle}: ${certificateIssue.reason}`
             : row.activeAssignments > 0 && row.maxStalledDays >= 14
               ? `No recorded activity for ${row.maxStalledDays} days`
               : row.activeAssignments === 0
@@ -295,6 +397,8 @@ export async function getDashboard(ctx: AuthContext) {
           ? { label: "Review evaluation", href: "/evaluate" }
           : row.overdue > 0
             ? { label: "Open overdue work", href: memberProgressPath(row.id) }
+            : certificateIssue
+              ? { label: "Review certificate", href: certificateIssue.href }
             : row.activeAssignments > 0 && row.maxStalledDays >= 14
               ? { label: "Follow up", href: memberProgressPath(row.id) }
               : row.activeAssignments === 0
@@ -337,6 +441,7 @@ export async function getDashboard(ctx: AuthContext) {
       awaitingSignOff: completions.length,
       awaitingEvaluation: completions.length,
       expiringSoon: expiringSoon.length,
+      certificateIssues: certificateAttention.length,
       overdueRequirements: overdueAssignments.reduce((sum, row) => sum + row.progress.overdue, 0),
       overdueMembers: overdueMembers.size,
       needsAttention: new Set([
@@ -345,6 +450,7 @@ export async function getDashboard(ctx: AuthContext) {
         ...completions.map((item) => item.membershipId),
         ...expiringSoon.map((row) => row.item.membershipId),
         ...expired.map((row) => row.item.membershipId),
+        ...certificateAttention.map((item) => item.memberId),
       ]).size,
       currentMembers: memberProgress.filter((row) => row.activeAssignments > 0 && row.status === "On Track").length,
       readinessPercent: members.length
@@ -375,6 +481,8 @@ export async function getDashboard(ctx: AuthContext) {
       signOffTotal: completions.length,
       followUp,
       dueSoon,
+      certificates: certificateAttention.slice(0, 8),
+      certificateTotal: certificateAttention.length,
     },
     attention,
     taskBookProgress,

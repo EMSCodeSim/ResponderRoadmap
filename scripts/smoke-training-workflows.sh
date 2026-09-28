@@ -28,8 +28,10 @@ check_status 200 "$BASE/classes"
 api -X POST "$BASE/api/v1/ai/ask" -d '{"question":"Who needs my attention?","page":"/dashboard"}' | jq -e '.data.source == "facts" and ((.data.links | length) > 0)' >/dev/null
 SETUP=$(api "$BASE/api/v1/classes/setup")
 MEMBER=$(echo "$SETUP" | jq -r '.data.members[] | select(.role == "MEMBER") | .id' | head -n1)
-PROCTOR=$(echo "$SETUP" | jq -r '.data.proctors[0].userId')
-[[ -n "$MEMBER" && "$MEMBER" != null && -n "$PROCTOR" && "$PROCTOR" != null ]] || { echo 'Missing demo member or proctor' >&2; exit 1; }
+# Class creation runs as the Training Officer. Use that authenticated officer as
+# the proctor instead of assuming the first setup proctor is permitted to create.
+PROCTOR=$(echo "$SETUP" | jq -r '.data.proctors[] | select(.role == "TRAINING_OFFICER") | .userId' | head -n1)
+[[ -n "$MEMBER" && "$MEMBER" != null && -n "$PROCTOR" && "$PROCTOR" != null ]] || { echo 'Missing demo member or Training Officer proctor' >&2; exit 1; }
 echo 'QA: Create, publish, and assign single task'
 STARTER=$(api "$BASE/api/v1/task-books/starters" | jq -r '.data[0].id')
 TASK=$(api -X POST "$BASE/api/v1/task-books" -d "$(jq -nc --arg starter "$STARTER" '{title:"QA Single Task Smoke", templateKind:"TRAINING_TASK", starterId:$starter}')")
@@ -42,7 +44,7 @@ api "$BASE/api/v1/assignments" | jq -e --arg id "$TASK_ID" '([.data[] | select(.
 echo 'QA: Create class, enroll member and rotate registration'
 VERSION=$(echo "$SETUP" | jq -r '.data.checklists[0].id')
 [[ -n "$VERSION" && "$VERSION" != null ]]
-CLASS=$(api -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION" --arg member "$MEMBER" --arg proctor "$PROCTOR" '{title:"QA Isolated Training Class",classType:"GENERAL",checklistVersionId:$version,startsAt:"2026-10-15T12:00:00.000Z",membershipIds:[$member],proctorUserIds:[$proctor],selfRegistration:true}')")
+CLASS=$(api -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION" --arg member "$MEMBER" --arg proctor "$PROCTOR" '{title:"QA Isolated Training Class",classType:"GENERAL",trainingCategory:"COMPANY",creditHours:1,checklistVersionId:$version,startsAt:"2026-10-15T12:00:00.000Z",endsAt:"2026-10-15T13:00:00.000Z",location:"QA Station",notes:"Isolated CI training workflow",membershipIds:[$member],proctorUserIds:[$proctor],selfRegistration:true}')")
 CLASS_ID=$(echo "$CLASS" | jq -r '.data.id')
 [[ -n "$CLASS_ID" && "$CLASS_ID" != null ]]
 echo "$CLASS" | jq -e --arg member "$MEMBER" '(.data.registrationEnabled == true) and ((.data.registrationToken | length) == 64) and (.data.roster | any(.membershipId == $member))' >/dev/null

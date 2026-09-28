@@ -80,15 +80,15 @@ export function ManagementDashboard({ awaitingSignOff }: { awaitingSignOff: numb
   }
 
   const tabs: Array<{ id: Tab; label: string }> = [
-    { id: "attention", label: `Needs Attention (${flaggedMemberCount})` },
-    { id: "all", label: `All work (${active.length})` },
-    { id: "approvals", label: `Awaiting Evaluation (${awaitingSignOff})` },
+    { id: "attention", label: `Assigned work follow-up (${flaggedMemberCount} members)` },
+    { id: "all", label: `All active records (${active.length})` },
+    { id: "approvals", label: `Submitted for sign-off (${awaitingSignOff})` },
   ];
 
   return <section id="department-overview" className="mt-6 scroll-mt-4" aria-labelledby="department-operations-title">
     <Card className="overflow-hidden border-navy-200">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-navy-200 p-5">
-        <div><div className="kicker">Search</div><h2 id="department-operations-title" className="display mt-1 text-2xl font-bold">Find a record</h2><p className="mt-1 text-sm text-navy-500">Search Task Books and Assignments without repeating the Home metrics.</p></div>
+        <div><div className="kicker">Search</div><h2 id="department-operations-title" className="display mt-1 text-2xl font-bold">Find a record</h2><p className="mt-1 text-sm text-navy-500">This queue counts members with overdue, awaiting-review, or inactive assigned work. Home attention also includes certification issues and uses the selected inactivity threshold here only for this queue.</p></div>
         <Button variant="secondary" disabled={busy} onClick={() => void refresh()}>{busy ? "Refreshing…" : "Refresh data"}</Button>
       </div>
       {error ? <p role="alert" className="mx-5 mt-4 text-sm text-danger">{error}</p> : null}

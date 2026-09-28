@@ -14,7 +14,7 @@ MEMBER=$(echo "$SETUP" | jq -r '[.data.members[] | select(.role == "MEMBER")][0]
 VERSION=$(echo "$SETUP" | jq -r '.data.checklists[0].id')
 [[ -n "$MEMBER" && "$MEMBER" != null && -n "$VERSION" && "$VERSION" != null ]]
 BEFORE=$(api "$BASE/api/v1/assignments" | jq -r --arg id "$MEMBER" '[.data[] | select(.memberId == $id) | .complete] | add // 0')
-CLASS=$(api -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION" --arg member "$MEMBER" --arg proctor "$PROCTOR" '{title:"QA Attendance and Skills Regression",classType:"GENERAL",checklistVersionId:$version,startsAt:"2026-10-16T12:00:00.000Z",membershipIds:[$member],proctorUserIds:[$proctor]}')")
+CLASS=$(api -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION" --arg member "$MEMBER" --arg proctor "$PROCTOR" '{title:"QA Attendance and Skills Regression",classType:"GENERAL",trainingCategory:"COMPANY",creditHours:1,checklistVersionId:$version,startsAt:"2026-10-16T12:00:00.000Z",endsAt:"2026-10-16T13:00:00.000Z",location:"QA Station",notes:"Attendance and skills regression",membershipIds:[$member],proctorUserIds:[$proctor]}')")
 CLASS_ID=$(echo "$CLASS" | jq -r '.data.id')
 ENROLLMENT_ID=$(echo "$CLASS" | jq -r '.data.roster[0].id')
 SKILL_ID=$(echo "$CLASS" | jq -r '[.data.sections[].skills[]][0].id')

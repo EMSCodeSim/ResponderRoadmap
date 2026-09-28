@@ -24,7 +24,8 @@ export default function GettingStartedPage() {
   const [inviteLink, setInviteLink] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("MEMBER");
-  const [busy, setBusy] = useState(false);\n  const [savingProfile, setSavingProfile] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const refresh = useCallback(async () => {
     try {

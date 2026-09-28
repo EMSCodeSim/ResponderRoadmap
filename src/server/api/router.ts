@@ -13,6 +13,7 @@ import * as inbox from "@/server/services/inbox";
 import * as classes from "@/server/services/classes";
 import * as evaluators from "@/server/services/evaluators";
 import * as trainingExpectations from "@/server/services/training-expectations";
+import * as trainingSheetTemplates from "@/server/services/training-sheet-templates";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
@@ -128,6 +129,11 @@ export async function handleApi(req: Request, path: string[]) {
 
     const ctx = requireDepartmentSession(session);
 
+    const appClassRegistration = match(path, "app/classes/register/:token");
+    if (method === "POST" && appClassRegistration) {
+      return jsonOk(await classes.registerDepartmentMember(ctx, appClassRegistration.token), 201);
+    }
+
     // Companion Roadmap app endpoints. These are intentionally scoped to the
     // authenticated member's own membership and never expose other members or
     // the user's private, device-local Career Road data.
@@ -205,6 +211,21 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk(await evaluators.reassignEvaluator(ctx, evaluatorReassign.userId, body.newEvaluatorId));
     }
 
+    if (method === "GET" && match(path, "training-sheet-templates")) {
+      return jsonOk(await trainingSheetTemplates.listTrainingSheetTemplates(ctx, q.archived === "all"));
+    }
+    if (method === "POST" && match(path, "training-sheet-templates")) {
+      return jsonOk(await trainingSheetTemplates.createTrainingSheetTemplate(ctx, await readBody(req)), 201);
+    }
+    const trainingSheetTemplate = match(path, "training-sheet-templates/:id");
+    if (method === "PATCH" && trainingSheetTemplate) {
+      return jsonOk(await trainingSheetTemplates.updateTrainingSheetTemplate(ctx, trainingSheetTemplate.id, await readBody(req)));
+    }
+    const archiveTrainingSheetTemplate = match(path, "training-sheet-templates/:id/archive");
+    if (method === "POST" && archiveTrainingSheetTemplate) {
+      return jsonOk(await trainingSheetTemplates.archiveTrainingSheetTemplate(ctx, archiveTrainingSheetTemplate.id));
+    }
+
     if (method === "GET" && match(path, "classes/setup")) return jsonOk(await classes.getClassSetup(ctx));
     if (method === "GET" && match(path, "classes")) return jsonOk(await classes.listClasses(ctx, q));
     if (method === "POST" && match(path, "classes")) {
@@ -215,6 +236,10 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "POST" && classRegistration) {
       const body = await readBody(req);
       return jsonOk(await classes.manageClassRegistration(ctx, classRegistration.id, body.action));
+    }
+    const classCloseValidation = match(path, "classes/:id/close-validation");
+    if (method === "GET" && classCloseValidation) {
+      return jsonOk(await classes.validateClassClosure(ctx, classCloseValidation.id));
     }
     const classStatus = match(path, "classes/:id/status");
     if (method === "POST" && classStatus) {
@@ -231,6 +256,13 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await classes.recordSkillResult(ctx, classSkill.id, classSkill.enrollmentId, classSkill.requirementId, body));
     }
+    const classCsvExport = match(path, "classes/:id/export.csv");
+    if (method === "GET" && classCsvExport) {
+      const csv = await classes.getClassCsvExport(ctx, classCsvExport.id);
+      return new Response(csv, { status: 200, headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="training-${classCsvExport.id}.csv"`, "cache-control": "private, no-store" } });
+    }
+    const classExportRecord = match(path, "classes/:id/export");
+    if (method === "GET" && classExportRecord) return jsonOk(await classes.getClassExportRecord(ctx, classExportRecord.id));
     const classDetail = match(path, "classes/:id");
     if (method === "GET" && classDetail) return jsonOk(await classes.getClass(ctx, classDetail.id));
 

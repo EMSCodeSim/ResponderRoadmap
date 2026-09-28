@@ -12,6 +12,7 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "tsx scripts/safe-db-push.ts",
+    "db:demo:push": "tsx scripts/safe-demo-db-push.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
     "db:setup": "prisma generate && prisma db push && tsx prisma/seed.ts",
