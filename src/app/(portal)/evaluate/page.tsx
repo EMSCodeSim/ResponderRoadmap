@@ -61,8 +61,12 @@ function EvaluateInner() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sameReviewerOverride, setSameReviewerOverride] = useState(false);
+  const [groupRequirementId, setGroupRequirementId] = useState<string>("");
   const [overrideReason, setOverrideReason] = useState("");
   const escalatedCount = queue.filter((item) => item.escalated).length;
+  const groupOptions = Array.from(new Map(queue.map((item) => [item.requirementTitle, item])).values());
+  const activeQueue = groupRequirementId ? queue.filter((item) => item.requirementTitle === groupRequirementId) : queue;
+  const activeIndex = selected ? activeQueue.findIndex((item) => item.id === selected.id) : -1;
 
   async function load() {
     const rows = await api<QueueItem[]>(`sign-offs?view=${view === "recent" ? "recent" : view === "remediation" ? "remediation" : ""}`);
@@ -148,9 +152,13 @@ function EvaluateInner() {
           overrideReason: result === "APPROVED" ? overrideReason.trim() : "",
         }),
       });
-      setMessage(result === "APPROVED" ? "Signed. This attempt is in the audit history." : result === "NEEDS_REMEDIATION" ? "Returned for remediation. Prior attempts were kept." : "Marked not evaluated.");
+      const nextInGroup = groupRequirementId
+        ? activeQueue.find((item) => item.id !== selected.id && activeQueue.indexOf(item) > activeIndex) || activeQueue.find((item) => item.id !== selected.id)
+        : null;
+      setMessage(result === "APPROVED" ? "Signed. This member has an individual audit record." : result === "NEEDS_REMEDIATION" ? "Returned for remediation. Prior attempts were kept." : "Marked not evaluated.");
       setAttested(false);
       await load();
+      if (nextInGroup) setSelected(nextInGroup);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to record evaluation.");
     } finally {
@@ -166,6 +174,36 @@ function EvaluateInner() {
         title="Needs My Evaluation"
         description="Field-friendly sign-off. Open a task, mark the checklist, then sign with a large control."
       />
+      {view === "queue" && groupOptions.length > 0 ? (
+        <Card className="mb-4 p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="kicker">Group practical mode</div>
+              <h2 className="display mt-1 text-xl font-bold">Evaluate one skill across multiple members</h2>
+              <p className="mt-1 text-sm text-navy-600">Choose a submitted skill, then evaluate each member individually. There is no bulk-pass action.</p>
+            </div>
+            {groupRequirementId ? <span className="rounded-full bg-navy-100 px-3 py-1 text-sm font-bold">{Math.max(activeIndex + 1, 1)} of {activeQueue.length}</span> : null}
+          </div>
+          <label className="mt-3 block text-sm font-semibold text-navy-800">
+            Skill / requirement
+            <select
+              className="mt-1 min-h-11 w-full rounded-md border border-navy-200 bg-white px-3"
+              value={groupRequirementId}
+              onChange={(event) => {
+                const value = event.target.value;
+                setGroupRequirementId(value);
+                if (value) setSelected(queue.find((item) => item.requirementTitle === value) || null);
+              }}
+            >
+              <option value="">All submitted evaluations</option>
+              {groupOptions.map((item) => {
+                const count = queue.filter((row) => row.requirementTitle === item.requirementTitle).length;
+                return <option key={item.requirementTitle} value={item.requirementTitle}>{item.requirementTitle} · {count} member{count === 1 ? "" : "s"}</option>;
+              })}
+            </select>
+          </label>
+        </Card>
+      ) : null}
       <div className="mb-4 flex flex-wrap gap-2">
         <Link href="/evaluate" className={`min-h-11 rounded-md px-3 py-2 text-sm font-semibold ${view === "queue" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
           Needs My Evaluation
@@ -205,7 +243,7 @@ function EvaluateInner() {
         <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
           <Card>
             <ul>
-              {queue.map((item) => (
+              {activeQueue.map((item) => (
                 <li key={item.id}>
                   <button
                     type="button"
@@ -422,13 +460,13 @@ function EvaluateInner() {
               {view !== "recent" && selected.evaluationSteps.some((step) => !steps[step.id]) ? <p className="mt-2 text-sm text-navy-600">Rate each criterion explicitly before signing. Unrated criteria are not assumed to pass.</p> : null}
               {view !== "recent" && !attested && !critical.length ? <p className="mt-2 text-sm text-navy-500">Check “I verify this completion” to enable PASS & SIGN.</p> : null}
               {view !== "recent" ? <p className="mt-3 text-center text-sm font-semibold text-navy-700">The signed evaluation is stored in the append-only audit history.</p> : null}
-              {view !== "recent" && queue.length > 1 ? (
+              {view !== "recent" && activeQueue.length > 1 ? (
                 <Button
                   variant="secondary"
                   className="mt-4 w-full"
                   onClick={() => {
-                    const idx = queue.findIndex((item) => item.id === selected.id);
-                    setSelected(queue[(idx + 1) % queue.length]);
+                    const idx = activeQueue.findIndex((item) => item.id === selected.id);
+                    setSelected(activeQueue[(idx + 1) % activeQueue.length]);
                   }}
                 >
                   Next member / task
