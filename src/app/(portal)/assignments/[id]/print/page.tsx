@@ -62,6 +62,7 @@ type RecordPayload = {
       title: string;
       isRequired: boolean;
       repetitionsRequired: number;
+      evaluationSteps: Array<{ id: string; text: string }>;
       standards: Array<{ organization: string; standardName: string; section: string; edition: string }>;
       completion: {
         id: string;
@@ -199,7 +200,7 @@ export default function PrintRecordPage() {
                               <ul className="mt-2 space-y-1 text-xs">
                                 {attempt.stepResults.map((step) => (
                                   <li key={step.id} className="flex justify-between gap-4 border-b border-navy-100 pb-1">
-                                    <span>Criterion {step.id}</span>
+                                    <span>{req.evaluationSteps.find((criterion) => criterion.id === step.id)?.text || `Criterion ${step.id}`}</span>
                                     <span className="font-semibold">{human(step.rating)}</span>
                                   </li>
                                 ))}
