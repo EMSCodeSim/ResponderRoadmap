@@ -420,6 +420,7 @@ export async function submitRequirement(
         recordedAt: existing.submittedAt,
         recordedByUserId: ctx.userId,
         recordedByName: ctx.name,
+        replayed: true,
       },
     };
   }
@@ -474,7 +475,43 @@ export async function submitRequirement(
   const fullyRepeated = storedRepetitionCount >= repetitionsRequired;
   const now = new Date();
 
-  const completion = await prisma.requirementCompletion.upsert({
+  if (existing && clientRequestId) {
+    const claimed = await prisma.requirementCompletion.updateMany({
+      where: { id: existing.id, NOT: { lastSubmissionRequestId: clientRequestId } },
+      data: {
+        status: nextStatus,
+        memberNotes: requirement.memberNotesAllowed
+          ? input.memberNotes?.trim() ?? existing.memberNotes ?? ""
+          : existing.memberNotes ?? "",
+        submittedAt: now,
+        completedAt: !needsReview && fullyRepeated ? now : null,
+        repetitionCount: storedRepetitionCount,
+        lastSubmissionRequestId: clientRequestId,
+        requestedEvaluatorId,
+      },
+    });
+    if (claimed.count === 0) {
+      const recorded = await prisma.requirementCompletion.findUnique({ where: { id: existing.id } });
+      return {
+        assignment: await getMyAssignment(ctx, assignment.id),
+        receipt: {
+          receiptId: existing.id,
+          clientRequestId,
+          assignmentId: assignment.id,
+          requirementId: requirement.id,
+          status: recorded?.status || existing.status,
+          recordedAt: recorded?.submittedAt || existing.submittedAt,
+          recordedByUserId: ctx.userId,
+          recordedByName: ctx.name,
+          replayed: true,
+        },
+      };
+    }
+  }
+
+  const completion = existing && clientRequestId
+    ? (await prisma.requirementCompletion.findUnique({ where: { id: existing.id } }))!
+    : await prisma.requirementCompletion.upsert({
     where: {
       assignmentId_requirementId: {
         assignmentId: assignment.id,
@@ -578,6 +615,7 @@ export async function submitRequirement(
       recordedAt: now,
       recordedByUserId: ctx.userId,
       recordedByName: ctx.name,
+      replayed: false,
     },
   };
 }
