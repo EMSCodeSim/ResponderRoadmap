@@ -109,6 +109,14 @@ function EvaluateInner() {
 
   async function evaluate(result: "APPROVED" | "NEEDS_REMEDIATION" | "NOT_EVALUATED") {
     if (!selected) return;
+    if (result === "APPROVED" && selected.evaluationSteps.some((step) => !steps[step.id])) {
+      setError("Rate every evaluation criterion before signing. No criterion is assumed to pass.");
+      return;
+    }
+    if (result === "APPROVED" && selected.evaluationSteps.some((step) => steps[step.id] !== "MEETS")) {
+      setError("Every evaluation criterion must meet the standard before signing approval.");
+      return;
+    }
     if (result === "APPROVED" && !attested) {
       setError("Check ‘I verify this completion’ before signing the approval.");
       document.getElementById("field-evaluation-attestation")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -127,7 +135,7 @@ function EvaluateInner() {
     setBusy(true);
     setError(null);
     try {
-      const stepResults = selected.evaluationSteps.map((step) => ({ id: step.id, rating: steps[step.id] || "MEETS" }));
+      const stepResults = selected.evaluationSteps.map((step) => ({ id: step.id, rating: steps[step.id] || "NOT_EVALUATED" }));
       await api(`sign-offs/${selected.id}`, {
         method: "POST",
         body: JSON.stringify({
@@ -291,7 +299,7 @@ function EvaluateInner() {
                               type="button"
                               onClick={() => setSteps({ ...steps, [step.id]: rating })}
                               className={`min-h-12 rounded-md border px-3 text-sm font-semibold ${
-                                (steps[step.id] || "MEETS") === rating ? "border-navy-900 bg-navy-900 text-white" : "border-navy-200"
+                                steps[step.id] === rating ? "border-navy-900 bg-navy-900 text-white" : "border-navy-200"
                               }`}
                             >
                               {STEP_RATING_LABELS[rating]}
@@ -398,7 +406,7 @@ function EvaluateInner() {
                 <Button
                   className="min-h-16 text-base"
                   variant="success"
-                  disabled={busy || critical.length > 0 || !attested || (selected.sameReviewerConflict && (!selected.sameReviewerOverrideAllowed || !sameReviewerOverride || !overrideReason.trim()))}
+                  disabled={busy || critical.length > 0 || !attested || selected.evaluationSteps.some((step) => steps[step.id] !== "MEETS") || (selected.sameReviewerConflict && (!selected.sameReviewerOverrideAllowed || !sameReviewerOverride || !overrideReason.trim()))}
                   onClick={() => evaluate("APPROVED")}
                 >
                   PASS & SIGN
@@ -411,6 +419,7 @@ function EvaluateInner() {
                 </Button>
               </div>}
               {view !== "recent" && critical.length ? <p className="mt-2 text-sm text-danger">A critical failure is marked. This attempt cannot pass.</p> : null}
+              {view !== "recent" && selected.evaluationSteps.some((step) => !steps[step.id]) ? <p className="mt-2 text-sm text-navy-600">Rate each criterion explicitly before signing. Unrated criteria are not assumed to pass.</p> : null}
               {view !== "recent" && !attested && !critical.length ? <p className="mt-2 text-sm text-navy-500">Check “I verify this completion” to enable PASS & SIGN.</p> : null}
               {view !== "recent" ? <p className="mt-3 text-center text-sm font-semibold text-navy-700">The signed evaluation is stored in the append-only audit history.</p> : null}
               {view !== "recent" && queue.length > 1 ? (
