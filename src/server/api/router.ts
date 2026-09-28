@@ -3,6 +3,7 @@ import { handleError, jsonError, jsonOk } from "@/server/http";
 import * as auth from "@/server/services/auth";
 import * as members from "@/server/services/members";
 import * as taskbooks from "@/server/services/taskbooks";
+import * as taskbookAi from "@/server/services/taskbook-ai";
 import * as assignments from "@/server/services/assignments";
 import * as credentials from "@/server/services/credentials";
 import * as dashboard from "@/server/services/dashboard";
@@ -287,6 +288,14 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk(await members.approveMembership(ctx, memberApprove.id, body.approve !== false));
     }
 
+    if (method === "POST" && match(path, "task-books/ai/draft")) {
+      const body = await readBody(req);
+      return jsonOk(await taskbookAi.generateTaskBookDraft(ctx, String(body.prompt || "")));
+    }
+    if (method === "POST" && match(path, "task-books/ai/import-pdf")) {
+      const body = await readBody(req);
+      return jsonOk(await taskbookAi.importPdfTaskBookDraft(ctx, body));
+    }
     if (method === "GET" && match(path, "task-books")) return jsonOk(await taskbooks.listTaskBooks(ctx, q));
     if (method === "GET" && match(path, "task-books/starters")) return jsonOk(taskbooks.listStarters());
     if (method === "POST" && match(path, "task-books")) {
