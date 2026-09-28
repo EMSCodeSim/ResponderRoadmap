@@ -684,6 +684,7 @@ export async function submitRequirement(
         requirementId,
         status: existing.status,
         recordedAt: existing.submittedAt,
+        replayed: true,
       },
     };
   }
@@ -716,7 +717,44 @@ export async function submitRequirement(
   const storedRepetitionCount = needsReview ? currentRepetitionCount : submittedRepetition;
   const nextStatus = needsReview ? "SUBMITTED" : "APPROVED";
   const now = new Date();
-  const completion = await prisma.requirementCompletion.upsert({
+  // Existing rows use a compare-and-set update keyed by the client request ID.
+  // If two identical retries arrive together, only one may transition the row;
+  // the other returns the already-recorded server receipt without duplicating
+  // evidence, audit events, activity, or reviewer notifications.
+  if (existing && clientRequestId) {
+    const claimed = await prisma.requirementCompletion.updateMany({
+      where: { id: existing.id, NOT: { lastSubmissionRequestId: clientRequestId } },
+      data: {
+        status: nextStatus,
+        memberNotes: input.notes?.trim() || "",
+        submittedAt: now,
+        completedAt: !needsReview && storedRepetitionCount >= repetitionsRequired ? now : null,
+        repetitionCount: storedRepetitionCount,
+        hoursLogged: input.hours ?? undefined,
+        requestedEvaluatorId: input.evaluatorId || assignment.evaluatorId,
+        lastSubmissionRequestId: clientRequestId,
+      },
+    });
+    if (claimed.count === 0) {
+      const recorded = await prisma.requirementCompletion.findUnique({ where: { id: existing.id } });
+      return {
+        ...(await getAssignmentDetail(ctx, assignmentId)),
+        submissionReceipt: {
+          receiptId: existing.id,
+          clientRequestId,
+          assignmentId,
+          requirementId,
+          status: recorded?.status || existing.status,
+          recordedAt: recorded?.submittedAt || existing.submittedAt,
+          replayed: true,
+        },
+      };
+    }
+  }
+
+  const completion = existing && clientRequestId
+    ? (await prisma.requirementCompletion.findUnique({ where: { id: existing.id } }))!
+    : await prisma.requirementCompletion.upsert({
     where: { assignmentId_requirementId: { assignmentId, requirementId } },
     create: {
       assignmentId,
@@ -809,6 +847,7 @@ export async function submitRequirement(
       requirementId,
       status: nextStatus,
       recordedAt: now,
+      replayed: false,
     },
   };
 }
