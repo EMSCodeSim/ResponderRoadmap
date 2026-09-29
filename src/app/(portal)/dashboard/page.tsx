@@ -58,8 +58,11 @@ type Dashboard = {
     averageCompletion?: number;
     currentMembers?: number;
     readinessPercent?: number;
+    pendingJoinRequests?: number;
   };
   today?: {
+    joinRequests: TodayItem[];
+    joinRequestTotal: number;
     signOffs: TodayItem[];
     signOffTotal: number;
     followUp: TodayItem[];
@@ -166,7 +169,7 @@ export default function DashboardPage() {
         <MemberHome data={data} />
       ) : (
         <>
-          <OfficerToday data={data} />
+          <OfficerToday data={data} onRefresh={loadDashboard} />
           <ActivationChecklist data={data} />
 
           <DepartmentReadiness
@@ -198,9 +201,40 @@ export default function DashboardPage() {
   );
 }
 
-function OfficerToday({ data }: { data: Dashboard }) {
-  const today = data.today ?? { signOffs: [], signOffTotal: 0, followUp: [], dueSoon: [], certificates: [], certificateTotal: 0 };
+function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => Promise<void> }) {
+  const today = data.today ?? { joinRequests: [], joinRequestTotal: 0, signOffs: [], signOffTotal: 0, followUp: [], dueSoon: [], certificates: [], certificateTotal: 0 };
+  const [joinBusy, setJoinBusy] = useState<string | null>(null);
+  const [joinMessage, setJoinMessage] = useState<string | null>(null);
+
+  async function decideJoinRequest(item: TodayItem, approve: boolean) {
+    if (!item.id) return;
+    setJoinBusy(item.id);
+    setJoinMessage(null);
+    try {
+      await api(`members/${item.id}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ approve }),
+      });
+      setJoinMessage(`${item.memberName} was ${approve ? "approved" : "rejected"}.`);
+      await onRefresh();
+    } catch (err) {
+      setJoinMessage(err instanceof Error ? err.message : "Unable to update membership.");
+    } finally {
+      setJoinBusy(null);
+    }
+  }
+
   const groups = [
+    {
+      title: "Member approvals",
+      count: today.joinRequestTotal,
+      empty: "No member join requests are waiting.",
+      href: "/enrollment",
+      items: today.joinRequests,
+      action: "Approve",
+      kind: "join" as const,
+      tone: "border-sky-300 bg-sky-50/60",
+    },
     {
       title: "Review now",
       count: today.signOffTotal,
@@ -208,6 +242,7 @@ function OfficerToday({ data }: { data: Dashboard }) {
       href: "/evaluate",
       items: today.signOffs,
       action: "Review",
+      kind: "link" as const,
       tone: "border-fire/30 bg-fire/5",
     },
     {
@@ -217,6 +252,7 @@ function OfficerToday({ data }: { data: Dashboard }) {
       href: "/certifications",
       items: today.certificates,
       action: "Review",
+      kind: "link" as const,
       tone: "border-amber-300 bg-amber-50/60",
     },
     {
@@ -226,6 +262,7 @@ function OfficerToday({ data }: { data: Dashboard }) {
       href: "/assignments?status=OVERDUE",
       items: today.followUp,
       action: "Open",
+      kind: "link" as const,
       tone: "border-navy-200 bg-white",
     },
     {
@@ -235,11 +272,12 @@ function OfficerToday({ data }: { data: Dashboard }) {
       href: "/assignments",
       items: today.dueSoon,
       action: "Open",
+      kind: "link" as const,
       tone: "border-navy-200 bg-white",
     },
   ];
   const total = groups.reduce((sum, group) => sum + group.count, 0);
-  const urgent = today.signOffTotal + today.certificateTotal + today.followUp.length;
+  const urgent = today.joinRequestTotal + today.signOffTotal + today.certificateTotal + today.followUp.length;
 
   return <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
     <Card className="p-5">
@@ -250,13 +288,14 @@ function OfficerToday({ data }: { data: Dashboard }) {
             {urgent > 0 ? `${urgent} action${urgent === 1 ? "" : "s"} need you today` : total > 0 ? `${total} upcoming item${total === 1 ? "" : "s"} to watch` : "Your department is caught up"}
           </h2>
           <p className="mt-1 text-sm text-navy-600">
-            {urgent > 0 ? "Work left to right: evaluations, certificate records, then stalled or overdue members. Due-soon work is shown for awareness, not counted as an action until it needs intervention." : total > 0 ? "Nothing requires intervention right now. Due-soon work is listed so you can stay ahead." : "No evaluations, certificate issues, overdue follow-up, or upcoming deadlines need action right now."}
+            {urgent > 0 ? "Work left to right: member approvals, evaluations, certificate records, then stalled or overdue members. Due-soon work is shown for awareness, not counted as an action until it needs intervention." : total > 0 ? "Nothing requires intervention right now. Due-soon work is listed so you can stay ahead." : "No evaluations, certificate issues, overdue follow-up, or upcoming deadlines need action right now."}
           </p>
         </div>
         <Link href="/assignments" className="text-sm font-semibold text-fire underline">View all assignments</Link>
       </div>
 
-      <div className="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+      {joinMessage ? <p className="mt-3 text-sm font-semibold text-navy-700">{joinMessage}</p> : null}
+      <div className="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-5">
         {groups.map((group) => (
           <div key={group.title} className={`rounded-lg border p-4 ${group.tone}`}>
             <div className="flex items-center justify-between gap-3">
@@ -268,18 +307,42 @@ function OfficerToday({ data }: { data: Dashboard }) {
             ) : (
               <ul className="mt-3 divide-y divide-navy-200">
                 {group.items.slice(0, 4).map((item, index) => (
-                  <li key={item.id ?? `${group.title}-${item.memberId}-${index}`}>
-                    <Link href={item.href} className="block py-3 hover:text-fire">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-semibold">{item.memberName}</div>
-                          <div className="mt-0.5 text-sm text-navy-600">{item.requirementTitle ?? item.taskBookTitle}</div>
-                          {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
-                          {item.dueDate ? <div className="mt-1 text-xs text-navy-500">Due {new Date(item.dueDate).toLocaleDateString()}</div> : null}
+                  <li key={item.id ?? `${group.title}-${item.memberId}-${index}`} className="py-3">
+                    {group.kind === "join" ? (
+                      <div>
+                        <div className="font-semibold">{item.memberName}</div>
+                        <div className="mt-0.5 text-sm text-navy-600">{item.taskBookTitle}</div>
+                        {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            variant="success"
+                            disabled={joinBusy !== null}
+                            onClick={() => void decideJoinRequest(item, true)}
+                          >
+                            {joinBusy === item.id ? "Working…" : "Approve"}
+                          </Button>
+                          <Button
+                            variant="danger"
+                            disabled={joinBusy !== null}
+                            onClick={() => void decideJoinRequest(item, false)}
+                          >
+                            Reject
+                          </Button>
                         </div>
-                        <span className="shrink-0 text-xs font-bold text-fire">{group.action} →</span>
                       </div>
-                    </Link>
+                    ) : (
+                      <Link href={item.href} className="block hover:text-fire">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-semibold">{item.memberName}</div>
+                            <div className="mt-0.5 text-sm text-navy-600">{item.requirementTitle ?? item.taskBookTitle}</div>
+                            {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
+                            {item.dueDate ? <div className="mt-1 text-xs text-navy-500">Due {new Date(item.dueDate).toLocaleDateString()}</div> : null}
+                          </div>
+                          <span className="shrink-0 text-xs font-bold text-fire">{group.action} →</span>
+                        </div>
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
