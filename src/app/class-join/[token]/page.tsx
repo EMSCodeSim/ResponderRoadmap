@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 
 type ClassInfo = { title: string; startsAt: string; location: string; open: boolean };
+type MemberRegistration = { registered: boolean; alreadyRegistered?: boolean; title?: string };
 
 export default function PublicClassJoinPage() {
   const { token } = useParams<{ token: string }>();
@@ -16,6 +17,9 @@ export default function PublicClassJoinPage() {
   const [consent, setConsent] = useState(false);
   const [website, setWebsite] = useState("");
   const [done, setDone] = useState(false);
+  const [memberDone, setMemberDone] = useState(false);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [checkingMember, setCheckingMember] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -23,6 +27,26 @@ export default function PublicClassJoinPage() {
     api<ClassInfo>(`public/classes/${encodeURIComponent(token)}`)
       .then(setInfo)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to load this class."));
+
+    // A department member who scans the class QR should be enrolled by their
+    // authenticated membership, not treated as a guest whose email must happen
+    // to match. If there is no authenticated department session, fall back to
+    // the public guest form below.
+    api<MemberRegistration>(`app/classes/register/${encodeURIComponent(token)}`, { method: "POST" })
+      .then((result) => {
+        if (result.registered) {
+          setAlreadyRegistered(Boolean(result.alreadyRegistered));
+          setMemberDone(true);
+        }
+      })
+      .catch((err: unknown) => {
+        // 401/403 is expected for a guest or signed-out browser. Do not turn it
+        // into a registration error; the guest form remains available.
+        if (err instanceof ApiError && ![401, 403].includes(err.status)) {
+          setError(err.message);
+        }
+      })
+      .finally(() => setCheckingMember(false));
   }, [token]);
 
   async function register(event: FormEvent<HTMLFormElement>) {
@@ -51,7 +75,14 @@ export default function PublicClassJoinPage() {
           <>
             <h1 className="display mt-3 text-3xl font-bold">{info.title}</h1>
             <p className="mt-2 text-sm text-navy-600">{new Date(info.startsAt).toLocaleString()}{info.location ? ` · ${info.location}` : ""}</p>
-            {done ? (
+            {checkingMember ? (
+              <p className="mt-6 rounded-lg border border-navy-200 bg-navy-50 p-4 text-sm" role="status">Checking your Responder Roadmap membership…</p>
+            ) : memberDone ? (
+              <div className="mt-6 rounded-xl border border-green-300 bg-green-50 p-5" role="status">
+                <h2 className="font-bold">{alreadyRegistered ? "You’re already on the roster" : "You’re on the roster"}</h2>
+                <p className="mt-2 text-sm">Your department membership is linked directly to this class. The instructor can now see you on the roster and record attendance and evaluation results.</p>
+              </div>
+            ) : done ? (
               <div className="mt-6 rounded-xl border border-green-300 bg-green-50 p-5" role="status">
                 <h2 className="font-bold">Registration received</h2>
                 <p className="mt-2 text-sm">Your information has been submitted for this class roster. An instructor will confirm attendance and record results. Registration is not certification or completion.</p>
@@ -60,7 +91,7 @@ export default function PublicClassJoinPage() {
               <p className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4" role="status">Registration is closed. Contact your instructor.</p>
             ) : (
               <form onSubmit={register} className="mt-6 space-y-4">
-                <p className="text-sm text-navy-600">Enter your own information. A department account is not required.</p>
+                <p className="text-sm text-navy-600">Not signed in as a department member? Enter your information to join as a guest.</p>
                 <label className="block text-sm font-semibold">Full name
                   <input className="mt-1 min-h-11 w-full rounded-lg border border-navy-200 px-3" value={name} onChange={(event) => setName(event.target.value)} required minLength={2} maxLength={120} autoComplete="name" />
                 </label>
