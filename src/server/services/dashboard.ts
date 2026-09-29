@@ -1,10 +1,15 @@
 import { prisma } from "@/server/db";
-import { assertPermission, type AuthContext } from "@/server/permissions";
+import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress, daysStalled, requirementIsComplete } from "@/lib/progress";
 import { memberOperationalStatus } from "@/lib/member-status";
 import { assignmentRecordPath, createAssignmentPath, memberProgressPath } from "@/lib/routes";
 import { credentialStatus } from "@/lib/dates";
 import { parseMetadata as parseMeta } from "@/server/http";
+import type { Role } from "@/lib/constants";
+
+export function canManagePendingMemberApprovals(role: Role) {
+  return hasPermission(role, "invitations.write") && hasPermission(role, "members.write");
+}
 
 function parseStringArray(value: string) {
   try {
@@ -25,7 +30,7 @@ export async function getDashboard(ctx: AuthContext) {
   }
   const departmentId = ctx.departmentId;
 
-  const [members, assignments, completions, credentials, events, templates, credentialTypes, expectations] = await Promise.all([
+  const [members, assignments, completions, credentials, events, templates, credentialTypes, expectations, pendingJoinRequests] = await Promise.all([
     prisma.departmentMembership.findMany({
       where: { departmentId, status: "ACTIVE" },
       include: { user: true },
@@ -63,6 +68,13 @@ export async function getDashboard(ctx: AuthContext) {
     }),
     prisma.credentialType.findMany({ where: { departmentId } }),
     prisma.trainingExpectation.findMany({ where: { departmentId, active: true } }),
+    canManagePendingMemberApprovals(ctx.role)
+      ? prisma.departmentMembership.findMany({
+          where: { departmentId, status: "PENDING" },
+          include: { user: { select: { name: true, email: true } } },
+          orderBy: { joinedAt: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   const assignmentRows = assignments.map((assignment) => {
@@ -174,6 +186,13 @@ export async function getDashboard(ctx: AuthContext) {
   certificateAttention.sort((a, b) => a.severity - b.severity || a.memberName.localeCompare(b.memberName) || a.taskBookTitle.localeCompare(b.taskBookTitle));
 
   const attention = [];
+  if (pendingJoinRequests.length) {
+    attention.push({
+      tone: "info",
+      text: `${pendingJoinRequests.length} member join request${pendingJoinRequests.length === 1 ? "" : "s"} awaiting approval`,
+      href: "/enrollment",
+    });
+  }
   if (expiringSoon.length) {
     attention.push({
       tone: "warn",
@@ -452,7 +471,7 @@ export async function getDashboard(ctx: AuthContext) {
         ...expiringSoon.map((row) => row.item.membershipId),
         ...expired.map((row) => row.item.membershipId),
         ...certificateAttention.map((item) => item.memberId),
-      ]).size,
+      ]).size + pendingJoinRequests.length,
       currentMembers: memberProgress.filter((row) => row.activeAssignments > 0 && row.status === "On Track").length,
       readinessPercent: members.length
         ? Math.round((memberProgress.filter((row) => row.activeAssignments > 0 && row.status === "On Track").length / members.length) * 100)
@@ -460,12 +479,22 @@ export async function getDashboard(ctx: AuthContext) {
       stalledOver30: stalled.length,
       completedThisMonth,
       membersAssigned: assignmentRows.length,
+      pendingJoinRequests: pendingJoinRequests.length,
       averageCompletion: assignmentRows.length
         ? Math.round(assignmentRows.reduce((sum, row) => sum + row.progress.percent, 0) / assignmentRows.length)
         : 0,
     },
     memberProgress,
     today: {
+      joinRequests: pendingJoinRequests.slice(0, 8).map((membership) => ({
+        id: membership.id,
+        memberId: membership.id,
+        memberName: membership.user.name,
+        taskBookTitle: "Department membership",
+        reason: `Join-code request · ${membership.user.email}`,
+        href: "/enrollment",
+      })),
+      joinRequestTotal: pendingJoinRequests.length,
       signOffs: completions.slice(0, 8).map((item) => ({
         id: item.id,
         assignmentId: item.assignmentId,
