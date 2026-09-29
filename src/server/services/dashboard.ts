@@ -5,6 +5,11 @@ import { memberOperationalStatus } from "@/lib/member-status";
 import { assignmentRecordPath, createAssignmentPath, memberProgressPath } from "@/lib/routes";
 import { credentialStatus } from "@/lib/dates";
 import { parseMetadata as parseMeta } from "@/server/http";
+import type { Role } from "@/lib/constants";
+
+export function canManagePendingMemberApprovals(role: Role) {
+  return hasPermission(role, "invitations.write") && hasPermission(role, "members.write");
+}
 
 function parseStringArray(value: string) {
   try {
@@ -63,7 +68,7 @@ export async function getDashboard(ctx: AuthContext) {
     }),
     prisma.credentialType.findMany({ where: { departmentId } }),
     prisma.trainingExpectation.findMany({ where: { departmentId, active: true } }),
-    hasPermission(ctx.role, "invitations.write")
+    canManagePendingMemberApprovals(ctx.role)
       ? prisma.departmentMembership.findMany({
           where: { departmentId, status: "PENDING" },
           include: { user: { select: { name: true, email: true } } },
@@ -466,7 +471,7 @@ export async function getDashboard(ctx: AuthContext) {
         ...expiringSoon.map((row) => row.item.membershipId),
         ...expired.map((row) => row.item.membershipId),
         ...certificateAttention.map((item) => item.memberId),
-      ]).size,
+      ]).size + pendingJoinRequests.length,
       currentMembers: memberProgress.filter((row) => row.activeAssignments > 0 && row.status === "On Track").length,
       readinessPercent: members.length
         ? Math.round((memberProgress.filter((row) => row.activeAssignments > 0 && row.status === "On Track").length / members.length) * 100)
