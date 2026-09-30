@@ -14,9 +14,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers || {}),
     },
   });
-  const payload = await response.json().catch(() => ({}));
+  const raw = await response.text();
+  let payload: { data?: T; error?: string } = {};
+  if (raw) {
+    try { payload = JSON.parse(raw) as { data?: T; error?: string }; }
+    catch { /* platform/proxy errors can be plain text or HTML */ }
+  }
   if (!response.ok) {
-    throw new ApiError(payload.error || "Request failed", response.status);
+    const detail = payload.error || (raw && !raw.trimStart().startsWith("<") ? raw.slice(0, 500) : "");
+    throw new ApiError(detail || `Request failed (HTTP ${response.status}). Please try again.`, response.status);
   }
   return payload.data as T;
 }
