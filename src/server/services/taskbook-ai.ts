@@ -88,7 +88,8 @@ function decodePdf(raw: string) {
 async function uploadPdf(filename: string, bytes: Buffer) {
   const form = new FormData();
   form.append("purpose", "user_data");
-  form.append("file", new Blob([bytes], { type: "application/pdf" }), filename);
+  const pdfBytes = Uint8Array.from(bytes);
+  form.append("file", new Blob([pdfBytes], { type: "application/pdf" }), filename);
   let response: Response;
   try {
     response = await fetch("https://api.openai.com/v1/files", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}` }, body: form });
