@@ -72,7 +72,7 @@ export async function generateTaskBookDraft(ctx: AuthContext, prompt: string) {
 function normalizePdfData(raw: string) {
   const trimmed = raw.trim();
   if (!trimmed) throw new HttpError(400, "Choose a PDF Task Book to import.");
-  const match = trimmed.match(/^data:application\/pdf(?:;[^,]*)?;base64,(.+)$/is);
+  const match = trimmed.match(/^data:application\/pdf(?:;[^,]*)?;base64,([\s\S]+)$/i);
   const base64 = (match ? match[1] : trimmed).replace(/\s/g, "");
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) throw new HttpError(400, "The selected file could not be read as a PDF. Please choose the original PDF file and try again.");
   let bytes: Buffer;
