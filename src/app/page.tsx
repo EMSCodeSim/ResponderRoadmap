@@ -7,12 +7,12 @@ import { LandingPage } from "./landing";
 export const metadata: Metadata = {
   title: { absolute: "Fire & EMS Training Readiness | Responder Roadmap" },
   description:
-    "Fire & EMS training readiness software for Task Books, Assignments, digital training sheets, QR attendance, training hours, certifications, role expectations, training gaps, and RMS-ready exports.",
+    "Fire & EMS training readiness software for Training Officers, Chiefs, Captains, and instructors. Manage Task Books, assignments, training sheets, attendance, hours, certifications, evaluations, expectations, gaps, and member progress.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "Fire & EMS Training Readiness | Responder Roadmap",
     description:
-      "Know what every member has completed, what they are working on, and what they need next — without replacing your RMS.",
+      "Know what every member has completed, what they are working on, and what they need next. Works alongside your existing RMS.",
     url: "https://responderroadmap.com/",
   },
 };

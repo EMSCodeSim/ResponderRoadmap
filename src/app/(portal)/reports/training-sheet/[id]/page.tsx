@@ -92,9 +92,9 @@ export default function TrainingSheetPage() {
     <div>
       <div className="no-print">
         <PageHeader
-          kicker="RMS Training Sheet"
+          kicker="Training sheet"
           title={data.training.title}
-          description="Use this summary to transfer completed training into your department RMS or training-record system."
+          description="Use this summary when completing the department’s official RMS or training record. Print or download it for reference; it does not send data into another vendor’s system."
           actions={<>
             <Button variant="secondary" onClick={() => downloadCsv(`${data.training.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-training-sheet.csv`, csvRows)}>Export CSV</Button>
             <Button onClick={() => window.print()}>Print / Save PDF</Button>
@@ -121,12 +121,12 @@ export default function TrainingSheetPage() {
 
         <div className="mt-5 grid gap-3 border-y border-navy-100 py-4 sm:grid-cols-4">
           <div><p className="display text-3xl font-bold">{data.summary.assigned}</p><p className="text-xs text-navy-500">Assigned</p></div>
-          <div><p className="display text-3xl font-bold text-success">{data.summary.completed}</p><p className="text-xs text-navy-500">Ready for RMS</p></div>
+          <div><p className="display text-3xl font-bold text-success">{data.summary.completed}</p><p className="text-xs text-navy-500">Record ready</p></div>
           <div><p className="display text-3xl font-bold text-danger">{data.summary.incomplete}</p><p className="text-xs text-navy-500">Incomplete</p></div>
           <div><p className="display text-3xl font-bold text-warn">{data.summary.awaitingEvaluation}</p><p className="text-xs text-navy-500">Awaiting evaluation</p></div>
         </div>
 
-        <p className="mt-4 text-sm text-navy-600">{data.windowStatus}. A member is marked Ready for RMS only after every required item has completed the required approval workflow.</p>
+        <p className="mt-4 text-sm text-navy-600">{data.windowStatus}. A member is marked record-ready only after every required item has completed the required approval workflow.</p>
         {data.training.notes ? <p className="mt-3 text-sm"><span className="font-semibold">Assignment notes:</span> {data.training.notes}</p> : null}
       </Card>
 
@@ -140,7 +140,7 @@ export default function TrainingSheetPage() {
                 <th>Completed</th>
                 <th>Approved by</th>
                 <th>Hours</th>
-                <th>RMS notes</th>
+                <th>Record notes</th>
               </tr>
             </thead>
             <tbody>
@@ -157,7 +157,7 @@ export default function TrainingSheetPage() {
                   <td>{row.completedAt ? formatDate(row.completedAt) : "—"}</td>
                   <td>{row.approvedBy.length ? row.approvedBy.join(", ") : "—"}</td>
                   <td>{row.hours ? row.hours.toFixed(1) : "—"}</td>
-                  <td className="max-w-xs text-sm">{row.readyForRms ? "Ready to enter in RMS" : row.statusLabel}</td>
+                  <td className="max-w-xs text-sm">{row.readyForRms ? "Ready for official record" : row.statusLabel}</td>
                 </tr>
               ))}
             </tbody>
@@ -166,7 +166,7 @@ export default function TrainingSheetPage() {
       </Card>
 
       <footer className="mt-5 text-xs text-navy-500">
-        Generated {formatDateTime(data.generatedAt)} · This sheet summarizes Responder Roadmap records for transfer into the department&apos;s official record system.
+        Generated {formatDateTime(data.generatedAt)} · This sheet summarizes Responder Roadmap records for reference when completing the department&apos;s official record.
       </footer>
     </div>
   );

@@ -24,7 +24,7 @@ export default function Page() {
       { title: "Department-wide visibility", body: "Training Captains can see who is progressing, who is waiting for evaluation, and where follow-up is needed." },
     ]}
     secondTitle="Replace paper firefighter Task Books without replacing your department’s training records system."
-    secondBody="Responder Roadmap is built for the working life of a firefighter Task Book: assignment, individual requirements, evaluator notes and sign-offs, returned work, required approvals, and final completion. Training Captains can follow probationary firefighters, driver/operators, officers, and specialty qualifications without chasing paper packets or separate spreadsheets. Completed training records can then follow the department’s existing RMS or records process, so Roadmap improves the qualification workflow instead of trying to replace the official records system."
+    secondBody="Responder Roadmap is built for the working life of a firefighter Task Book: assignment, individual requirements, evaluator notes and sign-offs, returned work, required approvals, and final completion. Training Captains can follow probationary firefighters, driver/operators, officers, and specialty qualifications without chasing paper packets or separate spreadsheets. Keep your existing RMS. Roadmap manages the training workflow before the information reaches your official records system, so completed records can be reviewed, printed, downloaded, or referenced when finishing the department’s official process."
     related={[
       { href: "/training-captain-software", label: "Training Captain software" },
       { href: "/fire-department-training-tracker", label: "Fire department training tracker" },

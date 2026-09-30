@@ -5,7 +5,7 @@ import { isDemoAvailable } from "@/server/demo";
 export const metadata: Metadata = {
   title: "3-Minute Department Demo",
   description:
-    "No-signup Fire & EMS department demo. See Task Books, Assignments, evaluations, member progress, and Responder AI in about three minutes.",
+    "No-signup Fire & EMS department demo. See Task Books, Assignments, evaluations, and member progress in about three minutes.",
   alternates: { canonical: "/demo" },
   openGraph: {
     title: "3-Minute Department Demo | Responder Roadmap",

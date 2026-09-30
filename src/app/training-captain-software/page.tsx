@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function Page() {
   return <SeoProductPage
     kicker="Training Captain Software"
-    title="See what every member is working on — and what needs attention next."
+    title="See what every member is working on, and what needs attention next."
     description="Responder Roadmap gives Training Captains one view of active Task Books and Assignments, approved progress, pending evaluations, overdue work, and recorded inactivity so they can spend less time chasing paperwork and more time developing members."
     features={[
       { title: "All members in one view", body: "Open a department roster and immediately see each member's active qualification work and current progress." },

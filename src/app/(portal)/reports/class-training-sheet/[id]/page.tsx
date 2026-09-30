@@ -86,11 +86,11 @@ export default function ClassTrainingSheetPage() {
       <PageHeader
         kicker="Digital training sheet"
         title={sheet.training.title}
-        description="Document training once in Responder Roadmap, then export or print the completed record for the RMS or official records system your department already uses."
+        description="Document training once in Responder Roadmap, then print or download the completed record to reference when completing the department’s official RMS record."
         actions={
           <>
             <Button variant="secondary" onClick={() => downloadCsv(`training-sheet-${sheet.training.id}.csv`, exportRows)}>
-              Export for RMS
+              Download CSV
             </Button>
             <Button variant="secondary" onClick={() => window.print()}>Print / PDF</Button>
           </>
@@ -147,7 +147,7 @@ export default function ClassTrainingSheetPage() {
       </Card>
 
       <p className="mt-4 text-xs text-navy-500">
-        Responder Roadmap is designed to work alongside your department’s current records system, not replace it. Complete the training workflow here, then export or print this record for your RMS or official records process.
+        Responder Roadmap works alongside your department’s current records system. Complete the training workflow here, then print or download this record to reference when completing the official RMS record.
       </p>
     </div>
   );

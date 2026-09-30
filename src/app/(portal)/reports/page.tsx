@@ -267,7 +267,7 @@ function ReportsInner() {
           <Card className="p-5">
             <h2 className="display text-2xl font-bold">Completed Training Sheets for RMS Entry</h2>
             <p className="mt-1 max-w-3xl text-sm text-navy-600">
-              Each sheet groups members assigned to the same training at the same time. When the training window closes, use the completed list to enter verified training into your department RMS or official record system.
+              Each sheet groups members assigned to the same training at the same time. When the training window closes, use the completed list as a clear record to reference when completing the department’s official RMS entry.
             </p>
           </Card>
           {trainingSheets.length === 0 ? (
@@ -287,7 +287,7 @@ function ReportsInner() {
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div><p className="text-2xl font-bold">{sheet.assigned}</p><p className="text-xs text-navy-500">Assigned</p></div>
-                    <div><p className="text-2xl font-bold text-success">{sheet.completed}</p><p className="text-xs text-navy-500">Ready for RMS</p></div>
+                    <div><p className="text-2xl font-bold text-success">{sheet.completed}</p><p className="text-xs text-navy-500">Record ready</p></div>
                     <div><p className="text-2xl font-bold text-danger">{sheet.incomplete}</p><p className="text-xs text-navy-500">Incomplete</p></div>
                     <div><p className="text-2xl font-bold text-warn">{sheet.awaitingEvaluation}</p><p className="text-xs text-navy-500">Pending</p></div>
                   </div>

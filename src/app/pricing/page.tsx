@@ -12,9 +12,12 @@ export const metadata: Metadata = {
 };
 
 const faqs = [
-  ["Do we have to replace our RMS?", "No. Responder Roadmap is designed to work alongside your current records system. Use Roadmap for the training workflow and export completed records to the RMS or records process your department already uses."],
+  [
+    "Do we have to replace our RMS?",
+    "No. Keep your existing RMS. Responder Roadmap manages the training workflow before the information reaches your official records system. When training is complete, it creates a clear training record that can be reviewed, printed, downloaded, or referenced when completing the department’s official record.",
+  ],
   ["What if we have more than 5 members but fewer than 25?", "Station. $299/year. Focused training-readiness workflow. Up to 25 active members."],
-  ["How do you count members?", "Active members — not the whole roster. Someone counts if they are assigned a Task Book or signed in during the last 90 days."],
+  ["How do you count members?", "Active members, not the whole roster. Someone counts if they are assigned a Task Book or signed in during the last 90 days."],
   ["What changes between plans?", "The core training-readiness workflow stays consistent: Task Books, Assignments, training records, verification, readiness tracking, and reporting. Plans primarily scale by active-member capacity."],
   ["Is the $500 Founding plan going away?", "No. Founding Department stays $500/year for current and early department buyers, up to 75 active members, locked while you stay subscribed."],
 ];
@@ -25,7 +28,7 @@ export default function PricingPage() {
       <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#0B1220]/92 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
           <Link href="/" aria-label="Responder Roadmap home">
-            <BrandLockup size={36} subtitle="Fire & EMS Training Progress" />
+            <BrandLockup size={36} subtitle="Fire & EMS Training Readiness" />
           </Link>
           <nav aria-label="Main navigation" className="flex items-center gap-6 text-[13px] font-medium text-white/60">
             <Link href="/" className="hover:text-white">Home</Link>
@@ -39,9 +42,14 @@ export default function PricingPage() {
         <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
           <PricingTiers />
           <PricingSummaryLine className="mt-8 text-sm text-white/45" />
-          <div className="mt-6 rounded-lg border border-white/[0.08] bg-[#121A2A] p-5"><p className="text-sm font-semibold text-white">Keep your current RMS.</p><p className="mt-2 max-w-3xl text-sm leading-6 text-white/55">Responder Roadmap is the training-readiness layer that works alongside your existing records system. No RMS replacement or major records migration is required.</p></div>
-          <p className="mt-3 text-[13px] leading-6 text-white/40">
-            Municipal purchasing — quotes, invoices, W-9s, and purchase orders — goes through Department / Agency contact.
+          <div className="mt-8 max-w-3xl border-l border-white/15 pl-5">
+            <p className="text-sm font-semibold text-white">Keep your existing RMS.</p>
+            <p className="mt-2 text-sm leading-6 text-white/55">
+              Responder Roadmap manages the training workflow before the information reaches your official records system. No RMS replacement or major records migration is required.
+            </p>
+          </div>
+          <p className="mt-6 text-[13px] leading-6 text-white/40">
+            Municipal purchasing (quotes, invoices, W-9s, and purchase orders) goes through Department / Agency contact.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <TrackedLink href="/register" event="signup_clicked" className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#C8102E] px-5 text-sm font-semibold hover:bg-[#9E0C24]">
