@@ -13,7 +13,7 @@ export type AiTaskBookDraft = {
 };
 
 type OpenAiOutputPayload = { output_text?: unknown; output?: Array<{ content?: Array<{ type?: unknown; text?: unknown }> }>; error?: { message?: string } };
-type OpenAiInputContent = { type: "input_text"; text: string } | { type: "input_file"; filename: string; file_data: string };
+type OpenAiInputContent = { type: "input_text"; text: string } | { type: "input_file"; file_id: string };
 type OpenAiInputMessage = { role: "developer" | "user"; content: OpenAiInputContent[] };
 
 const requirementProperties = {
@@ -37,12 +37,16 @@ function outputText(payload: OpenAiOutputPayload) {
   return "";
 }
 
+function apiKey() {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new HttpError(503, "AI Task Book tools are not configured yet. Add OPENAI_API_KEY to enable them.");
+  return key;
+}
+
 async function requestDraft(input: OpenAiInputMessage[], context = "Task Book") {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new HttpError(503, "AI Task Book tools are not configured yet. Add OPENAI_API_KEY to enable them.");
   let response: Response;
   try {
-    response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({
+    response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({
       model: process.env.OPENAI_TASKBOOK_MODEL || "gpt-5.6-luna", store: false, reasoning: { effort: "low" }, max_output_tokens: 12000, input,
       text: { format: { type: "json_schema", name: "responderroadmap_taskbook_draft", strict: true, schema } },
     }) });
@@ -69,29 +73,52 @@ export async function generateTaskBookDraft(ctx: AuthContext, prompt: string) {
   return requestDraft([{ role: "developer", content: [{ type: "input_text", text: developerInstruction }] }, { role: "user", content: [{ type: "input_text", text: `Create a practical department Task Book draft from this request:\n\n${request}\n\nUse concise requirements, actionable instructions, objectives, and evaluation steps. This is a draft and must not auto-publish.` }] }]);
 }
 
-function normalizePdfData(raw: string) {
+function decodePdf(raw: string) {
   const trimmed = raw.trim();
   if (!trimmed) throw new HttpError(400, "Choose a PDF Task Book to import.");
   const match = trimmed.match(/^data:application\/pdf(?:;[^,]*)?;base64,([\s\S]+)$/i);
   const base64 = (match ? match[1] : trimmed).replace(/\s/g, "");
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) throw new HttpError(400, "The selected file could not be read as a PDF. Please choose the original PDF file and try again.");
-  let bytes: Buffer;
-  try { bytes = Buffer.from(base64, "base64"); } catch { throw new HttpError(400, "The selected PDF could not be decoded. Please choose the file again."); }
+  const bytes = Buffer.from(base64, "base64");
   if (bytes.length < 5 || bytes.subarray(0, 5).toString("ascii") !== "%PDF-") throw new HttpError(400, "The selected file is not a valid PDF.");
   if (bytes.length > 10 * 1024 * 1024) throw new HttpError(413, "PDF is too large for AI import. Keep the file under 10 MB.");
-  return `data:application/pdf;base64,${bytes.toString("base64")}`;
+  return bytes;
+}
+
+async function uploadPdf(filename: string, bytes: Buffer) {
+  const form = new FormData();
+  form.append("purpose", "user_data");
+  form.append("file", new Blob([bytes], { type: "application/pdf" }), filename);
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/files", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}` }, body: form });
+  } catch {
+    throw new HttpError(503, `PDF “${filename}” could not be uploaded for conversion. Please try again.`);
+  }
+  const payload = await response.json().catch(() => ({})) as { id?: string; error?: { message?: string } };
+  if (!response.ok || !payload.id) throw new HttpError(response.status >= 500 ? 503 : 400, `PDF “${filename}” upload failed: ${payload.error?.message || "The document service rejected the PDF."}`);
+  return payload.id;
+}
+
+async function deleteUploadedFile(fileId: string) {
+  try { await fetch(`https://api.openai.com/v1/files/${encodeURIComponent(fileId)}`, { method: "DELETE", headers: { Authorization: `Bearer ${apiKey()}` } }); } catch { /* best-effort cleanup */ }
 }
 
 export async function importPdfTaskBookDraft(ctx: AuthContext, input: { filename?: string; fileData?: string; notes?: string }) {
   assertPermission(ctx, "taskbooks.write");
   const filename = String(input.filename || "taskbook.pdf").slice(0, 180);
   if (!filename.toLowerCase().endsWith(".pdf")) throw new HttpError(400, "Task Book import currently accepts PDF files only.");
-  const fileData = normalizePdfData(String(input.fileData || ""));
-  return requestDraft([
-    { role: "developer", content: [{ type: "input_text", text: developerInstruction }] },
-    { role: "user", content: [
-      { type: "input_text", text: `Convert the attached existing Task Book into a ResponderRoadmap editable draft. Preserve every meaningful section and requirement from the source, including tables and checklist rows where readable. Scanned pages may require visual reading. Do not invent missing requirements, standards, signatures, or citations. If wording is unclear, preserve it conservatively rather than guessing. Keep the result as a draft for Training Officer review. Additional department notes: ${String(input.notes || "None").slice(0, 3000)}` },
-      { type: "input_file", filename, file_data: fileData },
-    ] },
-  ], `PDF “${filename}”`);
+  const bytes = decodePdf(String(input.fileData || ""));
+  const fileId = await uploadPdf(filename, bytes);
+  try {
+    return await requestDraft([
+      { role: "developer", content: [{ type: "input_text", text: developerInstruction }] },
+      { role: "user", content: [
+        { type: "input_text", text: `Convert the attached existing Task Book into a ResponderRoadmap editable draft. Preserve every meaningful section and requirement from the source, including tables and checklist rows where readable. Scanned pages may require visual reading. Do not invent missing requirements, standards, signatures, or citations. If wording is unclear, preserve it conservatively rather than guessing. Keep the result as a draft for Training Officer review. Additional department notes: ${String(input.notes || "None").slice(0, 3000)}` },
+        { type: "input_file", file_id: fileId },
+      ] },
+    ], `PDF “${filename}”`);
+  } finally {
+    await deleteUploadedFile(fileId);
+  }
 }
