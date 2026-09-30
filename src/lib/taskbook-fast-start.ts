@@ -12,7 +12,9 @@ export type FastStartInput = {
   requirements?: string;
 };
 
-export const MAX_TASK_BOOK_PDF_BYTES = 10 * 1024 * 1024;
+// PDF bytes are base64-encoded inside JSON before reaching the Netlify function.
+// Keep enough headroom under the platform's 6 MB buffered request limit.
+export const MAX_TASK_BOOK_PDF_BYTES = 4 * 1024 * 1024;
 
 export function lines(value: string) {
   return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -27,7 +29,7 @@ export function fastStartErrors(input: FastStartInput): string[] {
   } else if (input.source === "pdf") {
     if (!input.filename) errors.push("Choose a PDF to import.");
     else if (!input.filename.toLowerCase().endsWith(".pdf")) errors.push("The file must be a PDF.");
-    if (input.fileSize !== undefined && (input.fileSize <= 0 || input.fileSize > MAX_TASK_BOOK_PDF_BYTES)) errors.push("PDF must be nonempty and no larger than 10 MB.");
+    if (input.fileSize !== undefined && (input.fileSize <= 0 || input.fileSize > MAX_TASK_BOOK_PDF_BYTES)) errors.push("PDF must be nonempty and no larger than 4 MB.");
   } else {
     if ((input.title || "").trim().length < 3) errors.push("Enter a Task Book name of at least 3 characters.");
     if (input.source === "template" && !input.starterId) errors.push("Choose a starter template.");
