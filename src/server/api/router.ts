@@ -127,8 +127,18 @@ export async function handleApi(req: Request, path: string[]) {
       const updated = await department.updateAccount(session.userId, body);
       return jsonOk({ id: updated.id, name: updated.name, email: updated.email, phone: updated.phone });
     }
+    if (method === "GET" && match(path, "account")) {
+      return jsonOk(await department.getAccount(session.userId));
+    }
 
     const ctx = requireDepartmentSession(session);
+
+    if (method === "GET" && match(path, "my-credentials")) {
+      return jsonOk(await credentials.listMyCredentials(ctx));
+    }
+    if (method === "POST" && match(path, "my-credentials")) {
+      return jsonOk(await credentials.upsertMyCredential(ctx, await readBody(req)), 201);
+    }
 
     const appClassRegistration = match(path, "app/classes/register/:token");
     if (method === "POST" && appClassRegistration) {

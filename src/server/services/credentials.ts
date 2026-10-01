@@ -159,6 +159,71 @@ export async function listCredentialTypes(ctx: AuthContext) {
   });
 }
 
+export async function listMyCredentials(ctx: AuthContext) {
+  const [records, types] = await Promise.all([
+    prisma.credential.findMany({
+      where: { departmentId: ctx.departmentId, membershipId: ctx.membershipId },
+      orderBy: [{ expirationDate: "asc" }, { credentialName: "asc" }],
+    }),
+    prisma.credentialType.findMany({
+      where: { departmentId: ctx.departmentId },
+      orderBy: [{ isCustom: "asc" }, { name: "asc" }],
+    }),
+  ]);
+  return {
+    credentials: records.map((record) => ({ ...record, ...credentialStatus(record.expirationDate, undefined, record.doesNotExpire) })),
+    types,
+  };
+}
+
+export async function upsertMyCredential(
+  ctx: AuthContext,
+  input: {
+    id?: string;
+    credentialName: string;
+    issuer?: string;
+    credentialNumber?: string | null;
+    issueDate?: string | null;
+    expirationDate?: string | null;
+    doesNotExpire?: boolean;
+    notes?: string;
+    credentialTypeId?: string | null;
+  },
+) {
+  const name = input.credentialName?.trim();
+  if (!name) throw new HttpError(400, "Certification name is required.");
+  if (!input.doesNotExpire && !input.expirationDate) throw new HttpError(400, "Add an expiration date or choose Does not expire.");
+  if (input.id) {
+    const existing = await prisma.credential.findFirst({ where: { id: input.id, departmentId: ctx.departmentId, membershipId: ctx.membershipId } });
+    if (!existing) throw new HttpError(404, "Certification not found.");
+  }
+  const data = {
+    membershipId: ctx.membershipId,
+    departmentId: ctx.departmentId,
+    credentialTypeId: input.credentialTypeId || null,
+    credentialName: name,
+    issuer: input.issuer?.trim() || "",
+    credentialNumber: input.credentialNumber?.trim() || null,
+    issueDate: input.issueDate ? new Date(input.issueDate) : null,
+    expirationDate: input.doesNotExpire ? null : new Date(input.expirationDate as string),
+    doesNotExpire: input.doesNotExpire === true,
+    notes: input.notes?.trim() || "",
+    verificationStatus: "PENDING",
+    source: "MEMBER_ENTERED",
+    sharedByMemberAt: new Date(),
+  };
+  const record = input.id
+    ? await prisma.credential.update({ where: { id: input.id }, data })
+    : await prisma.credential.create({ data });
+  await writeAudit(ctx, input.id ? "credential.member_updated" : "credential.member_created", "Credential", record.id, { name });
+  await writeActivity(ctx.departmentId, input.id ? "CREDENTIAL_UPDATED" : "CREDENTIAL_UPLOADED", {
+    userId: ctx.userId,
+    referenceId: record.id,
+    metadata: { memberName: ctx.name, credential: name, actorName: ctx.name, source: "MEMBER_ENTERED" },
+  });
+  return record;
+}
+
 
 export async function updateCredentialTypeRequirements(
   ctx: AuthContext,
