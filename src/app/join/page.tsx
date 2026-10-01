@@ -70,14 +70,12 @@ function JoinContent() {
             <div className="rounded-md border border-green-200 bg-green-50 p-4">
               <div className="text-sm font-semibold text-green-900">Code accepted</div>
               <div className="mt-1 text-lg font-bold text-navy-900">{department}</div>
-              <p className="mt-1 text-sm text-navy-600">Select your shift before creating an account or requesting to join. A Training Officer must approve new memberships.</p>
+              <p className="mt-1 text-sm text-navy-600">Your shift is optional. A Training Officer can assign it after approving your membership.</p>
             </div>
-            {shifts.length > 0 ? <Field label="Department shift"><Select value={shift} onChange={(e) => setShift(e.target.value)} required><option value="">Select your shift</option>{shifts.map((item) => <option key={item} value={item}>{item}</option>)}</Select></Field> : <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-navy-700">This department has not set up any shifts yet. Ask a Training Officer to assign an active member to each shift first.</p>}
-            {shifts.length > 0 ? <>
-              <Button type="button" className="w-full" disabled={busy || !shift || !shifts.includes(shift)} onClick={() => void requestJoin()}>{busy ? "Requesting…" : "Request to join"}</Button>
-              <Link href={`/register?code=${encodeURIComponent(code)}&shift=${encodeURIComponent(shift)}`} aria-disabled={!shift} className={`inline-flex min-h-11 w-full items-center justify-center rounded-md px-4 text-sm font-semibold text-white ${shift ? "bg-fire hover:bg-fire-dark" : "pointer-events-none bg-navy-300"}`}>Create account</Link>
-              <Link href={`/login?next=${encodeURIComponent(`/join?code=${code}&shift=${encodeURIComponent(shift)}`)}`} className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">I already have an account</Link>
-            </> : null}
+            {shifts.length > 0 ? <Field label="Department shift" hint="Optional — a Training Officer can assign or change this later."><Select value={shift} onChange={(e) => setShift(e.target.value)}><option value="">Not assigned yet</option>{shifts.map((item) => <option key={item} value={item}>{item}</option>)}</Select></Field> : <p className="rounded-md border border-navy-200 bg-navy-50 p-3 text-sm text-navy-700">No shifts have been added yet. You can still continue; a Training Officer can assign your shift later.</p>}
+            <Button type="button" className="w-full" disabled={busy} onClick={() => void requestJoin()}>{busy ? "Requesting…" : "Request to join"}</Button>
+            <Link href={`/register?code=${encodeURIComponent(code)}${shift ? `&shift=${encodeURIComponent(shift)}` : ""}`} className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold text-white hover:bg-fire-dark">Create account</Link>
+            <Link href={`/login?next=${encodeURIComponent(`/join?code=${code}${shift ? `&shift=${encodeURIComponent(shift)}` : ""}`)}`} className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">I already have an account</Link>
             <Button type="button" variant="ghost" className="w-full" onClick={() => { setDepartment(null); setShifts([]); setShift(""); setRequestSubmitted(false); }}>Use a different code</Button>
           </div>
         ) : (

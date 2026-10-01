@@ -262,9 +262,7 @@ export async function register(input: { name: string; email: string; password: s
       distinct: ["shift"],
     });
     const availableShifts = availableShiftRows.map((membership) => membership.shift).filter((shift): shift is string => Boolean(shift));
-    if (availableShifts.length === 0) throw new HttpError(409, "This department has not set up any shifts yet. Ask a Training Officer to assign a member to each department shift before requesting to join.");
-    if (!requestedShift) throw new HttpError(400, "Select your department shift before creating your account.");
-    if (!availableShifts.includes(requestedShift)) throw new HttpError(400, "Select one of the department's available shifts.");
+    if (requestedShift && !availableShifts.includes(requestedShift)) throw new HttpError(400, "Select one of the department's available shifts or leave it unassigned.");
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });

@@ -262,16 +262,14 @@ export async function joinByCode(userId: string, joinCode: string, requestedShif
   const code = joinCode.trim().toUpperCase();
   const department = await prisma.department.findUnique({ where: { joinCode: code } });
   if (!department) throw new HttpError(404, "That department code was not found.");
-  const shift = requestedShift.trim();
-  const availableShiftRows = await prisma.departmentMembership.findMany({
-    where: { departmentId: department.id, status: "ACTIVE", shift: { not: null } },
-    select: { shift: true },
-    distinct: ["shift"],
-  });
-  const availableShifts = availableShiftRows.map((membership) => membership.shift).filter((value): value is string => Boolean(value));
-  if (availableShifts.length === 0) throw new HttpError(409, "This department has not set up any shifts yet. Ask a Training Officer to assign a member to each department shift before requesting to join.");
-  if (!shift) throw new HttpError(400, "Select your department shift before requesting to join.");
-  if (!availableShifts.includes(shift)) throw new HttpError(400, "Select one of the department's available shifts.");
+  const shift = requestedShift.trim() || null;
+  if (shift) {
+    const existingShift = await prisma.departmentMembership.findFirst({
+      where: { departmentId: department.id, status: "ACTIVE", shift },
+      select: { id: true },
+    });
+    if (!existingShift) throw new HttpError(400, "Select one of the department's available shifts or leave it unassigned.");
+  }
   const existing = await prisma.departmentMembership.findUnique({
     where: { departmentId_userId: { departmentId: department.id, userId } },
   });

@@ -85,7 +85,7 @@ function RegisterContent() {
             <p className="mt-2 text-sm text-navy-500">
               {invitationToken
                 ? "This account will be connected to the department that invited you."
-                : `Choose the shift you work on at ${departmentName || "your department"}. A Training Officer must approve your account before department assignments become available.`}
+                : `Request access to ${departmentName || "your department"}. Your shift is optional and can be assigned by a Training Officer after approval.`}
             </p>
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <Flash message={error} tone="danger" />
@@ -98,14 +98,14 @@ function RegisterContent() {
               <Field label="Password" hint="At least 8 characters.">
                 <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
               </Field>
-              {joinCode && !invitationToken ? <Field label="Department shift" hint="Choose the shift you work on. You can update it later if your assignment changes.">
-                <Select value={shift} onChange={(e) => setShift(e.target.value)} required disabled={shiftLoading || departmentShifts.length === 0}>
-                  <option value="">{shiftLoading ? "Loading department shifts…" : "Select your shift"}</option>
+              {joinCode && !invitationToken && (shiftLoading || departmentShifts.length > 0) ? <Field label="Department shift" hint="Optional — a Training Officer can assign or change this later.">
+                <Select value={shift} onChange={(e) => setShift(e.target.value)} disabled={shiftLoading}>
+                  <option value="">{shiftLoading ? "Loading department shifts…" : "Not assigned yet"}</option>
                   {departmentShifts.map((item) => <option key={item} value={item}>{item}</option>)}
                 </Select>
-                {!shiftLoading && departmentShifts.length === 0 ? <p className="mt-1 text-xs text-warn">The department has not set up shifts yet. Ask its Training Officer to assign a member to each shift before creating your account.</p> : null}
               </Field> : null}
-              <Button type="submit" className="w-full" disabled={busy || (Boolean(joinCode) && !invitationToken && (!shift || !departmentShifts.includes(shift) || shiftLoading))}>
+              {joinCode && !invitationToken && !shiftLoading && departmentShifts.length === 0 ? <p className="rounded-md border border-navy-200 bg-navy-50 p-3 text-sm text-navy-700">No shifts have been added yet. You can still create your account; a Training Officer can assign your shift later.</p> : null}
+              <Button type="submit" className="w-full" disabled={busy || shiftLoading}>
                 {busy ? "Creating…" : joinCode ? "Create account and request approval" : "Create account and join department"}
               </Button>
             </form>
