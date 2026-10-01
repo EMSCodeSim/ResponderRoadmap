@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { DashboardPreview } from "@/components/marketing/DashboardPreview";
-import { PricingTiers } from "@/components/marketing/PricingTiers";
 import { TrackedLink } from "@/components/marketing/TrackedLink";
 import { DEMO_DEPARTMENT_NAME, DEMO_MEMBERS } from "@/lib/demo-story";
 
@@ -45,8 +44,6 @@ const faqs = [
   ["Do we have to replace our current RMS or records system?", "No. Keep it. Responder Roadmap is intentionally designed to work alongside your current system. Manage the training workflow in Roadmap, then export completed records to the system your department already uses."],
   ["Does a submitted skill automatically count?", "No. A requirement counts only after its required approvals are completed."],
   ["Can members use an iPhone?", "Yes. Members have access to the iPhone app, and the same workflow works in a phone browser."],
-  ["What if we have more than 5 members but fewer than 25?", "Station. $299/year. Full Task Book workflow. Up to 25 active members."],
-  ["How do you count members?", "Active members — not the whole roster. Someone counts if they are assigned a Task Book or signed in during the last 90 days."],
 ];
 
 function glanceStatus(member: (typeof glance)[number]) {
@@ -63,7 +60,7 @@ function Ctas({ demoHref, centered = false }: { demoHref: string; centered?: boo
         {demoHref === "/demo" ? "See the 3-Minute Demo" : "Request a department demo"}
       </TrackedLink>
       <TrackedLink href="/register" event="signup_clicked" className={ctaGhost}>
-        Start Free <span className="ml-2 font-normal text-white/50">0–5 members</span>
+        Start Live Test
       </TrackedLink>
     </div>
   );
@@ -112,7 +109,6 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <Link href="/digital-firefighter-task-books" className="mt-4 inline-flex text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">Explore Digital Firefighter Task Books →</Link>
             <p className="mt-5 text-[13px] leading-6 text-white/45">
               Built specifically for Fire & EMS Training Officers. No account required for the demo.
-              <span className="mt-1 block">A 12-person volunteer station is Station — $299/year. Same workflow as Free.</span>
             </p>
           </div>
           <DashboardPreview href={demoHref} compact />
@@ -122,7 +118,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-4 text-[13px] text-white/50 sm:flex-row sm:items-center sm:justify-between sm:px-8">
             <span>AI does the tedious work. Humans decide.</span>
             <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
-            <span>Founding Department: $500/year for up to 75 active members.</span>
+            <span>Built for practical department testing and daily use</span>
             <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
             <span>Works alongside your current RMS — no replacement required</span>
           </div>
@@ -214,14 +210,6 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <p className="mt-5 max-w-3xl text-[15px] leading-7 text-white/68">
             Responder Roadmap is intentionally designed to work alongside the records system your department already uses — not replace it. Manage expectations, Task Books, Assignments, group training, QR attendance, evaluations, training hours, certifications, and gaps in Roadmap. When training is complete, export a clean digital training record to your existing RMS or records process. No major data migration. No need to rebuild the department’s official records system.
           </p>
-        </section>
-
-        <section id="pricing" className="border-y border-white/[0.08] bg-[#0E1624]">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-            <PricingTiers />
-            <div className="mt-10"><Ctas demoHref={demoHref} /></div>
-            <p className="mt-5 text-[13px] leading-6 text-white/40">Municipal purchasing — quotes, invoices, W-9s, and purchase orders — goes through Department / Agency contact.</p>
-          </div>
         </section>
 
         <section className="mx-auto max-w-3xl px-5 py-16 sm:px-8 lg:py-20">
