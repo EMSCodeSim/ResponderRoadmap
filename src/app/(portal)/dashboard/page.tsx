@@ -459,6 +459,12 @@ function MemberHome({ data }: { data: Dashboard }) {
   const next = data.doThisNext;
   return (
     <div className="space-y-6">
+      <Card className="border-navy-200 p-5">
+        <div className="kicker">My profile</div>
+        <h2 className="display mt-1 text-2xl font-bold">Keep your certifications current</h2>
+        <p className="mt-2 text-sm text-navy-500">Finish your contact information and add certifications with expiration dates so your Training Officer has an accurate record.</p>
+        <Link href="/settings" className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 text-sm font-semibold text-white">Complete My Profile →</Link>
+      </Card>
       {next ? <Card className="border-fire/30 p-5">
         <div className="kicker">Do This Next</div>
         <h2 className="display mt-1 text-2xl font-bold">{next.title}</h2>
@@ -629,4 +635,3 @@ function CountCard({ href, label, value, warn, danger }: { href: string; label: 
     </Link>
   );
 }
-
