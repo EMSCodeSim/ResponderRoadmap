@@ -642,3 +642,25 @@ model PersonalCareerLog {
   occurredAt DateTime
   createdAt  DateTime @default(now())
 }
+
+/// Public department interest form records. Kept in Prisma's schema so db push preserves the table.
+model DepartmentInterest {
+  id             String   @id
+  name           String
+  email          String
+  departmentName String
+  role           String
+  memberCount    Int
+  buyingIntent   String
+  comments       String   @default("")
+  consent        Boolean  @default(true)
+  consentAt      DateTime @db.Timestamp(3)
+  source         String   @default("department-interest")
+  status         String   @default("NEW")
+  notes          String   @default("")
+  createdAt      DateTime @default(now()) @db.Timestamp(3)
+  updatedAt      DateTime @default(now()) @db.Timestamp(3)
+
+  @@index([status], map: "DepartmentInterest_status_idx")
+  @@index([email], map: "DepartmentInterest_email_idx")
+}
