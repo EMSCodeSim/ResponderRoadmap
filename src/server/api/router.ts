@@ -114,7 +114,7 @@ export async function handleApi(req: Request, path: string[]) {
     }
     if (method === "POST" && match(path, "join")) {
       const body = await readBody(req);
-      const result = await department.joinByCode(session.userId, body.joinCode || "");
+      const result = await department.joinByCode(session.userId, body.joinCode || "", body.shift || "");
       return jsonOk(result);
     }
     if (method === "POST" && match(path, "invitations/accept")) {
