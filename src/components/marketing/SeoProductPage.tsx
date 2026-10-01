@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
-import { PricingSummaryLine } from "@/components/marketing/PricingTiers";
 
 type Feature = { title: string; body: string };
 type Related = { href: string; label: string };
@@ -41,11 +40,9 @@ export function SeoProductPage({
           <p className="mt-6 max-w-3xl text-lg leading-8 text-white/70">{description}</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/demo" className="inline-flex min-h-11 items-center rounded-md bg-fire px-5 text-sm font-bold hover:bg-fire-dark">See the Department Demo</Link>
-            <Link href="/register" className="inline-flex min-h-11 items-center rounded-md border border-white/20 px-5 text-sm font-semibold hover:bg-white/10">Start Free</Link>
-            <Link href="/department-interest?plan=station" className="inline-flex min-h-11 items-center rounded-md border border-white/20 px-5 text-sm font-semibold hover:bg-white/10">Start Station</Link>
+            <Link href="/register" className="inline-flex min-h-11 items-center rounded-md border border-white/20 px-5 text-sm font-semibold hover:bg-white/10">Start Live Test</Link>
           </div>
           <div className="mt-5">
-            <PricingSummaryLine />
             <Link href="/pricing" className="mt-2 inline-flex text-sm font-semibold text-[#FDA4AF] underline underline-offset-4">See pricing</Link>
           </div>
         </section>
