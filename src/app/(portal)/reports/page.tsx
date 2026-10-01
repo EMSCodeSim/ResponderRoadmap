@@ -53,23 +53,31 @@ type TrainingHoursReport = {
 };
 
 
+type TrainingGapRow = {
+  memberId: string;
+  memberName: string;
+  rank: string | null;
+  position: string | null;
+  station: string | null;
+  shift: string | null;
+  expectationProfiles: string[];
+  gapCount: number;
+  trainingHoursByCategory: Record<string, { actual: number; target: number }>;
+  gaps: Array<{ kind: string; name: string; detail: string }>;
+};
 type TrainingGapsReport = {
+  year: number;
   members: number;
   membersWithGaps: number;
   totalGaps: number;
   missingCredentials: number;
+  missingCredentialDates: number;
   expiredCredentials: number;
   expiringCredentials: number;
-  rows: Array<{
-    memberId: string;
-    memberName: string;
-    rank: string | null;
-    position: string | null;
-    station: string | null;
-    shift: string | null;
-    gapCount: number;
-    gaps: Array<{ kind: string; name: string; detail: string }>;
-  }>;
+  trainingHourGaps: number;
+  coverageByCategory: Array<{ category: string; targetHours: number; recordedHours: number; membersExpected: number; membersBelowTarget: number; membersWithRecordedHours: number }>;
+  rows: TrainingGapRow[];
+  allRows: TrainingGapRow[];
 };
 
 type TrainingSheetBatch = {
@@ -129,7 +137,9 @@ function ReportsInner() {
                     ? (certs as unknown as Array<Record<string, unknown>>)
                     : report === "training-hours"
                       ? ((trainingHours?.records || []) as unknown as Array<Record<string, unknown>>)
-                      : (progress as unknown as Array<Record<string, unknown>>),
+                      : report === "training-gaps"
+                        ? ((trainingGaps?.rows || []) as unknown as Array<Record<string, unknown>>)
+                        : (progress as unknown as Array<Record<string, unknown>>),
                 )
               }
             >
@@ -367,28 +377,7 @@ function ReportsInner() {
         </div>
       )}
 
-      {report === "training-gaps" && trainingGaps && (
-        <div className="space-y-4">
-          <Card className="p-5">
-            <div className="kicker">Readiness</div>
-            <h2 className="display mt-1 text-2xl font-bold">Training Gaps</h2>
-            <p className="mt-1 max-w-3xl text-sm text-navy-600">Shows missing, expired, and expiring required credentials plus incomplete assigned task books. Credential requirements are configured by the department.</p>
-          </Card>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="p-4"><div className="kicker">Members with gaps</div><div className="mt-1 text-3xl font-bold">{trainingGaps.membersWithGaps} / {trainingGaps.members}</div></Card>
-            <Card className="p-4"><div className="kicker">Missing credentials</div><div className="mt-1 text-3xl font-bold text-danger">{trainingGaps.missingCredentials}</div></Card>
-            <Card className="p-4"><div className="kicker">Expired credentials</div><div className="mt-1 text-3xl font-bold text-danger">{trainingGaps.expiredCredentials}</div></Card>
-            <Card className="p-4"><div className="kicker">Expiring credentials</div><div className="mt-1 text-3xl font-bold text-warn">{trainingGaps.expiringCredentials}</div></Card>
-          </div>
-          <Card>
-            {trainingGaps.rows.length === 0 ? <p className="p-6 text-sm text-navy-500">No current training gaps found.</p> : (
-              <div className="table-wrap"><table className="table"><thead><tr><th>Member</th><th>Rank / Position</th><th>Station / Shift</th><th>Gaps</th></tr></thead><tbody>
-                {trainingGaps.rows.map((row) => <tr key={row.memberId}><td className="font-semibold"><Link href={`/members/${row.memberId}`}>{row.memberName}</Link></td><td>{row.rank || row.position || "—"}</td><td>{row.station || "—"}{row.shift ? ` · ${row.shift}` : ""}</td><td><div className="space-y-1">{row.gaps.map((gap, index) => <div key={`${gap.kind}-${gap.name}-${index}`} className="text-sm"><Badge tone={gap.kind === "EXPIRING" ? "warn" : gap.kind === "MISSING" || gap.kind === "EXPIRED" || gap.kind === "OVERDUE_TASK_BOOK" ? "danger" : "info"}>{gap.kind.toLowerCase().replaceAll("_", " ")}</Badge> <span className="font-semibold">{gap.name}</span> <span className="text-navy-500">· {gap.detail}</span></div>)}</div></td></tr>)}
-              </tbody></table></div>
-            )}
-          </Card>
-        </div>
-      )}
+      {report === "training-gaps" && trainingGaps && <TrainingGapAnalysis report={trainingGaps} />}
 
       {report === "compliance" && compliance && (
         <div className="grid gap-4 md:grid-cols-2">
@@ -413,6 +402,77 @@ function ReportsInner() {
       )}
     </div>
   );
+}
+
+
+function TrainingGapAnalysis({ report }: { report: TrainingGapsReport }) {
+  const [shift, setShift] = useState("ALL");
+  const [memberId, setMemberId] = useState("ALL");
+  const [suggestion, setSuggestion] = useState("");
+  const [suggestionError, setSuggestionError] = useState("");
+  const [suggestionBusy, setSuggestionBusy] = useState(false);
+  const allRows = report.allRows || report.rows;
+  const shifts = [...new Set(allRows.map((row) => row.shift).filter((value): value is string => Boolean(value)))].sort();
+  const people = allRows.filter((row) => shift === "ALL" || row.shift === shift);
+  const rowsInScope = people.filter((row) => memberId !== "ALL" ? row.memberId === memberId : true);
+  const gapRows = rowsInScope.filter((row) => row.gapCount > 0);
+  const coverage = [...new Set(rowsInScope.flatMap((row) => Object.keys(row.trainingHoursByCategory || {})))].sort().map((category) => {
+    const expected = rowsInScope.filter((row) => (row.trainingHoursByCategory[category]?.target || 0) > 0);
+    return {
+      category,
+      actual: rowsInScope.reduce((sum, row) => sum + (row.trainingHoursByCategory[category]?.actual || 0), 0),
+      target: expected.reduce((sum, row) => sum + (row.trainingHoursByCategory[category]?.target || 0), 0),
+      expected: expected.length,
+      below: expected.filter((row) => (row.trainingHoursByCategory[category]?.actual || 0) < (row.trainingHoursByCategory[category]?.target || 0)).length,
+      recorded: rowsInScope.filter((row) => (row.trainingHoursByCategory[category]?.actual || 0) > 0).length,
+    };
+  });
+  const totalGaps = gapRows.reduce((sum, row) => sum + row.gapCount, 0);
+  const missing = gapRows.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "MISSING").length, 0);
+  const expired = gapRows.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRED").length, 0);
+  const hourGaps = gapRows.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "TRAINING_HOURS").length, 0);
+
+  async function suggest() {
+    setSuggestionBusy(true); setSuggestionError(""); setSuggestion("");
+    const scope = memberId !== "ALL" ? "the selected person" : shift !== "ALL" ? "the selected shift" : "the whole department";
+    const topGapTypes = [...new Set(gapRows.flatMap((row) => row.gaps.map((gap) => gap.kind + ": " + gap.name + " (" + gap.detail + ")")))].slice(0, 12);
+    const coverageFacts = coverage.map((row) => row.category + ": " + row.actual.toFixed(1) + "/" + row.target.toFixed(1) + " hours; " + row.below + "/" + row.expected + " expected members below target; " + row.recorded + " members with recorded hours").slice(0, 10);
+    const question = ("Suggest a few practical training classes, drills, or follow-up actions for " + scope + " based only on this " + report.year + " report. Data: " + rowsInScope.length + " members, " + gapRows.length + " with recorded gaps, " + totalGaps + " gaps. Common gaps: " + topGapTypes.join("; ") + ". Coverage: " + coverageFacts.join("; ") + ". Distinguish missing records from proven skill deficits. Do not claim compliance or competency; keep suggestions concise and actionable.").slice(0, 1950);
+    try {
+      const result = await api<{ answer: string }>("ai/ask", { method: "POST", body: JSON.stringify({ page: "/reports?type=training-gaps", question }) });
+      setSuggestion(result.answer);
+    } catch (error) {
+      setSuggestionError(error instanceof Error ? error.message : "Unable to generate training suggestions.");
+    } finally { setSuggestionBusy(false); }
+  }
+
+  return <div className="space-y-4">
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><div className="kicker">Department readiness · {report.year}</div><h2 className="display mt-1 text-2xl font-bold">Training Gaps</h2><p className="mt-1 max-w-3xl text-sm text-navy-600">Compare completed training and member records with expectations set by the department. Low recorded coverage is a planning signal; it does not by itself prove a skill deficit or determine compliance.</p></div>
+        <Button onClick={() => void suggest()} disabled={suggestionBusy}>{suggestionBusy ? "Reviewing report…" : "AI training suggestions"}</Button>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <Field label="Shift"><Select value={shift} onChange={(event) => { setShift(event.target.value); setMemberId("ALL"); }}><option value="ALL">All shifts</option>{shifts.map((item) => <option key={item} value={item}>{item}</option>)}</Select></Field>
+        <Field label="Person"><Select value={memberId} onChange={(event) => setMemberId(event.target.value)}><option value="ALL">All people in this view</option>{people.map((row) => <option key={row.memberId} value={row.memberId}>{row.memberName}</option>)}</Select></Field>
+      </div>
+      {suggestionError ? <p role="alert" className="mt-3 text-sm text-danger">{suggestionError}</p> : null}
+      {suggestion ? <div className="mt-4 rounded-md border border-sky-200 bg-sky-50 p-4"><div className="font-bold">AI suggestions · review before scheduling</div><p className="mt-2 whitespace-pre-wrap text-sm text-navy-700">{suggestion}</p></div> : null}
+    </Card>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Card className="p-4"><div className="kicker">Members with gaps</div><div className="mt-1 text-3xl font-bold">{gapRows.length} / {rowsInScope.length}</div></Card>
+      <Card className="p-4"><div className="kicker">Open gap records</div><div className="mt-1 text-3xl font-bold">{totalGaps}</div></Card>
+      <Card className="p-4"><div className="kicker">Missing / expired credentials</div><div className="mt-1 text-3xl font-bold text-danger">{missing + expired}</div></Card>
+      <Card className="p-4"><div className="kicker">Below annual hour target</div><div className="mt-1 text-3xl font-bold text-warn">{hourGaps}</div></Card>
+    </div>
+    <Card className="overflow-hidden">
+      <div className="border-b border-navy-200 p-5"><div className="kicker">Completed training coverage</div><h3 className="display mt-1 text-xl font-bold">Annual hours by training area</h3><p className="mt-1 text-sm text-navy-500">Hours come from completed classes with present attendance. Targets come from active rank or position expectations.</p></div>
+      {coverage.length ? <div className="table-wrap"><table className="table"><thead><tr><th>Training area</th><th>Recorded / target hours</th><th>Members with hours</th><th>Below target</th></tr></thead><tbody>{coverage.map((row) => <tr key={row.category}><td className="font-semibold">{row.category.replaceAll("_", " ")}</td><td>{row.actual.toFixed(1)} / {row.target.toFixed(1)}</td><td>{row.recorded} / {rowsInScope.length}</td><td>{row.expected ? row.below + " / " + row.expected : "No target set"}</td></tr>)}</tbody></table></div> : <p className="p-5 text-sm text-navy-500">No completed training hours are recorded in this view. Set annual category targets under Admin → Training Expectations to make under-coverage visible.</p>}
+    </Card>
+    <Card>
+      {gapRows.length === 0 ? <p className="p-6 text-sm text-navy-500">No current training gaps found for this view.</p> : <div className="table-wrap"><table className="table"><thead><tr><th>Member</th><th>Rank / Position</th><th>Station / Shift</th><th>Gaps</th></tr></thead><tbody>{gapRows.map((row) => <tr key={row.memberId}><td className="font-semibold"><Link href={"/members/" + row.memberId}>{row.memberName}</Link></td><td>{row.rank || row.position || "—"}</td><td>{row.station || "—"}{row.shift ? " · " + row.shift : ""}</td><td><div className="space-y-1">{row.gaps.map((gap, index) => <div key={gap.kind + gap.name + index} className="text-sm"><Badge tone={gap.kind === "EXPIRING" ? "warn" : gap.kind === "MISSING" || gap.kind === "EXPIRED" || gap.kind === "OVERDUE_TASK_BOOK" ? "danger" : "info"}>{gap.kind.toLowerCase().replaceAll("_", " ")}</Badge> <span className="font-semibold">{gap.name}</span> <span className="text-navy-500">· {gap.detail}</span></div>)}</div></td></tr>)}</tbody></table></div>}
+    </Card>
+  </div>;
 }
 
 export default function ReportsPage() {

@@ -181,6 +181,8 @@ export default function DashboardPage() {
             awaiting={awaiting}
           />
 
+          <TrainingGapsHome />
+
           {data.memberProgress ? <MemberProgressTable rows={data.memberProgress} /> : null}
         </>
       )}
@@ -353,6 +355,42 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
       </div>
     </Card>
   </section>;
+}
+
+
+type HomeGapReport = {
+  year: number;
+  members: number;
+  membersWithGaps: number;
+  totalGaps: number;
+  trainingHourGaps: number;
+  coverageByCategory: Array<{ category: string; targetHours: number; recordedHours: number; membersExpected: number; membersBelowTarget: number; membersWithRecordedHours: number }>;
+};
+
+function TrainingGapsHome() {
+  const [report, setReport] = useState<HomeGapReport | null>(null);
+  useEffect(() => {
+    api<HomeGapReport>("reports/training-gaps").then(setReport).catch(() => setReport(null));
+  }, []);
+  const topGaps = report?.coverageByCategory.filter((row) => row.membersBelowTarget > 0).sort((a, b) => b.membersBelowTarget - a.membersBelowTarget).slice(0, 3) ?? [];
+  return <Card className="my-6 border-amber-300 bg-amber-50/40 p-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div className="kicker">Department training picture · {report?.year ?? new Date().getFullYear()}</div>
+        <h2 className="display mt-1 text-2xl font-bold">Training gaps</h2>
+        <p className="mt-1 max-w-3xl text-sm text-navy-600">See where department expectations, completed training, and member records leave coverage gaps.</p>
+      </div>
+      <Link href="/reports?type=training-gaps"><Button variant="secondary">Open gap analysis →</Button></Link>
+    </div>
+    {report ? <>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-md border border-navy-200 bg-white p-3"><div className="text-xs font-semibold text-navy-500">Members with gaps</div><div className="mt-1 text-2xl font-bold">{report.membersWithGaps} / {report.members}</div></div>
+        <div className="rounded-md border border-navy-200 bg-white p-3"><div className="text-xs font-semibold text-navy-500">Open gaps</div><div className="mt-1 text-2xl font-bold">{report.totalGaps}</div></div>
+        <div className="rounded-md border border-navy-200 bg-white p-3"><div className="text-xs font-semibold text-navy-500">Below annual hour target</div><div className="mt-1 text-2xl font-bold">{report.trainingHourGaps}</div></div>
+      </div>
+      {topGaps.length ? <div className="mt-4"><div className="text-sm font-bold">Most common training-hour gaps</div><ul className="mt-2 grid gap-2 sm:grid-cols-3">{topGaps.map((row) => <li key={row.category} className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm"><span className="font-semibold">{row.category.replaceAll("_", " ")}</span><span className="block text-navy-500">{row.membersBelowTarget} of {row.membersExpected} members below target</span><span className="text-xs text-navy-500">{row.recordedHours} of {row.targetHours} department hours recorded</span></li>)}</ul></div> : <p className="mt-4 text-sm text-navy-500">{report.members ? "No annual training-hour targets are currently below goal." : "Add active members and define training expectations to build this view."}</p>}
+    </> : <p className="mt-4 text-sm text-navy-500">Training-gap summary is unavailable right now. Open the report to retry.</p>}
+  </Card>;
 }
 
 function ActivationChecklist({ data }: { data: Dashboard }) {

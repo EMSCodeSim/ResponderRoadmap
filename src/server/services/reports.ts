@@ -550,10 +550,31 @@ export async function trainingGapsReport(ctx: AuthContext) {
     });
 
     const gaps = [...credentialGaps, ...normalTaskBookGaps, ...missingTaskBooks, ...hourGaps];
-    return { memberId: member.id, memberName: member.user.name, rank: member.rank, position: member.position, station: member.station, shift: member.shift, expectationProfiles: matchingProfiles.map((profile) => profile.name), gaps, gapCount: gaps.length };
+    const trainingHoursByCategory = Object.fromEntries(
+      [...new Set([...Object.keys(expectedHours), ...Object.keys(actualHours)])].map((category) => [
+        category,
+        {
+          actual: Math.round((actualHours[category] || 0) * 100) / 100,
+          target: Math.round((expectedHours[category] || 0) * 100) / 100,
+        },
+      ]),
+    );
+    return { memberId: member.id, memberName: member.user.name, rank: member.rank, position: member.position, station: member.station, shift: member.shift, expectationProfiles: matchingProfiles.map((profile) => profile.name), trainingHoursByCategory, gaps, gapCount: gaps.length };
   });
 
   const withGaps = rows.filter((row) => row.gapCount > 0);
+  const categories = [...new Set(rows.flatMap((row) => Object.keys(row.trainingHoursByCategory)))].sort();
+  const coverageByCategory = categories.map((category) => {
+    const expected = rows.filter((row) => (row.trainingHoursByCategory[category]?.target || 0) > 0);
+    return {
+      category,
+      targetHours: Math.round(expected.reduce((sum, row) => sum + (row.trainingHoursByCategory[category]?.target || 0), 0) * 100) / 100,
+      recordedHours: Math.round(rows.reduce((sum, row) => sum + (row.trainingHoursByCategory[category]?.actual || 0), 0) * 100) / 100,
+      membersExpected: expected.length,
+      membersBelowTarget: expected.filter((row) => (row.trainingHoursByCategory[category]?.actual || 0) < (row.trainingHoursByCategory[category]?.target || 0)).length,
+      membersWithRecordedHours: rows.filter((row) => (row.trainingHoursByCategory[category]?.actual || 0) > 0).length,
+    };
+  });
   return {
     year, members: rows.length, membersWithGaps: withGaps.length, totalGaps: withGaps.reduce((sum, row) => sum + row.gapCount, 0),
     missingCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "MISSING").length, 0),
@@ -561,7 +582,9 @@ export async function trainingGapsReport(ctx: AuthContext) {
     expiredCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRED").length, 0),
     expiringCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRING").length, 0),
     trainingHourGaps: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "TRAINING_HOURS").length, 0),
+    coverageByCategory,
     rows: withGaps,
+    allRows: rows,
   };
 }
 
