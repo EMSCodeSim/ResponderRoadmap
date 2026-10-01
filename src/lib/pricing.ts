@@ -168,7 +168,9 @@ export function publicPlan(id: PlanId) {
 /** Cap used for activation. Legacy and unknown paid plans stay uncapped. */
 export function activeMemberCapForPlan(plan: string | null | undefined): number | null {
   const id = String(plan || "").trim().toUpperCase();
-  if (id === "FREE") return 5;
+  // Live-test departments are intentionally uncapped. Pricing stays public,
+  // but plan levels do not interrupt department testing or enrollment.
+  if (id === "FREE") return null;
   if (id === "STATION") return 25;
   if (id === "FOUNDING") return 75;
   return null;
