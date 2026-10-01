@@ -27,7 +27,7 @@ describe("public pricing catalog", () => {
     expect(planFromQuery("station")).toBe("STATION");
     expect(planFromQuery("founding")).toBe("FOUNDING");
     expect(planFromQuery("department")).toBe("DEPARTMENT");
-    expect(activeMemberCapForPlan("FREE")).toBe(5);
+    expect(activeMemberCapForPlan("FREE")).toBeNull();
     expect(activeMemberCapForPlan("STATION")).toBe(25);
     expect(activeMemberCapForPlan("FOUNDING")).toBe(75);
     expect(activeMemberCapForPlan("LEGACY")).toBeNull();

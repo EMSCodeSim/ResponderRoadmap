@@ -114,18 +114,11 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
               Have a pilot invitation? Use the invitation link sent by your department, then sign in here.
             </p>
             <p className="mt-2">
-              Need more than five members?{" "}
-              <Link href="/department-interest?plan=station&source=login" className="font-semibold text-fire">
-                Start Station
-              </Link>
-              {" "}($299/year, 25) or{" "}
-              <Link href="/department-interest?plan=founding&source=login" className="font-semibold text-fire">
-                ask about founding access
-              </Link>
-              {" "}($500/year, 75).{" "}
+              Starting a department test? Create an account, or review{" "}
               <Link href="/pricing" className="font-semibold text-fire">
-                See pricing
+                pricing
               </Link>
+              .
             </p>
           </div>
         </div>
