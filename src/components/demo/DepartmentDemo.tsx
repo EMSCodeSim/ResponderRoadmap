@@ -215,11 +215,9 @@ function Complete({ liveDemoHref, onExplore }: { liveDemoHref: string; onExplore
       <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">Task Books. Assignments. Evaluations. Progress.</h1>
       <p className="mx-auto mt-5 max-w-xl text-lg text-white/70">With AI helping with the administrative work — and humans still making every official decision.</p>
       <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-        <TrackedLink href="/register" event="signup_clicked" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#E11D48] px-6 text-sm font-bold hover:bg-[#BE123C]">Start Free</TrackedLink>
-        <TrackedLink href="/department-interest?plan=station" event="signup_clicked" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/30 px-6 text-sm font-bold hover:bg-white/10">Start Station</TrackedLink>
+        <TrackedLink href="/register" event="signup_clicked" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#E11D48] px-6 text-sm font-bold hover:bg-[#BE123C]">Start Live Test</TrackedLink>
         <button type="button" onClick={onExplore} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/30 px-6 text-sm font-bold hover:bg-white/10">Explore the Demo</button>
       </div>
-      <p className="mt-4 text-sm text-white/50">Free (5) · Station ($299 / 25) · Founding ($500 / 75) · custom above that.</p>
       <div className="mt-5 flex flex-wrap justify-center gap-4 text-sm">
         <Link href="/" className="text-white/65 underline underline-offset-4 hover:text-white">Return to Homepage</Link>
         <Link href="/pricing" className="text-white/65 underline underline-offset-4 hover:text-white">See pricing</Link>
