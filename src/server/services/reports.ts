@@ -526,7 +526,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
     const fallback = training.endsAt ? Math.max(0, (training.endsAt.getTime() - training.startsAt.getTime()) / 3_600_000) : 0;
     const hours = training.creditHours > 0 ? training.creditHours : fallback;
     for (const enrollment of training.roster) {
-      if (!enrollment.membershipId || enrollment.attendance !== "PRESENT") continue;
+      if (!enrollment.membershipId) continue;
       const current = hoursByMember.get(enrollment.membershipId) || {};
       current[training.trainingCategory] = (current[training.trainingCategory] || 0) + hours;
       hoursByMember.set(enrollment.membershipId, current);
