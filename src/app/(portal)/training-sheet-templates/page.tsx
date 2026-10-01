@@ -142,7 +142,7 @@ export default function TrainingSheetTemplatesPage() {
         actions={<Link href="/classes" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Back to training</Link>}
       />
       <Flash message={error} tone="danger" />
-      <Flash message={message} tone="success" />
+      <Flash message={message} tone="current" />
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
         <Card className="p-5">
           <h2 className="text-lg font-bold text-navy-900">{editingId ? "Edit template" : "Build a template"}</h2>
