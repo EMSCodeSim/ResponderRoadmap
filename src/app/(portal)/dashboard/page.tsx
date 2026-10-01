@@ -365,6 +365,7 @@ type HomeGapReport = {
   totalGaps: number;
   trainingHourGaps: number;
   coverageByCategory: Array<{ category: string; targetHours: number; recordedHours: number; membersExpected: number; membersBelowTarget: number; membersWithRecordedHours: number }>;
+  topicCoverageByRequirement: Array<{ templateId: string; templateTitle: string; topic: string; expectedMembers: number; membersUncovered: number; membersLimited: number; membersNeedingFollowUp: number; practiceCount: number }>;
 };
 
 function TrainingGapsHome() {
@@ -373,6 +374,7 @@ function TrainingGapsHome() {
     api<HomeGapReport>("reports/training-gaps").then(setReport).catch(() => setReport(null));
   }, []);
   const topGaps = report?.coverageByCategory.filter((row) => row.membersBelowTarget > 0).sort((a, b) => b.membersBelowTarget - a.membersBelowTarget).slice(0, 3) ?? [];
+  const topTopics = report?.topicCoverageByRequirement.filter((row) => row.membersUncovered > 0 || row.membersNeedingFollowUp > 0).slice(0, 3) ?? [];
   return <Card className="my-6 border-amber-300 bg-amber-50/40 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
@@ -389,6 +391,7 @@ function TrainingGapsHome() {
         <div className="rounded-md border border-navy-200 bg-white p-3"><div className="text-xs font-semibold text-navy-500">Below annual hour target</div><div className="mt-1 text-2xl font-bold">{report.trainingHourGaps}</div></div>
       </div>
       {topGaps.length ? <div className="mt-4"><div className="text-sm font-bold">Most common training-hour gaps</div><ul className="mt-2 grid gap-2 sm:grid-cols-3">{topGaps.map((row) => <li key={row.category} className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm"><span className="font-semibold">{row.category.replaceAll("_", " ")}</span><span className="block text-navy-500">{row.membersBelowTarget} of {row.membersExpected} members below target</span><span className="text-xs text-navy-500">{row.recordedHours} of {row.targetHours} department hours recorded</span></li>)}</ul></div> : <p className="mt-4 text-sm text-navy-500">{report.members ? "No annual training-hour targets are currently below goal." : "Add active members and define training expectations to build this view."}</p>}
+      {topTopics.length ? <div className="mt-4"><div className="text-sm font-bold">Skill topics with the least coverage</div><ul className="mt-2 grid gap-2 sm:grid-cols-3">{topTopics.map((row) => <li key={row.templateId + row.topic} className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm"><span className="font-semibold">{row.topic}</span><span className="block text-navy-500">{row.membersUncovered} of {row.expectedMembers} expected members have no recorded practice</span><span className="text-xs text-navy-500">{row.membersLimited} practiced once · {row.membersNeedingFollowUp} need remediation follow-up</span></li>)}</ul></div> : null}
     </> : <p className="mt-4 text-sm text-navy-500">Training-gap summary is unavailable right now. Open the report to retry.</p>}
   </Card>;
 }

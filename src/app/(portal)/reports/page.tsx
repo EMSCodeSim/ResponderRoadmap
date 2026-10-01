@@ -63,6 +63,7 @@ type TrainingGapRow = {
   expectationProfiles: string[];
   gapCount: number;
   trainingHoursByCategory: Record<string, { actual: number; target: number; completedClasses: number; classTitles: string[] }>;
+  topicCoverage: Array<{ templateId: string; templateTitle: string; topic: string; practiceCount: number; passCount: number; followUpCount: number; status: string }>;
   gaps: Array<{ kind: string; name: string; detail: string }>;
 };
 type TrainingGapsReport = {
@@ -76,6 +77,7 @@ type TrainingGapsReport = {
   expiringCredentials: number;
   trainingHourGaps: number;
   coverageByCategory: Array<{ category: string; targetHours: number; recordedHours: number; membersExpected: number; membersBelowTarget: number; membersWithRecordedHours: number }>;
+  topicCoverageByRequirement: Array<{ templateId: string; templateTitle: string; topic: string; expectedMembers: number; membersUncovered: number; membersLimited: number; membersNeedingFollowUp: number; practiceCount: number; passCount: number }>;
   rows: TrainingGapRow[];
   allRows: TrainingGapRow[];
 };
@@ -429,6 +431,19 @@ function TrainingGapAnalysis({ report }: { report: TrainingGapsReport }) {
       recorded: rowsInScope.filter((row) => (row.trainingHoursByCategory[category]?.actual || 0) > 0).length,
     };
   });
+  const topicMap = new Map<string, { templateId: string; templateTitle: string; topic: string; expectedMembers: number; membersUncovered: number; membersLimited: number; membersNeedingFollowUp: number; practiceCount: number; passCount: number }>();
+  for (const row of rowsInScope) for (const topic of row.topicCoverage || []) {
+    const key = topic.templateId + "|" + topic.topic.toLocaleLowerCase();
+    const aggregate = topicMap.get(key) || { templateId: topic.templateId, templateTitle: topic.templateTitle, topic: topic.topic, expectedMembers: 0, membersUncovered: 0, membersLimited: 0, membersNeedingFollowUp: 0, practiceCount: 0, passCount: 0 };
+    aggregate.expectedMembers += 1;
+    if (topic.status === "NOT_COVERED") aggregate.membersUncovered += 1;
+    if (topic.status === "LIMITED") aggregate.membersLimited += 1;
+    if (topic.status === "NEEDS_FOLLOW_UP") aggregate.membersNeedingFollowUp += 1;
+    aggregate.practiceCount += topic.practiceCount;
+    aggregate.passCount += topic.passCount;
+    topicMap.set(key, aggregate);
+  }
+  const topicCoverage = [...topicMap.values()].sort((a, b) => b.membersUncovered - a.membersUncovered || b.membersNeedingFollowUp - a.membersNeedingFollowUp || b.membersLimited - a.membersLimited || a.topic.localeCompare(b.topic));
   const totalGaps = gapRows.reduce((sum, row) => sum + row.gapCount, 0);
   const missing = gapRows.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "MISSING").length, 0);
   const expired = gapRows.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRED").length, 0);
@@ -439,7 +454,8 @@ function TrainingGapAnalysis({ report }: { report: TrainingGapsReport }) {
     const scope = memberId !== "ALL" ? "the selected person" : shift !== "ALL" ? "the selected shift" : "the whole department";
     const topGapTypes = [...new Set(gapRows.flatMap((row) => row.gaps.map((gap) => gap.kind + ": " + gap.name + " (" + gap.detail + ")")))].slice(0, 12);
     const coverageFacts = coverage.map((row) => row.category + ": " + row.actual.toFixed(1) + "/" + row.target.toFixed(1) + " hours; " + row.classes + " completed class attendances; titles: " + row.titles.slice(0, 4).join(", ") + "; " + row.below + "/" + row.expected + " expected members below target; " + row.recorded + " members with recorded hours").slice(0, 10);
-    const question = ("Suggest a few practical training classes, drills, or follow-up actions for " + scope + " based only on this " + report.year + " report. Data: " + rowsInScope.length + " members, " + gapRows.length + " with recorded gaps, " + totalGaps + " gaps. Common gaps: " + topGapTypes.join("; ") + ". Coverage: " + coverageFacts.join("; ") + ". Distinguish missing records from proven skill deficits. Do not claim compliance or competency; keep suggestions concise and actionable.").slice(0, 1950);
+    const topicFacts = topicCoverage.slice(0, 8).map((row) => row.templateTitle + " — " + row.topic + ": " + row.membersUncovered + "/" + row.expectedMembers + " expected members with no recorded practice, " + row.membersLimited + " practiced once, " + row.membersNeedingFollowUp + " with a remediation/fail result.");
+    const question = ("Suggest a few practical training classes, drills, or follow-up actions for " + scope + " based only on this " + report.year + " report. Data: " + rowsInScope.length + " members, " + gapRows.length + " with recorded gaps, " + totalGaps + " gaps. Common gaps: " + topGapTypes.join("; ") + ". Skill topics: " + topicFacts.join("; ") + ". Hour coverage: " + coverageFacts.join("; ") + ". Distinguish missing records from proven skill deficits. Do not claim compliance or competency; keep suggestions concise and actionable.").slice(0, 1950);
     try {
       const result = await api<{ answer: string }>("ai/ask", { method: "POST", body: JSON.stringify({ page: "/reports?type=training-gaps", question }) });
       setSuggestion(result.answer);
@@ -470,6 +486,10 @@ function TrainingGapAnalysis({ report }: { report: TrainingGapsReport }) {
     <Card className="overflow-hidden">
       <div className="border-b border-navy-200 p-5"><div className="kicker">Completed training coverage</div><h3 className="display mt-1 text-xl font-bold">Annual hours by training area</h3><p className="mt-1 text-sm text-navy-500">Hours come from completed classes with present attendance. Targets come from active rank or position expectations.</p></div>
       {coverage.length ? <div className="table-wrap"><table className="table"><thead><tr><th>Training area</th><th>Recorded / target hours</th><th>Completed class attendances</th><th>Members with hours</th><th>Below target</th><th>Recorded classes</th></tr></thead><tbody>{coverage.map((row) => <tr key={row.category}><td className="font-semibold">{row.category.replaceAll("_", " ")}</td><td>{row.actual.toFixed(1)} / {row.target.toFixed(1)}</td><td>{row.classes}</td><td>{row.recorded} / {rowsInScope.length}</td><td>{row.expected ? row.below + " / " + row.expected : "No target set"}</td><td>{row.titles.length ? row.titles.join(", ") : "—"}</td></tr>)}</tbody></table></div> : <p className="p-5 text-sm text-navy-500">No completed training hours are recorded in this view. Set annual category targets under Admin → Training Expectations to make under-coverage visible.</p>}
+    </Card>
+    <Card className="overflow-hidden">
+      <div className="border-b border-navy-200 p-5"><div className="kicker">Role-specific practice · {report.year}</div><h3 className="display mt-1 text-xl font-bold">Skill topics covered</h3><p className="mt-1 text-sm text-navy-500">Compared with required tasks in active rank/position expectation profiles. Recorded practice shows exposure, not independent proof of competency.</p></div>
+      {topicCoverage.length ? <div className="table-wrap"><table className="table"><thead><tr><th>Required topic</th><th>Role expectation</th><th>No practice recorded</th><th>Practiced once</th><th>Needs follow-up</th><th>Recorded practices</th></tr></thead><tbody>{topicCoverage.map((row) => <tr key={row.templateId + row.topic}><td className="font-semibold">{row.topic}</td><td>{row.templateTitle}</td><td>{row.membersUncovered} / {row.expectedMembers}</td><td>{row.membersLimited}</td><td>{row.membersNeedingFollowUp}</td><td>{row.practiceCount}</td></tr>)}</tbody></table></div> : <p className="p-5 text-sm text-navy-500">No role task topics are configured for this view. Add required task books to active Admin → Training Expectations profiles to compare topic practice.</p>}
     </Card>
     <Card>
       {gapRows.length === 0 ? <p className="p-6 text-sm text-navy-500">No current training gaps found for this view.</p> : <div className="table-wrap"><table className="table"><thead><tr><th>Member</th><th>Rank / Position</th><th>Station / Shift</th><th>Gaps</th></tr></thead><tbody>{gapRows.map((row) => <tr key={row.memberId}><td className="font-semibold"><Link href={"/members/" + row.memberId}>{row.memberName}</Link></td><td>{row.rank || row.position || "—"}</td><td>{row.station || "—"}{row.shift ? " · " + row.shift : ""}</td><td><div className="space-y-1">{row.gaps.map((gap, index) => <div key={gap.kind + gap.name + index} className="text-sm"><Badge tone={gap.kind === "EXPIRING" ? "warn" : gap.kind === "MISSING" || gap.kind === "EXPIRED" || gap.kind === "OVERDUE_TASK_BOOK" ? "danger" : "info"}>{gap.kind.toLowerCase().replaceAll("_", " ")}</Badge> <span className="font-semibold">{gap.name}</span> <span className="text-navy-500">· {gap.detail}</span></div>)}</div></td></tr>)}</tbody></table></div>}

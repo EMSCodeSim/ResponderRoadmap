@@ -467,14 +467,14 @@ export async function trainingGapsReport(ctx: AuthContext) {
   const [members, types, expectations, completedTraining] = await Promise.all([
     prisma.departmentMembership.findMany({
       where: { departmentId: ctx.departmentId, status: "ACTIVE" },
-      include: { user: true, credentials: true, assignments: { include: { version: { include: { template: true, sections: { include: { requirements: true } } } }, completions: true } } },
+      include: { user: true, credentials: true, assignments: { include: { version: { include: { template: true, sections: { include: { requirements: true } } } }, completions: { include: { signOffs: { select: { result: true, signedAt: true } } } } } } },
       orderBy: { user: { name: "asc" } },
     }),
     prisma.credentialType.findMany({ where: { departmentId: ctx.departmentId }, orderBy: { name: "asc" } }),
     prisma.trainingExpectation.findMany({ where: { departmentId: ctx.departmentId, active: true } }),
     prisma.trainingClass.findMany({
       where: { departmentId: ctx.departmentId, status: "COMPLETE", startsAt: { gte: yearStart, lt: yearEnd } },
-      select: { title: true, trainingCategory: true, creditHours: true, startsAt: true, endsAt: true, roster: { select: { membershipId: true, attendance: true } } },
+      select: { title: true, trainingCategory: true, creditHours: true, startsAt: true, endsAt: true, checklistVersion: { select: { templateId: true, template: { select: { title: true } } } }, roster: { where: { attendance: "PRESENT", membershipId: { not: null } }, select: { membershipId: true, skillResults: { select: { result: true, requirement: { select: { title: true } } } } } } },
     }),
   ]);
 
@@ -491,6 +491,35 @@ export async function trainingGapsReport(ctx: AuthContext) {
     taskBookTemplateIds: parseStringArray(profile.taskBookTemplateIdsJson),
     annualHours: (() => { try { const value = JSON.parse(profile.annualHoursJson); return value && typeof value === "object" ? value as Record<string, number> : {}; } catch { return {}; } })(),
   }));
+  const expectationTemplateIds = [...new Set(profiles.flatMap((profile) => profile.taskBookTemplateIds))];
+  const targetTemplates = expectationTemplateIds.length
+    ? await prisma.taskBookTemplate.findMany({
+        where: { departmentId: ctx.departmentId, id: { in: expectationTemplateIds } },
+        select: {
+          id: true,
+          title: true,
+          versions: {
+            where: { status: "PUBLISHED" },
+            orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+            take: 1,
+            select: { sections: { select: { requirements: { where: { isRequired: true }, select: { id: true, title: true } } } } },
+          },
+        },
+      })
+    : [];
+  const targetTemplatesById = new Map(targetTemplates.map((template) => [template.id, template]));
+  const topicKey = (templateId: string, title: string) => templateId + "|" + title.toLocaleLowerCase().replace(/\s+/g, " ").trim();
+  type TopicObservation = { practiceCount: number; passCount: number; followUpCount: number };
+  const observationsByMember = new Map<string, Map<string, TopicObservation>>();
+  function recordTopic(memberId: string, key: string, outcome: string) {
+    const current = observationsByMember.get(memberId) || new Map<string, TopicObservation>();
+    const value = current.get(key) || { practiceCount: 0, passCount: 0, followUpCount: 0 };
+    value.practiceCount += 1;
+    if (outcome === "PASS" || outcome === "APPROVED") value.passCount += 1;
+    if (outcome === "NEEDS_REMEDIATION" || outcome === "FAIL") value.followUpCount += 1;
+    current.set(key, value);
+    observationsByMember.set(memberId, current);
+  }
   const hoursByMember = new Map<string, Record<string, number>>();
   const classesByMember = new Map<string, Record<string, { count: number; titles: string[] }>>();
   for (const training of completedTraining) {
@@ -507,6 +536,11 @@ export async function trainingGapsReport(ctx: AuthContext) {
       if (!categorySessions.titles.includes(training.title)) categorySessions.titles.push(training.title);
       sessions[training.trainingCategory] = categorySessions;
       classesByMember.set(enrollment.membershipId, sessions);
+      const templateId = training.checklistVersion.templateId;
+      for (const skill of enrollment.skillResults) {
+        if (skill.result === "NOT_EVALUATED" || skill.result === "NOT_APPLICABLE") continue;
+        recordTopic(enrollment.membershipId, topicKey(templateId, skill.requirement.title), skill.result);
+      }
     }
   }
 
@@ -552,6 +586,37 @@ export async function trainingGapsReport(ctx: AuthContext) {
     for (const profile of matchingProfiles) for (const [category, target] of Object.entries(profile.annualHours)) expectedHours[category] = Math.max(expectedHours[category] || 0, Number(target) || 0);
     const actualHours = hoursByMember.get(member.id) || {};
     const classSessions = classesByMember.get(member.id) || {};
+    const applicableTemplateIds = new Set(matchingProfiles.flatMap((profile) => profile.taskBookTemplateIds));
+    const memberObservations = new Map<string, TopicObservation>(observationsByMember.get(member.id) || []);
+    for (const assignment of member.assignments) {
+      if (!applicableTemplateIds.has(assignment.version.templateId)) continue;
+      const requirementTitles = new Map(assignment.version.sections.flatMap((section) => section.requirements.map((requirement) => [requirement.id, requirement.title] as const)));
+      for (const completion of assignment.completions) {
+        for (const signOff of completion.signOffs) {
+          if (signOff.result !== "APPROVED" || signOff.signedAt < yearStart || signOff.signedAt >= yearEnd) continue;
+          const title = requirementTitles.get(completion.requirementId);
+          if (title) {
+            const key = topicKey(assignment.version.templateId, title);
+            const value = memberObservations.get(key) || { practiceCount: 0, passCount: 0, followUpCount: 0 };
+            value.practiceCount += 1;
+            value.passCount += 1;
+            memberObservations.set(key, value);
+          }
+        }
+      }
+    }
+    const expectedTopics = new Map<string, { templateId: string; templateTitle: string; topic: string }>();
+    for (const templateId of applicableTemplateIds) {
+      const template = targetTemplatesById.get(templateId);
+      for (const requirement of template?.versions[0]?.sections.flatMap((section) => section.requirements) || []) {
+        expectedTopics.set(topicKey(templateId, requirement.title), { templateId, templateTitle: template?.title || "Required task book", topic: requirement.title });
+      }
+    }
+    const topicCoverage = [...expectedTopics.entries()].map(([key, target]) => {
+      const observation = memberObservations.get(key) || { practiceCount: 0, passCount: 0, followUpCount: 0 };
+      const status = observation.followUpCount > 0 ? "NEEDS_FOLLOW_UP" : observation.practiceCount === 0 ? "NOT_COVERED" : observation.practiceCount === 1 ? "LIMITED" : "REPEATED";
+      return { ...target, practiceCount: observation.practiceCount, passCount: observation.passCount, followUpCount: observation.followUpCount, status };
+    });
     const hourGaps: TrainingGap[] = Object.entries(expectedHours).flatMap(([category, target]) => {
       const actual = Math.round((actualHours[category] || 0) * 100) / 100;
       return actual >= target ? [] : [{ kind: "TRAINING_HOURS" as const, name: `${category.replaceAll("_", " ")} training`, detail: `${actual} / ${target} hours in ${year}` }];
@@ -569,11 +634,24 @@ export async function trainingGapsReport(ctx: AuthContext) {
         },
       ]),
     );
-    return { memberId: member.id, memberName: member.user.name, rank: member.rank, position: member.position, station: member.station, shift: member.shift, expectationProfiles: matchingProfiles.map((profile) => profile.name), trainingHoursByCategory, gaps, gapCount: gaps.length };
+    return { memberId: member.id, memberName: member.user.name, rank: member.rank, position: member.position, station: member.station, shift: member.shift, expectationProfiles: matchingProfiles.map((profile) => profile.name), trainingHoursByCategory, topicCoverage, gaps, gapCount: gaps.length };
   });
 
   const withGaps = rows.filter((row) => row.gapCount > 0);
   const categories = [...new Set(rows.flatMap((row) => Object.keys(row.trainingHoursByCategory)))].sort();
+  const topicMap = new Map<string, { templateId: string; templateTitle: string; topic: string; expectedMembers: number; membersUncovered: number; membersLimited: number; membersNeedingFollowUp: number; practiceCount: number; passCount: number }>();
+  for (const row of rows) for (const topic of row.topicCoverage) {
+    const key = topicKey(topic.templateId, topic.topic);
+    const aggregate = topicMap.get(key) || { templateId: topic.templateId, templateTitle: topic.templateTitle, topic: topic.topic, expectedMembers: 0, membersUncovered: 0, membersLimited: 0, membersNeedingFollowUp: 0, practiceCount: 0, passCount: 0 };
+    aggregate.expectedMembers += 1;
+    if (topic.status === "NOT_COVERED") aggregate.membersUncovered += 1;
+    if (topic.status === "LIMITED") aggregate.membersLimited += 1;
+    if (topic.status === "NEEDS_FOLLOW_UP") aggregate.membersNeedingFollowUp += 1;
+    aggregate.practiceCount += topic.practiceCount;
+    aggregate.passCount += topic.passCount;
+    topicMap.set(key, aggregate);
+  }
+  const topicCoverageByRequirement = [...topicMap.values()].sort((a, b) => b.membersUncovered - a.membersUncovered || b.membersNeedingFollowUp - a.membersNeedingFollowUp || a.topic.localeCompare(b.topic));
   const coverageByCategory = categories.map((category) => {
     const expected = rows.filter((row) => (row.trainingHoursByCategory[category]?.target || 0) > 0);
     return {
@@ -593,6 +671,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
     expiringCredentials: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "EXPIRING").length, 0),
     trainingHourGaps: withGaps.reduce((sum, row) => sum + row.gaps.filter((gap) => gap.kind === "TRAINING_HOURS").length, 0),
     coverageByCategory,
+    topicCoverageByRequirement,
     rows: withGaps,
     allRows: rows,
   };
