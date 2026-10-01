@@ -651,7 +651,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
     aggregate.passCount += topic.passCount;
     topicMap.set(key, aggregate);
   }
-  const topicCoverageByRequirement = [...topicMap.values()].sort((a, b) => b.membersUncovered - a.membersUncovered || b.membersNeedingFollowUp - a.membersNeedingFollowUp || a.topic.localeCompare(b.topic));
+  const topicCoverageByRequirement = [...topicMap.values()].sort((a, b) => b.membersUncovered - a.membersUncovered || b.membersNeedingFollowUp - a.membersNeedingFollowUp || b.membersLimited - a.membersLimited || a.topic.localeCompare(b.topic));
   const coverageByCategory = categories.map((category) => {
     const expected = rows.filter((row) => (row.trainingHoursByCategory[category]?.target || 0) > 0);
     return {
