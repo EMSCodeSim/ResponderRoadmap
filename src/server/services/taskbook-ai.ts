@@ -44,18 +44,25 @@ function apiKey() {
 }
 
 async function requestDraft(input: OpenAiInputMessage[], context = "Task Book") {
+  const controller = new AbortController();
+  // Netlify synchronous functions have a hard 60-second limit. Abort early enough
+  // to return a useful JSON error instead of a platform-generated generic failure.
+  const timeout = setTimeout(() => controller.abort(), 52000);
   let response: Response;
   try {
-    response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({
-      model: process.env.OPENAI_TASKBOOK_MODEL || "gpt-5.6-luna", store: false, reasoning: { effort: "low" }, max_output_tokens: 12000, input,
+    response = await fetch("https://api.openai.com/v1/responses", { method: "POST", signal: controller.signal, headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({
+      model: process.env.OPENAI_TASKBOOK_MODEL || "gpt-5-mini", store: false, reasoning: { effort: "low" }, max_output_tokens: 8000, input,
       text: { format: { type: "json_schema", name: "responderroadmap_taskbook_draft", strict: true, schema } },
     }) });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new HttpError(504, `${context} is taking longer than the current import window. Try a smaller PDF or split a large Task Book into parts.`);
     throw new HttpError(503, `${context} could not be sent for conversion. Please try again.`);
+  } finally {
+    clearTimeout(timeout);
   }
   const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
   if (!response.ok) {
-    const upstream = payload.error?.message || "The document conversion service rejected the request.";
+    const upstream = payload.error?.message || `The document conversion service rejected the request (HTTP ${response.status}).`;
     throw new HttpError(response.status >= 500 ? 503 : 400, `${context} import failed: ${upstream}`);
   }
   const text = outputText(payload);
@@ -64,7 +71,7 @@ async function requestDraft(input: OpenAiInputMessage[], context = "Task Book") 
   catch { throw new HttpError(502, `${context} was converted, but the draft could not be read. Please retry the import.`); }
 }
 
-const developerInstruction = `You create editable Fire/EMS department Task Book drafts for ResponderRoadmap. Organize practical sections and requirements that a training officer can review. Do not claim that content is NFPA, NREMT, state, legal, regulatory, or department compliant unless the supplied source explicitly says so. Never invent a standard citation. Any standard reference you cannot verify directly from supplied material must be omitted. Keep all output as a draft for human review. Use evaluator sign-off for skill demonstrations when appropriate and supervisor approval only when a final supervisory check is clearly useful. For each requirement, include concise objectives, observable evaluation steps, and critical failures only when an action would be genuinely unsafe or disqualifying.`;
+const developerInstruction = `You create editable Fire/EMS department Task Book drafts for ResponderRoadmap. Organize practical sections and requirements that a training officer can review. Do not claim that content is NFPA, NREMT, state, legal, regulatory, or department compliant unless the supplied source explicitly says so. Never invent a standard citation. Any standard reference you cannot verify directly from supplied material must be omitted. Keep all output as a draft for human review. Use evaluator sign-off for skill demonstrations when appropriate and supervisor approval only when a final supervisory check is clearly useful. For each requirement, keep descriptions and instructions concise, include only essential observable evaluation steps, and include critical failures only when an action would be genuinely unsafe or disqualifying.`;
 
 export async function generateTaskBookDraft(ctx: AuthContext, prompt: string) {
   assertPermission(ctx, "taskbooks.write"); const request = prompt.trim();
@@ -81,7 +88,9 @@ function decodePdf(raw: string) {
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) throw new HttpError(400, "The selected file could not be read as a PDF. Please choose the original PDF file and try again.");
   const bytes = Buffer.from(base64, "base64");
   if (bytes.length < 5 || bytes.subarray(0, 5).toString("ascii") !== "%PDF-") throw new HttpError(400, "The selected file is not a valid PDF.");
-  if (bytes.length > 10 * 1024 * 1024) throw new HttpError(413, "PDF is too large for AI import. Keep the file under 10 MB.");
+  // The browser sends this as base64 inside JSON. Keep below Netlify's 6 MB
+  // buffered request limit after base64/JSON overhead.
+  if (bytes.length > 4 * 1024 * 1024) throw new HttpError(413, "PDF is too large for direct import. Keep the file under 4 MB or split it into smaller parts.");
   return bytes;
 }
 
@@ -97,7 +106,7 @@ async function uploadPdf(filename: string, bytes: Buffer) {
     throw new HttpError(503, `PDF “${filename}” could not be uploaded for conversion. Please try again.`);
   }
   const payload = await response.json().catch(() => ({})) as { id?: string; error?: { message?: string } };
-  if (!response.ok || !payload.id) throw new HttpError(response.status >= 500 ? 503 : 400, `PDF “${filename}” upload failed: ${payload.error?.message || "The document service rejected the PDF."}`);
+  if (!response.ok || !payload.id) throw new HttpError(response.status >= 500 ? 503 : 400, `PDF “${filename}” upload failed: ${payload.error?.message || `The document service rejected the PDF (HTTP ${response.status}).`}`);
   return payload.id;
 }
 
@@ -115,7 +124,7 @@ export async function importPdfTaskBookDraft(ctx: AuthContext, input: { filename
     return await requestDraft([
       { role: "developer", content: [{ type: "input_text", text: developerInstruction }] },
       { role: "user", content: [
-        { type: "input_text", text: `Convert the attached existing Task Book into a ResponderRoadmap editable draft. Preserve every meaningful section and requirement from the source, including tables and checklist rows where readable. Scanned pages may require visual reading. Do not invent missing requirements, standards, signatures, or citations. If wording is unclear, preserve it conservatively rather than guessing. Keep the result as a draft for Training Officer review. Additional department notes: ${String(input.notes || "None").slice(0, 3000)}` },
+        { type: "input_text", text: `Convert the attached existing Task Book into a ResponderRoadmap editable draft. Preserve every meaningful section and requirement from the source, including tables and checklist rows where readable. Scanned pages may require visual reading. Do not invent missing requirements, standards, signatures, or citations. If wording is unclear, preserve it conservatively rather than guessing. Keep each imported requirement concise so the full draft can be returned promptly. Keep the result as a draft for Training Officer review. Additional department notes: ${String(input.notes || "None").slice(0, 3000)}` },
         { type: "input_file", file_id: fileId },
       ] },
     ], `PDF “${filename}”`);
