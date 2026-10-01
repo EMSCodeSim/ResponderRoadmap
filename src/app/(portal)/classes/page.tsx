@@ -94,6 +94,7 @@ export default function ClassesPage() {
   function openTraining(quick = false) {
     const currentUser = setup?.proctors.find((item) => item.role === "TRAINING_OFFICER" || item.role === "DEPARTMENT_ADMINISTRATOR" || item.role === "INSTRUCTOR" || item.role === "EVALUATOR");
     setQuickMode(quick);
+    setSelectedTemplateId("");
     setForm({ ...emptyForm, startsAt: quick ? localDateTimeNow() : "", selfRegistration: quick, proctorUserIds: currentUser ? [currentUser.userId] : [] });
     setOpen(true);
   }
