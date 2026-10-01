@@ -22,6 +22,8 @@ type ClassRow = {
   proctors: string[];
 };
 
+type TrainingSheetTemplate = { id: string; name: string; defaultTitle: string; classType: string; trainingCategory: string; creditHours: number; checklistVersionId: string | null; location: string; notes: string; selfRegistration: boolean; proctorUserIds: string[]; };
+
 type Setup = {
   checklists: Array<{ id: string; title: string; version: string; skillCount: number }>;
   members: Array<{ id: string; name: string; rank: string | null }>;
@@ -47,6 +49,8 @@ const emptyForm = {
 export default function ClassesPage() {
   const [rows, setRows] = useState<ClassRow[]>([]);
   const [setup, setSetup] = useState<Setup | null>(null);
+  const [templates, setTemplates] = useState<TrainingSheetTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
@@ -56,6 +60,7 @@ export default function ClassesPage() {
   async function load() {
     setRows(await api<ClassRow[]>("classes"));
     api<Setup>("classes/setup").then(setSetup).catch(() => setSetup(null));
+    api<TrainingSheetTemplate[]>("training-sheet-templates").then(setTemplates).catch(() => setTemplates([]));
   }
 
   useEffect(() => {
@@ -93,6 +98,13 @@ export default function ClassesPage() {
     setOpen(true);
   }
 
+  function applyTemplate(id: string) {
+    setSelectedTemplateId(id);
+    const template = templates.find((item) => item.id === id);
+    if (!template) return;
+    setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
+  }
+
   const required = new Set(setup?.requiredFields || []);
   const req = (field: string) => required.has(field);
 
@@ -102,7 +114,7 @@ export default function ClassesPage() {
         kicker="Training delivery"
         title="Training & class rosters"
         description="Replace paper training sheets: create training, capture attendance by roster or QR, complete the record, and export it for your RMS when needed."
-        actions={setup ? <div className="flex flex-wrap gap-2"><Button onClick={() => openTraining(true)} className="md:hidden">Quick training</Button><Button onClick={() => openTraining(false)}>Create training</Button></div> : undefined}
+        actions={<div className="flex flex-wrap gap-2"><Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Training templates</Link>{setup ? <><Button onClick={() => openTraining(true)} className="md:hidden">Quick training</Button><Button onClick={() => openTraining(false)}>Create training</Button></> : null}</div>}
       />
       <Flash message={error} tone="danger" />
       {setup ? <button type="button" onClick={() => openTraining(true)} className="fixed bottom-20 right-4 z-40 flex min-h-14 items-center rounded-full bg-fire px-5 text-sm font-bold text-white shadow-lg md:hidden" aria-label="Create quick training sheet">+ Quick training</button> : null}
@@ -135,6 +147,7 @@ export default function ClassesPage() {
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
           {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Phone / field mode</div><p className="mt-1 text-sm text-navy-600">Start with the essentials now. QR registration is on by default so the crew can scan in. Department-required RMS fields are still enforced.</p></div> : null}
+          {templates.length ? <Field label="Start from a training template" hint="Prefills the checklist and sheet details. You can adjust them before creating the class."><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Start with a blank sheet</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field> : null}
           {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> fields marked * are required by your department before this training sheet is created or completed.</div> : null}
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Class title"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Fire Academy Skills Day 4" required /></Field>

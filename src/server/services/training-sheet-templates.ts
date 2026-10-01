@@ -3,8 +3,8 @@ import { HttpError, writeAudit } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { approvedEvaluatorWhere } from "@/server/services/evaluators";
 
-const CLASS_TYPES = new Set(["GENERAL", "SKILLS_TEST", "CPR"]);
-const CATEGORIES = new Set(["COMPANY", "EMS", "FIRE", "DRIVER_OPERATOR", "HAZMAT", "TECHNICAL_RESCUE", "WILDLAND", "OTHER"]);
+const CLASS_TYPES = new Set(["GENERAL", "FIRE_ACADEMY", "CPR", "EMS"]);
+const CATEGORIES = new Set(["COMPANY", "FACILITY", "HAZMAT", "DRIVER", "OFFICER", "EMS", "OTHER"]);
 
 function strings(value: unknown) {
   if (!Array.isArray(value)) return [];
