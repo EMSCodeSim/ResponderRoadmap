@@ -151,6 +151,11 @@ export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename
   return { _poll: signJob(payload.id, fileId), status: payload.status || "queued" };
 }
 
+// Compatibility export for the generic API router. The dedicated PDF route and
+// browser use the same asynchronous job contract, so this must never wait for
+// the full AI conversion inside a synchronous Netlify request.
+export const importPdfTaskBookDraft = startPdfTaskBookImport;
+
 export async function pollPdfTaskBookImport(ctx: AuthContext, token: string) {
   assertPermission(ctx, "taskbooks.write");
   const { responseId, fileId } = readJob(token);
