@@ -62,7 +62,7 @@ type TrainingGapRow = {
   shift: string | null;
   expectationProfiles: string[];
   gapCount: number;
-  trainingHoursByCategory: Record<string, { actual: number; target: number }>;
+  trainingHoursByCategory: Record<string, { actual: number; target: number; completedClasses: number; classTitles: string[] }>;
   gaps: Array<{ kind: string; name: string; detail: string }>;
 };
 type TrainingGapsReport = {
@@ -422,6 +422,8 @@ function TrainingGapAnalysis({ report }: { report: TrainingGapsReport }) {
       category,
       actual: rowsInScope.reduce((sum, row) => sum + (row.trainingHoursByCategory[category]?.actual || 0), 0),
       target: expected.reduce((sum, row) => sum + (row.trainingHoursByCategory[category]?.target || 0), 0),
+      classes: rowsInScope.reduce((sum, row) => sum + (row.trainingHoursByCategory[category]?.completedClasses || 0), 0),
+      titles: [...new Set(rowsInScope.flatMap((row) => row.trainingHoursByCategory[category]?.classTitles || []))],
       expected: expected.length,
       below: expected.filter((row) => (row.trainingHoursByCategory[category]?.actual || 0) < (row.trainingHoursByCategory[category]?.target || 0)).length,
       recorded: rowsInScope.filter((row) => (row.trainingHoursByCategory[category]?.actual || 0) > 0).length,
@@ -436,7 +438,7 @@ function TrainingGapAnalysis({ report }: { report: TrainingGapsReport }) {
     setSuggestionBusy(true); setSuggestionError(""); setSuggestion("");
     const scope = memberId !== "ALL" ? "the selected person" : shift !== "ALL" ? "the selected shift" : "the whole department";
     const topGapTypes = [...new Set(gapRows.flatMap((row) => row.gaps.map((gap) => gap.kind + ": " + gap.name + " (" + gap.detail + ")")))].slice(0, 12);
-    const coverageFacts = coverage.map((row) => row.category + ": " + row.actual.toFixed(1) + "/" + row.target.toFixed(1) + " hours; " + row.below + "/" + row.expected + " expected members below target; " + row.recorded + " members with recorded hours").slice(0, 10);
+    const coverageFacts = coverage.map((row) => row.category + ": " + row.actual.toFixed(1) + "/" + row.target.toFixed(1) + " hours; " + row.classes + " completed class attendances; titles: " + row.titles.slice(0, 4).join(", ") + "; " + row.below + "/" + row.expected + " expected members below target; " + row.recorded + " members with recorded hours").slice(0, 10);
     const question = ("Suggest a few practical training classes, drills, or follow-up actions for " + scope + " based only on this " + report.year + " report. Data: " + rowsInScope.length + " members, " + gapRows.length + " with recorded gaps, " + totalGaps + " gaps. Common gaps: " + topGapTypes.join("; ") + ". Coverage: " + coverageFacts.join("; ") + ". Distinguish missing records from proven skill deficits. Do not claim compliance or competency; keep suggestions concise and actionable.").slice(0, 1950);
     try {
       const result = await api<{ answer: string }>("ai/ask", { method: "POST", body: JSON.stringify({ page: "/reports?type=training-gaps", question }) });
@@ -467,7 +469,7 @@ function TrainingGapAnalysis({ report }: { report: TrainingGapsReport }) {
     </div>
     <Card className="overflow-hidden">
       <div className="border-b border-navy-200 p-5"><div className="kicker">Completed training coverage</div><h3 className="display mt-1 text-xl font-bold">Annual hours by training area</h3><p className="mt-1 text-sm text-navy-500">Hours come from completed classes with present attendance. Targets come from active rank or position expectations.</p></div>
-      {coverage.length ? <div className="table-wrap"><table className="table"><thead><tr><th>Training area</th><th>Recorded / target hours</th><th>Members with hours</th><th>Below target</th></tr></thead><tbody>{coverage.map((row) => <tr key={row.category}><td className="font-semibold">{row.category.replaceAll("_", " ")}</td><td>{row.actual.toFixed(1)} / {row.target.toFixed(1)}</td><td>{row.recorded} / {rowsInScope.length}</td><td>{row.expected ? row.below + " / " + row.expected : "No target set"}</td></tr>)}</tbody></table></div> : <p className="p-5 text-sm text-navy-500">No completed training hours are recorded in this view. Set annual category targets under Admin → Training Expectations to make under-coverage visible.</p>}
+      {coverage.length ? <div className="table-wrap"><table className="table"><thead><tr><th>Training area</th><th>Recorded / target hours</th><th>Completed class attendances</th><th>Members with hours</th><th>Below target</th><th>Recorded classes</th></tr></thead><tbody>{coverage.map((row) => <tr key={row.category}><td className="font-semibold">{row.category.replaceAll("_", " ")}</td><td>{row.actual.toFixed(1)} / {row.target.toFixed(1)}</td><td>{row.classes}</td><td>{row.recorded} / {rowsInScope.length}</td><td>{row.expected ? row.below + " / " + row.expected : "No target set"}</td><td>{row.titles.length ? row.titles.join(", ") : "—"}</td></tr>)}</tbody></table></div> : <p className="p-5 text-sm text-navy-500">No completed training hours are recorded in this view. Set annual category targets under Admin → Training Expectations to make under-coverage visible.</p>}
     </Card>
     <Card>
       {gapRows.length === 0 ? <p className="p-6 text-sm text-navy-500">No current training gaps found for this view.</p> : <div className="table-wrap"><table className="table"><thead><tr><th>Member</th><th>Rank / Position</th><th>Station / Shift</th><th>Gaps</th></tr></thead><tbody>{gapRows.map((row) => <tr key={row.memberId}><td className="font-semibold"><Link href={"/members/" + row.memberId}>{row.memberName}</Link></td><td>{row.rank || row.position || "—"}</td><td>{row.station || "—"}{row.shift ? " · " + row.shift : ""}</td><td><div className="space-y-1">{row.gaps.map((gap, index) => <div key={gap.kind + gap.name + index} className="text-sm"><Badge tone={gap.kind === "EXPIRING" ? "warn" : gap.kind === "MISSING" || gap.kind === "EXPIRED" || gap.kind === "OVERDUE_TASK_BOOK" ? "danger" : "info"}>{gap.kind.toLowerCase().replaceAll("_", " ")}</Badge> <span className="font-semibold">{gap.name}</span> <span className="text-navy-500">· {gap.detail}</span></div>)}</div></td></tr>)}</tbody></table></div>}

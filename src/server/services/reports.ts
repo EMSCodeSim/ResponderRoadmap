@@ -474,7 +474,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
     prisma.trainingExpectation.findMany({ where: { departmentId: ctx.departmentId, active: true } }),
     prisma.trainingClass.findMany({
       where: { departmentId: ctx.departmentId, status: "COMPLETE", startsAt: { gte: yearStart, lt: yearEnd } },
-      select: { trainingCategory: true, creditHours: true, startsAt: true, endsAt: true, roster: { select: { membershipId: true, attendance: true } } },
+      select: { title: true, trainingCategory: true, creditHours: true, startsAt: true, endsAt: true, roster: { select: { membershipId: true, attendance: true } } },
     }),
   ]);
 
@@ -492,6 +492,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
     annualHours: (() => { try { const value = JSON.parse(profile.annualHoursJson); return value && typeof value === "object" ? value as Record<string, number> : {}; } catch { return {}; } })(),
   }));
   const hoursByMember = new Map<string, Record<string, number>>();
+  const classesByMember = new Map<string, Record<string, { count: number; titles: string[] }>>();
   for (const training of completedTraining) {
     const fallback = training.endsAt ? Math.max(0, (training.endsAt.getTime() - training.startsAt.getTime()) / 3_600_000) : 0;
     const hours = training.creditHours > 0 ? training.creditHours : fallback;
@@ -500,6 +501,12 @@ export async function trainingGapsReport(ctx: AuthContext) {
       const current = hoursByMember.get(enrollment.membershipId) || {};
       current[training.trainingCategory] = (current[training.trainingCategory] || 0) + hours;
       hoursByMember.set(enrollment.membershipId, current);
+      const sessions = classesByMember.get(enrollment.membershipId) || {};
+      const categorySessions = sessions[training.trainingCategory] || { count: 0, titles: [] };
+      categorySessions.count += 1;
+      if (!categorySessions.titles.includes(training.title)) categorySessions.titles.push(training.title);
+      sessions[training.trainingCategory] = categorySessions;
+      classesByMember.set(enrollment.membershipId, sessions);
     }
   }
 
@@ -544,6 +551,7 @@ export async function trainingGapsReport(ctx: AuthContext) {
     const expectedHours: Record<string, number> = {};
     for (const profile of matchingProfiles) for (const [category, target] of Object.entries(profile.annualHours)) expectedHours[category] = Math.max(expectedHours[category] || 0, Number(target) || 0);
     const actualHours = hoursByMember.get(member.id) || {};
+    const classSessions = classesByMember.get(member.id) || {};
     const hourGaps: TrainingGap[] = Object.entries(expectedHours).flatMap(([category, target]) => {
       const actual = Math.round((actualHours[category] || 0) * 100) / 100;
       return actual >= target ? [] : [{ kind: "TRAINING_HOURS" as const, name: `${category.replaceAll("_", " ")} training`, detail: `${actual} / ${target} hours in ${year}` }];
@@ -551,11 +559,13 @@ export async function trainingGapsReport(ctx: AuthContext) {
 
     const gaps = [...credentialGaps, ...normalTaskBookGaps, ...missingTaskBooks, ...hourGaps];
     const trainingHoursByCategory = Object.fromEntries(
-      [...new Set([...Object.keys(expectedHours), ...Object.keys(actualHours)])].map((category) => [
+      [...new Set([...Object.keys(expectedHours), ...Object.keys(actualHours), ...Object.keys(classSessions)])].map((category) => [
         category,
         {
           actual: Math.round((actualHours[category] || 0) * 100) / 100,
           target: Math.round((expectedHours[category] || 0) * 100) / 100,
+          completedClasses: classSessions[category]?.count || 0,
+          classTitles: classSessions[category]?.titles || [],
         },
       ]),
     );
