@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { BrandMark } from "@/components/brand";
-import { Button, Field, Flash, Input } from "@/components/ui";
+import { Button, Field, Flash, Input, Select } from "@/components/ui";
 
 function RegisterContent() {
   const router = useRouter();
@@ -16,9 +16,27 @@ function RegisterContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [organizationName, setOrganizationName] = useState("");
+  const [departmentName, setDepartmentName] = useState("");
+  const [departmentShifts, setDepartmentShifts] = useState<string[]>([]);
+  const [shift, setShift] = useState(search.get("shift") || "");
+  const [shiftLoading, setShiftLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pendingDepartment, setPendingDepartment] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!joinCode || invitationToken) return;
+    setShiftLoading(true);
+    api<{ departmentName: string; shifts: string[] }>("auth/department-code", {
+      method: "POST",
+      body: JSON.stringify({ joinCode }),
+    }).then((result) => {
+      setDepartmentName(result.departmentName);
+      setDepartmentShifts(result.shifts || []);
+      setShift((current) => current && (result.shifts || []).includes(current) ? current : (result.shifts || []).length === 1 ? result.shifts[0] : "");
+    }).catch((err) => setError(err instanceof ApiError ? err.message : "Unable to load department shifts."))
+      .finally(() => setShiftLoading(false));
+  }, [joinCode, invitationToken]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -27,7 +45,7 @@ function RegisterContent() {
     try {
       const result = await api<{ approvalPending?: boolean; departmentName?: string }>("auth/register", {
         method: "POST",
-        body: JSON.stringify({ name, email, password, invitationToken, joinCode, organizationName: !invitationToken && !joinCode ? organizationName : undefined }),
+        body: JSON.stringify({ name, email, password, invitationToken, joinCode, shift: joinCode && !invitationToken ? shift : undefined, organizationName: !invitationToken && !joinCode ? organizationName : undefined }),
       });
       if (result.approvalPending) {
         setPendingDepartment(result.departmentName || "your department");
@@ -67,7 +85,7 @@ function RegisterContent() {
             <p className="mt-2 text-sm text-navy-500">
               {invitationToken
                 ? "This account will be connected to the department that invited you."
-                : "Your Training Officer must approve the account before department assignments become available."}
+                : `Choose the shift you work on at ${departmentName || "your department"}. A Training Officer must approve your account before department assignments become available.`}
             </p>
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <Flash message={error} tone="danger" />
@@ -80,7 +98,14 @@ function RegisterContent() {
               <Field label="Password" hint="At least 8 characters.">
                 <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
               </Field>
-              <Button type="submit" className="w-full" disabled={busy}>
+              {joinCode && !invitationToken ? <Field label="Department shift" hint="Choose the shift you work on. You can update it later if your assignment changes.">
+                <Select value={shift} onChange={(e) => setShift(e.target.value)} required disabled={shiftLoading || departmentShifts.length === 0}>
+                  <option value="">{shiftLoading ? "Loading department shifts…" : "Select your shift"}</option>
+                  {departmentShifts.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+                {!shiftLoading && departmentShifts.length === 0 ? <p className="mt-1 text-xs text-warn">The department has not set up shifts yet. Ask its Training Officer to assign a member to each shift before creating your account.</p> : null}
+              </Field> : null}
+              <Button type="submit" className="w-full" disabled={busy || (Boolean(joinCode) && !invitationToken && (!shift || !departmentShifts.includes(shift) || shiftLoading))}>
                 {busy ? "Creating…" : joinCode ? "Create account and request approval" : "Create account and join department"}
               </Button>
             </form>

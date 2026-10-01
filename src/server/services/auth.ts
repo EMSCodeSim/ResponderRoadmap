@@ -185,13 +185,21 @@ export async function validateDepartmentJoinCode(rawCode: string) {
     select: { id: true, name: true },
   });
   if (!department) throw new HttpError(404, "That department join code was not accepted. Check the code with your Training Officer.");
-  return { departmentName: department.name, joinCode, approvalRequired: true };
+  const memberships = await prisma.departmentMembership.findMany({
+    where: { departmentId: department.id, status: "ACTIVE", shift: { not: null } },
+    select: { shift: true },
+    distinct: ["shift"],
+    orderBy: { shift: "asc" },
+  });
+  const shifts = memberships.map((membership) => membership.shift).filter((shift): shift is string => Boolean(shift));
+  return { departmentName: department.name, joinCode, approvalRequired: true, shifts };
 }
 
-export async function register(input: { name: string; email: string; password: string; invitationToken?: string; joinCode?: string; organizationName?: string }) {
+export async function register(input: { name: string; email: string; password: string; invitationToken?: string; joinCode?: string; shift?: string; organizationName?: string }) {
   const email = input.email.trim().toLowerCase();
   const token = input.invitationToken?.trim() || "";
   const joinCode = input.joinCode?.trim().toUpperCase() || "";
+  const requestedShift = String(input.shift || "").trim();
   if (!input.name.trim() || !email || input.password.length < 8) {
     throw new HttpError(400, "Name, email, and a password of at least 8 characters are required.");
   }
@@ -247,6 +255,17 @@ export async function register(input: { name: string; email: string; password: s
     ? await prisma.department.findUnique({ where: { joinCode }, select: { id: true, name: true } })
     : null;
   if (joinCode && !codeDepartment) throw new HttpError(404, "That department join code was not accepted. Check the code with your Training Officer.");
+  if (!invitation && joinCode) {
+    const availableShiftRows = await prisma.departmentMembership.findMany({
+      where: { departmentId: codeDepartment!.id, status: "ACTIVE", shift: { not: null } },
+      select: { shift: true },
+      distinct: ["shift"],
+    });
+    const availableShifts = availableShiftRows.map((membership) => membership.shift).filter((shift): shift is string => Boolean(shift));
+    if (availableShifts.length === 0) throw new HttpError(409, "This department has not set up any shifts yet. Ask a Training Officer to assign a member to each department shift before requesting to join.");
+    if (!requestedShift) throw new HttpError(400, "Select your department shift before creating your account.");
+    if (!availableShifts.includes(requestedShift)) throw new HttpError(400, "Select one of the department's available shifts.");
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new HttpError(409, "An account with that email already exists. Sign in to accept your invitation.");
@@ -265,7 +284,7 @@ export async function register(input: { name: string; email: string; password: s
         status: membershipStatus,
         rank: invitation?.rank,
         station: invitation?.station,
-        shift: invitation?.shift,
+        shift: invitation ? invitation.shift : requestedShift || null,
       },
     });
     if (invitation) await tx.invitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED" } });
