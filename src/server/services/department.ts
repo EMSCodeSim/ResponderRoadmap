@@ -378,6 +378,12 @@ export async function updateAccount(
   return prisma.user.update({ where: { id: user.id }, data });
 }
 
+export async function getAccount(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new HttpError(404, "Account not found.");
+  return { id: user.id, name: user.name, email: user.email, phone: user.phone };
+}
+
 export async function listActivity(ctx: AuthContext, limit = 40) {
   return prisma.activityEvent.findMany({
     where: { departmentId: ctx.departmentId },
