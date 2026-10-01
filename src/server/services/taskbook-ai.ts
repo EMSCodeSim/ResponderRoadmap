@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { HttpError } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 
@@ -12,7 +13,7 @@ export type AiTaskBookDraft = {
   }> }>;
 };
 
-type OpenAiOutputPayload = { output_text?: unknown; output?: Array<{ content?: Array<{ type?: unknown; text?: unknown }> }>; error?: { message?: string } };
+type OpenAiOutputPayload = { id?: string; status?: string; output_text?: unknown; output?: Array<{ content?: Array<{ type?: unknown; text?: unknown }> }>; error?: { message?: string } };
 type OpenAiInputContent = { type: "input_text"; text: string } | { type: "input_file"; file_id: string };
 type OpenAiInputMessage = { role: "developer" | "user"; content: OpenAiInputContent[] };
 
@@ -43,32 +44,24 @@ function apiKey() {
   return key;
 }
 
-async function requestDraft(input: OpenAiInputMessage[], context = "Task Book") {
-  const controller = new AbortController();
-  // Netlify synchronous functions have a hard 60-second limit. Abort early enough
-  // to return a useful JSON error instead of a platform-generated generic failure.
-  const timeout = setTimeout(() => controller.abort(), 52000);
-  let response: Response;
-  try {
-    response = await fetch("https://api.openai.com/v1/responses", { method: "POST", signal: controller.signal, headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({
-      model: process.env.OPENAI_TASKBOOK_MODEL || "gpt-5-mini", store: false, reasoning: { effort: "low" }, max_output_tokens: 8000, input,
-      text: { format: { type: "json_schema", name: "responderroadmap_taskbook_draft", strict: true, schema } },
-    }) });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw new HttpError(504, `${context} is taking longer than the current import window. Try a smaller PDF or split a large Task Book into parts.`);
-    throw new HttpError(503, `${context} could not be sent for conversion. Please try again.`);
-  } finally {
-    clearTimeout(timeout);
-  }
-  const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
-  if (!response.ok) {
-    const upstream = payload.error?.message || `The document conversion service rejected the request (HTTP ${response.status}).`;
-    throw new HttpError(response.status >= 500 ? 503 : 400, `${context} import failed: ${upstream}`);
-  }
+function parseDraft(payload: OpenAiOutputPayload, context: string) {
   const text = outputText(payload);
-  if (!text) throw new HttpError(502, `${context} was received, but no editable Task Book draft was returned. Please try again or use a smaller PDF.`);
+  if (!text) throw new HttpError(502, `${context} completed, but no editable Task Book draft was returned.`);
   try { return JSON.parse(text) as AiTaskBookDraft; }
   catch { throw new HttpError(502, `${context} was converted, but the draft could not be read. Please retry the import.`); }
+}
+
+async function requestDraft(input: OpenAiInputMessage[], context = "Task Book") {
+  let response: Response;
+  try {
+    response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({
+      model: process.env.OPENAI_TASKBOOK_MODEL || "gpt-5.6-luna", store: false, reasoning: { effort: "low" }, max_output_tokens: 8000, input,
+      text: { format: { type: "json_schema", name: "responderroadmap_taskbook_draft", strict: true, schema } },
+    }) });
+  } catch { throw new HttpError(503, `${context} could not be sent for conversion. Please try again.`); }
+  const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
+  if (!response.ok) throw new HttpError(response.status >= 500 ? 503 : 400, `${context} failed: ${payload.error?.message || `HTTP ${response.status}`}`);
+  return parseDraft(payload, context);
 }
 
 const developerInstruction = `You create editable Fire/EMS department Task Book drafts for ResponderRoadmap. Organize practical sections and requirements that a training officer can review. Do not claim that content is NFPA, NREMT, state, legal, regulatory, or department compliant unless the supplied source explicitly says so. Never invent a standard citation. Any standard reference you cannot verify directly from supplied material must be omitted. Keep all output as a draft for human review. Use evaluator sign-off for skill demonstrations when appropriate and supervisor approval only when a final supervisory check is clearly useful. For each requirement, keep descriptions and instructions concise, include only essential observable evaluation steps, and include critical failures only when an action would be genuinely unsafe or disqualifying.`;
@@ -88,8 +81,6 @@ function decodePdf(raw: string) {
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) throw new HttpError(400, "The selected file could not be read as a PDF. Please choose the original PDF file and try again.");
   const bytes = Buffer.from(base64, "base64");
   if (bytes.length < 5 || bytes.subarray(0, 5).toString("ascii") !== "%PDF-") throw new HttpError(400, "The selected file is not a valid PDF.");
-  // The browser sends this as base64 inside JSON. Keep below Netlify's 6 MB
-  // buffered request limit after base64/JSON overhead.
   if (bytes.length > 4 * 1024 * 1024) throw new HttpError(413, "PDF is too large for direct import. Keep the file under 4 MB or split it into smaller parts.");
   return bytes;
 }
@@ -97,16 +88,12 @@ function decodePdf(raw: string) {
 async function uploadPdf(filename: string, bytes: Buffer) {
   const form = new FormData();
   form.append("purpose", "user_data");
-  const pdfBytes = Uint8Array.from(bytes);
-  form.append("file", new Blob([pdfBytes], { type: "application/pdf" }), filename);
+  form.append("file", new Blob([Uint8Array.from(bytes)], { type: "application/pdf" }), filename);
   let response: Response;
-  try {
-    response = await fetch("https://api.openai.com/v1/files", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}` }, body: form });
-  } catch {
-    throw new HttpError(503, `PDF “${filename}” could not be uploaded for conversion. Please try again.`);
-  }
+  try { response = await fetch("https://api.openai.com/v1/files", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}` }, body: form }); }
+  catch { throw new HttpError(503, `PDF “${filename}” could not be uploaded for conversion. Please try again.`); }
   const payload = await response.json().catch(() => ({})) as { id?: string; error?: { message?: string } };
-  if (!response.ok || !payload.id) throw new HttpError(response.status >= 500 ? 503 : 400, `PDF “${filename}” upload failed: ${payload.error?.message || `The document service rejected the PDF (HTTP ${response.status}).`}`);
+  if (!response.ok || !payload.id) throw new HttpError(response.status >= 500 ? 503 : 400, `PDF “${filename}” upload failed: ${payload.error?.message || `HTTP ${response.status}`}`);
   return payload.id;
 }
 
@@ -114,21 +101,66 @@ async function deleteUploadedFile(fileId: string) {
   try { await fetch(`https://api.openai.com/v1/files/${encodeURIComponent(fileId)}`, { method: "DELETE", headers: { Authorization: `Bearer ${apiKey()}` } }); } catch { /* best-effort cleanup */ }
 }
 
-export async function importPdfTaskBookDraft(ctx: AuthContext, input: { filename?: string; fileData?: string; notes?: string }) {
+function signJob(responseId: string, fileId: string) {
+  const body = Buffer.from(JSON.stringify({ responseId, fileId, createdAt: Date.now() })).toString("base64url");
+  const signature = createHmac("sha256", apiKey()).update(body).digest("base64url");
+  return `${body}.${signature}`;
+}
+
+function readJob(token: string) {
+  const [body, signature] = token.split(".");
+  if (!body || !signature) throw new HttpError(400, "Invalid PDF import job.");
+  const expected = createHmac("sha256", apiKey()).update(body).digest();
+  let supplied: Buffer;
+  try { supplied = Buffer.from(signature, "base64url"); } catch { throw new HttpError(400, "Invalid PDF import job."); }
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new HttpError(400, "Invalid PDF import job.");
+  let data: { responseId?: string; fileId?: string; createdAt?: number };
+  try { data = JSON.parse(Buffer.from(body, "base64url").toString("utf8")); } catch { throw new HttpError(400, "Invalid PDF import job."); }
+  if (!data.responseId || !data.fileId || !data.createdAt || Date.now() - data.createdAt > 15 * 60 * 1000) throw new HttpError(410, "This PDF import job expired. Please start the import again.");
+  return { responseId: data.responseId, fileId: data.fileId };
+}
+
+export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename?: string; fileData?: string; notes?: string }) {
   assertPermission(ctx, "taskbooks.write");
   const filename = String(input.filename || "taskbook.pdf").slice(0, 180);
   if (!filename.toLowerCase().endsWith(".pdf")) throw new HttpError(400, "Task Book import currently accepts PDF files only.");
   const bytes = decodePdf(String(input.fileData || ""));
   const fileId = await uploadPdf(filename, bytes);
+  let response: Response;
   try {
-    return await requestDraft([
-      { role: "developer", content: [{ type: "input_text", text: developerInstruction }] },
-      { role: "user", content: [
-        { type: "input_text", text: `Convert the attached existing Task Book into a ResponderRoadmap editable draft. Preserve every meaningful section and requirement from the source, including tables and checklist rows where readable. Scanned pages may require visual reading. Do not invent missing requirements, standards, signatures, or citations. If wording is unclear, preserve it conservatively rather than guessing. Keep each imported requirement concise so the full draft can be returned promptly. Keep the result as a draft for Training Officer review. Additional department notes: ${String(input.notes || "None").slice(0, 3000)}` },
-        { type: "input_file", file_id: fileId },
-      ] },
-    ], `PDF “${filename}”`);
-  } finally {
+    response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({
+      model: process.env.OPENAI_TASKBOOK_MODEL || "gpt-5.6-luna", background: true, store: true, reasoning: { effort: "low" }, max_output_tokens: 8000,
+      input: [
+        { role: "developer", content: [{ type: "input_text", text: developerInstruction }] },
+        { role: "user", content: [
+          { type: "input_text", text: `Convert the attached existing Task Book into a ResponderRoadmap editable draft. Preserve every meaningful section and requirement from the source, including tables and checklist rows where readable. Scanned pages may require visual reading. Do not invent missing requirements, standards, signatures, or citations. If wording is unclear, preserve it conservatively rather than guessing. Keep each imported requirement concise. Keep the result as a draft for Training Officer review. Additional department notes: ${String(input.notes || "None").slice(0, 3000)}` },
+          { type: "input_file", file_id: fileId },
+        ] },
+      ],
+      text: { format: { type: "json_schema", name: "responderroadmap_taskbook_draft", strict: true, schema } },
+    }) });
+  } catch {
     await deleteUploadedFile(fileId);
+    throw new HttpError(503, `PDF “${filename}” could not start conversion. Please try again.`);
   }
+  const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
+  if (!response.ok || !payload.id) {
+    await deleteUploadedFile(fileId);
+    throw new HttpError(response.status >= 500 ? 503 : 400, `PDF “${filename}” import failed: ${payload.error?.message || `HTTP ${response.status}`}`);
+  }
+  return { _poll: signJob(payload.id, fileId), status: payload.status || "queued" };
+}
+
+export async function pollPdfTaskBookImport(ctx: AuthContext, token: string) {
+  assertPermission(ctx, "taskbooks.write");
+  const { responseId, fileId } = readJob(token);
+  let response: Response;
+  try { response = await fetch(`https://api.openai.com/v1/responses/${encodeURIComponent(responseId)}`, { headers: { Authorization: `Bearer ${apiKey()}` } }); }
+  catch { throw new HttpError(503, "Could not check PDF import progress. Please try again."); }
+  const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
+  if (!response.ok) throw new HttpError(response.status >= 500 ? 503 : 400, `PDF import status failed: ${payload.error?.message || `HTTP ${response.status}`}`);
+  if (payload.status === "queued" || payload.status === "in_progress") return { _poll: token, status: payload.status };
+  await deleteUploadedFile(fileId);
+  if (payload.status !== "completed") throw new HttpError(502, `PDF import ended with status “${payload.status || "unknown"}”. Please retry the import.`);
+  return parseDraft(payload, "PDF import");
 }
