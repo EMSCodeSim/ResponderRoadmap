@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { AlertTriangle, BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, Users, X } from "lucide-react";
+import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -66,7 +66,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     return [
       home,
-      { href: "/dashboard#needs-attention", label: "Needs Attention", icon: AlertTriangle, visible: allowed.has("dashboard"), paths: [] },
       { href: "/evaluate", label: "Evaluations", icon: ListChecks, visible: allowed.has("evaluate"), paths: ["/evaluate"] },
       { href: "/task-books", label: "Task Books", icon: BookOpen, visible: allowed.has("task-books"), paths: TRAINING_PATHS },
       { href: "/assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments"), paths: ASSIGNMENT_PATHS },
