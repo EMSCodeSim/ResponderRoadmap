@@ -13,6 +13,7 @@ import {
   Card,
   Field,
   Flash,
+  Input,
   PageHeader,
   ProgressBar,
   Select,
@@ -28,6 +29,8 @@ type Member = {
   rank: string | null;
   station: string | null;
   shift: string | null;
+  position: string | null;
+  employeeNumber: string | null;
   status: string;
   role: Role;
   assignments: Array<{
@@ -101,15 +104,20 @@ export default function MemberProfile() {
   const [books, setBooks] = useState<Array<{ id: string; title: string; status: string }>>([]);
   const [assignId, setAssignId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [canEditDetails, setCanEditDetails] = useState(false);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [details, setDetails] = useState({ rank: "", position: "", station: "", shift: "", employeeNumber: "" });
 
   async function load() {
     const data = await api<Member>(`members/${params.id}`);
     setMember(data);
+    setDetails({ rank: data.rank || "", position: data.position || "", station: data.station || "", shift: data.shift || "", employeeNumber: data.employeeNumber || "" });
   }
 
   useEffect(() => {
     load().catch((err) => setError(err.message));
     api<Array<{ id: string; title: string; status: string }>>("task-books").then(setBooks).catch(() => undefined);
+    api<{ role: Role }>("auth/me").then((session) => setCanEditDetails(session.role === "TRAINING_OFFICER" || session.role === "DEPARTMENT_ADMINISTRATOR")).catch(() => setCanEditDetails(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
@@ -166,6 +174,27 @@ export default function MemberProfile() {
     await load();
   }
 
+  async function saveDetails(event: FormEvent) {
+    event.preventDefault();
+    setSavingDetails(true); setError(null); setMessage(null);
+    try {
+      await api(`members/${params.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          rank: details.rank.trim() || null,
+          position: details.position.trim() || null,
+          station: details.station.trim() || null,
+          shift: details.shift.trim() || null,
+          employeeNumber: details.employeeNumber.trim() || null,
+        }),
+      });
+      await load();
+      setMessage("Member details updated.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Unable to update member details.");
+    } finally { setSavingDetails(false); }
+  }
+
   if (error) return <p className="text-danger">{error}</p>;
   if (!member) return <p className="text-navy-500">Loading member…</p>;
 
@@ -192,6 +221,18 @@ export default function MemberProfile() {
 
       {tab === "overview" && (
         <div className="grid gap-6 xl:grid-cols-3">
+          {canEditDetails ? <Card className="p-5 xl:col-span-3">
+            <h2 className="display text-2xl font-bold">Member details</h2>
+            <p className="mt-1 text-sm text-navy-500">Update this member’s department assignment and identification information.</p>
+            <form onSubmit={saveDetails} className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              <Field label="Rank"><Input value={details.rank} onChange={(event) => setDetails({ ...details, rank: event.target.value })} placeholder="Firefighter" /></Field>
+              <Field label="Position"><Input value={details.position} onChange={(event) => setDetails({ ...details, position: event.target.value })} placeholder="Driver / Engineer" /></Field>
+              <Field label="Station"><Input value={details.station} onChange={(event) => setDetails({ ...details, station: event.target.value })} placeholder="Station 1" /></Field>
+              <Field label="Shift"><Input value={details.shift} onChange={(event) => setDetails({ ...details, shift: event.target.value })} placeholder="A" /></Field>
+              <Field label="Employee number"><Input value={details.employeeNumber} onChange={(event) => setDetails({ ...details, employeeNumber: event.target.value })} placeholder="Optional" /></Field>
+              <div className="sm:col-span-2 xl:col-span-5"><Button type="submit" disabled={savingDetails}>{savingDetails ? "Saving…" : "Save member details"}</Button></div>
+            </form>
+          </Card> : null}
           <Card className="p-5 xl:col-span-3">
             <h2 className="display text-2xl font-bold">Development status</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
