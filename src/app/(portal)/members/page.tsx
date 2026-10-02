@@ -36,8 +36,6 @@ export default function MembersPage() {
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const [savingShiftId, setSavingShiftId] = useState<string | null>(null);
-  const [shiftDrafts, setShiftDrafts] = useState<Record<string, string>>({});
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -99,29 +97,7 @@ export default function MembersPage() {
     }
   }
 
-  async function saveShift(member: MemberRow) {
-    if (savingShiftId) return;
-    const nextShift = (shiftDrafts[member.id] ?? member.shift ?? "").trim();
-    setSavingShiftId(member.id);
-    setActionMessage(null);
-    try {
-      await api(`members/${member.id}`, { method: "PATCH", body: JSON.stringify({ shift: nextShift || null }) });
-      setData((previous) => previous ? {
-        ...previous,
-        members: previous.members.map((row) => row.id === member.id ? { ...row, shift: nextShift || null } : row),
-        facets: { ...previous.facets, shifts: nextShift ? [...new Set([...previous.facets.shifts, nextShift])].sort() : previous.facets.shifts },
-      } : previous);
-      setShiftDrafts((previous) => ({ ...previous, [member.id]: nextShift }));
-      setActionMessage(`${member.name}'s shift was ${nextShift ? `set to ${nextShift}` : "cleared"}.`);
-    } catch (err) {
-      setActionMessage(err instanceof Error ? `Unable to update ${member.name}: ${err.message}` : `Unable to update ${member.name}.`);
-    } finally {
-      setSavingShiftId(null);
-    }
-  }
-
   const canRemoveMembers = currentRole === "TRAINING_OFFICER" || currentRole === "DEPARTMENT_ADMINISTRATOR";
-  const canManageShifts = canRemoveMembers;
 
   const books = useMemo(
     () => [...new Set(data?.members.flatMap((row) => row.activeTaskBooks.map((item) => item.taskBookTitle)) ?? [])],
@@ -146,33 +122,6 @@ export default function MembersPage() {
         ) : undefined}
       />
       {actionMessage ? <p role="status" className="mb-3 rounded-md border border-navy-200 bg-white p-3 text-sm text-navy-800">{actionMessage}</p> : null}
-      {canManageShifts && data ? (
-        <Card className="mb-4 p-4">
-          <div className="mb-3">
-            <h2 className="text-lg font-bold text-navy-900">Shift assignments</h2>
-            <p className="text-sm text-navy-600">Add or edit each member’s shift. Enter a new shift name to create it; leave the field blank to mark a member unassigned.</p>
-          </div>
-          <datalist id="department-shifts">{data.facets.shifts.map((item) => <option key={item} value={item} />)}</datalist>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {data.members.map((member) => {
-              const draft = shiftDrafts[member.id] ?? member.shift ?? "";
-              const unchanged = draft.trim() === (member.shift ?? "");
-              return (
-                <div key={member.id} className="grid gap-2 rounded-md border border-navy-200 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,1fr)_auto] sm:items-center">
-                  <div>
-                    <Link href={`/members/${member.id}`} className="font-semibold text-navy-900 hover:text-fire">{member.name}</Link>
-                    <p className="text-xs text-navy-500">{member.rank || member.role.replaceAll("_", " ").toLowerCase()}</p>
-                  </div>
-                  <Input aria-label={`Shift for ${member.name}`} list="department-shifts" placeholder="Unassigned" value={draft} onChange={(event) => setShiftDrafts((previous) => ({ ...previous, [member.id]: event.target.value }))} />
-                  <button type="button" disabled={savingShiftId !== null || unchanged} onClick={() => void saveShift(member)} className="min-h-10 rounded-md bg-navy-900 px-3 py-2 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-40">
-                    {savingShiftId === member.id ? "Saving…" : "Save"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      ) : null}
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <Input placeholder="Search name, rank, station" value={query} onChange={(e) => setQuery(e.target.value)} />
