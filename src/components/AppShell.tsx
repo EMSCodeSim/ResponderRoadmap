@@ -23,7 +23,7 @@ type Session = {
 
 const TRAINING_PATHS = ["/task-books", "/my-task-books", "/task-book-progress"];
 const ASSIGNMENT_PATHS = ["/assignments", "/single-assignments", "/training-assignments", "/my-assignments"];
-const SETTINGS_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/enrollment", "/evaluators", "/reports"];
+const SETTINGS_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/platform-admin", "/enrollment", "/evaluators", "/reports"];
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
 
 function demoWalkForRole(role: Role | null | undefined): DemoWalkKey {
@@ -39,6 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [demoSwitching, setDemoSwitching] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [platformAdmin, setPlatformAdmin] = useState(false);
 
   useEffect(() => {
     api<Session>("auth/me")
@@ -47,6 +48,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         api<{ unreadCount: number }>("inbox")
           .then((inbox) => setUnreadCount(inbox.unreadCount))
           .catch(() => setUnreadCount(0));
+        api<{ platformAdmin: boolean }>("platform-access")
+          .then((access) => setPlatformAdmin(access.platformAdmin))
+          .catch(() => setPlatformAdmin(false));
       })
       .catch(() => router.push("/login"));
   }, [router]);
@@ -138,6 +142,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="border-t border-white/10 p-4">
+          {platformAdmin ? <Link href="/platform-admin" onClick={() => setOpen(false)} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", pathname.startsWith("/platform-admin") || pathname.startsWith("/interest-list") ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><LayoutDashboard size={18} />Master Admin</Link> : null}
           <Link href="/settings" onClick={() => setOpen(false)} aria-current={settingsActive ? "page" : undefined} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", settingsActive ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><Settings size={18} />{session?.role === "TRAINING_OFFICER" || session?.role === "DEPARTMENT_ADMINISTRATOR" ? "Admin" : session?.role === "MEMBER" ? "My Profile" : "Settings"}</Link>
           {session?.role === "MEMBER" ? <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold text-white/75 hover:bg-white/10 hover:text-white"><BookOpen size={18} />Download iPhone App</a> : null}
           <div className="mt-3 border-t border-white/10 pt-3 text-sm font-semibold">{session?.name ?? "…"}</div>
