@@ -619,3 +619,149 @@ export async function submitRequirement(
     },
   };
 }
+
+
+function masteryQualitativePass(result: string) {
+  return result === "APPROVED" || result === "PASS";
+}
+
+function masteryQualitativeFail(result: string) {
+  return result === "RETURNED" || result === "NEEDS_REMEDIATION" || result === "FAIL";
+}
+
+function masteryTrend(
+  latest: { result: string; numericScore: number | null },
+  previous: { result: string; numericScore: number | null } | null,
+) {
+  if (!previous) return "FIRST_OBSERVATION";
+  if (latest.numericScore != null && previous.numericScore != null) {
+    const delta = latest.numericScore - previous.numericScore;
+    if (delta >= 5) return "IMPROVING";
+    if (delta <= -5) return "DECLINING";
+    return "RETAINED";
+  }
+  if (masteryQualitativePass(latest.result) && masteryQualitativeFail(previous.result)) return "IMPROVING";
+  if (masteryQualitativeFail(latest.result) && masteryQualitativePass(previous.result)) return "DECLINING";
+  return "RETAINED";
+}
+
+export async function listMySkillMastery(ctx: AuthContext) {
+  await assertActiveMembership(ctx);
+  const department = await prisma.department.findUnique({
+    where: { id: ctx.departmentId },
+    select: { skillProficiencyThreshold: true, skillReassessmentDays: true },
+  });
+  const threshold = Math.max(1, Math.min(100, department?.skillProficiencyThreshold ?? 80));
+  const reassessmentDays = Math.max(1, Math.min(3650, department?.skillReassessmentDays ?? 180));
+  const staleBefore = new Date(Date.now() - reassessmentDays * 86_400_000);
+
+  const [attempts, classResults] = await Promise.all([
+    prisma.evaluationAttempt.findMany({
+      where: { completion: { membershipId: ctx.membershipId } },
+      include: {
+        evaluator: true,
+        completion: {
+          include: {
+            requirement: {
+              include: {
+                section: { include: { version: { include: { template: true } } } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { signedAt: "asc" },
+    }),
+    prisma.trainingClassSkillResult.findMany({
+      where: { enrollment: { membershipId: ctx.membershipId } },
+      include: {
+        evaluator: true,
+        requirement: true,
+        enrollment: { include: { class: true } },
+      },
+      orderBy: { evaluatedAt: "asc" },
+    }),
+  ]);
+
+  const observations = [
+    ...attempts.map((attempt) => ({
+      skillId: attempt.completion.requirement.id,
+      skillName: attempt.completion.requirement.title,
+      source: "TASK_BOOK",
+      observedAt: attempt.signedAt,
+      result: attempt.result,
+      numericScore: attempt.numericScore,
+      evaluatorName: attempt.evaluator.name,
+      referenceTitle: attempt.completion.requirement.section.version.template.title,
+    })),
+    ...classResults
+      .filter((result) => result.result !== "NOT_EVALUATED" && result.result !== "NOT_APPLICABLE")
+      .map((result) => ({
+        skillId: result.requirementId,
+        skillName: result.requirement.title,
+        source: "CLASS",
+        observedAt: result.evaluatedAt,
+        result: result.result,
+        numericScore: result.numericScore,
+        evaluatorName: result.evaluator.name,
+        referenceTitle: result.enrollment.class.title,
+      })),
+  ];
+
+  const bySkill = new Map<string, typeof observations>();
+  for (const observation of observations) {
+    const key = observation.skillName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const list = bySkill.get(key) || [];
+    list.push(observation);
+    bySkill.set(key, list);
+  }
+
+  const skills = [...bySkill.values()].map((history) => {
+    history.sort((a, b) => a.observedAt.getTime() - b.observedAt.getTime());
+    const latest = history[history.length - 1];
+    const previous = history.length > 1 ? history[history.length - 2] : null;
+    const stale = latest.observedAt < staleBefore;
+    const needsImprovement = latest.numericScore != null
+      ? latest.numericScore < threshold
+      : masteryQualitativeFail(latest.result);
+    const proficient = latest.numericScore != null
+      ? latest.numericScore >= threshold
+      : masteryQualitativePass(latest.result);
+    const status = needsImprovement
+      ? "NEEDS_IMPROVEMENT"
+      : stale
+        ? "REASSESS"
+        : proficient
+          ? "PROFICIENT"
+          : "OBSERVED";
+    return {
+      skillId: latest.skillId,
+      skillName: latest.skillName,
+      status,
+      stale,
+      trend: masteryTrend(latest, previous),
+      latestScore: latest.numericScore,
+      previousScore: previous?.numericScore ?? null,
+      latestResult: latest.result,
+      lastEvaluatedAt: latest.observedAt,
+      observations: history.length,
+      evaluatorName: latest.evaluatorName,
+      source: latest.source,
+      referenceTitle: latest.referenceTitle,
+    };
+  }).sort((a, b) => a.skillName.localeCompare(b.skillName));
+
+  return {
+    settings: { proficiencyThreshold: threshold, reassessmentDays },
+    summary: {
+      skillsTracked: skills.length,
+      proficient: skills.filter((row) => row.status === "PROFICIENT").length,
+      needsImprovement: skills.filter((row) => row.status === "NEEDS_IMPROVEMENT").length,
+      reassess: skills.filter((row) => row.status === "REASSESS").length,
+      improving: skills.filter((row) => row.trend === "IMPROVING").length,
+      declining: skills.filter((row) => row.trend === "DECLINING").length,
+    },
+    skills,
+    serverTime: new Date(),
+  };
+}
