@@ -73,6 +73,7 @@ model Department {
   evaluationEscalationHours Int                    @default(48)
   trainingClasses          TrainingClass[]
   trainingSheetTemplates   TrainingSheetTemplate[]
+  sharedActivities         SharedMemberActivity[]
   trainingExpectations     TrainingExpectation[]
   trainingSheetRequiredFieldsJson String @default("[\"TITLE\",\"DATE\",\"INSTRUCTOR\",\"CATEGORY\",\"HOURS\",\"ATTENDANCE\"]")
   agencyType                    String @default("FIRE_EMS")
@@ -106,6 +107,7 @@ model DepartmentMembership {
   credentials Credential[]
   completions RequirementCompletion[]
   classEnrollments TrainingClassEnrollment[]
+  sharedActivities SharedMemberActivity[]
 
   @@unique([departmentId, userId])
   @@index([departmentId, status])
@@ -545,6 +547,34 @@ model Credential {
   @@index([departmentId, expirationDate])
   @@index([membershipId])
   @@unique([membershipId, source, sourceExternalId])
+}
+
+
+
+/// Member-controlled context shared from the personal Responder Roadmap app.
+/// This is not an official training completion and never grants department credit.
+model SharedMemberActivity {
+  id               String               @id @default(cuid())
+  membershipId     String
+  membership       DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  departmentId     String
+  department       Department           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  sourceExternalId String
+  activityType     String
+  title            String
+  category         String               @default("")
+  occurredAt       DateTime
+  hours            Float?
+  repetitions      Int                  @default(1)
+  detail           String               @default("")
+  tagsJson         String               @default("[]")
+  sourceUpdatedAt  DateTime
+  sharedAt         DateTime             @default(now())
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@unique([membershipId, sourceExternalId])
+  @@index([departmentId, membershipId, occurredAt])
 }
 
 model ActivityEvent {
