@@ -24,7 +24,8 @@ jobs:
           node-version: "20"
           cache: npm
       - name: Apply backend and app contract
-        run: python scripts/implement-roadmap-mobile-contract.py
+        run: |
+          python scripts/implement-roadmap-mobile-contract.py
       - name: Install dependencies
         run: npm ci
       - name: Format and validate Prisma schema
