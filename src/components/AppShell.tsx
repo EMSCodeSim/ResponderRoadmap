@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, Users, X } from "lucide-react";
+import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, Target, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -23,7 +23,7 @@ type Session = {
 
 const TRAINING_PATHS = ["/task-books", "/my-task-books", "/task-book-progress"];
 const ASSIGNMENT_PATHS = ["/assignments", "/single-assignments", "/training-assignments", "/my-assignments"];
-const SETTINGS_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/platform-admin", "/enrollment", "/evaluators", "/reports"];
+const SETTINGS_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/platform-admin", "/enrollment", "/evaluators", "/reports", "/training-expectations"];
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
 
 function demoWalkForRole(role: Role | null | undefined): DemoWalkKey {
@@ -75,6 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       { href: "/task-books", label: "Task Books", icon: BookOpen, visible: allowed.has("task-books"), paths: TRAINING_PATHS },
       { href: "/assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments"), paths: ASSIGNMENT_PATHS },
       { href: "/classes", label: "Classes & Rosters", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
+      { href: "/training-needs", label: "Training Needs", icon: Target, visible: allowed.has("training-needs"), paths: ["/training-needs", "/training-expectations"] },
       { href: "/members", label: "People", icon: Users, visible: allowed.has("members"), paths: ["/members", "/enrollment", "/evaluators"] },
       { href: "/reports", label: "Reports", icon: ClipboardList, visible: allowed.has("reports") || allowed.has("certifications"), paths: ["/reports", "/certifications"] },
     ].filter((item) => item.visible);

@@ -48,7 +48,7 @@ export async function listTrainingExpectations(ctx: AuthContext) {
 }
 
 export async function createTrainingExpectation(ctx: AuthContext, input: Record<string, unknown>) {
-  assertPermission(ctx, "department.write");
+  assertPermission(ctx, "taskbooks.write");
   const name = String(input.name || "").trim();
   if (!name) throw new HttpError(400, "Expectation profile name is required.");
   const profile = await prisma.trainingExpectation.create({
@@ -68,7 +68,7 @@ export async function createTrainingExpectation(ctx: AuthContext, input: Record<
 }
 
 export async function updateTrainingExpectation(ctx: AuthContext, id: string, input: Record<string, unknown>) {
-  assertPermission(ctx, "department.write");
+  assertPermission(ctx, "taskbooks.write");
   const existing = await prisma.trainingExpectation.findFirst({ where: { id, departmentId: ctx.departmentId } });
   if (!existing) throw new HttpError(404, "Training expectation not found.");
   const name = input.name === undefined ? existing.name : String(input.name).trim();
@@ -90,7 +90,7 @@ export async function updateTrainingExpectation(ctx: AuthContext, id: string, in
 }
 
 export async function deleteTrainingExpectation(ctx: AuthContext, id: string) {
-  assertPermission(ctx, "department.write");
+  assertPermission(ctx, "taskbooks.write");
   const existing = await prisma.trainingExpectation.findFirst({ where: { id, departmentId: ctx.departmentId } });
   if (!existing) throw new HttpError(404, "Training expectation not found.");
   await prisma.trainingExpectation.delete({ where: { id } });
