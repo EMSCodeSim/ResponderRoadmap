@@ -232,6 +232,7 @@ export async function getMember(ctx: AuthContext, membershipId: string) {
         orderBy: { assignedDate: "desc" },
       },
       credentials: { include: { credentialType: true }, orderBy: { credentialName: "asc" } },
+      sharedActivities: { orderBy: { occurredAt: "desc" }, take: 100 },
     },
   });
   if (!membership) throw new HttpError(404, "Member not found.");
@@ -273,6 +274,8 @@ export async function getMember(ctx: AuthContext, membershipId: string) {
   const canSeeCredentials = isSelf || hasPermission(ctx.role, "credentials.read");
   const canSeeDepartmentNotes = hasPermission(ctx.role, "notes.write");
   const canSeeFullActivity = ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR" || isSelf;
+  const canSeeSharedPersonalContext =
+    ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR" || isSelf;
   const restrictedSummary =
     ctx.role === "EVALUATOR" && !isSelf
       ? {
@@ -354,6 +357,21 @@ export async function getMember(ctx: AuthContext, membershipId: string) {
         }))
       : [],
     evidence,
+    sharedPersonalActivity: canSeeSharedPersonalContext
+      ? membership.sharedActivities.map((item) => ({
+          id: item.id,
+          sourceId: item.sourceExternalId,
+          type: item.activityType,
+          title: item.title,
+          category: item.category,
+          occurredAt: item.occurredAt,
+          hours: item.hours,
+          repetitions: item.repetitions,
+          detail: item.detail,
+          tags: JSON.parse(item.tagsJson || "[]"),
+          sharedAt: item.sharedAt,
+        }))
+      : [],
     activity: canSeeFullActivity
       ? events.map((event) => ({
           id: event.id,
