@@ -38,7 +38,7 @@ type QueueItem = {
   sameReviewerConflict: boolean;
   sameReviewerOverrideAllowed: boolean;
   history: Array<{ id: string; result: string; notes: string; signedAt: string; evaluatorName: string; approvalLevel: string }>;
-  attempts: Array<{ id: string; result: string; comments: string; signedAt: string; evaluatorName: string; repetitionIndex: number }>;
+  attempts: Array<{ id: string; result: string; comments: string; signedAt: string; evaluatorName: string; repetitionIndex: number; numericScore: number | null }>;
 };
 
 function approvalLevelLabel(level: string) {
@@ -63,6 +63,7 @@ function EvaluateInner() {
   const [sameReviewerOverride, setSameReviewerOverride] = useState(false);
   const [groupRequirementId, setGroupRequirementId] = useState<string>("");
   const [overrideReason, setOverrideReason] = useState("");
+  const [numericScore, setNumericScore] = useState("");
   const escalatedCount = queue.filter((item) => item.escalated).length;
   const groupOptions = Array.from(new Map(queue.map((item) => [item.requirementTitle, item])).values());
   const activeQueue = groupRequirementId ? queue.filter((item) => item.requirementTitle === groupRequirementId) : queue;
@@ -87,6 +88,7 @@ function EvaluateInner() {
     setAttested(false);
     setSameReviewerOverride(false);
     setOverrideReason("");
+    setNumericScore("");
     // Reset field controls when the selected submission changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
@@ -147,6 +149,7 @@ function EvaluateInner() {
           notes: note,
           stepResults,
           criticalFailuresTriggered: critical,
+          numericScore: numericScore.trim() === "" ? null : Number(numericScore),
           attested: result === "APPROVED" ? attested : false,
           sameReviewerOverride: result === "APPROVED" ? sameReviewerOverride : false,
           overrideReason: result === "APPROVED" ? overrideReason.trim() : "",
@@ -347,6 +350,23 @@ function EvaluateInner() {
                       </li>
                     ))}
                   </ul>
+                </div>
+              ) : null}
+              {view !== "recent" ? (
+                <div className="mt-5">
+                  <div className="kicker">Graded skill score</div>
+                  <p className="mt-1 text-sm text-navy-600">Optional 0–100 score for retention and trend tracking. Pass/fail remains part of the evaluator decision.</p>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={numericScore}
+                    onChange={(event) => setNumericScore(event.target.value)}
+                    className="mt-2 min-h-11 w-40 rounded-md border border-navy-200 bg-white px-3"
+                    placeholder="0–100"
+                    aria-label="Skill score"
+                  />
                 </div>
               ) : null}
               {selected.criticalFailures.length ? (

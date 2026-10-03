@@ -12,6 +12,7 @@ type SkillResult = {
   requirementId: string;
   result: string;
   notes: string;
+  numericScore: number | null;
   evaluatorName: string;
   evaluatedAt: string;
 };
@@ -93,7 +94,7 @@ function SectionReport({ title, sections, roster }: { title: string; sections: C
             <thead><tr><th className="border p-1 text-left">Student</th>{section.skills.map((skill) => <th key={skill.id} className="border p-1 text-left">{skill.title}</th>)}</tr></thead>
             <tbody>{roster.map((student) => <tr key={student.id}><td className="border p-1 font-semibold">{student.name}</td>{section.skills.map((skill) => {
               const result = student.results.find((item) => item.requirementId === skill.id);
-              return <td key={skill.id} className="border p-1">{resultLabels[result?.result || "NOT_EVALUATED"]}{result?.notes ? ` — ${result.notes}` : ""}</td>;
+              return <td key={skill.id} className="border p-1">{resultLabels[result?.result || "NOT_EVALUATED"]}{result?.numericScore != null ? ` · ${Math.round(result.numericScore)}%` : ""}{result?.notes ? ` — ${result.notes}` : ""}</td>;
             })}</tr>)}</tbody>
           </table>
         </div>
@@ -110,6 +111,7 @@ export default function ClassDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [correction, setCorrection] = useState<{ skill: Skill; result: string } | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState("");
+  const [skillScores, setSkillScores] = useState<Record<string, string>>({});
   const [closeOpen, setCloseOpen] = useState(false);
 
   async function load() {
@@ -135,7 +137,11 @@ export default function ClassDetailPage() {
     try {
       const updated = await api<ClassDetail>(`classes/${detail.id}/roster/${student.id}/skills/${skill.id}`, {
         method: "POST",
-        body: JSON.stringify({ result, notes }),
+        body: JSON.stringify({
+          result,
+          notes,
+          numericScore: (skillScores[skill.id] ?? "").trim() === "" ? null : Number(skillScores[skill.id]),
+        }),
       });
       setDetail(updated);
       setCorrection(null);
@@ -229,7 +235,7 @@ export default function ClassDetailPage() {
           {detail.sections.length === 0 ? <Card className="p-5"><h2 className="font-bold">Attendance-only training</h2><p className="mt-1 text-sm text-navy-600">Mark each member Present, Absent, or Excused. When attendance is complete, choose Complete training. Present department members will receive the training credit in Training Hours.</p></Card> : null}
           {detail.sections.map((section) => <Card key={section.id} className="overflow-hidden"><div className="border-b border-navy-100 bg-navy-50 px-4 py-3"><h2 className="font-bold">{section.title}</h2>{section.description ? <p className="text-sm text-navy-500">{section.description}</p> : null}</div><div className="divide-y divide-navy-100">{section.skills.map((skill) => {
             const existing = results.get(skill.id);
-            return <div key={skill.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="max-w-2xl"><div className="flex items-center gap-2"><h3 className="font-semibold">{skill.title}</h3>{skill.required ? <Badge tone="fire">Required</Badge> : null}</div>{skill.description ? <p className="mt-1 text-sm text-navy-500">{skill.description}</p> : null}{existing ? <p className="mt-2 text-xs text-navy-500">Recorded by {existing.evaluatorName} · {new Date(existing.evaluatedAt).toLocaleString()}{existing.notes ? ` · ${existing.notes}` : ""}</p> : <p className="mt-2 text-xs font-semibold text-navy-400">No result recorded</p>}</div><Badge tone={tone(existing?.result || "NOT_EVALUATED")}>{resultLabels[existing?.result || "NOT_EVALUATED"]}</Badge></div><div className="mt-3 flex flex-wrap gap-2"><Button variant="success" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "PASS")}>Pass</Button><Button variant="secondary" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "NEEDS_REMEDIATION")}>Remediation</Button><Button variant="danger" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "FAIL")}>Fail</Button><Button variant="ghost" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "NOT_APPLICABLE")}>N/A</Button></div></div>;
+            return <div key={skill.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="max-w-2xl"><div className="flex items-center gap-2"><h3 className="font-semibold">{skill.title}</h3>{skill.required ? <Badge tone="fire">Required</Badge> : null}</div>{skill.description ? <p className="mt-1 text-sm text-navy-500">{skill.description}</p> : null}{existing ? <p className="mt-2 text-xs text-navy-500">Recorded by {existing.evaluatorName} · {new Date(existing.evaluatedAt).toLocaleString()}{existing.notes ? ` · ${existing.notes}` : ""}</p> : <p className="mt-2 text-xs font-semibold text-navy-400">No result recorded</p>}</div><Badge tone={tone(existing?.result || "NOT_EVALUATED")}>{resultLabels[existing?.result || "NOT_EVALUATED"]}</Badge></div><div className="mt-3 flex flex-wrap items-end gap-2"><Field label="Score (0–100)"><Input type="number" min="0" max="100" className="w-28" value={skillScores[skill.id] ?? (existing?.numericScore?.toString() || "")} disabled={busy || detail.status === "COMPLETE"} onChange={(event) => setSkillScores((current) => ({ ...current, [skill.id]: event.target.value }))} /></Field><Button variant="success" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "PASS")}>Pass</Button><Button variant="secondary" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "NEEDS_REMEDIATION")}>Remediation</Button><Button variant="danger" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "FAIL")}>Fail</Button><Button variant="ghost" disabled={busy || detail.status === "COMPLETE"} onClick={() => record(skill, "NOT_APPLICABLE")}>N/A</Button></div></div>;
           })}</div></Card>)}
         </div> : null}
       </div>

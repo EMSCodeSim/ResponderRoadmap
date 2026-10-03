@@ -132,6 +132,7 @@ export function navItemsForRole(role: Role): string[] {
   if (hasPermission(role, "assignments.read")) items.push("assignments");
   if (hasPermission(role, "signoff.review")) items.push("evaluate");
   if (hasPermission(role, "members.read")) items.push("members");
+  if (hasPermission(role, "reports.read")) items.push("skill-mastery");
   if (hasPermission(role, "classes.read")) items.push("classes");
   if (hasPermission(role, "invitations.write")) items.push("enrollment");
   if (hasPermission(role, "evaluators.manage")) items.push("evaluators");

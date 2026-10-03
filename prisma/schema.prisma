@@ -71,6 +71,8 @@ model Department {
   inboxNotifications        InboxNotification[]
   pushDevices               PushDevice[]
   evaluationEscalationHours Int                    @default(48)
+  skillProficiencyThreshold Int                    @default(80)
+  skillReassessmentDays      Int                    @default(180)
   trainingClasses          TrainingClass[]
   trainingSheetTemplates   TrainingSheetTemplate[]
   trainingExpectations     TrainingExpectation[]
@@ -482,6 +484,7 @@ model TrainingClassSkillResult {
   requirement   TaskBookRequirement     @relation(fields: [requirementId], references: [id])
   result        String                  @default("NOT_EVALUATED")
   notes         String                  @default("")
+  numericScore  Float?
   stepResultsJson String                @default("[]")
   evaluatorId   String
   evaluator     User                    @relation("ClassEvaluator", fields: [evaluatorId], references: [id])
