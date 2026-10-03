@@ -207,7 +207,7 @@ export default function TrainingNeedsPage() {
                       <div className="font-semibold">{topic.topic}</div>
                       <div className="text-xs text-navy-500">{topic.templateTitle}</div>
                     </div>
-                    <Badge tone={topic.membersNeedingFollowUp > 0 ? "danger" : topic.membersUncovered > 0 ? "warning" : "neutral"}>
+                    <Badge tone={topic.membersNeedingFollowUp > 0 ? "danger" : topic.membersUncovered > 0 ? "warn" : "neutral"}>
                       {covered}/{topic.expectedMembers} covered
                     </Badge>
                   </div>
@@ -243,7 +243,7 @@ export default function TrainingNeedsPage() {
                   <td className="p-3"><div className="font-semibold">{member.memberName}</div><div className="text-xs text-navy-500">{member.rank || member.position || "Member"}{member.shift ? ` · ${member.shift} Shift` : ""}</div></td>
                   <td className="p-3 text-navy-600">{member.expectationProfiles.join(", ") || "Department baseline"}</td>
                   <td className="p-3"><div className="font-medium">{member.gaps[0]?.name || "—"}</div><div className="text-xs text-navy-500">{member.gaps[0]?.detail || ""}</div></td>
-                  <td className="p-3"><Badge tone={member.gapCount > 2 ? "danger" : "warning"}>{member.gapCount}</Badge></td>
+                  <td className="p-3"><Badge tone={member.gapCount > 2 ? "danger" : "warn"}>{member.gapCount}</Badge></td>
                   <td className="p-3 text-right"><Link className="font-semibold text-fire hover:underline" href={`/members/${member.memberId}`}>View member</Link></td>
                 </tr>
               ))}
