@@ -886,10 +886,10 @@ export async function skillMasteryReport(ctx: AuthContext) {
     const needsImprovement = latest.numericScore != null
       ? latest.numericScore < threshold
       : qualitativeFail(latest.result);
-    const status = stale
-      ? "REASSESS"
-      : needsImprovement
-        ? "NEEDS_IMPROVEMENT"
+    const status = needsImprovement
+      ? "NEEDS_IMPROVEMENT"
+      : stale
+        ? "REASSESS"
         : meetsThreshold
           ? "PROFICIENT"
           : "OBSERVED";
@@ -974,6 +974,12 @@ export async function updateSkillMasterySettings(
   input: { proficiencyThreshold?: number; reassessmentDays?: number },
 ) {
   assertPermission(ctx, "taskbooks.write");
+  if (input.proficiencyThreshold !== undefined && !Number.isFinite(input.proficiencyThreshold)) {
+    throw new Error("Proficiency threshold must be a number.");
+  }
+  if (input.reassessmentDays !== undefined && !Number.isFinite(input.reassessmentDays)) {
+    throw new Error("Reassessment days must be a number.");
+  }
   const threshold = input.proficiencyThreshold === undefined
     ? undefined
     : Math.max(1, Math.min(100, Math.round(input.proficiencyThreshold)));
