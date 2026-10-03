@@ -484,6 +484,7 @@ model TrainingClassSkillResult {
   requirement   TaskBookRequirement     @relation(fields: [requirementId], references: [id])
   result        String                  @default("NOT_EVALUATED")
   notes         String                  @default("")
+  numericScore  Float?
   stepResultsJson String                @default("[]")
   evaluatorId   String
   evaluator     User                    @relation("ClassEvaluator", fields: [evaluatorId], references: [id])
