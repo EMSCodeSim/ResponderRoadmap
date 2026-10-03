@@ -25,12 +25,7 @@ expect_page "$BASE/department-interest?plan=station"
 HOME=$(curl -fsS "$BASE/")
 echo "$HOME" | grep -q 'Digital Task Books and training tracking for Fire &amp; EMS.' || { echo 'Homepage missing current hero headline'; exit 1; }
 echo "$HOME" | grep -q 'See the 3-Minute Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
-echo "$HOME" | grep -q 'training readiness without enterprise software pricing.' || { echo 'Homepage missing current pricing headline'; exit 1; }
-echo "$HOME" | grep -q 'Station' || { echo 'Homepage missing Station plan'; exit 1; }
-echo "$HOME" | grep -q '\$299' || { echo 'Homepage missing Station price'; exit 1; }
-echo "$HOME" | grep -q 'Start Station' || { echo 'Homepage missing Start Station CTA'; exit 1; }
-echo "$HOME" | grep -q '\$500' || { echo 'Homepage missing Founding price'; exit 1; }
-ok 'homepage Training Officer positioning'
+ok 'homepage Training Officer positioning without embedded pricing'
 PRICING=$(curl -fsS "$BASE/pricing")
 echo "$PRICING" | grep -q 'training readiness without enterprise software pricing.' || { echo 'Pricing page missing current headline'; exit 1; }
 echo "$PRICING" | grep -q 'Start Station' || { echo 'Pricing page missing Station CTA'; exit 1; }

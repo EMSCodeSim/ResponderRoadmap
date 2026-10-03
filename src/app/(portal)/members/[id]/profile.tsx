@@ -83,6 +83,19 @@ type Member = {
   activity: Array<{ id: string; type: string; timestamp: string; metadata: Record<string, unknown>; actorName: string | null }>;
   evidence: Array<{ id: string; type: string; description: string; uploadedAt: string; requirementTitle: string; taskBookTitle: string }>;
   notes: Array<{ id: string; body: string; createdAt: string; authorName: string }>;
+  sharedPersonalActivity: Array<{
+    id: string;
+    sourceId: string;
+    type: string;
+    title: string;
+    category: string;
+    occurredAt: string;
+    hours: number | null;
+    repetitions: number;
+    detail: string;
+    tags: string[];
+    sharedAt: string;
+  }>;
 };
 
 const TABS = [
@@ -280,6 +293,31 @@ export default function MemberProfile() {
               {member.credentialDetails.length === 0 ? <li className="text-sm text-navy-500">No department credentials on file.</li> : null}
             </ul>
           </Card>
+          {member.sharedPersonalActivity.length > 0 ? (
+            <Card className="p-5 xl:col-span-3">
+              <h2 className="display text-2xl font-bold">Member-shared personal context</h2>
+              <p className="mt-1 text-sm text-navy-500">
+                These entries were deliberately shared by the member from their personal Responder Roadmap. They may include outside education, experience, or a personal possible-exposure log. They are context only: not department training credit, attendance, an official exposure report, or a performance finding.
+              </p>
+              <ul className="mt-3 divide-y divide-navy-100">
+                {member.sharedPersonalActivity.slice(0, 12).map((item) => (
+                  <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+                    <div>
+                      <div className="font-semibold">{item.title}</div>
+                      <div className="text-xs text-navy-500">
+                        {item.category || item.type}
+                        {item.hours != null ? ` · ${item.hours.toFixed(1)} hr` : ""}
+                        {item.repetitions > 1 ? ` · ${item.repetitions} reps` : ""}
+                        {" · "}{formatDate(item.occurredAt)}
+                      </div>
+                      {item.detail ? <p className="mt-1 max-w-3xl text-sm text-navy-600">{item.detail}</p> : null}
+                    </div>
+                    <Badge tone="neutral">Shared by member</Badge>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
           <Card className="p-5 xl:col-span-3">
             <h2 className="display text-2xl font-bold">Recent Activity</h2>
             <ul className="mt-3 divide-y divide-navy-100">

@@ -387,6 +387,146 @@ export async function syncMySharedCertifications(ctx: AuthContext, raw: unknown)
   return listMySharedCertifications(ctx);
 }
 
+
+
+type SharedActivityInput = {
+  id?: unknown;
+  type?: unknown;
+  title?: unknown;
+  category?: unknown;
+  occurredAt?: unknown;
+  hours?: unknown;
+  repetitions?: unknown;
+  detail?: unknown;
+  tags?: unknown;
+  updatedAt?: unknown;
+};
+
+function optionalNumber(value: unknown, field: string): number | null {
+  if (value == null || value === "") return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new HttpError(400, `${field} must be a number.`);
+  return value;
+}
+
+export async function listMySharedActivities(ctx: AuthContext) {
+  await assertActiveMembership(ctx);
+  const records = await prisma.sharedMemberActivity.findMany({
+    where: { membershipId: ctx.membershipId, departmentId: ctx.departmentId },
+    orderBy: { occurredAt: "desc" },
+  });
+  return {
+    sharedSourceIds: records.map((record) => record.sourceExternalId),
+    activities: records.map((record) => ({
+      id: record.id,
+      sourceId: record.sourceExternalId,
+      type: record.activityType,
+      title: record.title,
+      category: record.category,
+      occurredAt: record.occurredAt,
+      hours: record.hours,
+      repetitions: record.repetitions,
+      detail: record.detail,
+      tags: parseStringArray(record.tagsJson),
+      sourceUpdatedAt: record.sourceUpdatedAt,
+      sharedAt: record.sharedAt,
+    })),
+    serverTime: new Date(),
+  };
+}
+
+export async function syncMySharedActivities(ctx: AuthContext, raw: unknown) {
+  await assertActiveMembership(ctx);
+  if (!Array.isArray(raw)) throw new HttpError(400, "activities must be a list.");
+  if (raw.length > 500) throw new HttpError(400, "No more than 500 activities can be shared.");
+
+  const desired = raw.map((item, index) => {
+    if (!item || typeof item !== "object") throw new HttpError(400, `Activity ${index + 1} is invalid.`);
+    const input = item as SharedActivityInput;
+    const sourceId = typeof input.id === "string" ? input.id.trim().slice(0, 160) : "";
+    const title = typeof input.title === "string" ? input.title.trim().slice(0, 200) : "";
+    if (!sourceId || !title) throw new HttpError(400, `Activity ${index + 1} requires an id and title.`);
+    const occurredAt = optionalDate(input.occurredAt, "occurredAt");
+    if (!occurredAt) throw new HttpError(400, `Activity ${index + 1} requires occurredAt.`);
+    const tags = Array.isArray(input.tags)
+      ? input.tags.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim()).filter(Boolean).slice(0, 30)
+      : [];
+    return {
+      sourceId,
+      activityType: typeof input.type === "string" ? input.type.trim().slice(0, 80) : "training",
+      title,
+      category: typeof input.category === "string" ? input.category.trim().slice(0, 120) : "",
+      occurredAt,
+      hours: optionalNumber(input.hours, "hours"),
+      repetitions: typeof input.repetitions === "number" && Number.isFinite(input.repetitions)
+        ? Math.max(1, Math.min(100000, Math.floor(input.repetitions)))
+        : 1,
+      detail: typeof input.detail === "string" ? input.detail.trim().slice(0, 2000) : "",
+      tags,
+      sourceUpdatedAt: optionalDate(input.updatedAt, "updatedAt") ?? new Date(),
+    };
+  });
+
+  if (new Set(desired.map((item) => item.sourceId)).size !== desired.length) {
+    throw new HttpError(400, "Each shared activity must have a unique id.");
+  }
+
+  const existing = await prisma.sharedMemberActivity.findMany({
+    where: { membershipId: ctx.membershipId, departmentId: ctx.departmentId },
+  });
+  const desiredIds = new Set(desired.map((item) => item.sourceId));
+  const removed = existing.filter((record) => !desiredIds.has(record.sourceExternalId));
+
+  await prisma.$transaction(async (tx) => {
+    if (removed.length > 0) {
+      await tx.sharedMemberActivity.deleteMany({ where: { id: { in: removed.map((record) => record.id) } } });
+    }
+    for (const item of desired) {
+      await tx.sharedMemberActivity.upsert({
+        where: {
+          membershipId_sourceExternalId: {
+            membershipId: ctx.membershipId,
+            sourceExternalId: item.sourceId,
+          },
+        },
+        create: {
+          membershipId: ctx.membershipId,
+          departmentId: ctx.departmentId,
+          sourceExternalId: item.sourceId,
+          activityType: item.activityType,
+          title: item.title,
+          category: item.category,
+          occurredAt: item.occurredAt,
+          hours: item.hours,
+          repetitions: item.repetitions,
+          detail: item.detail,
+          tagsJson: JSON.stringify(item.tags),
+          sourceUpdatedAt: item.sourceUpdatedAt,
+          sharedAt: new Date(),
+        },
+        update: {
+          activityType: item.activityType,
+          title: item.title,
+          category: item.category,
+          occurredAt: item.occurredAt,
+          hours: item.hours,
+          repetitions: item.repetitions,
+          detail: item.detail,
+          tagsJson: JSON.stringify(item.tags),
+          sourceUpdatedAt: item.sourceUpdatedAt,
+          sharedAt: new Date(),
+        },
+      });
+    }
+  });
+
+  await writeAudit(ctx, "member.personal_activity.sharing_synced", "DepartmentMembership", ctx.membershipId, {
+    sharedSourceIds: [...desiredIds],
+    revoked: removed.length,
+  });
+
+  return listMySharedActivities(ctx);
+}
+
 export async function submitRequirement(
   ctx: AuthContext,
   assignmentId: string,
