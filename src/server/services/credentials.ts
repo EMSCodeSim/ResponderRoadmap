@@ -193,6 +193,12 @@ export async function upsertMyCredential(
   const name = input.credentialName?.trim();
   if (!name) throw new HttpError(400, "Certification name is required.");
   if (!input.doesNotExpire && !input.expirationDate) throw new HttpError(400, "Add an expiration date or choose Does not expire.");
+  if (input.expirationDate && Number.isNaN(new Date(input.expirationDate).getTime())) throw new HttpError(400, "Expiration date is invalid.");
+  if (input.issueDate && Number.isNaN(new Date(input.issueDate).getTime())) throw new HttpError(400, "Issue date is invalid.");
+  if (input.credentialTypeId) {
+    const credentialType = await prisma.credentialType.findFirst({ where: { id: input.credentialTypeId, departmentId: ctx.departmentId }, select: { id: true } });
+    if (!credentialType) throw new HttpError(400, "Choose a credential type from this department.");
+  }
   if (input.id) {
     const existing = await prisma.credential.findFirst({ where: { id: input.id, departmentId: ctx.departmentId, membershipId: ctx.membershipId } });
     if (!existing) throw new HttpError(404, "Certification not found.");

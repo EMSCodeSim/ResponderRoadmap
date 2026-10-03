@@ -27,7 +27,26 @@ function serviceAccount() {
   }
 }
 
-async function sendPush(notification: { id: string; userId: string; title: string; body: string; type: string; referenceId: string | null; actionPath: string | null }) {
+function pushPreferenceKey(type: string): "credentialExpiryPush" | "assignmentPush" | "evaluationPush" | "dueDatePush" | null {
+  if (type.startsWith("CREDENTIAL_")) return "credentialExpiryPush";
+  if (type.includes("EVALUATION") || type.includes("SUPERVISOR_APPROVAL") || type.includes("EVALUATOR_")) return "evaluationPush";
+  if (type.includes("DUE_DATE")) return "dueDatePush";
+  if (type.startsWith("ASSIGNMENT_")) return "assignmentPush";
+  return null;
+}
+
+async function sendPush(notification: { id: string; userId: string; departmentId: string; title: string; body: string; type: string; referenceId: string | null; actionPath: string | null }) {
+  const preferenceKey = pushPreferenceKey(notification.type);
+  if (preferenceKey) {
+    const preferences = await prisma.notificationPreference.findUnique({
+      where: { departmentId_userId: { departmentId: notification.departmentId, userId: notification.userId } },
+      select: { credentialExpiryPush: true, assignmentPush: true, evaluationPush: true, dueDatePush: true },
+    });
+    if (preferences && !preferences[preferenceKey]) {
+      await prisma.inboxNotification.update({ where: { id: notification.id }, data: { pushStatus: "DISABLED_BY_PREFERENCE" } });
+      return;
+    }
+  }
   const account = serviceAccount();
   const projectId = process.env.FIREBASE_PROJECT_ID?.trim() || String(account?.project_id || "");
   if (!account || !projectId) {

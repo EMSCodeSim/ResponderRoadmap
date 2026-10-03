@@ -16,25 +16,26 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships            DepartmentMembership[]
-  createdDepartments     Department[]           @relation("DepartmentCreator")
-  ownedTaskBooks         TaskBookTemplate[]     @relation("TaskBookOwner")
-  assignmentsCreated     TaskBookAssignment[]   @relation("AssignedBy")
-  assignmentsEvaluating  TaskBookAssignment[]   @relation("AssignmentEvaluator")
-  assignmentsSupervising TaskBookAssignment[]   @relation("AssignmentSupervisor")
-  signOffs               SignOff[]
-  evaluationAttempts     EvaluationAttempt[]
-  activityEvents         ActivityEvent[]
-  auditLogs              AuditLog[]             @relation("AuditActor")
-  notesAuthored          MemberNote[]           @relation("NoteAuthor")
-  invitationsSent        Invitation[]           @relation("InvitationSender")
-  personalCredentials    PersonalCredential[]
-  personalLogs           PersonalCareerLog[]
-  inboxNotifications     InboxNotification[]
-  pushDevices            PushDevice[]
-  classesCreated         TrainingClass[]          @relation("ClassCreator")
-  classProctorLinks      TrainingClassProctor[]
-  classSkillResults      TrainingClassSkillResult[] @relation("ClassEvaluator")
+  memberships                   DepartmentMembership[]
+  createdDepartments            Department[]               @relation("DepartmentCreator")
+  ownedTaskBooks                TaskBookTemplate[]         @relation("TaskBookOwner")
+  assignmentsCreated            TaskBookAssignment[]       @relation("AssignedBy")
+  assignmentsEvaluating         TaskBookAssignment[]       @relation("AssignmentEvaluator")
+  assignmentsSupervising        TaskBookAssignment[]       @relation("AssignmentSupervisor")
+  signOffs                      SignOff[]
+  evaluationAttempts            EvaluationAttempt[]
+  activityEvents                ActivityEvent[]
+  auditLogs                     AuditLog[]                 @relation("AuditActor")
+  notesAuthored                 MemberNote[]               @relation("NoteAuthor")
+  invitationsSent               Invitation[]               @relation("InvitationSender")
+  personalCredentials           PersonalCredential[]
+  personalLogs                  PersonalCareerLog[]
+  inboxNotifications            InboxNotification[]
+  pushDevices                   PushDevice[]
+  classesCreated                TrainingClass[]            @relation("ClassCreator")
+  classProctorLinks             TrainingClassProctor[]
+  classSkillResults             TrainingClassSkillResult[] @relation("ClassEvaluator")
+  mobileNotificationPreferences NotificationPreference[]
 }
 
 /// Department-controlled organization. Tenant root for all department queries.
@@ -59,55 +60,59 @@ model Department {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  memberships               DepartmentMembership[]
-  taskBooks                 TaskBookTemplate[]
-  assignments               TaskBookAssignment[]
-  credentials               Credential[]
-  credentialTypes           CredentialType[]
-  activityEvents            ActivityEvent[]
-  auditLogs                 AuditLog[]
-  invitations               Invitation[]
-  memberNotes               MemberNote[]
-  inboxNotifications        InboxNotification[]
-  pushDevices               PushDevice[]
-  evaluationEscalationHours Int                    @default(48)
-  skillProficiencyThreshold Int                    @default(80)
-  skillReassessmentDays      Int                    @default(180)
-  trainingClasses          TrainingClass[]
-  trainingSheetTemplates   TrainingSheetTemplate[]
-  trainingExpectations     TrainingExpectation[]
-  trainingSheetRequiredFieldsJson String @default("[\"TITLE\",\"DATE\",\"INSTRUCTOR\",\"CATEGORY\",\"HOURS\",\"ATTENDANCE\"]")
-  agencyType                    String @default("FIRE_EMS")
-  operationalCapabilitiesJson  String @default("[\"STRUCTURAL_FIRE\",\"EMS_BLS\"]")
-  customCapabilitiesJson       String @default("[]")
+  memberships                     DepartmentMembership[]
+  taskBooks                       TaskBookTemplate[]
+  assignments                     TaskBookAssignment[]
+  credentials                     Credential[]
+  credentialTypes                 CredentialType[]
+  activityEvents                  ActivityEvent[]
+  auditLogs                       AuditLog[]
+  invitations                     Invitation[]
+  memberNotes                     MemberNote[]
+  inboxNotifications              InboxNotification[]
+  pushDevices                     PushDevice[]
+  evaluationEscalationHours       Int                              @default(48)
+  skillProficiencyThreshold       Int                              @default(80)
+  skillReassessmentDays           Int                              @default(180)
+  trainingClasses                 TrainingClass[]
+  trainingSheetTemplates          TrainingSheetTemplate[]
+  trainingExpectations            TrainingExpectation[]
+  trainingSheetRequiredFieldsJson String                           @default("[\"TITLE\",\"DATE\",\"INSTRUCTOR\",\"CATEGORY\",\"HOURS\",\"ATTENDANCE\"]")
+  agencyType                      String                           @default("FIRE_EMS")
+  operationalCapabilitiesJson     String                           @default("[\"STRUCTURAL_FIRE\",\"EMS_BLS\"]")
+  customCapabilitiesJson          String                           @default("[]")
+  operationalRoles                OperationalRole[]
+  memberOperationalAuthorizations MemberOperationalAuthorization[]
+  notificationPreferences         NotificationPreference[]
 }
 
 model DepartmentMembership {
-  id             String     @id @default(cuid())
-  departmentId   String
-  department     Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           String
-  status         String
-  rank           String?
-  position       String?
-  station        String?
-  shift          String?
-  employeeNumber String?
+  id                         String     @id @default(cuid())
+  departmentId               String
+  department                 Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userId                     String
+  user                       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role                       String
+  status                     String
+  rank                       String?
+  position                   String?
+  station                    String?
+  shift                      String?
+  employeeNumber             String?
   /// ROLE_DEFAULT follows an evaluator-capable role; APPROVED records explicit authorization; SUSPENDED removes access.
-  evaluatorStatus String     @default("ROLE_DEFAULT")
-  evaluatorApprovalLevel String @default("EVALUATOR")
-  evaluatorStatusUpdatedAt DateTime?
+  evaluatorStatus            String     @default("ROLE_DEFAULT")
+  evaluatorApprovalLevel     String     @default("EVALUATOR")
+  evaluatorStatusUpdatedAt   DateTime?
   evaluatorStatusUpdatedById String?
-  joinedAt       DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  joinedAt                   DateTime   @default(now())
+  updatedAt                  DateTime   @updatedAt
 
-  notes       MemberNote[]
-  assignments TaskBookAssignment[]
-  credentials Credential[]
-  completions RequirementCompletion[]
-  classEnrollments TrainingClassEnrollment[]
+  notes                     MemberNote[]
+  assignments               TaskBookAssignment[]
+  credentials               Credential[]
+  completions               RequirementCompletion[]
+  classEnrollments          TrainingClassEnrollment[]
+  operationalAuthorizations MemberOperationalAuthorization[]
 
   @@unique([departmentId, userId])
   @@index([departmentId, status])
@@ -184,8 +189,8 @@ model TaskBookVersion {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  sections    TaskBookSection[]
-  assignments TaskBookAssignment[]
+  sections        TaskBookSection[]
+  assignments     TaskBookAssignment[]
   trainingClasses TrainingClass[]
 
   @@unique([templateId, version])
@@ -242,7 +247,7 @@ model TaskBookRequirement {
   standardsJson              String          @default("[]")
   retryPolicy                String          @default("UNLIMITED")
 
-  completions RequirementCompletion[]
+  completions       RequirementCompletion[]
   classSkillResults TrainingClassSkillResult[]
 }
 
@@ -346,127 +351,133 @@ model EvaluationAttempt {
 }
 
 model TrainingExpectation {
-  id                    String     @id @default(cuid())
-  departmentId          String
-  department            Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  name                  String
-  matchRanksJson        String     @default("[]")
-  matchPositionsJson    String     @default("[]")
-  credentialTypeIdsJson String     @default("[]")
-  taskBookTemplateIdsJson String   @default("[]")
-  annualHoursJson       String     @default("{}")
-  active                Boolean    @default(true)
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
+  id                      String     @id @default(cuid())
+  departmentId            String
+  department              Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                    String
+  matchRanksJson          String     @default("[]")
+  matchPositionsJson      String     @default("[]")
+  credentialTypeIdsJson   String     @default("[]")
+  taskBookTemplateIdsJson String     @default("[]")
+  annualHoursJson         String     @default("{}")
+  active                  Boolean    @default(true)
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
 
   @@unique([departmentId, name])
   @@index([departmentId, active])
 }
 
 model CredentialType {
-  id                  String     @id @default(cuid())
-  departmentId        String
-  department          Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  name                String
-  issuerDefault       String?
-  isCustom            Boolean    @default(false)
-  alertThresholdsJson String     @default("[180,90,60,30,14,7,0]")
+  id                    String     @id @default(cuid())
+  departmentId          String
+  department            Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                  String
+  issuerDefault         String?
+  isCustom              Boolean    @default(false)
+  alertThresholdsJson   String     @default("[180,90,60,30,14,7,0]")
   /// Training-gap rules. Empty arrays mean this credential is not required by that dimension.
-  requiredForAll       Boolean    @default(false)
-  requiredRanksJson    String     @default("[]")
-  requiredPositionsJson String    @default("[]")
+  requiredForAll        Boolean    @default(false)
+  requiredRanksJson     String     @default("[]")
+  requiredPositionsJson String     @default("[]")
 
   credentials Credential[]
 
   @@unique([departmentId, name])
 }
 
-
 /// Department-owned reusable defaults for creating a Training Sheet.
 /// Templates never contain attendance, results, signatures, or completed records.
 model TrainingSheetTemplate {
-  id                  String     @id @default(cuid())
-  departmentId        String
-  department          Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  name                String
-  defaultTitle        String     @default("")
-  classType           String     @default("GENERAL")
-  trainingCategory    String     @default("COMPANY")
-  creditHours         Float      @default(0)
-  checklistVersionId  String?
-  location            String     @default("")
-  notes               String     @default("")
-  requiredFieldsJson  String     @default("[]")
-  selfRegistration    Boolean    @default(false)
-  proctorUserIdsJson  String     @default("[]")
-  archived            Boolean    @default(false)
-  createdById         String
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  id                 String     @id @default(cuid())
+  departmentId       String
+  department         Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name               String
+  defaultTitle       String     @default("")
+  classType          String     @default("GENERAL")
+  trainingCategory   String     @default("COMPANY")
+  creditHours        Float      @default(0)
+  checklistVersionId String?
+  location           String     @default("")
+  notes              String     @default("")
+  requiredFieldsJson String     @default("[]")
+  selfRegistration   Boolean    @default(false)
+  proctorUserIdsJson String     @default("[]")
+  archived           Boolean    @default(false)
+  createdById        String
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
-  @@index([departmentId, archived])
   @@unique([departmentId, name])
+  @@index([departmentId, archived])
 }
 
 /// A scheduled class or skills-testing event using a published checklist.
 model TrainingClass {
-  id            String          @id @default(cuid())
-  departmentId  String
-  department    Department      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  title         String
-  classType     String          @default("GENERAL")
+  id                     String          @id @default(cuid())
+  departmentId           String
+  department             Department      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  title                  String
+  classType              String          @default("GENERAL")
   /// Simple reporting category for training-hour exports; not an ISO rules engine.
-  trainingCategory String        @default("COMPANY")
+  trainingCategory       String          @default("COMPANY")
   /// Credit awarded to each PRESENT department member when the class is COMPLETE.
-  creditHours   Float           @default(0)
-  checklistVersionId String
-  checklistVersion TaskBookVersion @relation(fields: [checklistVersionId], references: [id])
-  startsAt      DateTime
-  endsAt        DateTime?
-  location      String          @default("")
-  status        String          @default("DRAFT")
-  registrationToken String?     @unique
-  registrationEnabled Boolean   @default(false)
-  notes         String          @default("")
-  createdById   String
-  createdBy     User            @relation("ClassCreator", fields: [createdById], references: [id])
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  creditHours            Float           @default(0)
+  checklistVersionId     String
+  checklistVersion       TaskBookVersion @relation(fields: [checklistVersionId], references: [id])
+  startsAt               DateTime
+  endsAt                 DateTime?
+  location               String          @default("")
+  status                 String          @default("DRAFT")
+  rmsStatus              String          @default("NOT_READY")
+  instructorApprovedAt   DateTime?
+  instructorApprovedById String?
+  rmsEnteredAt           DateTime?
+  rmsEnteredById         String?
+  rmsReference           String?
+  rmsEntryNote           String          @default("")
+  registrationToken      String?         @unique
+  registrationEnabled    Boolean         @default(false)
+  notes                  String          @default("")
+  createdById            String
+  createdBy              User            @relation("ClassCreator", fields: [createdById], references: [id])
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
-  roster        TrainingClassEnrollment[]
-  proctors      TrainingClassProctor[]
+  roster   TrainingClassEnrollment[]
+  proctors TrainingClassProctor[]
 
   @@index([departmentId, startsAt])
 }
 
 model TrainingClassProctor {
-  id        String        @id @default(cuid())
-  classId   String
-  class     TrainingClass @relation(fields: [classId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignedAt DateTime     @default(now())
+  id         String        @id @default(cuid())
+  classId    String
+  class      TrainingClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedAt DateTime      @default(now())
 
   @@unique([classId, userId])
   @@index([userId, classId])
 }
 
 model TrainingClassEnrollment {
-  id          String               @id @default(cuid())
-  classId     String
-  class       TrainingClass        @relation(fields: [classId], references: [id], onDelete: Cascade)
-  membershipId String?
-  membership  DepartmentMembership? @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  guestName   String?
-  guestEmail  String?
+  id                String                @id @default(cuid())
+  classId           String
+  class             TrainingClass         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  membershipId      String?
+  membership        DepartmentMembership? @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  guestName         String?
+  guestEmail        String?
   guestOrganization String?
-  attendance  String               @default("REGISTERED")
-  writtenScore Float?
-  ccfScore     Float?
-  finalResult  String               @default("PENDING")
-  notes        String               @default("")
-  enrolledAt   DateTime             @default(now())
-  completedAt  DateTime?
+  attendance        String                @default("REGISTERED")
+  writtenScore      Float?
+  ccfScore          Float?
+  finalResult       String                @default("PENDING")
+  notes             String                @default("")
+  enrolledAt        DateTime              @default(now())
+  completedAt       DateTime?
 
   skillResults TrainingClassSkillResult[]
 
@@ -477,19 +488,19 @@ model TrainingClassEnrollment {
 
 /// Latest result per student and skill. Every change is also written to AuditLog.
 model TrainingClassSkillResult {
-  id            String                  @id @default(cuid())
-  enrollmentId  String
-  enrollment    TrainingClassEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  requirementId String
-  requirement   TaskBookRequirement     @relation(fields: [requirementId], references: [id])
-  result        String                  @default("NOT_EVALUATED")
-  notes         String                  @default("")
-  numericScore  Float?
-  stepResultsJson String                @default("[]")
-  evaluatorId   String
-  evaluator     User                    @relation("ClassEvaluator", fields: [evaluatorId], references: [id])
-  evaluatedAt   DateTime                @default(now())
-  updatedAt     DateTime                @updatedAt
+  id              String                  @id @default(cuid())
+  enrollmentId    String
+  enrollment      TrainingClassEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  requirementId   String
+  requirement     TaskBookRequirement     @relation(fields: [requirementId], references: [id])
+  result          String                  @default("NOT_EVALUATED")
+  notes           String                  @default("")
+  numericScore    Float?
+  stepResultsJson String                  @default("[]")
+  evaluatorId     String
+  evaluator       User                    @relation("ClassEvaluator", fields: [evaluatorId], references: [id])
+  evaluatedAt     DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
 
   @@unique([enrollmentId, requirementId])
   @@index([evaluatorId, evaluatedAt])
@@ -506,15 +517,15 @@ model RegistrationRateLimit {
 }
 
 model WebSignInRequest {
-  id                  String   @id @default(cuid())
-  approvalTokenHash   String   @unique
-  browserSecretHash   String   @unique
-  approvedUserId      String?
-  status              String   @default("PENDING")
-  createdAt           DateTime @default(now())
-  expiresAt           DateTime
-  approvedAt          DateTime?
-  consumedAt          DateTime?
+  id                String    @id @default(cuid())
+  approvalTokenHash String    @unique
+  browserSecretHash String    @unique
+  approvedUserId    String?
+  status            String    @default("PENDING")
+  createdAt         DateTime  @default(now())
+  expiresAt         DateTime
+  approvedAt        DateTime?
+  consumedAt        DateTime?
 
   @@index([status, expiresAt])
   @@index([approvedUserId, status])
@@ -545,9 +556,9 @@ model Credential {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
+  @@unique([membershipId, source, sourceExternalId])
   @@index([departmentId, expirationDate])
   @@index([membershipId])
-  @@unique([membershipId, source, sourceExternalId])
 }
 
 model ActivityEvent {
@@ -666,4 +677,67 @@ model DepartmentInterest {
 
   @@index([status], map: "DepartmentInterest_status_idx")
   @@index([email], map: "DepartmentInterest_email_idx")
+}
+
+/// Department-defined operational authorization such as Engine Driver, Medic Driver, Interior Firefighter, or Acting Officer.
+model OperationalRole {
+  id                      String                           @id @default(cuid())
+  departmentId            String
+  department              Department                       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                    String
+  category                String                           @default("OPERATIONS")
+  description             String                           @default("")
+  credentialTypeIdsJson   String                           @default("[]")
+  taskBookTemplateIdsJson String                           @default("[]")
+  requirementIdsJson      String                           @default("[]")
+  manualApprovalRequired  Boolean                          @default(true)
+  archived                Boolean                          @default(false)
+  createdById             String
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @updatedAt
+  authorizations          MemberOperationalAuthorization[]
+
+  @@unique([departmentId, name])
+  @@index([departmentId, archived])
+}
+
+/// Explicit department authorization. Certificates/training never silently create an APPROVED authorization.
+model MemberOperationalAuthorization {
+  id           String               @id @default(cuid())
+  departmentId String
+  department   Department           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  membershipId String
+  membership   DepartmentMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  roleId       String
+  role         OperationalRole      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  status       String               @default("NOT_STARTED")
+  restriction  String               @default("")
+  note         String               @default("")
+  approvedById String?
+  approvedAt   DateTime?
+  reviewDate   DateTime?
+  updatedById  String
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@unique([membershipId, roleId])
+  @@index([departmentId, roleId, status])
+  @@index([membershipId, status])
+}
+
+/// Per-user mobile notification preferences. In-app operational notices remain authoritative even when push is disabled.
+model NotificationPreference {
+  id                   String     @id @default(cuid())
+  departmentId         String
+  department           Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialExpiryPush Boolean    @default(true)
+  assignmentPush       Boolean    @default(true)
+  evaluationPush       Boolean    @default(true)
+  dueDatePush          Boolean    @default(true)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  @@unique([departmentId, userId])
 }

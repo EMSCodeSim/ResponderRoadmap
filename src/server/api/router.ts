@@ -15,6 +15,8 @@ import * as classes from "@/server/services/classes";
 import * as evaluators from "@/server/services/evaluators";
 import * as trainingExpectations from "@/server/services/training-expectations";
 import * as trainingSheetTemplates from "@/server/services/training-sheet-templates";
+import * as mobilePreferences from "@/server/services/mobile-preferences";
+import * as qualifications from "@/server/services/qualifications";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
@@ -195,6 +197,26 @@ export async function handleApi(req: Request, path: string[]) {
         }),
       );
     }
+
+    if (method === "GET" && match(path, "app/qualifications")) return jsonOk(await qualifications.myQualifications(ctx));
+    if (method === "GET" && match(path, "app/department-qualifications")) return jsonOk(await qualifications.departmentQualificationsForApp(ctx));
+    if (method === "GET" && match(path, "app/certifications")) return jsonOk(await credentials.listMyCredentials(ctx));
+    if (method === "POST" && match(path, "app/certifications")) return jsonOk(await credentials.upsertMyCredential(ctx, await readBody(req)), 201);
+    if (method === "GET" && match(path, "app/notification-preferences")) return jsonOk(await mobilePreferences.getNotificationPreferences(ctx));
+    if (method === "PATCH" && match(path, "app/notification-preferences")) return jsonOk(await mobilePreferences.updateNotificationPreferences(ctx, await readBody(req)));
+    if (method === "GET" && match(path, "app/training-sheet-templates")) return jsonOk(await trainingSheetTemplates.listTrainingSheetTemplates(ctx, false));
+    if (method === "GET" && match(path, "app/training-sheets/rms-actions")) return jsonOk(await classes.listRmsActionQueue(ctx));
+    const appTrainingSheet = match(path, "app/training-sheets/:id");
+    if (method === "GET" && appTrainingSheet) return jsonOk(await classes.getClass(ctx, appTrainingSheet.id));
+    const appTrainingApprove = match(path, "app/training-sheets/:id/approve");
+    if (method === "POST" && appTrainingApprove) return jsonOk(await classes.approveTrainingSheet(ctx, appTrainingApprove.id));
+    const appTrainingRms = match(path, "app/training-sheets/:id/rms-entered");
+    if (method === "POST" && appTrainingRms) return jsonOk(await classes.markClassEnteredIntoRms(ctx, appTrainingRms.id, await readBody(req)));
+
+    if (method === "GET" && match(path, "qualification-roles")) return jsonOk(await qualifications.listRoles(ctx));
+    if (method === "POST" && match(path, "qualification-roles")) return jsonOk(await qualifications.createRole(ctx, await readBody(req)), 201);
+    const qualificationAuth = match(path, "members/:membershipId/qualifications/:roleId");
+    if (method === "PATCH" && qualificationAuth) return jsonOk(await qualifications.setAuthorization(ctx, qualificationAuth.membershipId, qualificationAuth.roleId, await readBody(req)));
 
     if (method === "GET" && match(path, "dashboard")) return jsonOk(await dashboard.getDashboard(ctx));
     if (method === "GET" && match(path, "inbox")) return jsonOk(await inbox.getInbox(ctx));

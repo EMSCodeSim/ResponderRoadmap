@@ -51,11 +51,17 @@ jobs:
       - name: Provision isolated demo database
         run: npm run db:demo:setup
 
+      - name: Run ESLint
+        run: npm run lint
+
       - name: Run tests
         run: npm test
 
       - name: Build production app
         run: npm run build
+
+      - name: Check TypeScript
+        run: npx tsc --noEmit
 
       # All requests target the local server with disposable CI Postgres and demo schemas.
       # Never run destructive QA against actual production or real customer accounts.
@@ -83,3 +89,4 @@ jobs:
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-qr-registration.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-training-sheet-templates.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-close-training-validation.sh
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-roadmap-mobile-contract.sh

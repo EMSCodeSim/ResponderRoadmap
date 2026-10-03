@@ -290,6 +290,13 @@ export async function getClass(ctx: AuthContext, classId: string) {
     endsAt: row.endsAt,
     location: row.location,
     status: row.status,
+    rmsStatus: row.rmsStatus,
+    instructorApprovedAt: row.instructorApprovedAt,
+    rmsReference: row.rmsReference,
+    rmsEntryNote: row.rmsEntryNote,
+    instructorApprovedById: row.instructorApprovedById,
+    rmsEnteredAt: row.rmsEnteredAt,
+    rmsEnteredById: row.rmsEnteredById,
     notes: row.notes,
     registrationEnabled: row.registrationEnabled,
     registrationToken: hasPermission(ctx.role, "classes.write") ? row.registrationToken : null,
@@ -704,4 +711,34 @@ export async function updateClassStatus(ctx: AuthContext, classId: string, statu
   await prisma.trainingClass.update({ where: { id: classId }, data: { status, ...(["COMPLETE", "CANCELLED"].includes(status) ? { registrationEnabled: false } : {}) } });
   await writeAudit(ctx, "class.status.updated", "TrainingClass", classId, { status });
   return getClass(ctx, classId);
+}
+
+
+export async function approveTrainingSheet(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId, true);
+  if (row.status === "CANCELLED" || row.rmsStatus === "RMS_ENTERED") throw new HttpError(409, "This Training Sheet cannot be approved for RMS entry.");
+  if (row.rmsStatus === "AWAITING_ENTRY") return getClass(ctx, classId);
+  const validation = await validateClassClosure(ctx, classId);
+  if (!validation.canClose) throw new HttpError(409, validation.missing.map((item) => item.message).join(" "));
+  await prisma.trainingClass.update({ where: { id: classId }, data: { status: "COMPLETE", rmsStatus: "AWAITING_ENTRY", instructorApprovedAt: new Date(), instructorApprovedById: ctx.userId, registrationEnabled: false } });
+  await writeAudit(ctx, "training_sheet.instructor_approved", "TrainingClass", classId, { status: "COMPLETE", rmsStatus: "AWAITING_ENTRY" });
+  return getClass(ctx, classId);
+}
+
+export async function markClassEnteredIntoRms(ctx: AuthContext, classId: string, input: { reference?: string; note?: string }) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId, true);
+  if (row.rmsStatus === "RMS_ENTERED") return getClass(ctx, classId);
+  if (row.rmsStatus !== "AWAITING_ENTRY") throw new HttpError(409, "Training Sheet is not awaiting RMS entry.");
+  const reference = input.reference?.trim().slice(0, 180) || null;
+  const note = input.note?.trim().slice(0, 4000) || "";
+  await prisma.trainingClass.update({ where: { id: classId }, data: { rmsStatus: "RMS_ENTERED", rmsEnteredAt: new Date(), rmsEnteredById: ctx.userId, rmsReference: reference, rmsEntryNote: note } });
+  await writeAudit(ctx, "training_sheet.rms_entered", "TrainingClass", classId, { reference });
+  return getClass(ctx, classId);
+}
+
+export async function listRmsActionQueue(ctx: AuthContext) {
+  assertPermission(ctx, "classes.read");
+  return prisma.trainingClass.findMany({ where: { departmentId: ctx.departmentId, status: "COMPLETE", rmsStatus: "AWAITING_ENTRY" }, orderBy: { startsAt: "desc" }, select: { id: true, title: true, startsAt: true, trainingCategory: true, creditHours: true, status: true, rmsStatus: true, instructorApprovedAt: true } });
 }

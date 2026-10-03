@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack --hostname 0.0.0.0 --port 3000",
     "build": "prisma generate && next build",
     "start": "next start --hostname 0.0.0.0 --port 3000",
-    "lint": "next lint",
+    "lint": "eslint src scripts netlify prisma next.config.ts eslint.config.mjs vitest.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "prisma generate",
