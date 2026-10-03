@@ -329,6 +329,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
         requirementId: result.requirementId,
         result: result.result,
         notes: result.notes,
+        numericScore: result.numericScore,
         stepResults: parseJsonArray(result.stepResultsJson),
         evaluatorName: result.evaluator.name,
         evaluatedAt: result.evaluatedAt,
@@ -549,7 +550,7 @@ export async function recordSkillResult(
   classId: string,
   enrollmentId: string,
   requirementId: string,
-  input: { result?: string; notes?: string; stepResults?: unknown[] },
+  input: { result?: string; notes?: string; stepResults?: unknown[]; numericScore?: number | null },
 ) {
   assertPermission(ctx, "classes.proctor");
   await assertApprovedEvaluator(ctx);
@@ -569,6 +570,9 @@ export async function recordSkillResult(
   if ((result === "NEEDS_REMEDIATION" || result === "FAIL") && !input.notes?.trim()) {
     throw new HttpError(400, "Explain what the student must correct.");
   }
+  if (input.numericScore != null && (!Number.isFinite(input.numericScore) || input.numericScore < 0 || input.numericScore > 100)) {
+    throw new HttpError(400, "Skill score must be between 0 and 100.");
+  }
   const recorded = await prisma.trainingClassSkillResult.upsert({
     where: { enrollmentId_requirementId: { enrollmentId, requirementId } },
     create: {
@@ -576,12 +580,14 @@ export async function recordSkillResult(
       requirementId,
       result,
       notes: input.notes?.trim().slice(0, 4000) || "",
+      numericScore: input.numericScore ?? null,
       stepResultsJson: JSON.stringify(Array.isArray(input.stepResults) ? input.stepResults : []),
       evaluatorId: ctx.userId,
     },
     update: {
       result,
       notes: input.notes?.trim().slice(0, 4000) || "",
+      numericScore: input.numericScore ?? null,
       stepResultsJson: JSON.stringify(Array.isArray(input.stepResults) ? input.stepResults : []),
       evaluatorId: ctx.userId,
       evaluatedAt: new Date(),
@@ -593,6 +599,7 @@ export async function recordSkillResult(
     enrollmentId,
     requirementId,
     result,
+    numericScore: input.numericScore ?? null,
   });
   return getClass(ctx, classId);
 }
