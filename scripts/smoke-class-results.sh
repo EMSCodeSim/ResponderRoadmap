@@ -20,7 +20,8 @@ ENROLLMENT_ID=$(echo "$CLASS" | jq -r '.data.roster[0].id')
 SKILL_ID=$(echo "$CLASS" | jq -r '[.data.sections[].skills[]][0].id')
 [[ -n "$CLASS_ID" && "$CLASS_ID" != null && -n "$ENROLLMENT_ID" && "$ENROLLMENT_ID" != null && -n "$SKILL_ID" && "$SKILL_ID" != null ]]
 api -X POST "$BASE/api/v1/classes/$CLASS_ID/roster/$ENROLLMENT_ID" -d '{"attendance":"PRESENT","writtenScore":90}' | jq -e --arg id "$ENROLLMENT_ID" '.data.roster | any(.id == $id and .attendance == "PRESENT" and .writtenScore == 90)' >/dev/null
-api -X POST "$BASE/api/v1/classes/$CLASS_ID/roster/$ENROLLMENT_ID/skills/$SKILL_ID" -d '{"result":"PASS","notes":"Isolated QA skills evaluation"}' | jq -e --arg id "$ENROLLMENT_ID" --arg req "$SKILL_ID" '.data.roster | any(.id == $id and (.results | any(.requirementId == $req and .result == "PASS")))' >/dev/null
+api -X POST "$BASE/api/v1/classes/$CLASS_ID/roster/$ENROLLMENT_ID/skills/$SKILL_ID" -d '{"result":"PASS","numericScore":88,"notes":"Isolated QA skills evaluation"}' | jq -e --arg id "$ENROLLMENT_ID" --arg req "$SKILL_ID" '.data.roster | any(.id == $id and (.results | any(.requirementId == $req and .result == "PASS" and .numericScore == 88)))' >/dev/null
 AFTER=$(api "$BASE/api/v1/assignments" | jq -r --arg id "$MEMBER" '[.data[] | select(.memberId == $id) | .complete] | add // 0')
 [[ "$BEFORE" == "$AFTER" ]] || { echo 'Class skills incorrectly changed Task Book approval totals' >&2; exit 1; }
-echo 'Class attendance, skills, and Task Book approval independence QA passed.'
+api "$BASE/api/v1/reports/skill-mastery" | jq -e --arg id "$MEMBER" '.data.settings.proficiencyThreshold >= 1 and (.data.members | any(.memberId == $id and .latestScore == 88))' >/dev/null
+echo 'Class attendance, graded skills, Skill Mastery reporting, and Task Book approval independence QA passed.'
