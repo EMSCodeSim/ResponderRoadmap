@@ -350,12 +350,12 @@ export async function getClassCsvExport(ctx: AuthContext, classId: string) {
   const headers = [
     "Department","Training ID","Training Title","Category","Start","End","Hours","Location",
     "Proctors","Member","Rank","Email","Attendance","Final Result","Completed At",
-    "Checklist","Skill","Skill Required","Skill Result","Evaluator","Evaluated At","Skill Notes","Training Notes",
+    "Checklist","Skill","Skill Required","Skill Result","Skill Score","Evaluator","Evaluated At","Skill Notes","Training Notes",
   ];
   const department = await prisma.department.findUnique({ where: { id: ctx.departmentId }, select: { name: true } });
   const rows: string[][] = [];
   for (const member of detail.roster) {
-    const results = member.results.length ? member.results : [{ requirementId: "", result: "", notes: "", evaluatorName: "", evaluatedAt: null }];
+    const results = member.results.length ? member.results : [{ requirementId: "", result: "", numericScore: null, notes: "", evaluatorName: "", evaluatedAt: null }];
     for (const result of results) {
       const skill = detail.sections.flatMap((section) => section.skills).find((item) => item.id === result.requirementId);
       rows.push([
@@ -365,7 +365,7 @@ export async function getClassCsvExport(ctx: AuthContext, classId: string) {
         detail.proctors.map((item) => item.name).join("; "),
         member.name, member.rank || "", member.email, member.attendance, member.finalResult,
         member.completedAt?.toISOString() || "", detail.checklistTitle,
-        skill?.title || "", skill?.required ? "YES" : "", result.result || "",
+        skill?.title || "", skill?.required ? "YES" : "", result.result || "", result.numericScore == null ? "" : String(result.numericScore),
         result.evaluatorName || "", result.evaluatedAt?.toISOString() || "", result.notes || "", detail.notes || "",
       ]);
     }
