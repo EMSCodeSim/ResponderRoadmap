@@ -151,6 +151,9 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && match(path, "app/assignments")) {
       return jsonOk(await memberApp.listMyAssignments(ctx));
     }
+    if (method === "GET" && match(path, "app/skill-mastery")) {
+      return jsonOk(await memberApp.listMySkillMastery(ctx));
+    }
     if (method === "GET" && match(path, "app/evaluators")) {
       return jsonOk(await memberApp.listMyEvaluators(ctx));
     }
