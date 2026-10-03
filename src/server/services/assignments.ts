@@ -435,6 +435,7 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
           evaluatorName: attempt.evaluator.name,
           stepResults: JSON.parse(attempt.stepResultsJson || "[]"),
           criticalFailures: JSON.parse(attempt.criticalFailuresJson || "[]"),
+          numericScore: attempt.numericScore,
         })),
       };
     });
