@@ -295,9 +295,9 @@ export default function MemberProfile() {
           </Card>
           {member.sharedPersonalActivity.length > 0 ? (
             <Card className="p-5 xl:col-span-3">
-              <h2 className="display text-2xl font-bold">Member-shared development context</h2>
+              <h2 className="display text-2xl font-bold">Member-shared personal context</h2>
               <p className="mt-1 text-sm text-navy-500">
-                These entries were deliberately shared by the member from their personal Responder Roadmap. They provide context for coaching and workload conversations; they are not department training credit, attendance records, or performance findings.
+                These entries were deliberately shared by the member from their personal Responder Roadmap. They may include outside education, experience, or a personal possible-exposure log. They are context only: not department training credit, attendance, an official exposure report, or a performance finding.
               </p>
               <ul className="mt-3 divide-y divide-navy-100">
                 {member.sharedPersonalActivity.slice(0, 12).map((item) => (
