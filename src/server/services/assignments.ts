@@ -476,6 +476,10 @@ export async function reviewSignOff(
     throw new HttpError(403, "This submission is assigned to another evaluator.");
   }
 
+  if (input.numericScore != null && (!Number.isFinite(input.numericScore) || input.numericScore < 0 || input.numericScore > 100)) {
+    throw new HttpError(400, "Skill score must be between 0 and 100.");
+  }
+
   const parsed = deserializeRequirement(completion.requirement as unknown as Record<string, unknown>);
   const path = parsed.approvalPath;
   const verdict = evaluationPasses({
