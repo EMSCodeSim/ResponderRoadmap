@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, TrendingUp, Users, X } from "lucide-react";
+import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, ShieldCheck, TrendingUp, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -77,6 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       { href: "/assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments"), paths: ASSIGNMENT_PATHS },
       { href: "/classes", label: "Classes & Rosters", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
       { href: "/members", label: "People", icon: Users, visible: allowed.has("members"), paths: ["/members", "/enrollment", "/evaluators"] },
+      { href: "/qualifications", label: "Qualifications", icon: ShieldCheck, visible: allowed.has("members"), paths: ["/qualifications"] },
       { href: "/reports", label: "Reports", icon: ClipboardList, visible: allowed.has("reports") || allowed.has("certifications"), paths: ["/reports", "/certifications"] },
     ].filter((item) => item.visible);
   }, [session]);
