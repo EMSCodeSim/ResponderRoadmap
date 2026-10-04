@@ -45,6 +45,20 @@ async function dispatch(req: Request, params: Promise<{ path: string[] }>) {
     return withCors(await withDemoDatabase(() => demoLogin(req)));
   }
 
+  // App login has no existing session with which to select a database. Known
+  // demo identities must authenticate against the isolated demo schema so the
+  // returned bearer token represents the same account as the browser demo.
+  // The password is still validated normally; arbitrary caller-supplied demo
+  // flags are never trusted for database selection.
+  if (req.method === "POST" && route === "auth/app-login" && demoPrisma) {
+    const body = await req.clone().json().catch(() => ({}));
+    const email = String((body as { email?: unknown }).email || "").trim().toLowerCase();
+    const isDemoIdentity = Object.values(DEMO_WALKS).some((account) => account.email.toLowerCase() === email);
+    if (isDemoIdentity) {
+      return withCors(await withDemoDatabase(() => handleApi(req, path)));
+    }
+  }
+
   if (req.method === "POST" && route === "public/events") {
     const body = await req.json().catch(() => ({}));
     const result = recordPublicMarketingEvent({
