@@ -122,7 +122,7 @@ export default function AssignmentRecordPage() {
         <div><p className="text-xs font-semibold uppercase text-navy-500">Awaiting approval</p><p className="font-semibold">{data.pendingApproval}</p></div>
         <div><p className="text-xs font-semibold uppercase text-navy-500">Assigned by</p><p className="font-semibold">{data.assignedByName}</p></div>
         <div><p className="text-xs font-semibold uppercase text-navy-500">Evaluator</p><p className="font-semibold">{data.evaluatorName || "Department evaluators"}</p></div>
-        <div><p className="text-xs font-semibold uppercase text-navy-500">Final approver</p><p className="font-semibold">{data.supervisorName || data.assignedByName}</p></div>
+        {data.supervisorName ? <div><p className="text-xs font-semibold uppercase text-navy-500">Additional required approver</p><p className="font-semibold">{data.supervisorName}</p></div> : null}
       </div>
       <p className="mt-4 text-xs text-navy-500">Only approved requirements count toward progress. Submitted or returned work remains incomplete until the required approval is recorded.</p>
     </Card>
