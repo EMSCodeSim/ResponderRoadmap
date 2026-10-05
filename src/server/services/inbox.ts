@@ -207,7 +207,11 @@ export async function getInbox(ctx: AuthContext) {
 
     if (stage === "SUPERVISOR") {
       const supervisor = item.assignment.supervisorId;
-      if (supervisor) return supervisor === ctx.userId;
+      if (supervisor) {
+        return supervisor === ctx.userId ||
+          ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") &&
+            isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }));
+      }
       return ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
     }
 
@@ -234,9 +238,9 @@ export async function getInbox(ctx: AuthContext) {
         });
         return {
           id: item.id,
-          kind: stage === "SUPERVISOR" ? "SUPERVISOR_REVIEW" : ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") && (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId ? "EVALUATION_FOLLOW_UP" : "EVALUATOR_REVIEW"),
+          kind: stage === "SUPERVISOR" ? ((item.assignment.supervisorId && item.assignment.supervisorId !== ctx.userId) ? "EVALUATION_FOLLOW_UP" : "SUPERVISOR_REVIEW") : ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") && (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId ? "EVALUATION_FOLLOW_UP" : "EVALUATOR_REVIEW"),
           title: item.requirement.title,
-          subtitle: `${item.membership.user.name} · ${stage === "SUPERVISOR" ? "Supervisor approval" : ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") && (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId ? "Overdue — Training Officer follow-up" : "Awaiting evaluator sign-off")}`,
+          subtitle: `${item.membership.user.name} · ${stage === "SUPERVISOR" ? ((item.assignment.supervisorId && item.assignment.supervisorId !== ctx.userId) ? "Overdue supervisor sign-off — follow-up" : "Supervisor approval") : ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") && (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId ? "Overdue — Training Officer follow-up" : "Awaiting evaluator sign-off")}`,
           submittedAt: item.submittedAt,
           actionPath: `/evaluate?focus=${encodeURIComponent(item.id)}`,
         };
