@@ -135,7 +135,24 @@ export async function getDashboard(ctx: AuthContext) {
     submittedAt: item.submittedAt,
   }) === "EVALUATOR");
   const escalatedEvaluations = evaluatorPending.filter((item) => isEvaluationOverdue({ status: "SUBMITTED", submittedAt: item.submittedAt, escalationHours }));
-  const actionableEvaluations = completions.filter((item) => trainingOfficerShouldSeeEvaluation({ trainingOfficerUserId: ctx.userId, assignedReviewerId: item.requestedEvaluatorId || item.assignment.evaluatorId, status: "SUBMITTED", submittedAt: item.submittedAt, escalationHours }));
+  const actionableEvaluations = completions.filter((item) => {
+    const stage = reviewStageForRequirement({
+      evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+      supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
+      signOffs: [],
+      submittedAt: item.submittedAt,
+    });
+    const assignedReviewerId = stage === "SUPERVISOR"
+      ? item.assignment.supervisorId
+      : item.requestedEvaluatorId || item.assignment.evaluatorId;
+    return trainingOfficerShouldSeeEvaluation({
+      trainingOfficerUserId: ctx.userId,
+      assignedReviewerId,
+      status: "SUBMITTED",
+      submittedAt: item.submittedAt,
+      escalationHours,
+    });
+  });
   const oldestPendingEvaluation = evaluatorPending.reduce<Date | null>((oldest, item) => item.submittedAt && (!oldest || item.submittedAt < oldest) ? item.submittedAt : oldest, null);
   const escalatedByMember = new Map<string, Date>();
   for (const item of escalatedEvaluations) {
