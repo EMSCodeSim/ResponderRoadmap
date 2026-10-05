@@ -8,7 +8,7 @@ import { cx } from "@/components/ui";
 
 type Session = { nav: string[] };
 
-/** Only full Task Books live here. Single tasks have their own sidebar destination. */
+/** Only full Task Books live here. Single tasks have their own Assignments workspace. */
 const TABS = [
   { key: "my-task-books", label: "My Task Books", href: "/my-task-books" },
   { key: "task-books", label: "Library", href: "/task-books" },
@@ -25,6 +25,9 @@ export function WorkspaceTabs() {
       .then((session) => setAllowed(session.nav))
       .catch(() => setAllowed([]));
   }, []);
+
+  // Assignments has its own Library / Progress workspace. Avoid mixing Task Book tabs into it.
+  if (pathname === "/assignments" || pathname.startsWith("/assignments/")) return null;
 
   const tabs = TABS.filter((tab) => allowed.includes(tab.key));
   if (tabs.length < 2) return null;
