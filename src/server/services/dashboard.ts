@@ -128,7 +128,6 @@ export async function getDashboard(ctx: AuthContext) {
   const readiness = summarizeDepartmentReadiness(readinessRoles, readinessAssessments);
 
   const escalationHours = resolveEvaluationEscalationHours(department?.evaluationEscalationHours);
-  const escalationCutoff = Date.now() - escalationHours * 3_600_000;
   const evaluatorPending = pendingEvaluations.filter((item) => reviewStageForRequirement({
     evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
     supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
