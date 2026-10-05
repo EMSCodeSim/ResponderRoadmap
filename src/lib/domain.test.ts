@@ -346,4 +346,11 @@ describe("permissions", () => {
     expect(hasPermission("TRAINING_OFFICER", "roles.write")).toBe(false);
     expect(hasPermission("DEPARTMENT_ADMINISTRATOR", "roles.write")).toBe(true);
   });
+
+  it("does not let members approve evaluations by role alone", () => {
+    expect(hasPermission("MEMBER", "signoff.review")).toBe(false);
+    expect(hasPermission("INSTRUCTOR", "signoff.review")).toBe(false);
+    expect(hasPermission("EVALUATOR", "signoff.review")).toBe(true);
+    expect(hasPermission("TRAINING_OFFICER", "signoff.review")).toBe(true);
+  });
 });
