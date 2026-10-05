@@ -65,7 +65,8 @@ jobs:
 
       # All requests target the local server with disposable CI Postgres and demo schemas.
       # Never run destructive QA against actual production or real customer accounts.
-      - name: Test end-to-end HTTP workflows on isolated database
+      # Together these scripts are the release gate for Assign → Train → Evaluate → Qualify → Improve.
+      - name: Test end-to-end and golden workflows on isolated database
         run: |
           npm run start > /tmp/responder-roadmap-qa-server.log 2>&1 &
           server_pid=$!
@@ -90,3 +91,4 @@ jobs:
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-training-sheet-templates.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-close-training-validation.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-roadmap-mobile-contract.sh
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-golden-workflow.sh
