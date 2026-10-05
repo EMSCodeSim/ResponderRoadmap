@@ -195,7 +195,7 @@ export default function MyTaskBookDetailPage() {
           <ul className="mt-3 text-sm text-navy-700">
             <li>Requirements: {data.complete} / {data.totalRequired}</li>
             <li>Evaluator: {data.evaluatorName || "Department evaluators"}</li>
-            <li>Final approver: {data.supervisorName || data.assignedByName}</li>
+            {data.supervisorName ? <li>Additional required approver: {data.supervisorName}</li> : null}
           </ul>
         </Card>
       ) : null}
