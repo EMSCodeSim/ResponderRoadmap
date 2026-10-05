@@ -573,7 +573,7 @@ export async function getDashboard(ctx: AuthContext) {
       needsAttention: new Set([
         ...overdueMembers,
         ...stalled.map((row) => row.assignment.membershipId),
-        ...completions.map((item) => item.membershipId),
+        ...actionableEvaluations.map((item) => item.membershipId),
         ...expiringSoon.map((row) => row.item.membershipId),
         ...expired.map((row) => row.item.membershipId),
         ...certificateAttention.map((item) => item.memberId),
