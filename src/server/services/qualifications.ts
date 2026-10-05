@@ -37,6 +37,16 @@ type AuthorizationInput = {
   reviewDate?: string | null;
 };
 
+type QualificationEvidenceItem = {
+  type: "CREDENTIAL" | "TASK_BOOK" | "SKILL";
+  id: string;
+  label: string;
+  complete: boolean;
+  detail: string;
+  supportId: string | null;
+  nextOwner?: string | null;
+};
+
 export async function createRole(ctx: AuthContext, input: CreateRoleInput) {
   assertPermission(ctx, "members.write");
   const name = String(input.name || "").trim().slice(0, 180);
@@ -113,18 +123,18 @@ async function readinessFor(ctx: AuthContext, membershipId: string) {
     const evidence: QualificationEvidenceItem[] = [
       ...credentialIds.map(id => {
         const credential = validCreds.find(c => c.credentialTypeId === id);
-        return { type: "CREDENTIAL", id, label: credentialNames.get(id) || credential?.credentialName || "Credential", complete: Boolean(credential), detail: credential ? (credential.doesNotExpire ? "Verified · does not expire" : `Verified · expires ${credential.expirationDate?.toISOString().slice(0, 10)}`) : "Current verified credential required", supportId: credential?.id || null };
+        return { type: "CREDENTIAL" as const, id, label: credentialNames.get(id) || credential?.credentialName || "Credential", complete: Boolean(credential), detail: credential ? (credential.doesNotExpire ? "Verified · does not expire" : `Verified · expires ${credential.expirationDate?.toISOString().slice(0, 10)}`) : "Current verified credential required", supportId: credential?.id || null };
       }),
       ...taskBookIds.map(id => {
         const assignment = completedAssignments.find(a => a.version.templateId === id);
-        return { type: "TASK_BOOK", id, label: templateNames.get(id) || assignment?.version.template.title || "Task Book", complete: Boolean(assignment), detail: assignment ? "Task Book complete" : "Task Book completion required", supportId: assignment?.id || null };
+        return { type: "TASK_BOOK" as const, id, label: templateNames.get(id) || assignment?.version.template.title || "Task Book", complete: Boolean(assignment), detail: assignment ? "Task Book complete" : "Task Book completion required", supportId: assignment?.id || null };
       }),
       ...requirementIds.map(id => {
         const completion = approvedCompletions.find(c => c.requirementId === id);
         const signOff = completion?.signOffs[0];
         const pending = completions.find(c => c.requirementId === id);
         const ownerId = pending?.requestedEvaluatorId || null;
-        return { type: "SKILL", id, label: requirementNames.get(id) || "Skill requirement", complete: Boolean(completion), detail: signOff ? `Signed off by ${userNames.get(signOff.evaluatorId) || "authorized evaluator"} · ${signOff.signedAt.toISOString().slice(0, 10)}` : completion ? "Approved skill requirement" : "Approved evaluation required", supportId: completion?.id || null, nextOwner: ownerId ? userNames.get(ownerId) || "Assigned evaluator" : null };
+        return { type: "SKILL" as const, id, label: requirementNames.get(id) || "Skill requirement", complete: Boolean(completion), detail: signOff ? `Signed off by ${userNames.get(signOff.evaluatorId) || "authorized evaluator"} · ${signOff.signedAt.toISOString().slice(0, 10)}` : completion ? "Approved skill requirement" : "Approved evaluation required", supportId: completion?.id || null, nextOwner: ownerId ? userNames.get(ownerId) || "Assigned evaluator" : null };
       }),
     ];
     const nextAction = !requirementsMet
