@@ -129,8 +129,8 @@ function CertificationsInner() {
     <div>
       <PageHeader
         kicker="Credentials"
-        title="Certification management"
-        description="Department-managed credentials only. Personal Career Road licenses are not shown unless the member shares them here."
+        title="Credentials"
+        description="Review department-managed credentials, verification, and expiration. Individual certifications keep their specific names."
         actions={
           <>
             <Button variant="secondary" onClick={() => data && downloadCsv("certifications.csv", data.credentials as unknown as Array<Record<string, unknown>>)}>
