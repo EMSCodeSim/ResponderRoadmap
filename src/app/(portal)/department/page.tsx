@@ -143,7 +143,7 @@ export default function DepartmentPage() {
                 min={1}
                 max={720}
                 value={dept.evaluationEscalationHours}
-                onChange={(e) => setDept({ ...dept, evaluationEscalationHours: Number(e.target.value) || 48 })}
+                onChange={(e) => setDept({ ...dept, evaluationEscalationHours: Number(e.target.value) || 168 })}
               />
             </Field>
             <div id="agency-profile" className="md:col-span-2 scroll-mt-4 rounded-lg border border-navy-200 p-4">\n              <div className="font-semibold text-navy-900">What does your department do?</div>
