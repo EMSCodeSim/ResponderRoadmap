@@ -9,6 +9,7 @@ import type { Role } from "@/lib/constants";
 import { assignmentRecordPath } from "@/lib/routes";
 import { notifyUser } from "@/server/services/inbox";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
+import { isEvaluationOverdue, resolveEvaluationEscalationHours, trainingOfficerShouldSeeEvaluation } from "@/lib/evaluation-routing";
 
 const assignmentInclude = {
   membership: { include: { user: true } },
@@ -315,7 +316,7 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
     where: { id: ctx.departmentId },
     select: { evaluationEscalationHours: true },
   });
-  const escalationHours = Math.max(1, department?.evaluationEscalationHours || 48);
+  const escalationHours = resolveEvaluationEscalationHours(department?.evaluationEscalationHours);
   const completions = await prisma.requirementCompletion.findMany({
     where: {
       assignment: { departmentId: ctx.departmentId },
@@ -338,25 +339,37 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
 
   return completions
     .filter((item) => {
-      if (filter.view === "mine") {
-        const stage = reviewStageForRequirement({
-          evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
-          supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
-          signOffs: item.signOffs,
+      if (filter.view === "recent" || filter.view === "remediation") return true;
+      const stage = reviewStageForRequirement({
+        evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+        supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
+        signOffs: item.signOffs,
+        submittedAt: item.submittedAt,
+      });
+      const assignedReviewerId = stage === "SUPERVISOR"
+        ? item.assignment.supervisorId
+        : item.requestedEvaluatorId || item.assignment.evaluatorId;
+
+      if (stage === "SUPERVISOR") {
+        if (assignedReviewerId) return assignedReviewerId === ctx.userId;
+        return ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
+      }
+
+      if (stage !== "EVALUATOR") return false;
+      if (ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") {
+        return trainingOfficerShouldSeeEvaluation({
+          trainingOfficerUserId: ctx.userId,
+          assignedReviewerId,
+          status: item.status,
           submittedAt: item.submittedAt,
+          escalationHours,
         });
-        const assignedReviewerId = stage === "SUPERVISOR"
-          ? item.assignment.supervisorId
-          : item.requestedEvaluatorId || item.assignment.evaluatorId;
+      }
+      if (ctx.role === "EVALUATOR") {
+        if (!assignedReviewerId) return true;
         return assignedReviewerId === ctx.userId;
       }
-      if (ctx.role === "EVALUATOR" && item.assignment.evaluatorId && item.assignment.evaluatorId !== ctx.userId) {
-        return false;
-      }
-      if (item.requestedEvaluatorId && ctx.role === "EVALUATOR" && item.requestedEvaluatorId !== ctx.userId) {
-        return false;
-      }
-      return true;
+      return false;
     })
     .map((item) => {
       const parsed = deserializeRequirement(item.requirement as unknown as Record<string, unknown>);
@@ -398,7 +411,10 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
         submittedAt: item.submittedAt,
         waitingHours,
         escalationHours,
-        escalated: item.status === "SUBMITTED" && waitingHours >= escalationHours,
+        escalated: isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }),
+        followUpOnly: (ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") &&
+          (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId &&
+          isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }),
         memberNotes: item.memberNotes,
         evidence: item.evidence,
         repetitionCount: item.repetitionCount,
@@ -471,11 +487,6 @@ export async function reviewSignOff(
   if (completion.status !== "SUBMITTED") {
     throw new HttpError(409, "This submission is no longer waiting for review. Refresh the queue before acting.");
   }
-  const assignedEvaluatorId = completion.requestedEvaluatorId || completion.assignment.evaluatorId;
-  if (ctx.role === "EVALUATOR" && assignedEvaluatorId && assignedEvaluatorId !== ctx.userId) {
-    throw new HttpError(403, "This submission is assigned to another evaluator.");
-  }
-
   if (input.numericScore != null && (!Number.isFinite(input.numericScore) || input.numericScore < 0 || input.numericScore > 100)) {
     throw new HttpError(400, "Skill score must be between 0 and 100.");
   }
@@ -825,10 +836,12 @@ export async function submitRequirement(
       : assignment.supervisorId;
     const recipients = recipientId
       ? [{ userId: recipientId }]
-      : await prisma.departmentMembership.findMany({
-          where: { departmentId: ctx.departmentId, status: "ACTIVE", role: { in: REVIEWER_ROLES } },
-          select: { userId: true },
-        });
+      : requirement.evaluatorSignOffRequired
+        ? await prisma.departmentMembership.findMany({
+            where: { departmentId: ctx.departmentId, status: "ACTIVE", role: "EVALUATOR", evaluatorStatus: { not: "SUSPENDED" } },
+            select: { userId: true },
+          })
+        : [];
     for (const recipient of recipients) {
       await notifyUser({
         departmentId: ctx.departmentId,
