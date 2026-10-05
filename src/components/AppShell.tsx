@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, ShieldCheck, TrendingUp, Users, X } from "lucide-react";
+import { Bell, BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, ShieldCheck, TrendingUp, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -19,6 +19,17 @@ type Session = {
   role: Role | null;
   rank: string | null;
   nav: string[];
+};
+
+type NavSection = "Home" | "Training" | "People & Competency" | "Insights";
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  visible: boolean;
+  paths: string[];
+  section?: NavSection;
 };
 
 const TRAINING_PATHS = ["/task-books", "/my-task-books", "/task-book-progress"];
@@ -55,45 +66,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .catch(() => router.push("/login"));
   }, [router]);
 
-  const nav = useMemo(() => {
+  const nav = useMemo<NavItem[]>(() => {
     const allowed = new Set(session?.nav ?? ["dashboard", "settings"]);
     const role = session?.role;
-    const home = { href: "/dashboard", label: role === "MEMBER" ? "My Training" : "Home", icon: LayoutDashboard, visible: allowed.has("dashboard"), paths: ["/dashboard", "/inbox"] };
+    const home: NavItem = { href: "/dashboard", label: role === "MEMBER" ? "My Training" : "Home", icon: LayoutDashboard, visible: allowed.has("dashboard"), paths: ["/dashboard"], section: "Home" };
     if (role === "MEMBER") return [home];
     if (role === "INSTRUCTOR") return [
       home,
-      { href: "/classes", label: "My Classes", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
+      { href: "/classes", label: "My Classes", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"], section: "Training" },
     ].filter((item) => item.visible);
     if (role === "EVALUATOR") return [
       home,
-      { href: "/evaluate", label: "Evaluations", icon: ClipboardList, visible: allowed.has("evaluate"), paths: ["/evaluate"] },
+      { href: "/evaluate", label: "Evaluations", icon: ClipboardList, visible: allowed.has("evaluate"), paths: ["/evaluate"], section: "People & Competency" },
     ].filter((item) => item.visible);
 
     return [
       home,
-      { href: "/evaluate", label: "Evaluations", icon: ListChecks, visible: allowed.has("evaluate"), paths: ["/evaluate"] },
-      { href: "/skill-mastery", label: "Skill Mastery", icon: TrendingUp, visible: allowed.has("skill-mastery"), paths: ["/skill-mastery"] },
-      { href: "/task-books", label: "Task Books", icon: BookOpen, visible: allowed.has("task-books"), paths: TRAINING_PATHS },
-      { href: "/assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments"), paths: ASSIGNMENT_PATHS },
-      { href: "/classes", label: "Classes & Rosters", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"] },
-      { href: "/members", label: "People", icon: Users, visible: allowed.has("members"), paths: ["/members", "/enrollment", "/evaluators"] },
-      { href: "/qualifications", label: "Qualifications", icon: ShieldCheck, visible: allowed.has("members"), paths: ["/qualifications"] },
-      { href: "/reports", label: "Reports", icon: ClipboardList, visible: allowed.has("reports") || allowed.has("certifications"), paths: ["/reports", "/certifications"] },
+      { href: "/task-books", label: "Task Books", icon: BookOpen, visible: allowed.has("task-books"), paths: TRAINING_PATHS, section: "Training" },
+      { href: "/assignments", label: "Assignments", icon: ClipboardList, visible: allowed.has("training-assignments"), paths: ASSIGNMENT_PATHS, section: "Training" },
+      { href: "/classes", label: "Training Events", icon: CalendarCheck, visible: allowed.has("classes"), paths: ["/classes"], section: "Training" },
+      { href: "/members", label: "People", icon: Users, visible: allowed.has("members"), paths: ["/members", "/enrollment", "/evaluators"], section: "People & Competency" },
+      { href: "/evaluate", label: "Evaluations", icon: ListChecks, visible: allowed.has("evaluate"), paths: ["/evaluate"], section: "People & Competency" },
+      { href: "/qualifications", label: "Qualifications", icon: ShieldCheck, visible: allowed.has("members"), paths: ["/qualifications"], section: "People & Competency" },
+      { href: "/skill-mastery", label: "Competency Trends", icon: TrendingUp, visible: allowed.has("skill-mastery"), paths: ["/skill-mastery"], section: "Insights" },
+      { href: "/reports", label: "Reports", icon: ClipboardList, visible: allowed.has("reports") || allowed.has("certifications"), paths: ["/reports", "/certifications"], section: "Insights" },
     ].filter((item) => item.visible);
   }, [session]);
 
   const isDemo = session?.departmentId === DEMO_DEPARTMENT_ID;
   const demoWalk = demoWalkForRole(session?.role);
   const settingsActive = SETTINGS_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`)) && !["/enrollment", "/evaluators"].some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
 
   async function switchDemoPerspective(walk: DemoWalkKey) {
     if (!isDemo || walk === demoWalk) return;
     setDemoSwitching(true);
     try {
       await api("auth/demo-login", { method: "POST", body: JSON.stringify({ walk }) });
-      // A full navigation clears role-specific client state before the new
-      // perspective renders. router.refresh() preserves mounted client state
-      // when both perspectives use /dashboard.
       window.location.assign(DEMO_WALKS[walk].next);
     } finally {
       setDemoSwitching(false);
@@ -131,19 +140,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <button className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white md:hidden" onClick={() => setOpen(false)} aria-label="Close navigation"><X size={20} /></button>
         </div>
-        <nav className="flex-1 space-y-1 overflow-auto px-3 py-4" aria-label="Department portal">
-          {nav.map((item) => {
+        <nav className="flex-1 overflow-auto px-3 py-4" aria-label="Department portal">
+          {nav.map((item, index) => {
             const active = item.paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
             const Icon = item.icon;
+            const showSection = item.section && (index === 0 || nav[index - 1]?.section !== item.section);
             return (
-              <Link key={item.label} href={item.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={cx("flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", active ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}>
-                <Icon size={18} /><span className="flex-1">{item.label}</span>
-                {item.label === "Home" && unreadCount > 0 ? <span className={cx("min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-bold text-white", active ? "bg-white/20" : "bg-fire")}>{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
-              </Link>
+              <div key={item.label}>
+                {showSection ? <div className={cx("px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/40", index > 0 && "mt-5")}>{item.section}</div> : null}
+                <Link href={item.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={cx("flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", active ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}>
+                  <Icon size={18} /><span className="flex-1">{item.label}</span>
+                </Link>
+              </div>
             );
           })}
         </nav>
         <div className="border-t border-white/10 p-4">
+          <Link href="/inbox" onClick={() => setOpen(false)} aria-current={inboxActive ? "page" : undefined} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", inboxActive ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}>
+            <Bell size={18} /><span className="flex-1">Inbox</span>
+            {unreadCount > 0 ? <span className={cx("min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-bold text-white", inboxActive ? "bg-white/20" : "bg-fire")}>{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
+          </Link>
           {platformAdmin ? <Link href="/platform-admin" onClick={() => setOpen(false)} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", pathname.startsWith("/platform-admin") || pathname.startsWith("/interest-list") ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><LayoutDashboard size={18} />Master Admin</Link> : null}
           <Link href="/settings" onClick={() => setOpen(false)} aria-current={settingsActive ? "page" : undefined} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", settingsActive ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><Settings size={18} />{session?.role === "TRAINING_OFFICER" || session?.role === "DEPARTMENT_ADMINISTRATOR" ? "Admin" : session?.role === "MEMBER" ? "My Profile" : "Settings"}</Link>
           {session?.role === "MEMBER" ? <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold text-white/75 hover:bg-white/10 hover:text-white"><BookOpen size={18} />Download iPhone App</a> : null}
@@ -155,7 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <label className="block"><span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.12em] text-white/50">View as</span>
                 <select value={demoWalk} disabled={demoSwitching} onChange={(event) => void switchDemoPerspective(event.target.value as DemoWalkKey)} className="min-h-10 w-full rounded-md border border-white/15 bg-navy-800 px-3 text-sm font-semibold text-white outline-none disabled:opacity-60"><option value="to">Training Officer</option><option value="member">Firefighter</option><option value="evaluator">Evaluator</option></select>
               </label>
-              <a href="https://apps.apple.com/us/app/responder-roadmap/id6800092347" target="_blank" rel="noreferrer" className="flex min-h-10 items-center justify-center rounded-md border border-white/20 px-3 text-center text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white">Download the iPhone app</a>
+              <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="flex min-h-10 items-center justify-center rounded-md border border-white/20 px-3 text-center text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white">Download the iPhone app</a>
             </div>
           ) : null}
           <button onClick={logout} className="mt-3 min-h-10 w-full rounded-md bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/15">Sign out</button>
