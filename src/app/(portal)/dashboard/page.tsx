@@ -60,13 +60,17 @@ type Dashboard = {
     readinessPercent?: number;
     pendingJoinRequests?: number;
   };
+  departmentReadiness?: { configuredRoleCount: number; unconfiguredRoleCount: number; ready: number; attention: number; notReady: number; assigned: number };
+  evaluatorCoverage?: { approvedEvaluatorCount: number; pendingCount: number; escalatedCount: number; escalationHours: number; oldestPendingAt: string | null };
   today?: {
     joinRequests: TodayItem[];
     joinRequestTotal: number;
     signOffs: TodayItem[];
     signOffTotal: number;
     followUp: TodayItem[];
+    followUpTotal?: number;
     dueSoon: TodayItem[];
+    dueSoonTotal?: number;
     certificates: TodayItem[];
     certificateTotal: number;
   };
@@ -82,6 +86,7 @@ type Dashboard = {
     pendingApproval: number;
     overdue: number;
     stalledDays: number;
+    evaluationEscalated: boolean;
     nextRequirement: string | null;
     attentionReason: string;
     nextActionLabel: string;
@@ -138,9 +143,6 @@ export default function DashboardPage() {
   }
   if (!data) return <p className="text-navy-500">Loading dashboard…</p>;
 
-  const awaiting = data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff;
-  const needsAttention = data.summary.needsAttention ?? data.summary.overdueMembers ?? 0;
-
   return (
     <div>
       <PageHeader
@@ -172,18 +174,11 @@ export default function DashboardPage() {
           <OfficerToday data={data} onRefresh={loadDashboard} />
           <ActivationChecklist data={data} />
 
-          <DepartmentReadiness
-            members={data.summary.activeMembers}
-            current={data.summary.currentMembers ?? 0}
-            readiness={data.summary.readinessPercent ?? 0}
-            attention={needsAttention}
-            overdue={data.summary.overdueMembers ?? 0}
-            awaiting={awaiting}
-          />
-
+          <DepartmentReadiness readiness={data.departmentReadiness} legacyReadiness={data.summary.readinessPercent ?? 0} />
           <TrainingGapsHome />
-
           {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
+          <EvaluatorCoverage coverage={data.evaluatorCoverage} />
+          <DepartmentRecentActivity events={data.recentActivity} />
         </>
       )}
 
@@ -204,7 +199,7 @@ export default function DashboardPage() {
 }
 
 function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => Promise<void> }) {
-  const today = data.today ?? { joinRequests: [], joinRequestTotal: 0, signOffs: [], signOffTotal: 0, followUp: [], dueSoon: [], certificates: [], certificateTotal: 0 };
+  const today = data.today ?? { joinRequests: [], joinRequestTotal: 0, signOffs: [], signOffTotal: 0, followUp: [], followUpTotal: 0, dueSoon: [], dueSoonTotal: 0, certificates: [], certificateTotal: 0 };
   const [joinBusy, setJoinBusy] = useState<string | null>(null);
   const [joinMessage, setJoinMessage] = useState<string | null>(null);
 
@@ -259,9 +254,9 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
     },
     {
       title: "Follow up",
-      count: today.followUp.length,
+      count: today.followUpTotal ?? today.followUp.length,
       empty: "No stalled or overdue work.",
-      href: "/assignments?status=OVERDUE",
+      href: "/assignments",
       items: today.followUp,
       action: "Open",
       kind: "link" as const,
@@ -269,7 +264,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
     },
     {
       title: "Due soon",
-      count: today.dueSoon.length,
+      count: today.dueSoonTotal ?? today.dueSoon.length,
       empty: "Nothing is due soon.",
       href: "/assignments",
       items: today.dueSoon,
@@ -279,7 +274,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
     },
   ];
   const total = groups.reduce((sum, group) => sum + group.count, 0);
-  const urgent = today.joinRequestTotal + today.signOffTotal + today.certificateTotal + today.followUp.length;
+  const urgent = today.joinRequestTotal + today.signOffTotal + today.certificateTotal + (today.followUpTotal ?? today.followUp.length);
 
   return <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
     <Card className="p-5">
@@ -297,7 +292,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
       </div>
 
       {joinMessage ? <p className="mt-3 text-sm font-semibold text-navy-700">{joinMessage}</p> : null}
-      <div className="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-5">
+      <div className="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
         {groups.map((group) => (
           <div key={group.title} className={`rounded-lg border p-4 ${group.tone}`}>
             <div className="flex items-center justify-between gap-3">
@@ -308,7 +303,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
               <p className="mt-4 text-sm text-navy-500">{group.empty}</p>
             ) : (
               <ul className="mt-3 divide-y divide-navy-200">
-                {group.items.slice(0, 4).map((item, index) => (
+                {group.items.map((item, index) => (
                   <li key={item.id ?? `${group.title}-${item.memberId}-${index}`} className="py-3">
                     {group.kind === "join" ? (
                       <div>
@@ -340,6 +335,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
                             <div className="mt-0.5 text-sm text-navy-600">{item.requirementTitle ?? item.taskBookTitle}</div>
                             {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
                             {item.dueDate ? <div className="mt-1 text-xs text-navy-500">Due {new Date(item.dueDate).toLocaleDateString()}</div> : null}
+                            {item.submittedAt && (group.title === "Review now" || group.title === "Member approvals") ? <div className="mt-1 text-xs text-navy-500">Submitted {relativeTime(item.submittedAt)}</div> : null}
                           </div>
                           <span className="shrink-0 text-xs font-bold text-fire">{group.action} →</span>
                         </div>
@@ -382,8 +378,10 @@ function TrainingGapsHome() {
         key: `competency-${row.templateId}-${row.topic}`,
         title: row.topic,
         kind: "Competency signal",
-        detail: `${row.membersNeedingFollowUp} member${row.membersNeedingFollowUp === 1 ? "" : "s"} need evaluation follow-up`,
-        action: "Targeted practice",
+        detail: `${row.membersNeedingFollowUp} member${row.membersNeedingFollowUp === 1 ? " has" : "s have"} a documented evaluation follow-up signal in ${row.templateTitle}. Targeted practice and reassessment can confirm improvement.`,
+        action: "Review evaluation signal",
+        href: "/reports?type=training-gaps",
+        impact: row.membersNeedingFollowUp * 3,
       })) ?? []),
     ...(report?.coverageByCategory
       .filter((row) => row.membersBelowTarget > 0)
@@ -391,8 +389,10 @@ function TrainingGapsHome() {
         key: `frequency-${row.category}`,
         title: row.category.replaceAll("_", " "),
         kind: "Frequency gap",
-        detail: `${row.membersBelowTarget} of ${row.membersExpected} members are below the annual training target`,
+        detail: `${row.membersBelowTarget} of ${row.membersExpected} members are below the ${row.targetHours}-hour annual target. Recorded frequency is below the department expectation.`,
         action: "Assign training",
+        href: createAssignmentPath(),
+        impact: row.membersBelowTarget * 2,
       })) ?? []),
     ...(report?.topicCoverageByRequirement
       .filter((row) => row.membersUncovered > 0)
@@ -400,10 +400,12 @@ function TrainingGapsHome() {
         key: `exposure-${row.templateId}-${row.topic}`,
         title: row.topic,
         kind: "Exposure gap",
-        detail: `${row.membersUncovered} of ${row.expectedMembers} expected members have no documented practice this year`,
+        detail: `${row.membersUncovered} of ${row.expectedMembers} expected members have no practice recorded for ${row.topic} this year. This is a record gap, not proof that practice did not occur.`,
         action: "Schedule drill",
+        href: "/classes",
+        impact: row.membersUncovered,
       })) ?? []),
-  ].slice(0, 3);
+  ].sort((a, b) => b.impact - a.impact).slice(0, 3);
 
   return <Card className="my-6 border-amber-300 bg-amber-50/40 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -426,7 +428,7 @@ function TrainingGapsHome() {
             <div className="text-xs font-bold uppercase tracking-wide text-amber-700">{item.kind}</div>
             <div className="mt-1 font-bold text-navy-950">{item.title}</div>
             <p className="mt-2 text-sm text-navy-600">{item.detail}</p>
-            <Link href="/reports?type=training-gaps" className="mt-3 inline-flex text-sm font-semibold text-fire underline">{item.action} →</Link>
+            <Link href={item.href} className="mt-3 inline-flex text-sm font-semibold text-fire underline">{item.action} →</Link>
           </li>
         ))}
       </ul>
@@ -474,45 +476,67 @@ function InstructorHome({ data }: { data: Dashboard }) {
   </div>;
 }
 
-function DepartmentReadiness({ members, current, readiness, attention, overdue, awaiting }: { members: number; current: number; readiness: number; attention: number; overdue: number; awaiting: number }) {
-  const reviewCount = Math.max(attention, overdue, awaiting);
+function DepartmentReadiness({ readiness, legacyReadiness }: { readiness?: NonNullable<Dashboard["departmentReadiness"]>; legacyReadiness: number }) {
   return <Card className="p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <div className="kicker">KNOW · Department Readiness</div>
-        <h2 className="display mt-1 text-2xl font-bold">{current} of {members} members current / on track</h2>
-        <p className="mt-1 max-w-3xl text-sm text-navy-600">A quick view of who appears current and who needs review. The stricter role-based Ready / Attention / Not Ready model will replace this provisional calculation as qualification rules are applied.</p>
+        <h2 className="display mt-1 text-2xl font-bold">Can people perform their assigned roles?</h2>
+        <p className="mt-1 max-w-3xl text-sm text-navy-600">Role readiness checks explicit authorizations against required credentials, Task Books, competencies, and review dates. Members without an assigned role are not counted as ready or not ready.</p>
       </div>
-      <Link href="/members" className="text-sm font-semibold text-fire underline">View team readiness →</Link>
+      <Link href="/qualifications" className="text-sm font-semibold text-fire underline">View qualifications →</Link>
     </div>
+    {!readiness || readiness.configuredRoleCount === 0 ? (
+      <div className="mt-4 rounded-md border border-amber-200 bg-amber-50/60 p-4 text-sm text-navy-700">
+        {readiness?.unconfiguredRoleCount ? `${readiness.unconfiguredRoleCount} qualification role${readiness.unconfiguredRoleCount === 1 ? "" : "s"} lack configured requirements. ` : "No qualification requirements are configured. "}
+        Readiness cannot be confirmed until department role requirements are set up.
+      </div>
+    ) : (
+      <>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Link href="/qualifications" className="rounded-md border border-emerald-200 bg-emerald-50/40 p-3 hover:border-emerald-400"><div className="text-xs font-semibold text-navy-500">READY · evidence current and authorized</div><div className="mt-1 text-2xl font-bold text-navy-900">{readiness.ready}</div></Link>
+          <Link href="/qualifications" className="rounded-md border border-amber-200 bg-amber-50/50 p-3 hover:border-amber-400"><div className="text-xs font-semibold text-navy-500">ATTENTION · approval or review due</div><div className="mt-1 text-2xl font-bold text-navy-900">{readiness.attention}</div></Link>
+          <Link href="/qualifications" className="rounded-md border border-rose-200 bg-rose-50/50 p-3 hover:border-rose-400"><div className="text-xs font-semibold text-navy-500">NOT READY · missing evidence or restricted</div><div className="mt-1 text-2xl font-bold text-navy-900">{readiness.notReady}</div></Link>
+        </div>
+        <p className="mt-3 text-xs text-navy-500">{readiness.assigned} explicit member-to-role assignment{readiness.assigned === 1 ? "" : "s"} assessed across {readiness.configuredRoleCount} configured role{readiness.configuredRoleCount === 1 ? "" : "s"}. Legacy training progress: {legacyReadiness}% (not a qualification measure).</p>
+      </>
+    )}
+    {readiness?.unconfiguredRoleCount ? <p className="mt-2 text-xs text-amber-800">{readiness.unconfiguredRoleCount} other role{readiness.unconfiguredRoleCount === 1 ? " has" : "s have"} no credential, Task Book, or competency requirement and are excluded.</p> : null}
+  </Card>;
+}
 
-    <div className="mt-4 grid gap-3 sm:grid-cols-4">
-      <Link href="/members" className="rounded-md border border-navy-200 bg-white p-3 hover:border-navy-400">
-        <div className="text-xs font-semibold text-navy-500">Current / on track</div>
-        <div className="mt-1 text-2xl font-bold text-navy-900">{current}</div>
-      </Link>
-      <Link href="#needs-attention" className="rounded-md border border-amber-200 bg-amber-50/50 p-3 hover:border-amber-400">
-        <div className="text-xs font-semibold text-navy-500">Needs review</div>
-        <div className="mt-1 text-2xl font-bold text-navy-900">{reviewCount}</div>
-      </Link>
-      <Link href="/assignments?status=OVERDUE" className="rounded-md border border-navy-200 bg-white p-3 hover:border-navy-400">
-        <div className="text-xs font-semibold text-navy-500">Overdue required work</div>
-        <div className="mt-1 text-2xl font-bold text-navy-900">{overdue}</div>
-      </Link>
-      <Link href="/evaluate" className="rounded-md border border-navy-200 bg-white p-3 hover:border-navy-400">
-        <div className="text-xs font-semibold text-navy-500">Awaiting evaluation</div>
-        <div className="mt-1 text-2xl font-bold text-navy-900">{awaiting}</div>
-      </Link>
+function EvaluatorCoverage({ coverage }: { coverage?: NonNullable<Dashboard["evaluatorCoverage"]> }) {
+  if (!coverage) return null;
+  const needsAttention = coverage.approvedEvaluatorCount <= 1 || coverage.pendingCount > 0 || coverage.escalatedCount > 0;
+  return <Card className="mt-6 p-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div className="kicker">Evaluation flow</div>
+        <h2 className="display mt-1 text-xl font-bold">Evaluator Coverage</h2>
+        <p className="mt-1 text-sm text-navy-600">{coverage.approvedEvaluatorCount} active evaluator{coverage.approvedEvaluatorCount === 1 ? "" : "s"} · {coverage.pendingCount} awaiting evaluator · {coverage.escalatedCount} past the {coverage.escalationHours}h response target</p>
+        {coverage.oldestPendingAt ? <p className="mt-1 text-xs text-navy-500">Oldest pending: {relativeTime(coverage.oldestPendingAt)}</p> : null}
+        {needsAttention ? <p className="mt-2 text-sm font-semibold text-amber-800">{coverage.approvedEvaluatorCount <= 1 ? "Coverage depends on one or fewer evaluators. " : ""}{coverage.escalatedCount ? "Evaluation backlog has passed the response target." : coverage.pendingCount ? "Review the pending evaluation queue." : ""}</p> : <p className="mt-2 text-sm text-navy-500">No evaluator backlog is currently recorded.</p>}
+      </div>
+      <Link href="/evaluators" className="text-sm font-semibold text-fire underline">Manage evaluators →</Link>
     </div>
-    <p className="mt-3 text-xs text-navy-500">Current dashboard readiness: {readiness}%. This legacy percentage is shown only as a secondary reference until readiness is calculated from explicit qualifications, credentials, required training, and required competency evidence.</p>
+  </Card>;
+}
+
+function DepartmentRecentActivity({ events }: { events: Dashboard["recentActivity"] }) {
+  return <Card className="mt-6 p-5">
+    <div><div className="kicker">Department log</div><h2 className="display mt-1 text-xl font-bold">Recent Activity</h2></div>
+    <ul className="mt-3 divide-y divide-navy-100">
+      {events.slice(0, 5).map((event) => <li key={event.id} className="flex flex-wrap items-baseline justify-between gap-2 py-3"><span>{activityText(event.type, event.metadata, event.actorName)}</span><span className="text-xs text-navy-400">{relativeTime(event.timestamp)}</span></li>)}
+      {events.length === 0 ? <li className="py-3 text-sm text-navy-500">No recent department activity.</li> : null}
+    </ul>
   </Card>;
 }
 
 function PeopleToFollowUp({ rows }: { rows: NonNullable<Dashboard["memberProgress"]> }) {
   const followUp = rows
-    .filter((row) => row.overdue > 0 || row.stalledDays >= 30 || row.status === "Needs Attention" || row.status === "Awaiting Evaluation")
+    .filter((row) => row.overdue > 0 || row.stalledDays >= 30 || row.status === "Needs Attention" || row.evaluationEscalated)
     .sort((a, b) => b.overdue - a.overdue || b.stalledDays - a.stalledDays)
-    .slice(0, 5);
+    .slice(0, 8);
 
   return <Card className="mt-6 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -533,6 +557,7 @@ function PeopleToFollowUp({ rows }: { rows: NonNullable<Dashboard["memberProgres
             <div>
               <Link href={row.href} className="font-semibold text-navy-950 hover:text-fire hover:underline">{row.name}</Link>
               <div className="mt-1 text-sm font-medium text-navy-700">{row.attentionReason}</div>
+              <div className="mt-1 text-xs text-navy-600">{row.currentWork}</div>
               <div className="mt-1 text-xs text-navy-500">{row.lastActivity ? relativeTime(row.lastActivity) : "No recorded activity"}{row.dueDate ? ` · Due ${new Date(row.dueDate).toLocaleDateString()}` : ""}</div>
             </div>
             <Link href={row.nextActionHref} className="inline-flex min-h-10 items-center rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-fire hover:border-fire">{row.nextActionLabel}</Link>
