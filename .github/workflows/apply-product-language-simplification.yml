@@ -1,0 +1,32 @@
+name: Apply product language simplification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [simplify-product-architecture-20261005]
+    paths:
+      - scripts/simplify-product-language.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: simplify-product-architecture-20261005
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply guarded terminology patch
+        run: python scripts/simplify-product-language.py
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/AppShell.tsx 'src/app/(portal)/skill-mastery/page.tsx'
+          git diff --cached --quiet && exit 0
+          git commit -m "Simplify training and competency product language"
+          git push
