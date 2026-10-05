@@ -161,6 +161,42 @@ echo "$FINAL_DETAIL" | jq -e --arg rid "$REQ_ID" '[.data.sections[].requirements
 json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID/print" | jq -e --arg rid "$REQ_ID" '[.data.sections[].requirements[] | select(.id == $rid)][0].completion.signOffs | length >= 2' >/dev/null
 ok 'return, resubmit, approval, and audit record persistence'
 
+# An authorized evaluator approval is final for evaluator-only requirements; Training Officer is not a default co-approver.
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
+ALT_DETAIL=$(json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID")
+ALT_REQ_ID=$(echo "$ALT_DETAIL" | jq -r --arg first "$REQ_ID" '[.data.sections[].requirements[] | select(.id != $first and .locked == false and .evaluatorSignOffRequired == true and .supervisorApprovalRequired == false and (.repetitionsRequired // 1) == 1 and (.completion == null or (.completion.status != "APPROVED" and .completion.status != "SUBMITTED")))][0].id // empty')
+[[ -n "$ALT_REQ_ID" ]] || { echo "No second evaluator-only requirement found"; exit 1; }
+ALT_REQUEST_ID="smoke-alt-$MEMBER_ASSIGNMENT_ID-$ALT_REQ_ID"
+ALT_SUBMIT=$(json -X POST "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID/requirements/$ALT_REQ_ID/submit" -d "$(jq -nc --arg evaluator "$EVALUATOR_USER_ID" --arg request "$ALT_REQUEST_ID" '{notes:"QA alternate authorized evaluator",evaluatorId:$evaluator,evidence:[{type:"WRITTEN_NOTE",description:"Alternate evaluator QA"}],clientRequestId:$request}')")
+ALT_COMPLETION_ID=$(echo "$ALT_SUBMIT" | jq -r '.data.submissionReceipt.receiptId // empty')
+[[ -n "$ALT_COMPLETION_ID" ]]
+
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}' | $JQ '.data.session.role == "TRAINING_OFFICER"' >/dev/null
+TO_ME=$(json "$BASE/api/v1/auth/me")
+TO_USER_ID=$(echo "$TO_ME" | jq -r '.data.userId')
+TO_QUEUE_BEFORE=$(json "$BASE/api/v1/sign-offs")
+echo "$TO_QUEUE_BEFORE" | jq -e --arg id "$ALT_COMPLETION_ID" '[.data[] | select(.id == $id)] | length == 0' >/dev/null
+ALT_APPROVED=$(json -X POST "$BASE/api/v1/sign-offs/$ALT_COMPLETION_ID" -d '{"result":"APPROVED","notes":"Authorized alternate evaluator approval","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"EVALUATOR","attested":true}')
+echo "$ALT_APPROVED" | $JQ '.data.status == "APPROVED"' >/dev/null
+ok 'another authorized evaluator can sign without creating a Training Officer co-approval stage'
+
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
+TO_DETAIL=$(json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID")
+TO_REQ_ID=$(echo "$TO_DETAIL" | jq -r --arg first "$REQ_ID" --arg second "$ALT_REQ_ID" '[.data.sections[].requirements[] | select(.id != $first and .id != $second and .locked == false and .evaluatorSignOffRequired == true and .supervisorApprovalRequired == false and (.repetitionsRequired // 1) == 1 and (.completion == null or (.completion.status != "APPROVED" and .completion.status != "SUBMITTED")))][0].id // empty')
+[[ -n "$TO_REQ_ID" ]] || { echo "No third evaluator-only requirement found"; exit 1; }
+TO_SUBMIT=$(json -X POST "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID/requirements/$TO_REQ_ID/submit" -d "$(jq -nc --arg evaluator "$TO_USER_ID" '{notes:"QA Training Officer assigned evaluator",evaluatorId:$evaluator,evidence:[{type:"WRITTEN_NOTE",description:"TO assigned evaluator QA"}],clientRequestId:"smoke-to-assigned"}')")
+TO_COMPLETION_ID=$(echo "$TO_SUBMIT" | jq -r '.data.submissionReceipt.receiptId // empty')
+[[ -n "$TO_COMPLETION_ID" ]]
+
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}' | $JQ '.data.session.role == "TRAINING_OFFICER"' >/dev/null
+TO_QUEUE=$(json "$BASE/api/v1/sign-offs")
+echo "$TO_QUEUE" | jq -e --arg id "$TO_COMPLETION_ID" '.data | any(.id == $id and .followUpOnly == false)' >/dev/null
+TO_APPROVED=$(json -X POST "$BASE/api/v1/sign-offs/$TO_COMPLETION_ID" -d '{"result":"APPROVED","notes":"Training Officer acting as assigned evaluator","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"EVALUATOR","attested":true}')
+echo "$TO_APPROVED" | $JQ '.data.status == "APPROVED"' >/dev/null
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
+json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID" | jq -e --arg rid "$TO_REQ_ID" '[.data.sections[].requirements[] | select(.id == $rid)][0].completion.status == "APPROVED"' >/dev/null
+ok 'Training Officer can approve when explicitly assigned as evaluator'
+
 # AI tools are Training Officer features. Switch back to an authorized role and verify
 # that the route returns structured JSON even when CI intentionally has no OpenAI key.
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}' | $JQ '.data.session.role == "TRAINING_OFFICER"' >/dev/null
