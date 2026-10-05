@@ -156,8 +156,8 @@ export default function DashboardPage() {
         actions={
           data.instructor ? <Link href="/classes"><Button>Create Class</Button></Link> : data.personal ? undefined : (
             <>
-              <Link href="/evaluate"><Button variant={awaiting ? "primary" : "secondary"}>{awaiting ? `Needs Evaluation (${awaiting})` : "Needs Evaluation"}</Button></Link>
-              <Link href={createAssignmentPath()}><Button variant="secondary">Assign Training</Button></Link>
+              <Link href={createAssignmentPath()}><Button>Assign Training</Button></Link>
+              <Link href="/classes"><Button variant="secondary">Create Class</Button></Link>
             </>
           )
         }
@@ -183,7 +183,7 @@ export default function DashboardPage() {
 
           <TrainingGapsHome />
 
-          {data.memberProgress ? <MemberProgressTable rows={data.memberProgress} /> : null}
+          {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
         </>
       )}
 
@@ -226,137 +226,62 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
     }
   }
 
-  const groups = [
-    {
-      title: "Member approvals",
-      count: today.joinRequestTotal,
-      empty: "No member join requests are waiting.",
-      href: "/enrollment",
-      items: today.joinRequests,
-      action: "Approve",
-      kind: "join" as const,
-      tone: "border-sky-300 bg-sky-50/60",
-    },
-    {
-      title: "Review now",
-      count: today.signOffTotal,
-      empty: "No evaluations are waiting.",
-      href: "/evaluate",
-      items: today.signOffs,
-      action: "Review",
-      kind: "link" as const,
-      tone: "border-fire/30 bg-fire/5",
-    },
-    {
-      title: "Certificates",
-      count: today.certificateTotal,
-      empty: "No certificate records need attention.",
-      href: "/certifications",
-      items: today.certificates,
-      action: "Review",
-      kind: "link" as const,
-      tone: "border-amber-300 bg-amber-50/60",
-    },
-    {
-      title: "Follow up",
-      count: today.followUp.length,
-      empty: "No stalled or overdue work.",
-      href: "/assignments?status=OVERDUE",
-      items: today.followUp,
-      action: "Open",
-      kind: "link" as const,
-      tone: "border-navy-200 bg-white",
-    },
-    {
-      title: "Due soon",
-      count: today.dueSoon.length,
-      empty: "Nothing is due soon.",
-      href: "/assignments",
-      items: today.dueSoon,
-      action: "Open",
-      kind: "link" as const,
-      tone: "border-navy-200 bg-white",
-    },
+  const actions = [
+    ...today.joinRequests.map((item) => ({ item, type: "join" as const, label: "Department join request", action: "Approve" })),
+    ...today.signOffs.map((item) => ({ item, type: "link" as const, label: "Evaluation waiting", action: "Review" })),
+    ...today.certificates.map((item) => ({ item, type: "link" as const, label: "Credential needs review", action: "Review" })),
+    ...today.followUp.map((item) => ({ item, type: "link" as const, label: item.reason || "Training follow-up needed", action: "Open" })),
   ];
-  const total = groups.reduce((sum, group) => sum + group.count, 0);
-  const urgent = today.joinRequestTotal + today.signOffTotal + today.certificateTotal + today.followUp.length;
+  const total = today.joinRequestTotal + today.signOffTotal + today.certificateTotal + today.followUp.length;
 
   return <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="kicker">Training Officer action board</div>
+          <div className="kicker">DO · Needs Action</div>
           <h2 id="today-priorities-title" className="display mt-1 text-2xl font-bold">
-            {urgent > 0 ? `${urgent} action${urgent === 1 ? "" : "s"} need you today` : total > 0 ? `${total} upcoming item${total === 1 ? "" : "s"} to watch` : "Your department is caught up"}
+            {total > 0 ? `${total} item${total === 1 ? "" : "s"} need your attention` : "Nothing needs your action right now"}
           </h2>
-          <p className="mt-1 text-sm text-navy-600">
-            {urgent > 0 ? "Work left to right: member approvals, evaluations, certificate records, then stalled or overdue members. Due-soon work is shown for awareness, not counted as an action until it needs intervention." : total > 0 ? "Nothing requires intervention right now. Due-soon work is listed so you can stay ahead." : "No evaluations, certificate issues, overdue follow-up, or upcoming deadlines need action right now."}
-          </p>
+          <p className="mt-1 text-sm text-navy-600">Approvals, evaluations, credential issues, and required follow-up belong here. Upcoming work stays out of this list until it actually requires intervention.</p>
         </div>
-        <Link href="/assignments" className="text-sm font-semibold text-fire underline">View all assignments</Link>
+        <Link href="/assignments" className="text-sm font-semibold text-fire underline">View all work</Link>
       </div>
 
       {joinMessage ? <p className="mt-3 text-sm font-semibold text-navy-700">{joinMessage}</p> : null}
-      <div className="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-5">
-        {groups.map((group) => (
-          <div key={group.title} className={`rounded-lg border p-4 ${group.tone}`}>
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-bold text-navy-950">{group.title}</h3>
-              <span className="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-navy-800 shadow-sm">{group.count}</span>
-            </div>
-            {group.items.length === 0 ? (
-              <p className="mt-4 text-sm text-navy-500">{group.empty}</p>
-            ) : (
-              <ul className="mt-3 divide-y divide-navy-200">
-                {group.items.slice(0, 4).map((item, index) => (
-                  <li key={item.id ?? `${group.title}-${item.memberId}-${index}`} className="py-3">
-                    {group.kind === "join" ? (
-                      <div>
-                        <div className="font-semibold">{item.memberName}</div>
-                        <div className="mt-0.5 text-sm text-navy-600">{item.taskBookTitle}</div>
-                        {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
-                        <div className="mt-3 flex gap-2">
-                          <Button
-                            variant="success"
-                            disabled={joinBusy !== null}
-                            onClick={() => void decideJoinRequest(item, true)}
-                          >
-                            {joinBusy === item.id ? "Working…" : "Approve"}
-                          </Button>
-                          <Button
-                            variant="danger"
-                            disabled={joinBusy !== null}
-                            onClick={() => void decideJoinRequest(item, false)}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Link href={item.href} className="block hover:text-fire">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="font-semibold">{item.memberName}</div>
-                            <div className="mt-0.5 text-sm text-navy-600">{item.requirementTitle ?? item.taskBookTitle}</div>
-                            {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
-                            {item.dueDate ? <div className="mt-1 text-xs text-navy-500">Due {new Date(item.dueDate).toLocaleDateString()}</div> : null}
-                          </div>
-                          <span className="shrink-0 text-xs font-bold text-fire">{group.action} →</span>
-                        </div>
-                      </Link>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {group.count > group.items.slice(0, 4).length ? <Link href={group.href} className="mt-3 inline-block text-sm font-semibold text-fire underline">View all {group.count}</Link> : null}
-          </div>
-        ))}
-      </div>
+
+      {actions.length === 0 ? (
+        <div className="mt-4 rounded-md border border-navy-200 bg-navy-50 p-4 text-sm text-navy-600">Your department is caught up.</div>
+      ) : (
+        <ul className="mt-4 divide-y divide-navy-100 rounded-md border border-navy-200 bg-white px-4">
+          {actions.slice(0, 6).map(({ item, type, label, action }, index) => (
+            <li key={item.id ?? `${item.memberId}-${label}-${index}`} className="py-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-navy-950">{item.memberName}</div>
+                  <div className="mt-0.5 text-sm font-semibold text-navy-700">{label}</div>
+                  <div className="mt-0.5 text-sm text-navy-500">{item.requirementTitle ?? item.taskBookTitle}</div>
+                  {item.reason && label !== item.reason ? <div className="mt-1 text-xs text-navy-500">{item.reason}</div> : null}
+                  {item.dueDate ? <div className="mt-1 text-xs text-navy-500">Due {new Date(item.dueDate).toLocaleDateString()}</div> : null}
+                </div>
+                {type === "join" ? (
+                  <div className="flex gap-2">
+                    <Button variant="success" disabled={joinBusy !== null} onClick={() => void decideJoinRequest(item, true)}>
+                      {joinBusy === item.id ? "Working…" : "Approve"}
+                    </Button>
+                    <Button variant="danger" disabled={joinBusy !== null} onClick={() => void decideJoinRequest(item, false)}>Reject</Button>
+                  </div>
+                ) : (
+                  <Link href={item.href} className="inline-flex min-h-10 items-center rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-fire hover:border-fire">{action} →</Link>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {actions.length > 6 ? <Link href="/assignments" className="mt-3 inline-block text-sm font-semibold text-fire underline">View all {total} items</Link> : null}
     </Card>
   </section>;
 }
-
 
 type HomeGapReport = {
   year: number;
@@ -373,26 +298,63 @@ function TrainingGapsHome() {
   useEffect(() => {
     api<HomeGapReport>("reports/training-gaps").then(setReport).catch(() => setReport(null));
   }, []);
-  const topGaps = report?.coverageByCategory.filter((row) => row.membersBelowTarget > 0).sort((a, b) => b.membersBelowTarget - a.membersBelowTarget).slice(0, 3) ?? [];
-  const topTopics = report?.topicCoverageByRequirement.filter((row) => row.membersUncovered > 0 || row.membersNeedingFollowUp > 0 || row.membersLimited > 0).sort((a, b) => b.membersUncovered - a.membersUncovered || b.membersNeedingFollowUp - a.membersNeedingFollowUp || b.membersLimited - a.membersLimited).slice(0, 3) ?? [];
+
+  const opportunities = [
+    ...(report?.topicCoverageByRequirement
+      .filter((row) => row.membersNeedingFollowUp > 0)
+      .map((row) => ({
+        key: `competency-${row.templateId}-${row.topic}`,
+        title: row.topic,
+        kind: "Competency signal",
+        detail: `${row.membersNeedingFollowUp} member${row.membersNeedingFollowUp === 1 ? "" : "s"} need evaluation follow-up`,
+        action: "Targeted practice",
+      })) ?? []),
+    ...(report?.coverageByCategory
+      .filter((row) => row.membersBelowTarget > 0)
+      .map((row) => ({
+        key: `frequency-${row.category}`,
+        title: row.category.replaceAll("_", " "),
+        kind: "Frequency gap",
+        detail: `${row.membersBelowTarget} of ${row.membersExpected} members are below the annual training target`,
+        action: "Assign training",
+      })) ?? []),
+    ...(report?.topicCoverageByRequirement
+      .filter((row) => row.membersUncovered > 0)
+      .map((row) => ({
+        key: `exposure-${row.templateId}-${row.topic}`,
+        title: row.topic,
+        kind: "Exposure gap",
+        detail: `${row.membersUncovered} of ${row.expectedMembers} expected members have no documented practice this year`,
+        action: "Schedule drill",
+      })) ?? []),
+  ].slice(0, 3);
+
   return <Card className="my-6 border-amber-300 bg-amber-50/40 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <div className="kicker">Department training picture · {report?.year ?? new Date().getFullYear()}</div>
-        <h2 className="display mt-1 text-2xl font-bold">Training gaps</h2>
-        <p className="mt-1 max-w-3xl text-sm text-navy-600">See where department expectations, completed training, and member records leave coverage gaps.</p>
+        <div className="kicker">PLAN · Training Opportunities</div>
+        <h2 className="display mt-1 text-2xl font-bold">What should we train on next?</h2>
+        <p className="mt-1 max-w-3xl text-sm text-navy-600">Based on department training and evaluation records, these areas may deserve attention next. A training opportunity does not automatically mean a member is not ready.</p>
       </div>
-      <Link href="/reports?type=training-gaps"><Button variant="secondary">Open gap analysis →</Button></Link>
+      <Link href="/reports?type=training-gaps"><Button variant="secondary">View training analysis →</Button></Link>
     </div>
-    {report ? <>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border border-navy-200 bg-white p-3"><div className="text-xs font-semibold text-navy-500">Members with gaps</div><div className="mt-1 text-2xl font-bold">{report.membersWithGaps} / {report.members}</div></div>
-        <div className="rounded-md border border-navy-200 bg-white p-3"><div className="text-xs font-semibold text-navy-500">Open gaps</div><div className="mt-1 text-2xl font-bold">{report.totalGaps}</div></div>
-        <div className="rounded-md border border-navy-200 bg-white p-3"><div className="text-xs font-semibold text-navy-500">Below annual hour target</div><div className="mt-1 text-2xl font-bold">{report.trainingHourGaps}</div></div>
-      </div>
-      {topGaps.length ? <div className="mt-4"><div className="text-sm font-bold">Most common training-hour gaps</div><ul className="mt-2 grid gap-2 sm:grid-cols-3">{topGaps.map((row) => <li key={row.category} className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm"><span className="font-semibold">{row.category.replaceAll("_", " ")}</span><span className="block text-navy-500">{row.membersBelowTarget} of {row.membersExpected} members below target</span><span className="text-xs text-navy-500">{row.recordedHours} of {row.targetHours} department hours recorded</span></li>)}</ul></div> : <p className="mt-4 text-sm text-navy-500">{report.members ? "No annual training-hour targets are currently below goal." : "Add active members and define training expectations to build this view."}</p>}
-      {topTopics.length ? <div className="mt-4"><div className="text-sm font-bold">Skill topics with the least coverage</div><ul className="mt-2 grid gap-2 sm:grid-cols-3">{topTopics.map((row) => <li key={row.templateId + row.topic} className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm"><span className="font-semibold">{row.topic}</span><span className="block text-navy-500">{row.membersUncovered} of {row.expectedMembers} expected members have no skill record this year</span><span className="text-xs text-navy-500">{row.membersLimited} one recorded event · {row.membersNeedingFollowUp} need remediation follow-up</span></li>)}</ul></div> : null}
-    </> : <p className="mt-4 text-sm text-navy-500">Training-gap summary is unavailable right now. Open the report to retry.</p>}
+
+    {!report ? (
+      <p className="mt-4 text-sm text-navy-500">Training analysis is unavailable right now. Open the report to retry.</p>
+    ) : opportunities.length === 0 ? (
+      <div className="mt-4 rounded-md border border-amber-200 bg-white p-4 text-sm text-navy-600">No clear training opportunities are being flagged from current records.</div>
+    ) : (
+      <ul className="mt-4 grid gap-3 lg:grid-cols-3">
+        {opportunities.map((item) => (
+          <li key={item.key} className="rounded-md border border-amber-200 bg-white p-4">
+            <div className="text-xs font-bold uppercase tracking-wide text-amber-700">{item.kind}</div>
+            <div className="mt-1 font-bold text-navy-950">{item.title}</div>
+            <p className="mt-2 text-sm text-navy-600">{item.detail}</p>
+            <Link href="/reports?type=training-gaps" className="mt-3 inline-flex text-sm font-semibold text-fire underline">{item.action} →</Link>
+          </li>
+        ))}
+      </ul>
+    )}
   </Card>;
 }
 
@@ -437,20 +399,71 @@ function InstructorHome({ data }: { data: Dashboard }) {
 }
 
 function DepartmentReadiness({ members, current, readiness, attention, overdue, awaiting }: { members: number; current: number; readiness: number; attention: number; overdue: number; awaiting: number }) {
-  const items = [
-    { label: "Members", value: members, href: "/members" },
-    { label: "Current / on track", value: current, href: "/members" },
-    { label: "Need attention", value: attention, href: "#needs-attention" },
-    { label: "Overdue", value: overdue, href: "/assignments?status=OVERDUE" },
-    { label: "Awaiting evaluation", value: awaiting, href: "/evaluate" },
-  ];
+  const reviewCount = Math.max(attention, overdue, awaiting);
   return <Card className="p-5">
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><div className="kicker">Department readiness</div><div className="mt-1 flex items-baseline gap-2"><span className="display text-4xl font-bold">{readiness}%</span><span className="text-sm text-navy-500">current / on track</span></div></div>
-      <Link href="/members" className="text-sm font-semibold text-fire underline">View team readiness</Link>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div className="kicker">KNOW · Department Readiness</div>
+        <h2 className="display mt-1 text-2xl font-bold">{current} of {members} members current / on track</h2>
+        <p className="mt-1 max-w-3xl text-sm text-navy-600">A quick view of who appears current and who needs review. The stricter role-based Ready / Attention / Not Ready model will replace this provisional calculation as qualification rules are applied.</p>
+      </div>
+      <Link href="/members" className="text-sm font-semibold text-fire underline">View team readiness →</Link>
     </div>
-    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">{items.map((item) => <Link key={item.label} href={item.href} className="rounded-md border border-navy-200 p-3 hover:border-navy-400"><div className="text-xs font-semibold text-navy-500">{item.label}</div><div className="mt-1 text-2xl font-bold text-navy-900">{item.value}</div></Link>)}</div>
-    <p className="mt-3 text-xs text-navy-500">Readiness counts active members with active work and no current action flags. Members with no active work are shown separately in Team Readiness rather than assumed ready.</p>
+
+    <div className="mt-4 grid gap-3 sm:grid-cols-4">
+      <Link href="/members" className="rounded-md border border-navy-200 bg-white p-3 hover:border-navy-400">
+        <div className="text-xs font-semibold text-navy-500">Current / on track</div>
+        <div className="mt-1 text-2xl font-bold text-navy-900">{current}</div>
+      </Link>
+      <Link href="#needs-attention" className="rounded-md border border-amber-200 bg-amber-50/50 p-3 hover:border-amber-400">
+        <div className="text-xs font-semibold text-navy-500">Needs review</div>
+        <div className="mt-1 text-2xl font-bold text-navy-900">{reviewCount}</div>
+      </Link>
+      <Link href="/assignments?status=OVERDUE" className="rounded-md border border-navy-200 bg-white p-3 hover:border-navy-400">
+        <div className="text-xs font-semibold text-navy-500">Overdue required work</div>
+        <div className="mt-1 text-2xl font-bold text-navy-900">{overdue}</div>
+      </Link>
+      <Link href="/evaluate" className="rounded-md border border-navy-200 bg-white p-3 hover:border-navy-400">
+        <div className="text-xs font-semibold text-navy-500">Awaiting evaluation</div>
+        <div className="mt-1 text-2xl font-bold text-navy-900">{awaiting}</div>
+      </Link>
+    </div>
+    <p className="mt-3 text-xs text-navy-500">Current dashboard readiness: {readiness}%. This legacy percentage is shown only as a secondary reference until readiness is calculated from explicit qualifications, credentials, required training, and required competency evidence.</p>
+  </Card>;
+}
+
+function PeopleToFollowUp({ rows }: { rows: NonNullable<Dashboard["memberProgress"]> }) {
+  const followUp = rows
+    .filter((row) => row.overdue > 0 || row.stalledDays >= 30 || row.status === "Needs Attention" || row.status === "Awaiting Evaluation")
+    .sort((a, b) => b.overdue - a.overdue || b.stalledDays - a.stalledDays)
+    .slice(0, 5);
+
+  return <Card className="mt-6 p-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div className="kicker">Follow-up</div>
+        <h2 className="display mt-1 text-2xl font-bold">People to Follow Up With</h2>
+        <p className="mt-1 text-sm text-navy-500">Only members with a meaningful training or evaluation signal appear here. The full roster stays on Members.</p>
+      </div>
+      <Link href="/members" className="text-sm font-semibold text-fire underline">Open Members →</Link>
+    </div>
+
+    {followUp.length === 0 ? (
+      <div className="mt-4 rounded-md border border-navy-200 bg-navy-50 p-4 text-sm text-navy-600">No members currently need individual follow-up.</div>
+    ) : (
+      <ul className="mt-4 divide-y divide-navy-100 rounded-md border border-navy-200 bg-white px-4">
+        {followUp.map((row) => (
+          <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div>
+              <Link href={row.href} className="font-semibold text-navy-950 hover:text-fire hover:underline">{row.name}</Link>
+              <div className="mt-1 text-sm font-medium text-navy-700">{row.attentionReason}</div>
+              <div className="mt-1 text-xs text-navy-500">{row.lastActivity ? relativeTime(row.lastActivity) : "No recorded activity"}{row.dueDate ? ` · Due ${new Date(row.dueDate).toLocaleDateString()}` : ""}</div>
+            </div>
+            <Link href={row.nextActionHref} className="inline-flex min-h-10 items-center rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-fire hover:border-fire">{row.nextActionLabel}</Link>
+          </li>
+        ))}
+      </ul>
+    )}
   </Card>;
 }
 
