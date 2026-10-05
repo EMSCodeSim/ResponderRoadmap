@@ -53,6 +53,7 @@ export async function getDashboard(ctx: AuthContext) {
         membership: { include: { user: true } },
         requirement: { include: { section: { include: { version: { include: { template: true } } } } } },
         assignment: true,
+        signOffs: { select: { result: true, signedAt: true } },
       },
       orderBy: { submittedAt: "asc" },
     }),
@@ -139,7 +140,7 @@ export async function getDashboard(ctx: AuthContext) {
     const stage = reviewStageForRequirement({
       evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
       supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
-      signOffs: [],
+      signOffs: item.signOffs,
       submittedAt: item.submittedAt,
     });
     const assignedReviewerId = stage === "SUPERVISOR"
