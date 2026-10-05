@@ -26,6 +26,9 @@ type QueueItem = {
   waitingHours: number;
   escalationHours: number;
   escalated: boolean;
+  followUpOnly: boolean;
+  assignedToMe: boolean;
+  assignedElsewhere: boolean;
   memberNotes: string;
   evidence: Array<{ id: string; type: string; description: string; fileUrl: string | null }>;
   evaluationSteps: Array<{ id: string; text: string }>;
@@ -209,7 +212,7 @@ function EvaluateInner() {
       ) : null}
       <div className="mb-4 flex flex-wrap gap-2">
         <Link href="/evaluate" className={`min-h-11 rounded-md px-3 py-2 text-sm font-semibold ${view === "queue" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
-          Needs My Evaluation
+          Evaluation Queue
         </Link>
         <Link href="/evaluate?view=remediation" className={`min-h-11 rounded-md px-3 py-2 text-sm font-semibold ${view === "remediation" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>
           Remediation Required
@@ -221,7 +224,7 @@ function EvaluateInner() {
       {view === "queue" ? (
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
           <Card className="p-4">
-            <div className="kicker">Waiting on me</div>
+            <div className="kicker">Queue items</div>
             <div className="display mt-1 text-3xl font-bold">{queue.length}</div>
           </Card>
           <Card className={`p-4 ${escalatedCount ? "border-danger/40 bg-danger-soft/40" : ""}`}>
@@ -241,7 +244,7 @@ function EvaluateInner() {
         <Flash message={message} tone="current" />
       </div>
       {queue.length === 0 ? (
-        <EmptyState title="You're caught up" body="No Task Book skills are waiting for your evaluation." />
+        <EmptyState title="You're caught up" body="No Task Book skills are currently in your evaluation queue." />
       ) : (
         <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
           <Card>
@@ -255,7 +258,7 @@ function EvaluateInner() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="font-semibold">{item.memberName}</div>
-                      {item.escalated ? <Badge tone="danger">escalated</Badge> : null}
+                      {item.followUpOnly ? <Badge tone="danger">follow-up</Badge> : item.escalated ? <Badge tone="danger">overdue</Badge> : item.assignedElsewhere ? <Badge tone="neutral">available</Badge> : null}
                     </div>
                     <div className="text-sm text-navy-700">{item.requirementTitle}</div>
                     <div className={`text-xs ${item.escalated ? "font-semibold text-danger" : "text-navy-400"}`}>
@@ -293,7 +296,7 @@ function EvaluateInner() {
               )}
               {selected.escalated ? (
                 <div className="mt-3 rounded-md border border-danger/30 bg-danger-soft p-3 text-sm font-semibold text-danger">
-                  Escalated: waiting {selected.waitingHours} hours against the department’s {selected.escalationHours}-hour response target.
+                  {selected.followUpOnly ? "Overdue — Training Officer follow-up. The assigned evaluator can still sign; this alert does not add another approval stage. " : "Overdue evaluator sign-off. "}Waiting {selected.waitingHours} hours against the department’s {selected.escalationHours}-hour response target.
                 </div>
               ) : null}
               {selected.repetitionsRequired > 1 ? (

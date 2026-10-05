@@ -71,7 +71,7 @@ model Department {
   memberNotes                     MemberNote[]
   inboxNotifications              InboxNotification[]
   pushDevices                     PushDevice[]
-  evaluationEscalationHours       Int                              @default(48)
+  evaluationEscalationHours       Int                              @default(168)
   skillProficiencyThreshold       Int                              @default(80)
   skillReassessmentDays           Int                              @default(180)
   trainingClasses                 TrainingClass[]

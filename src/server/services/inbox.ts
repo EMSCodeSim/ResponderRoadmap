@@ -4,6 +4,7 @@ import { assignmentRecordPath } from "@/lib/routes";
 import { prisma } from "@/server/db";
 import { HttpError } from "@/server/http";
 import type { AuthContext } from "@/server/permissions";
+import { isEvaluationOverdue, resolveEvaluationEscalationHours } from "@/lib/evaluation-routing";
 
 type NotificationInput = {
   departmentId: string;
@@ -133,7 +134,7 @@ export async function unregisterDevice(ctx: AuthContext, tokenValue: string) {
 
 async function createEscalationsForDepartment(departmentId: string) {
   const department = await prisma.department.findUnique({ where: { id: departmentId }, select: { evaluationEscalationHours: true } });
-  const hours = Math.max(1, department?.evaluationEscalationHours ?? 48);
+  const hours = resolveEvaluationEscalationHours(department?.evaluationEscalationHours);
   const cutoff = new Date(Date.now() - hours * 3_600_000);
   const pending = await prisma.requirementCompletion.findMany({
     where: { status: "SUBMITTED", submittedAt: { lte: cutoff }, assignment: { departmentId } },
@@ -153,22 +154,21 @@ async function createEscalationsForDepartment(departmentId: string) {
       submittedAt: item.submittedAt,
     });
     const assignedReviewer = stage === "SUPERVISOR" ? item.assignment.supervisorId : item.requestedEvaluatorId || item.assignment.evaluatorId;
-    const recipients = assignedReviewer
-      ? [{ userId: assignedReviewer }]
-      : await prisma.departmentMembership.findMany({
-          where: { departmentId, status: "ACTIVE", role: { in: ["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] } },
-          select: { userId: true },
-        });
+    const officers = await prisma.departmentMembership.findMany({
+      where: { departmentId, status: "ACTIVE", role: { in: ["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] } },
+      select: { userId: true },
+    });
+    const recipients = [...new Set([assignedReviewer, ...officers.map((row) => row.userId)].filter(Boolean) as string[])].map((userId) => ({ userId }));
     for (const recipient of recipients) {
       await notifyUser({
         departmentId,
         userId: recipient.userId,
         type: "EVALUATION_ESCALATED",
-        title: "Evaluation overdue",
-        body: `${item.membership.user.name} has waited more than ${hours} hours for ${item.requirement.title}.`,
+        title: "Evaluation overdue — follow up",
+        body: `${item.membership.user.name} has waited more than ${hours} hours for ${item.requirement.title}. This is a follow-up alert, not an additional approval stage.`,
         referenceType: "RequirementCompletion",
         referenceId: item.id,
-        actionPath: "/evaluate",
+        actionPath: `/evaluate?focus=${encodeURIComponent(item.id)}`,
         dedupeKey: `evaluation-escalation:${item.id}:${item.submittedAt?.toISOString() || "unknown"}`,
       });
     }
@@ -177,7 +177,7 @@ async function createEscalationsForDepartment(departmentId: string) {
 
 export async function getInbox(ctx: AuthContext) {
   await createEscalationsForDepartment(ctx.departmentId);
-  const [items, unreadCount, memberActions, evaluatorActions, evaluatorMembership] = await Promise.all([
+  const [items, unreadCount, memberActions, evaluatorActions, evaluatorMembership, department] = await Promise.all([
     prisma.inboxNotification.findMany({ where: { userId: ctx.userId, departmentId: ctx.departmentId }, orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.inboxNotification.count({ where: { userId: ctx.userId, departmentId: ctx.departmentId, readAt: null } }),
     prisma.requirementCompletion.findMany({
@@ -193,7 +193,9 @@ export async function getInbox(ctx: AuthContext) {
     ctx.role === "MEMBER"
       ? Promise.resolve(null)
       : prisma.departmentMembership.findUnique({ where: { id: ctx.membershipId }, select: { evaluatorStatus: true } }),
+    prisma.department.findUnique({ where: { id: ctx.departmentId }, select: { evaluationEscalationHours: true } }),
   ]);
+  const escalationHours = resolveEvaluationEscalationHours(department?.evaluationEscalationHours);
   const canReview = ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(ctx.role);
   const reviewerItems = !canReview || evaluatorMembership?.evaluatorStatus === "SUSPENDED" ? [] : evaluatorActions.filter((item) => {
     const stage = reviewStageForRequirement({
@@ -205,14 +207,21 @@ export async function getInbox(ctx: AuthContext) {
 
     if (stage === "SUPERVISOR") {
       const supervisor = item.assignment.supervisorId;
-      if (supervisor) return supervisor === ctx.userId;
+      if (supervisor) {
+        return supervisor === ctx.userId ||
+          ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") &&
+            isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }));
+      }
       return ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
     }
 
     if (stage !== "EVALUATOR") return false;
     const evaluator = item.requestedEvaluatorId || item.assignment.evaluatorId;
+    if (ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") {
+      return evaluator === ctx.userId || isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours });
+    }
     if (evaluator) return evaluator === ctx.userId;
-    return ctx.role === "EVALUATOR" || ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
+    return ctx.role === "EVALUATOR";
   });
   return {
     serverTime: new Date(),
@@ -229,9 +238,9 @@ export async function getInbox(ctx: AuthContext) {
         });
         return {
           id: item.id,
-          kind: stage === "SUPERVISOR" ? "SUPERVISOR_REVIEW" : "EVALUATOR_REVIEW",
+          kind: stage === "SUPERVISOR" ? ((item.assignment.supervisorId && item.assignment.supervisorId !== ctx.userId) ? "EVALUATION_FOLLOW_UP" : "SUPERVISOR_REVIEW") : ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") && (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId ? "EVALUATION_FOLLOW_UP" : "EVALUATOR_REVIEW"),
           title: item.requirement.title,
-          subtitle: `${item.membership.user.name} · ${stage === "SUPERVISOR" ? "Supervisor approval" : "Evaluator review"}`,
+          subtitle: `${item.membership.user.name} · ${stage === "SUPERVISOR" ? ((item.assignment.supervisorId && item.assignment.supervisorId !== ctx.userId) ? "Overdue supervisor sign-off — follow-up" : "Supervisor approval") : ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") && (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId ? "Overdue — Training Officer follow-up" : "Awaiting evaluator sign-off")}`,
           submittedAt: item.submittedAt,
           actionPath: `/evaluate?focus=${encodeURIComponent(item.id)}`,
         };

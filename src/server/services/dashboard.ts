@@ -9,6 +9,7 @@ import type { Role } from "@/lib/constants";
 import { approvedEvaluatorWhere } from "@/server/services/evaluators";
 import { reviewStageForRequirement } from "@/lib/signoff";
 import { summarizeDepartmentReadiness } from "@/lib/dashboard-readiness";
+import { isEvaluationOverdue, resolveEvaluationEscalationHours, trainingOfficerShouldSeeEvaluation } from "@/lib/evaluation-routing";
 
 export function canManagePendingMemberApprovals(role: Role) {
   return hasPermission(role, "invitations.write") && hasPermission(role, "members.write");
@@ -52,6 +53,7 @@ export async function getDashboard(ctx: AuthContext) {
         membership: { include: { user: true } },
         requirement: { include: { section: { include: { version: { include: { template: true } } } } } },
         assignment: true,
+        signOffs: { select: { result: true, signedAt: true } },
       },
       orderBy: { submittedAt: "asc" },
     }),
@@ -126,15 +128,32 @@ export async function getDashboard(ctx: AuthContext) {
   }
   const readiness = summarizeDepartmentReadiness(readinessRoles, readinessAssessments);
 
-  const escalationHours = Math.max(1, department?.evaluationEscalationHours || 48);
-  const escalationCutoff = Date.now() - escalationHours * 3_600_000;
+  const escalationHours = resolveEvaluationEscalationHours(department?.evaluationEscalationHours);
   const evaluatorPending = pendingEvaluations.filter((item) => reviewStageForRequirement({
     evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
     supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
     signOffs: item.signOffs,
     submittedAt: item.submittedAt,
   }) === "EVALUATOR");
-  const escalatedEvaluations = evaluatorPending.filter((item) => item.submittedAt && item.submittedAt.getTime() <= escalationCutoff);
+  const escalatedEvaluations = evaluatorPending.filter((item) => isEvaluationOverdue({ status: "SUBMITTED", submittedAt: item.submittedAt, escalationHours }));
+  const actionableEvaluations = completions.filter((item) => {
+    const stage = reviewStageForRequirement({
+      evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+      supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
+      signOffs: item.signOffs,
+      submittedAt: item.submittedAt,
+    });
+    const assignedReviewerId = stage === "SUPERVISOR"
+      ? item.assignment.supervisorId
+      : item.requestedEvaluatorId || item.assignment.evaluatorId;
+    return trainingOfficerShouldSeeEvaluation({
+      trainingOfficerUserId: ctx.userId,
+      assignedReviewerId,
+      status: "SUBMITTED",
+      submittedAt: item.submittedAt,
+      escalationHours,
+    });
+  });
   const oldestPendingEvaluation = evaluatorPending.reduce<Date | null>((oldest, item) => item.submittedAt && (!oldest || item.submittedAt < oldest) ? item.submittedAt : oldest, null);
   const escalatedByMember = new Map<string, Date>();
   for (const item of escalatedEvaluations) {
@@ -284,10 +303,10 @@ export async function getDashboard(ctx: AuthContext) {
       href: "/certifications?window=60",
     });
   }
-  if (completions.length) {
+  if (actionableEvaluations.length) {
     attention.push({
       tone: "info",
-      text: `${completions.length} Task Book requirement${completions.length === 1 ? "" : "s"} awaiting evaluator approval`,
+      text: `${actionableEvaluations.length} evaluation${actionableEvaluations.length === 1 ? "" : "s"} need your action or overdue follow-up`,
       href: "/evaluate",
     });
   }
@@ -572,7 +591,7 @@ export async function getDashboard(ctx: AuthContext) {
       needsAttention: new Set([
         ...overdueMembers,
         ...stalled.map((row) => row.assignment.membershipId),
-        ...completions.map((item) => item.membershipId),
+        ...actionableEvaluations.map((item) => item.membershipId),
         ...expiringSoon.map((row) => row.item.membershipId),
         ...expired.map((row) => row.item.membershipId),
         ...certificateAttention.map((item) => item.memberId),
@@ -609,7 +628,7 @@ export async function getDashboard(ctx: AuthContext) {
         href: "/enrollment",
       })),
       joinRequestTotal: pendingJoinRequests.length,
-      signOffs: completions.slice(0, 8).map((item) => ({
+      signOffs: actionableEvaluations.slice(0, 8).map((item) => ({
         id: item.id,
         assignmentId: item.assignmentId,
         memberId: item.membershipId,
@@ -622,7 +641,7 @@ export async function getDashboard(ctx: AuthContext) {
         href: `/evaluate?focus=${item.id}`,
         recordHref: assignmentRecordPath(item.assignmentId),
       })),
-      signOffTotal: completions.length,
+      signOffTotal: actionableEvaluations.length,
       followUp,
       followUpTotal: followUpAll.length,
       dueSoon,
