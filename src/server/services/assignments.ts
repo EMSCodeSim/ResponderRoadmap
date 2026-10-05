@@ -351,7 +351,11 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
         : item.requestedEvaluatorId || item.assignment.evaluatorId;
 
       if (stage === "SUPERVISOR") {
-        if (assignedReviewerId) return assignedReviewerId === ctx.userId;
+        if (assignedReviewerId) {
+          return assignedReviewerId === ctx.userId ||
+            ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") &&
+              isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }));
+        }
         return ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
       }
 
@@ -412,7 +416,8 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
         waitingHours,
         escalationHours,
         escalated: isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }),
-        followUpOnly: (ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") &&
+        followUpOnly: expectedLevel === "EVALUATOR" &&
+          (ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") &&
           (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId &&
           isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }),
         memberNotes: item.memberNotes,
