@@ -9,7 +9,18 @@ import type { Role } from "@/lib/constants";
 import { assignmentRecordPath } from "@/lib/routes";
 import { notifyUser } from "@/server/services/inbox";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
-import { isEvaluationOverdue, resolveEvaluationEscalationHours, trainingOfficerShouldSeeEvaluation } from "@/lib/evaluation-routing";
+import {
+  classifyEvaluationBuckets,
+  describeEvaluationOwnership,
+  evaluationAppearsInView,
+  evaluationIsActionableForViewer,
+  evaluationIsFollowUpOnly,
+  isEvaluationOverdue,
+  normalizeEvaluationView,
+  resolveAssignedReviewerId,
+  resolveEvaluationEscalationHours,
+  type EvaluationWorkspaceView,
+} from "@/lib/evaluation-routing";
 
 const assignmentInclude = {
   membership: { include: { user: true } },
@@ -312,6 +323,7 @@ function roleCanSignLevel(role: Role, level: string) {
 export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string } = {}) {
   assertPermission(ctx, "signoff.review");
   await assertApprovedEvaluator(ctx);
+  const view = normalizeEvaluationView(filter.view);
   const department = await prisma.department.findUnique({
     where: { id: ctx.departmentId },
     select: { evaluationEscalationHours: true },
@@ -320,11 +332,10 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
   const completions = await prisma.requirementCompletion.findMany({
     where: {
       assignment: { departmentId: ctx.departmentId },
-      ...(filter.view === "recent"
-        ? { signOffs: { some: { evaluatorId: ctx.userId } } }
-        : filter.view === "remediation"
-          ? { status: "RETURNED" }
-          : { status: "SUBMITTED" }),
+      OR: [
+        { status: { in: ["SUBMITTED", "RETURNED", "APPROVED"] } },
+        { signOffs: { some: { evaluatorId: ctx.userId } } },
+      ],
     },
     include: {
       membership: { include: { user: true } },
@@ -337,129 +348,188 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
     orderBy: { submittedAt: "asc" },
   });
 
-  return completions
-    .filter((item) => {
-      if (filter.view === "recent" || filter.view === "remediation") return true;
-      const stage = reviewStageForRequirement({
-        evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
-        supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
-        signOffs: item.signOffs,
-        submittedAt: item.submittedAt,
-      });
-      const assignedReviewerId = stage === "SUPERVISOR"
-        ? item.assignment.supervisorId
-        : item.requestedEvaluatorId || item.assignment.evaluatorId;
+  const counts: Record<EvaluationWorkspaceView, number> = {
+    needs_me: 0,
+    waiting: 0,
+    follow_up: 0,
+    completed: 0,
+  };
 
-      if (stage === "SUPERVISOR") {
-        if (assignedReviewerId) {
-          return assignedReviewerId === ctx.userId ||
-            ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") &&
-              isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }));
-        }
-        return ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
-      }
-
-      if (stage !== "EVALUATOR") return false;
-      if (ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") {
-        return trainingOfficerShouldSeeEvaluation({
-          trainingOfficerUserId: ctx.userId,
-          assignedReviewerId,
-          status: item.status,
-          submittedAt: item.submittedAt,
-          escalationHours,
-        });
-      }
-      if (ctx.role === "EVALUATOR") return true;
-      return false;
-    })
-    .map((item) => {
-      const parsed = deserializeRequirement(item.requirement as unknown as Record<string, unknown>);
-      const reviewStage = reviewStageForRequirement({
-        evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
-        supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
-        signOffs: item.signOffs,
-        submittedAt: item.submittedAt,
-      });
-      const approvedRepetitions = Math.max(0, item.repetitionCount, item.status === "APPROVED" ? 1 : 0);
-      const repetitionsRequired = Math.max(1, item.requirement.repetitionsRequired);
-      const waitingHours = item.submittedAt
-        ? Math.max(0, Math.floor((Date.now() - item.submittedAt.getTime()) / 3_600_000))
-        : 0;
-      const expectedLevel = nextApprovalLevel(parsed.approvalPath, item.signOffs.filter(
-        (signOff) => !item.submittedAt || signOff.signedAt >= item.submittedAt,
-      )) || reviewStage;
-      const sameReviewerConflict = reviewerSeparationConflict({
-        signOffs: item.signOffs,
-        reviewerId: ctx.userId,
-        approvalLevel: expectedLevel,
-        submittedAt: item.submittedAt,
-      });
-      return {
-        id: item.id,
-        assignmentId: item.assignmentId,
-        memberName: item.membership.user.name,
-        memberId: item.membershipId,
-        taskBookTitle: item.requirement.section.version.template.title,
-        templateId: item.requirement.section.version.template.id,
-        version: item.requirement.section.version.version,
-        sectionTitle: item.requirement.section.title,
-        requirementId: item.requirement.id,
-        requirementTitle: item.requirement.title,
-        requirementDescription: item.requirement.description,
-        instructions: item.requirement.instructions,
-        objectives: parseJsonArray(item.requirement.objectivesJson),
-        evidenceType: item.requirement.evidenceType,
-        submittedAt: item.submittedAt,
-        waitingHours,
-        escalationHours,
-        escalated: isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }),
-        assignedToMe: (expectedLevel === "SUPERVISOR" ? item.assignment.supervisorId : item.requestedEvaluatorId || item.assignment.evaluatorId) === ctx.userId,
-        assignedElsewhere: !!(expectedLevel === "SUPERVISOR" ? item.assignment.supervisorId : item.requestedEvaluatorId || item.assignment.evaluatorId) &&
-          (expectedLevel === "SUPERVISOR" ? item.assignment.supervisorId : item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId,
-        followUpOnly: expectedLevel === "EVALUATOR" &&
-          (ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") &&
-          (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId &&
-          isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }),
-        memberNotes: item.memberNotes,
-        evidence: item.evidence,
-        repetitionCount: item.repetitionCount,
-        evaluationSteps: parsed.evaluationSteps,
-        criticalFailures: parsed.criticalFailures,
-        scoringMethod: parsed.scoringMethod,
-        completionType: parsed.completionType,
-        standards: parsed.standards,
-        approvalPath: parsed.approvalPath,
-        evaluatorNotesEnabled: item.requirement.evaluatorNotesEnabled,
-        reviewStage: expectedLevel,
-        sameReviewerConflict,
-        sameReviewerOverrideAllowed: ctx.role === "DEPARTMENT_ADMINISTRATOR",
-        approvedRepetitions,
-        repetitionsRequired,
-        nextRepetition: Math.min(repetitionsRequired, approvedRepetitions + 1),
-        evaluatorName: item.assignment.evaluator?.name ?? null,
-        supervisorName: item.assignment.supervisor?.name ?? null,
-        dueDate: null as string | null,
-        history: item.signOffs.map((sign) => ({
-          id: sign.id,
-          result: sign.result,
-          notes: sign.notes,
-          signedAt: sign.signedAt,
-          evaluatorName: sign.evaluator.name,
-          approvalLevel: sign.approvalLevel || "EVALUATOR",
-        })),
-        attempts: item.attempts.map((attempt) => ({
-          id: attempt.id,
-          result: attempt.result,
-          comments: attempt.comments,
-          signedAt: attempt.signedAt,
-          repetitionIndex: attempt.repetitionIndex,
-          evaluatorName: attempt.evaluator.name,
-          stepResults: JSON.parse(attempt.stepResultsJson || "[]"),
-          criticalFailures: JSON.parse(attempt.criticalFailuresJson || "[]"),
-          numericScore: attempt.numericScore,
-        })),
-      };
+  const mapped = completions.map((item) => {
+    const parsed = deserializeRequirement(item.requirement as unknown as Record<string, unknown>);
+    const logicalStage = reviewStageForRequirement({
+      evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+      supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
+      signOffs: item.signOffs,
+      submittedAt: item.submittedAt,
     });
+    const approvedRepetitions = Math.max(0, item.repetitionCount, item.status === "APPROVED" ? 1 : 0);
+    const repetitionsRequired = Math.max(1, item.requirement.repetitionsRequired);
+    const waitingHours = item.submittedAt
+      ? Math.max(0, Math.floor((Date.now() - item.submittedAt.getTime()) / 3_600_000))
+      : 0;
+    const expectedLevel = nextApprovalLevel(parsed.approvalPath, item.signOffs.filter(
+      (signOff) => !item.submittedAt || signOff.signedAt >= item.submittedAt,
+    )) || logicalStage;
+    const assignedReviewerId = resolveAssignedReviewerId({
+      reviewStage: logicalStage,
+      requestedEvaluatorId: item.requestedEvaluatorId,
+      assignmentEvaluatorId: item.assignment.evaluatorId,
+      supervisorId: item.assignment.supervisorId,
+    });
+    const assignedReviewerName = logicalStage === "SUPERVISOR"
+      ? item.assignment.supervisor?.name ?? null
+      : item.assignment.evaluator?.name ?? null;
+    const escalated = isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours });
+    const followUpOnly = evaluationIsFollowUpOnly({
+      role: ctx.role,
+      userId: ctx.userId,
+      status: item.status,
+      reviewStage: logicalStage,
+      assignedReviewerId,
+      submittedAt: item.submittedAt,
+      escalationHours,
+    });
+    const canAct = evaluationIsActionableForViewer({
+      role: ctx.role,
+      userId: ctx.userId,
+      status: item.status,
+      reviewStage: logicalStage,
+      assignedReviewerId,
+    });
+    const hasViewerSignOff = item.signOffs.some((sign) => sign.evaluatorId === ctx.userId);
+    const buckets = classifyEvaluationBuckets({
+      role: ctx.role,
+      userId: ctx.userId,
+      status: item.status,
+      reviewStage: logicalStage,
+      assignedReviewerId,
+      submittedAt: item.submittedAt,
+      escalationHours,
+      hasViewerSignOff,
+    });
+    for (const bucket of buckets) counts[bucket] += 1;
+
+    const ownership = describeEvaluationOwnership({
+      status: item.status,
+      requirementTitle: item.requirement.title,
+      reviewStage: expectedLevel,
+      approvalPathLength: parsed.approvalPath.length,
+      escalated,
+      followUpOnly,
+      memberName: item.membership.user.name,
+      assignedReviewerName,
+      viewerRole: ctx.role,
+    });
+    const sameReviewerConflict = reviewerSeparationConflict({
+      signOffs: item.signOffs,
+      reviewerId: ctx.userId,
+      approvalLevel: expectedLevel,
+      submittedAt: item.submittedAt,
+    });
+    const latestSigned = [...item.signOffs].reverse().find((sign) => sign.result === "APPROVED" || sign.result === "PASS" || sign.result === "NEEDS_REMEDIATION" || sign.result === "RETURNED" || sign.result === "CRITICAL_FAIL");
+    const latestAttempt = item.attempts[item.attempts.length - 1] || null;
+    // Follow-up without assignment is oversight only — it must not become a required TO approval stage.
+    const readOnly = item.status !== "SUBMITTED" || !canAct || view === "completed" || view === "waiting";
+
+    return {
+      id: item.id,
+      assignmentId: item.assignmentId,
+      memberName: item.membership.user.name,
+      memberId: item.membershipId,
+      taskBookTitle: item.requirement.section.version.template.title,
+      templateId: item.requirement.section.version.template.id,
+      version: item.requirement.section.version.version,
+      sectionTitle: item.requirement.section.title,
+      requirementId: item.requirement.id,
+      requirementTitle: item.requirement.title,
+      requirementDescription: item.requirement.description,
+      instructions: item.requirement.instructions,
+      objectives: parseJsonArray(item.requirement.objectivesJson),
+      evidenceType: item.requirement.evidenceType,
+      status: item.status,
+      submittedAt: item.submittedAt,
+      waitingHours,
+      escalationHours,
+      escalated,
+      assignedToMe: assignedReviewerId === ctx.userId,
+      assignedElsewhere: !!assignedReviewerId && assignedReviewerId !== ctx.userId,
+      followUpOnly,
+      canAct,
+      readOnly,
+      nextAction: ownership.nextAction,
+      owner: ownership.owner,
+      currentOwner: ownership.currentOwner,
+      escalationReason: ownership.escalationReason,
+      buckets,
+      memberNotes: item.memberNotes,
+      evidence: item.evidence,
+      repetitionCount: item.repetitionCount,
+      evaluationSteps: parsed.evaluationSteps,
+      criticalFailures: parsed.criticalFailures,
+      scoringMethod: parsed.scoringMethod,
+      completionType: parsed.completionType,
+      standards: parsed.standards,
+      approvalPath: parsed.approvalPath,
+      evaluatorNotesEnabled: item.requirement.evaluatorNotesEnabled,
+      reviewStage: expectedLevel,
+      sameReviewerConflict,
+      sameReviewerOverrideAllowed: ctx.role === "DEPARTMENT_ADMINISTRATOR",
+      approvedRepetitions,
+      repetitionsRequired,
+      nextRepetition: Math.min(repetitionsRequired, approvedRepetitions + 1),
+      evaluatorName: item.assignment.evaluator?.name ?? null,
+      supervisorName: item.assignment.supervisor?.name ?? null,
+      assignedEvaluatorName: item.assignment.evaluator?.name ?? null,
+      result: latestSigned?.result ?? latestAttempt?.result ?? item.status,
+      signedAt: latestSigned?.signedAt ?? latestAttempt?.signedAt ?? item.completedAt,
+      signedByName: latestSigned?.evaluator.name ?? latestAttempt?.evaluator.name ?? null,
+      numericScore: latestAttempt?.numericScore ?? null,
+      dueDate: null as string | null,
+      history: item.signOffs.map((sign) => ({
+        id: sign.id,
+        result: sign.result,
+        notes: sign.notes,
+        signedAt: sign.signedAt,
+        evaluatorName: sign.evaluator.name,
+        approvalLevel: sign.approvalLevel || "EVALUATOR",
+      })),
+      attempts: item.attempts.map((attempt) => ({
+        id: attempt.id,
+        result: attempt.result,
+        comments: attempt.comments,
+        signedAt: attempt.signedAt,
+        repetitionIndex: attempt.repetitionIndex,
+        evaluatorName: attempt.evaluator.name,
+        stepResults: JSON.parse(attempt.stepResultsJson || "[]"),
+        criticalFailures: JSON.parse(attempt.criticalFailuresJson || "[]"),
+        numericScore: attempt.numericScore,
+      })),
+    };
+  });
+
+  const items = mapped
+    .filter((item) => evaluationAppearsInView(view, item.buckets as EvaluationWorkspaceView[]))
+    .sort((a, b) => {
+      if (view === "completed") {
+        const aTime = a.signedAt ? new Date(a.signedAt).getTime() : 0;
+        const bTime = b.signedAt ? new Date(b.signedAt).getTime() : 0;
+        return bTime - aTime;
+      }
+      if (view === "follow_up") return b.waitingHours - a.waitingHours;
+      return (a.submittedAt ? new Date(a.submittedAt).getTime() : 0) - (b.submittedAt ? new Date(b.submittedAt).getTime() : 0);
+    });
+
+  return {
+    view,
+    items,
+    counts: {
+      needsMe: counts.needs_me,
+      waiting: counts.waiting,
+      followUp: counts.follow_up,
+      completed: counts.completed,
+    },
+  };
 }
 
 export async function reviewSignOff(

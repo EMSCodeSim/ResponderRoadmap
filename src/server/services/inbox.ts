@@ -168,7 +168,7 @@ async function createEscalationsForDepartment(departmentId: string) {
         body: `${item.membership.user.name} has waited more than ${hours} hours for ${item.requirement.title}. This is a follow-up alert, not an additional approval stage.`,
         referenceType: "RequirementCompletion",
         referenceId: item.id,
-        actionPath: `/evaluate?focus=${encodeURIComponent(item.id)}`,
+        actionPath: `/evaluate?view=follow_up&focus=${encodeURIComponent(item.id)}`,
         dedupeKey: `evaluation-escalation:${item.id}:${item.submittedAt?.toISOString() || "unknown"}`,
       });
     }
@@ -242,7 +242,13 @@ export async function getInbox(ctx: AuthContext) {
           title: item.requirement.title,
           subtitle: `${item.membership.user.name} · ${stage === "SUPERVISOR" ? ((item.assignment.supervisorId && item.assignment.supervisorId !== ctx.userId) ? "Overdue supervisor sign-off — follow-up" : "Supervisor approval") : ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") && (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId ? "Overdue — Training Officer follow-up" : "Awaiting evaluator sign-off")}`,
           submittedAt: item.submittedAt,
-          actionPath: `/evaluate?focus=${encodeURIComponent(item.id)}`,
+          actionPath: stage === "SUPERVISOR"
+            ? ((item.assignment.supervisorId && item.assignment.supervisorId !== ctx.userId)
+              ? `/evaluate?view=follow_up&focus=${encodeURIComponent(item.id)}`
+              : `/evaluate?focus=${encodeURIComponent(item.id)}`)
+            : ((ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") && (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId
+              ? `/evaluate?view=follow_up&focus=${encodeURIComponent(item.id)}`
+              : `/evaluate?focus=${encodeURIComponent(item.id)}`),
         };
       }),
     ],

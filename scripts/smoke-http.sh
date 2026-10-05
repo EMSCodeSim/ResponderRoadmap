@@ -127,13 +127,16 @@ RETRY_RECEIPT=$(echo "$RETRY_SUBMIT" | jq -r '.data.submissionReceipt.receiptId 
 ok 'member submission receipt and idempotent retry'
 
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | $JQ '.data.session.role == "EVALUATOR"' >/dev/null
-QUEUE=$(json "$BASE/api/v1/sign-offs?view=mine")
-SIGNOFF_ID=$(echo "$QUEUE" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data[] | select(.assignmentId == $aid and .requirementId == $rid)][0].id // empty')
-RETURN_LEVEL=$(echo "$QUEUE" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data[] | select(.assignmentId == $aid and .requirementId == $rid)][0].reviewStage // "EVALUATOR"')
-[[ -n "$SIGNOFF_ID" ]] || { echo "$QUEUE"; echo "Submitted requirement missing from evaluator queue"; exit 1; }
+QUEUE=$(json "$BASE/api/v1/sign-offs?view=needs_me")
+SIGNOFF_ID=$(echo "$QUEUE" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data.items[] | select(.assignmentId == $aid and .requirementId == $rid)][0].id // empty')
+RETURN_LEVEL=$(echo "$QUEUE" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data.items[] | select(.assignmentId == $aid and .requirementId == $rid)][0].reviewStage // "EVALUATOR"')
+[[ -n "$SIGNOFF_ID" ]] || { echo "$QUEUE"; echo "Submitted requirement missing from evaluator Needs Me view"; exit 1; }
+echo "$QUEUE" | $JQ '.data.view == "needs_me" and (.data.counts.needsMe | type) == "number"' >/dev/null
 RETURN_BODY=$(jq -nc --arg level "$RETURN_LEVEL" '{result:"NEEDS_REMEDIATION",notes:"Repeat the evolution and correct the QA test item.",stepResults:[],criticalFailuresTriggered:[],approvalLevel:$level,attested:false}')
 RETURNED=$(json -X POST "$BASE/api/v1/sign-offs/$SIGNOFF_ID" -d "$RETURN_BODY")
 echo "$RETURNED" | $JQ '.data.status == "RETURNED"' >/dev/null
+WAITING_AFTER_RETURN=$(json "$BASE/api/v1/sign-offs?view=waiting")
+echo "$WAITING_AFTER_RETURN" | jq -e --arg id "$SIGNOFF_ID" '.data.items | any(.id == $id and .nextAction == "Correct deficiencies and request reevaluation")' >/dev/null
 ok 'evaluator return with remediation reason'
 
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
@@ -146,9 +149,9 @@ echo "$RESUBMIT" | $JQ '.data.submissionReceipt.status == "SUBMITTED" and .data.
 ok 'member resubmission after remediation'
 
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | $JQ '.data.session.role == "EVALUATOR"' >/dev/null
-QUEUE2=$(json "$BASE/api/v1/sign-offs?view=mine")
-SIGNOFF_ID2=$(echo "$QUEUE2" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data[] | select(.assignmentId == $aid and .requirementId == $rid)][0].id // empty')
-APPROVE_LEVEL=$(echo "$QUEUE2" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data[] | select(.assignmentId == $aid and .requirementId == $rid)][0].reviewStage // "EVALUATOR"')
+QUEUE2=$(json "$BASE/api/v1/sign-offs?view=needs_me")
+SIGNOFF_ID2=$(echo "$QUEUE2" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data.items[] | select(.assignmentId == $aid and .requirementId == $rid)][0].id // empty')
+APPROVE_LEVEL=$(echo "$QUEUE2" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data.items[] | select(.assignmentId == $aid and .requirementId == $rid)][0].reviewStage // "EVALUATOR"')
 [[ "$SIGNOFF_ID2" == "$SIGNOFF_ID" ]] || { echo "Completion identity changed across resubmission"; exit 1; }
 APPROVE_BODY=$(jq -nc --arg level "$APPROVE_LEVEL" '{result:"APPROVED",notes:"Meets QA regression standard.",stepResults:[],criticalFailuresTriggered:[],approvalLevel:$level,attested:true}')
 APPROVED=$(json -X POST "$BASE/api/v1/sign-offs/$SIGNOFF_ID2" -d "$APPROVE_BODY")
@@ -174,10 +177,14 @@ ALT_COMPLETION_ID=$(echo "$ALT_SUBMIT" | jq -r '.data.submissionReceipt.receiptI
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}' | $JQ '.data.session.role == "TRAINING_OFFICER"' >/dev/null
 TO_ME=$(json "$BASE/api/v1/auth/me")
 TO_USER_ID=$(echo "$TO_ME" | jq -r '.data.userId')
-TO_QUEUE_BEFORE=$(json "$BASE/api/v1/sign-offs")
-echo "$TO_QUEUE_BEFORE" | jq -e --arg id "$ALT_COMPLETION_ID" '[.data[] | select(.id == $id)] | length == 0' >/dev/null
+TO_QUEUE_BEFORE=$(json "$BASE/api/v1/sign-offs?view=needs_me")
+echo "$TO_QUEUE_BEFORE" | jq -e --arg id "$ALT_COMPLETION_ID" '[.data.items[] | select(.id == $id)] | length == 0' >/dev/null
+TO_WAITING=$(json "$BASE/api/v1/sign-offs?view=waiting")
+echo "$TO_WAITING" | jq -e --arg id "$ALT_COMPLETION_ID" '.data.items | any(.id == $id and .readOnly == true)' >/dev/null
 ALT_APPROVED=$(json -X POST "$BASE/api/v1/sign-offs/$ALT_COMPLETION_ID" -d '{"result":"APPROVED","notes":"Authorized alternate evaluator approval","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"EVALUATOR","attested":true}')
 echo "$ALT_APPROVED" | $JQ '.data.status == "APPROVED"' >/dev/null
+COMPLETED=$(json "$BASE/api/v1/sign-offs?view=completed")
+echo "$COMPLETED" | jq -e --arg id "$ALT_COMPLETION_ID" '.data.items | any(.id == $id and .signedByName != null)' >/dev/null
 ok 'another authorized evaluator can sign without creating a Training Officer co-approval stage'
 
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
@@ -189,8 +196,8 @@ TO_COMPLETION_ID=$(echo "$TO_SUBMIT" | jq -r '.data.submissionReceipt.receiptId 
 [[ -n "$TO_COMPLETION_ID" ]]
 
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"to"}' | $JQ '.data.session.role == "TRAINING_OFFICER"' >/dev/null
-TO_QUEUE=$(json "$BASE/api/v1/sign-offs")
-echo "$TO_QUEUE" | jq -e --arg id "$TO_COMPLETION_ID" '.data | any(.id == $id and .followUpOnly == false)' >/dev/null
+TO_QUEUE=$(json "$BASE/api/v1/sign-offs?view=needs_me")
+echo "$TO_QUEUE" | jq -e --arg id "$TO_COMPLETION_ID" '.data.items | any(.id == $id and .followUpOnly == false and .canAct == true)' >/dev/null
 TO_APPROVED=$(json -X POST "$BASE/api/v1/sign-offs/$TO_COMPLETION_ID" -d '{"result":"APPROVED","notes":"Training Officer acting as assigned evaluator","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"EVALUATOR","attested":true}')
 echo "$TO_APPROVED" | $JQ '.data.status == "APPROVED"' >/dev/null
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
