@@ -26,6 +26,7 @@ type QueueItem = {
   waitingHours: number;
   escalationHours: number;
   escalated: boolean;
+  followUpOnly: boolean;
   memberNotes: string;
   evidence: Array<{ id: string; type: string; description: string; fileUrl: string | null }>;
   evaluationSteps: Array<{ id: string; text: string }>;
@@ -255,7 +256,7 @@ function EvaluateInner() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="font-semibold">{item.memberName}</div>
-                      {item.escalated ? <Badge tone="danger">escalated</Badge> : null}
+                      {item.followUpOnly ? <Badge tone="danger">follow-up</Badge> : item.escalated ? <Badge tone="danger">overdue</Badge> : null}
                     </div>
                     <div className="text-sm text-navy-700">{item.requirementTitle}</div>
                     <div className={`text-xs ${item.escalated ? "font-semibold text-danger" : "text-navy-400"}`}>
@@ -293,7 +294,7 @@ function EvaluateInner() {
               )}
               {selected.escalated ? (
                 <div className="mt-3 rounded-md border border-danger/30 bg-danger-soft p-3 text-sm font-semibold text-danger">
-                  Escalated: waiting {selected.waitingHours} hours against the department’s {selected.escalationHours}-hour response target.
+                  {selected.followUpOnly ? "Overdue — Training Officer follow-up. The assigned evaluator can still sign; this alert does not add another approval stage. " : "Overdue evaluator sign-off. "}Waiting {selected.waitingHours} hours against the department’s {selected.escalationHours}-hour response target.
                 </div>
               ) : null}
               {selected.repetitionsRequired > 1 ? (
