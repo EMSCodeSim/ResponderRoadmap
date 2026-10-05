@@ -6,6 +6,9 @@ import { assignmentRecordPath, createAssignmentPath, memberProgressPath } from "
 import { credentialStatus } from "@/lib/dates";
 import { parseMetadata as parseMeta } from "@/server/http";
 import type { Role } from "@/lib/constants";
+import { approvedEvaluatorWhere } from "@/server/services/evaluators";
+import { reviewStageForRequirement } from "@/lib/signoff";
+import { summarizeDepartmentReadiness } from "@/lib/dashboard-readiness";
 
 export function canManagePendingMemberApprovals(role: Role) {
   return hasPermission(role, "invitations.write") && hasPermission(role, "members.write");
@@ -30,7 +33,7 @@ export async function getDashboard(ctx: AuthContext) {
   }
   const departmentId = ctx.departmentId;
 
-  const [members, assignments, completions, credentials, events, templates, credentialTypes, expectations, pendingJoinRequests] = await Promise.all([
+  const [members, assignments, completions, credentials, events, templates, credentialTypes, expectations, pendingJoinRequests, qualificationRoles, authorizations, evaluatorMembers, pendingEvaluations, department] = await Promise.all([
     prisma.departmentMembership.findMany({
       where: { departmentId, status: "ACTIVE" },
       include: { user: true },
@@ -40,7 +43,7 @@ export async function getDashboard(ctx: AuthContext) {
       include: {
         membership: { include: { user: true } },
         version: { include: { template: true, sections: { include: { requirements: true } } } },
-        completions: true,
+        completions: { include: { attempts: { orderBy: { signedAt: "desc" }, take: 1 } } },
       },
     }),
     prisma.requirementCompletion.findMany({
@@ -75,7 +78,85 @@ export async function getDashboard(ctx: AuthContext) {
           orderBy: { joinedAt: "asc" },
         })
       : Promise.resolve([]),
+    prisma.operationalRole.findMany({ where: { departmentId, archived: false } }),
+    prisma.memberOperationalAuthorization.findMany({
+      where: { departmentId, membership: { status: "ACTIVE" }, role: { archived: false } },
+      include: { role: true },
+    }),
+    prisma.departmentMembership.findMany({ where: approvedEvaluatorWhere(departmentId), select: { id: true } }),
+    prisma.requirementCompletion.findMany({
+      where: { status: "SUBMITTED", assignment: { departmentId } },
+      select: {
+        membershipId: true,
+        submittedAt: true,
+        requestedEvaluatorId: true,
+        assignment: { select: { evaluatorId: true } },
+        requirement: { select: { evaluatorSignOffRequired: true, supervisorApprovalRequired: true } },
+        signOffs: { select: { result: true, signedAt: true } },
+      },
+    }),
+    prisma.department.findUnique({ where: { id: departmentId }, select: { evaluationEscalationHours: true, skillProficiencyThreshold: true } }),
   ]);
+
+  const readinessRoles = qualificationRoles.map((role) => ({
+    id: role.id,
+    configured: parseStringArray(role.credentialTypeIdsJson).length + parseStringArray(role.taskBookTemplateIdsJson).length + parseStringArray(role.requirementIdsJson).length > 0,
+  }));
+  const configuredRoleIds = new Set(readinessRoles.filter((role) => role.configured).map((role) => role.id));
+  const readinessAssessments: Array<{ roleId: string; status: string; requirementsMet: boolean; reviewDue: boolean }> = [];
+  const qualificationIssueByMember = new Map<string, string>();
+  const todayUtc = new Date(new Date().toISOString().slice(0, 10)).getTime();
+  for (const auth of authorizations) {
+    if (!configuredRoleIds.has(auth.roleId)) continue;
+    const memberCredentials = new Set(credentials.filter((credential) => credential.membershipId === auth.membershipId && credential.credentialTypeId && credential.verificationStatus === "VERIFIED" && (credential.doesNotExpire || (credential.expirationDate && credential.expirationDate.getTime() >= todayUtc))).map((credential) => credential.credentialTypeId));
+    const memberAssignments = assignments.filter((assignment) => assignment.membershipId === auth.membershipId);
+    const memberCompletedTemplates = new Set(memberAssignments.filter((assignment) => assignment.status === "COMPLETE").map((assignment) => assignment.version.templateId));
+    const memberApprovedRequirements = new Set(memberAssignments.flatMap((assignment) => assignment.completions.filter((completion) => completion.status === "APPROVED").map((completion) => completion.requirementId)));
+    const missingCredential = parseStringArray(auth.role.credentialTypeIdsJson).some((id) => !memberCredentials.has(id));
+    const missingTemplate = parseStringArray(auth.role.taskBookTemplateIdsJson).some((id) => !memberCompletedTemplates.has(id));
+    const missingRequirement = parseStringArray(auth.role.requirementIdsJson).some((id) => !memberApprovedRequirements.has(id));
+    const evidenceComplete = !missingCredential && !missingTemplate && !missingRequirement;
+    const reviewDue = !!auth.reviewDate && auth.reviewDate.getTime() < todayUtc;
+    readinessAssessments.push({ roleId: auth.roleId, status: auth.status, requirementsMet: evidenceComplete, reviewDue });
+    if (auth.status !== "APPROVED" || !evidenceComplete || reviewDue) {
+      const missing = [missingCredential ? "required credential" : "", missingTemplate ? "required Task Book" : "", missingRequirement ? "required competency" : ""].filter(Boolean);
+      const reason = `${auth.role.name}: ${missing.length ? `missing ${missing.join(", ")}` : reviewDue ? "authorization review is due" : auth.status.toLowerCase().replaceAll("_", " ")}`;
+      if (!qualificationIssueByMember.has(auth.membershipId)) qualificationIssueByMember.set(auth.membershipId, reason);
+    }
+  }
+  const readiness = summarizeDepartmentReadiness(readinessRoles, readinessAssessments);
+
+  const escalationHours = Math.max(1, department?.evaluationEscalationHours || 48);
+  const escalationCutoff = Date.now() - escalationHours * 3_600_000;
+  const evaluatorPending = pendingEvaluations.filter((item) => reviewStageForRequirement({
+    evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+    supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
+    signOffs: item.signOffs,
+    submittedAt: item.submittedAt,
+  }) === "EVALUATOR");
+  const escalatedEvaluations = evaluatorPending.filter((item) => item.submittedAt && item.submittedAt.getTime() <= escalationCutoff);
+  const oldestPendingEvaluation = evaluatorPending.reduce<Date | null>((oldest, item) => item.submittedAt && (!oldest || item.submittedAt < oldest) ? item.submittedAt : oldest, null);
+  const escalatedByMember = new Map<string, Date>();
+  for (const item of escalatedEvaluations) {
+    if (item.submittedAt && (!escalatedByMember.has(item.membershipId) || item.submittedAt < escalatedByMember.get(item.membershipId)!)) {
+      escalatedByMember.set(item.membershipId, item.submittedAt);
+    }
+  }
+  const weakEvaluationByMember = new Map<string, string>();
+  const proficiencyThreshold = department?.skillProficiencyThreshold ?? 80;
+  for (const assignment of assignments) {
+    for (const completion of assignment.completions) {
+      const latest = completion.attempts[0];
+      if (!latest || !(latest.result === "NEEDS_REMEDIATION" || latest.result === "FAIL" || latest.result === "RETURNED" || (latest.numericScore !== null && latest.numericScore < proficiencyThreshold))) continue;
+      if (!weakEvaluationByMember.has(assignment.membershipId)) {
+        const signal = latest.numericScore !== null && latest.numericScore < proficiencyThreshold
+          ? `Latest ${completion.requirementId ? "evaluation" : "skill check"} score ${latest.numericScore}% is below the ${proficiencyThreshold}% threshold`
+          : `Latest evaluation needs remediation`;
+        const requirement = assignment.version.sections.flatMap((section) => section.requirements).find((item) => item.id === completion.requirementId);
+        weakEvaluationByMember.set(assignment.membershipId, `${signal}: ${requirement?.title ?? "training requirement"} · ${assignment.version.template.title}`);
+      }
+    }
+  }
 
   const assignmentRows = assignments.map((assignment) => {
     const progress = computeAssignmentProgress({
@@ -118,6 +199,7 @@ export async function getDashboard(ctx: AuthContext) {
     memberName: string;
     taskBookTitle: string;
     reason: string;
+    dueDate: Date | null;
     href: string;
     severity: number;
   }> = [];
@@ -152,6 +234,7 @@ export async function getDashboard(ctx: AuthContext) {
       memberName: issue.credential.membership.user.name,
       taskBookTitle: issue.credential.credentialName,
       reason,
+      dueDate: issue.credential.expirationDate,
       href: `/members/${issue.credential.membershipId}?tab=certifications`,
       severity: issue.status.health === "expired" ? 0 : !issue.credential.expirationDate ? 1 : 2,
     }, key);
@@ -178,6 +261,7 @@ export async function getDashboard(ctx: AuthContext) {
         memberName: member.user.name,
         taskBookTitle: type.name,
         reason: "Required certificate missing",
+        dueDate: null,
         href: `/members/${member.id}?tab=certifications`,
         severity: 0,
       }, `${member.id}:${type.id}`);
@@ -247,14 +331,13 @@ export async function getDashboard(ctx: AuthContext) {
   const now = Date.now();
   const week = 7 * 86_400_000;
   const followUpSeen = new Set<string>();
-  const followUp = [...overdueAssignments, ...stalled]
+  const followUpAll = [...overdueAssignments, ...stalled]
     .filter((row) => {
       const key = row.assignment.id;
       if (followUpSeen.has(key)) return false;
       followUpSeen.add(key);
       return true;
     })
-    .slice(0, 8)
     .map((row) => {
       const last = row.assignment.updatedAt || row.assignment.assignedDate;
       const idleDays = Math.max(0, Math.floor((now - last.getTime()) / 86_400_000));
@@ -270,6 +353,7 @@ export async function getDashboard(ctx: AuthContext) {
         shift: row.assignment.membership.shift,
         taskBookTitle: row.assignment.version.template.title,
         percent: row.progress.percent,
+        dueDate: row.assignment.dueDate,
         reason:
           overdueDays > 0
             ? `${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`
@@ -278,8 +362,10 @@ export async function getDashboard(ctx: AuthContext) {
       };
     });
 
-  const followUpIds = new Set(followUp.map((item) => item.assignmentId));
-  const dueSoon = assignmentRows
+  const followUp = followUpAll.slice(0, 8);
+
+  const followUpIds = new Set(followUpAll.map((item) => item.assignmentId));
+  const dueSoonAll = assignmentRows
     .filter((row) => {
       if (row.progress.status === "COMPLETE") return false;
       if (!row.assignment.dueDate) return false;
@@ -287,7 +373,6 @@ export async function getDashboard(ctx: AuthContext) {
       return due >= now && due - now <= week && !followUpIds.has(row.assignment.id);
     })
     .sort((a, b) => (a.assignment.dueDate?.getTime() || 0) - (b.assignment.dueDate?.getTime() || 0))
-    .slice(0, 6)
     .map((row) => ({
       assignmentId: row.assignment.id,
       memberId: row.assignment.membershipId,
@@ -297,8 +382,10 @@ export async function getDashboard(ctx: AuthContext) {
       taskBookTitle: row.assignment.version.template.title,
       percent: row.progress.percent,
       dueDate: row.assignment.dueDate,
+      reason: `${Math.max(0, Math.ceil(((row.assignment.dueDate?.getTime() ?? now) - now) / 86_400_000))} day${Math.max(0, Math.ceil(((row.assignment.dueDate?.getTime() ?? now) - now) / 86_400_000)) === 1 ? "" : "s"} remaining · ${row.progress.percent}% complete`,
       href: `/members/${row.assignment.membershipId}?tab=task-books`,
     }));
+  const dueSoon = dueSoonAll.slice(0, 8);
 
   const memberProgressMap = new Map<string, {
     id: string;
@@ -392,8 +479,11 @@ export async function getDashboard(ctx: AuthContext) {
   const memberProgress = [...memberProgressMap.values()]
     .map((row) => {
       const certificateIssue = certificateAttentionByMember.get(row.id);
+      const qualificationIssue = qualificationIssueByMember.get(row.id);
+      const competencyIssue = weakEvaluationByMember.get(row.id);
+      const escalatedSubmission = escalatedByMember.get(row.id);
       const assignmentStatus = memberOperationalStatus(row.assignments);
-      const status = certificateIssue && assignmentStatus !== "Awaiting Evaluation" ? "Needs Attention" : assignmentStatus;
+      const status = (certificateIssue || qualificationIssue || competencyIssue) && assignmentStatus !== "Awaiting Evaluation" ? "Needs Attention" : assignmentStatus;
       const percent = row.activeAssignments > 0 && row.totalRequired
         ? Math.round((row.complete / row.totalRequired) * 100)
         : row.assignments.length > 0 && row.assignments.every((item) => item.status === "COMPLETE")
@@ -401,11 +491,19 @@ export async function getDashboard(ctx: AuthContext) {
           : 0;
       const attentionReason =
         row.pendingApproval > 0
-          ? `${row.pendingApproval} awaiting evaluation`
+          ? escalatedSubmission
+            ? `Evaluation overdue target · waiting since ${escalatedSubmission.toLocaleDateString()}`
+            : `${row.pendingApproval} awaiting evaluation`
           : row.overdue > 0
             ? `${row.overdue} overdue requirement${row.overdue === 1 ? "" : "s"}`
             : certificateIssue
               ? `${certificateIssue.taskBookTitle}: ${certificateIssue.reason}`
+              : qualificationIssue
+                ? qualificationIssue
+                : competencyIssue
+                  ? competencyIssue
+                : escalatedSubmission
+                  ? `Evaluation waiting since ${escalatedSubmission.toLocaleDateString()}`
             : row.activeAssignments > 0 && row.maxStalledDays >= 14
               ? `No recorded activity for ${row.maxStalledDays} days`
               : row.activeAssignments === 0
@@ -419,6 +517,12 @@ export async function getDashboard(ctx: AuthContext) {
             ? { label: "Open overdue work", href: memberProgressPath(row.id) }
             : certificateIssue
               ? { label: "Review certificate", href: certificateIssue.href }
+            : qualificationIssue
+              ? { label: "Review qualification", href: "/qualifications" }
+              : competencyIssue
+                ? { label: "Review member training", href: memberProgressPath(row.id) }
+              : escalatedSubmission
+                ? { label: "Review evaluation", href: "/evaluate" }
             : row.activeAssignments > 0 && row.maxStalledDays >= 14
               ? { label: "Follow up", href: memberProgressPath(row.id) }
               : row.activeAssignments === 0
@@ -439,6 +543,7 @@ export async function getDashboard(ctx: AuthContext) {
         pendingApproval: row.pendingApproval,
         overdue: row.overdue,
         stalledDays: row.maxStalledDays,
+        evaluationEscalated: !!escalatedSubmission,
         nextRequirement: row.nextRequirement,
         attentionReason,
         nextActionLabel: nextAction.label,
@@ -484,6 +589,14 @@ export async function getDashboard(ctx: AuthContext) {
         ? Math.round(assignmentRows.reduce((sum, row) => sum + row.progress.percent, 0) / assignmentRows.length)
         : 0,
     },
+    departmentReadiness: readiness,
+    evaluatorCoverage: {
+      approvedEvaluatorCount: evaluatorMembers.length,
+      pendingCount: evaluatorPending.length,
+      escalatedCount: escalatedEvaluations.length,
+      escalationHours,
+      oldestPendingAt: oldestPendingEvaluation,
+    },
     memberProgress,
     today: {
       joinRequests: pendingJoinRequests.slice(0, 8).map((membership) => ({
@@ -492,6 +605,7 @@ export async function getDashboard(ctx: AuthContext) {
         memberName: membership.user.name,
         taskBookTitle: "Department membership",
         reason: `Join-code request · ${membership.user.email}`,
+        submittedAt: membership.joinedAt,
         href: "/enrollment",
       })),
       joinRequestTotal: pendingJoinRequests.length,
@@ -510,7 +624,9 @@ export async function getDashboard(ctx: AuthContext) {
       })),
       signOffTotal: completions.length,
       followUp,
+      followUpTotal: followUpAll.length,
       dueSoon,
+      dueSoonTotal: dueSoonAll.length,
       certificates: certificateAttention.slice(0, 8),
       certificateTotal: certificateAttention.length,
     },

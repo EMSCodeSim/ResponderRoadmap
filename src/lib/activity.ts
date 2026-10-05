@@ -10,7 +10,7 @@ export function activityText(type: string, metadata: Record<string, unknown>, ac
     case "REQUIREMENT_SUBMITTED":
       return `${member || actor} requested evaluation for ${requirement || "a requirement"}`;
     case "REQUIREMENT_SIGNED":
-      return `${actor} signed ${requirement}${title ? ` (${title})` : ""}`;
+      return `${actor} ${String(metadata.result || "APPROVED") === "RETURNED" ? "returned" : "approved"} ${requirement || "a requirement"}${title ? ` (${title})` : ""} for ${member || "a member"}`;
     case "REQUIREMENT_RETURNED":
       return `${actor} returned ${requirement} to ${member}`;
     case "CREDENTIAL_UPLOADED":
@@ -33,6 +33,18 @@ export function activityText(type: string, metadata: Record<string, unknown>, ac
       return `${actor} added a training note`;
     case "MEMBER_JOINED":
       return `${member || actor} joined the department`;
+    case "MEMBER_APPROVED":
+      return `${actor} approved ${member || "a member"} to join the department`;
+    case "MEMBER_REJECTED":
+      return `${actor} declined ${member || "a member"}'s department request`;
+    case "EVALUATOR_STATUS_UPDATED":
+      return `${actor} updated evaluator access for ${String(metadata.evaluatorName || "a member")}`;
+    case "EVALUATIONS_REASSIGNED":
+      return `${actor} reassigned ${String(metadata.count || 0)} evaluation${Number(metadata.count) === 1 ? "" : "s"} to ${String(metadata.toEvaluator || "an evaluator")}`;
+    case "CLASS_MEMBER_REGISTERED":
+      return `${String(metadata.memberName || member || "A member")} registered for ${title || "a class"}`;
+    case "CLASS_GUEST_REGISTERED":
+      return `A guest registered for ${title || "a class"}`;
     default:
       return `${actor} recorded ${type.toLowerCase().replaceAll("_", " ")}`;
   }

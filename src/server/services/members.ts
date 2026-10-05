@@ -451,6 +451,7 @@ export async function approveMembership(ctx: AuthContext, membershipId: string, 
   assertPermission(ctx, "members.write");
   const membership = await prisma.departmentMembership.findFirst({
     where: { id: membershipId, departmentId: ctx.departmentId },
+    include: { user: { select: { name: true } } },
   });
   if (!membership) throw new HttpError(404, "Member not found.");
   const updated = await prisma.$transaction(async (tx) => {
@@ -461,6 +462,11 @@ export async function approveMembership(ctx: AuthContext, membershipId: string, 
     });
   });
   await writeAudit(ctx, approve ? "membership.approved" : "membership.rejected", "DepartmentMembership", membership.id, {});
+  await writeActivity(ctx.departmentId, approve ? "MEMBER_APPROVED" : "MEMBER_REJECTED", {
+    userId: ctx.userId,
+    referenceId: membership.id,
+    metadata: { actorName: ctx.name, memberName: membership.user.name },
+  });
   await notifyUser({
     departmentId: ctx.departmentId,
     userId: membership.userId,
