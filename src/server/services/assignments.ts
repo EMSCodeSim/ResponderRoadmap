@@ -369,10 +369,7 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
           escalationHours,
         });
       }
-      if (ctx.role === "EVALUATOR") {
-        if (!assignedReviewerId) return true;
-        return assignedReviewerId === ctx.userId;
-      }
+      if (ctx.role === "EVALUATOR") return true;
       return false;
     })
     .map((item) => {
@@ -416,6 +413,9 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
         waitingHours,
         escalationHours,
         escalated: isEvaluationOverdue({ status: item.status, submittedAt: item.submittedAt, escalationHours }),
+        assignedToMe: (expectedLevel === "SUPERVISOR" ? item.assignment.supervisorId : item.requestedEvaluatorId || item.assignment.evaluatorId) === ctx.userId,
+        assignedElsewhere: !!(expectedLevel === "SUPERVISOR" ? item.assignment.supervisorId : item.requestedEvaluatorId || item.assignment.evaluatorId) &&
+          (expectedLevel === "SUPERVISOR" ? item.assignment.supervisorId : item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId,
         followUpOnly: expectedLevel === "EVALUATOR" &&
           (ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR") &&
           (item.requestedEvaluatorId || item.assignment.evaluatorId) !== ctx.userId &&
