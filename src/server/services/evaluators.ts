@@ -4,6 +4,7 @@ import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { assignmentRecordPath } from "@/lib/routes";
 import { notifyUser } from "@/server/services/inbox";
+import { resolveEvaluationEscalationHours } from "@/lib/evaluation-routing";
 
 const REVIEWER_ROLES = ["INSTRUCTOR", "EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"];
 const EVALUATOR_STATUSES = new Set(["ROLE_DEFAULT", "APPROVED", "SUSPENDED"]);
@@ -58,7 +59,7 @@ export async function listEvaluatorManagement(ctx: AuthContext) {
     where: { id: ctx.departmentId },
     select: { evaluationEscalationHours: true },
   });
-  const escalationHours = Math.max(1, department?.evaluationEscalationHours || 48);
+  const escalationHours = resolveEvaluationEscalationHours(department?.evaluationEscalationHours);
   const escalationCutoff = new Date(Date.now() - escalationHours * 3_600_000);
   const people = await prisma.departmentMembership.findMany({
     where: {
