@@ -110,7 +110,7 @@ async function readinessFor(ctx: AuthContext, membershipId: string) {
     const requirementsMet = !missingCredentials.length && !missingTaskBooks.length && !missingRequirements.length;
     const authorization = authByRole.get(role.id);
     const status = authorization?.status === "APPROVED" && requirementsMet ? "APPROVED" : authorization?.status === "APPROVED" ? "RENEWAL_REQUIRED" : authorization?.status || (requirementsMet ? "AWAITING_APPROVAL" : "IN_TRAINING");
-    const evidence = [
+    const evidence: QualificationEvidenceItem[] = [
       ...credentialIds.map(id => {
         const credential = validCreds.find(c => c.credentialTypeId === id);
         return { type: "CREDENTIAL", id, label: credentialNames.get(id) || credential?.credentialName || "Credential", complete: Boolean(credential), detail: credential ? (credential.doesNotExpire ? "Verified · does not expire" : `Verified · expires ${credential.expirationDate?.toISOString().slice(0, 10)}`) : "Current verified credential required", supportId: credential?.id || null };
