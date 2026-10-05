@@ -151,13 +151,13 @@ function AssignmentsInner() {
   async function load() {
     const [assignmentRows, signOffs, memberPayload, taskBooks, session] = await Promise.all([
       api<Assignment[]>("assignments"),
-      api<QueueItem[]>("sign-offs"),
+      api<{ items: QueueItem[] } | QueueItem[]>("sign-offs?view=needs_me"),
       api<{ members: MemberOption[] }>("members"),
       api<Array<{ id: string; title: string; status: string }>>("task-books"),
       api<SessionInfo>("auth/me"),
     ]);
     setRows(assignmentRows);
-    setQueue(signOffs);
+    setQueue(Array.isArray(signOffs) ? signOffs : signOffs.items);
     setMembers(memberPayload.members);
     setBooks(taskBooks);
     setSessionRole(session.role);
