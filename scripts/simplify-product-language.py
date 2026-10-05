@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Guarded presentation cleanup: preserve routes, permissions, APIs, and stored data.
 p = Path('src/components/AppShell.tsx')
 s = p.read_text()
 
