@@ -5,7 +5,7 @@ export type PortalNavItem = { href: string; label: string; icon: PortalNavIcon; 
 export type PortalNavigation = { nav: PortalNavItem[]; inboxVisible: boolean; settingsVisible: boolean };
 
 const TRAINING_PATHS = ["/task-books", "/my-task-books", "/task-book-progress"];
-const ASSIGNMENT_PATHS = ["/assignments", "/single-assignments", "/training-assignments", "/my-assignments"];
+const ASSIGNMENT_PATHS = ["/assignment-library", "/assignments", "/single-assignments", "/training-assignments", "/my-assignments"];
 
 export function getPortalNavigation(role: Role | null, permissions: string[]): PortalNavigation {
   const allowed = new Set(permissions);
@@ -37,7 +37,7 @@ export function getPortalNavigation(role: Role | null, permissions: string[]): P
     nav: [
       allowed.has("dashboard") ? home : null,
       make("/task-books", "Task Books", "book", "task-books", "TRAINING", TRAINING_PATHS),
-      make("/assignments", "Assignments", "assignment", "training-assignments", "TRAINING", ASSIGNMENT_PATHS),
+      make("/assignment-library", "Assignments", "assignment", "training-assignments", "TRAINING", ASSIGNMENT_PATHS),
       make("/classes", "Training Events", "events", "classes", "TRAINING"),
       make("/members", "People", "people", "members", "COMPETENCY", ["/members", "/enrollment", "/evaluators"]),
       make("/evaluate", "Evaluations", "evaluation", "evaluate", "COMPETENCY"),
