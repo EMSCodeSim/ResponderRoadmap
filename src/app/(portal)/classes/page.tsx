@@ -113,8 +113,8 @@ export default function ClassesPage() {
     <div>
       <PageHeader
         kicker="Training delivery"
-        title="Training & class rosters"
-        description="Replace paper training sheets: create training, capture attendance by roster or QR, complete the record, and export it for your RMS when needed."
+        title="Training Events"
+        description="Manage classes, drills, attendance, QR rosters, evaluations, training sheets, and RMS handoff."
         actions={<div className="flex flex-wrap gap-2"><Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Training templates</Link>{setup ? <><Button onClick={() => openTraining(true)} className="md:hidden">Quick training</Button><Button onClick={() => openTraining(false)}>Create training</Button></> : null}</div>}
       />
       <Flash message={error} tone="danger" />

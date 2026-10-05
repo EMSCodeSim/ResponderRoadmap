@@ -295,7 +295,7 @@ function AssignmentsInner() {
       <PageHeader
         kicker="Assignments"
         title="Assignments"
-        description="Create Assignments, assign published Task Books, and open records for evaluation. Nothing is complete until required human approval."
+        description="Assign a Task Book or single requirement to a person or group, set due dates, and track who is expected to complete it. Open submitted work for evaluation."
         actions={canAssign ? (
           <div className="flex flex-wrap gap-2">
             <Link href="/assignments/new"><Button>Create Assignment</Button></Link>

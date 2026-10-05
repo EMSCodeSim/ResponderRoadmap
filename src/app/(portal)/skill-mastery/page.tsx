@@ -135,22 +135,22 @@ export default function SkillMasteryPage() {
   }
 
   if (!report) {
-    return <div><PageHeader kicker="Department training" title="Skill Mastery" description="Loading graded skill retention data…" /><Flash message={error} tone="danger" /></div>;
+    return <div><PageHeader kicker="Department insights" title="Training Insights" description="Loading competency trends…" /><Flash message={error} tone="danger" /></div>;
   }
 
   return (
     <div>
       <PageHeader
-        kicker="Department training"
-        title="Skill Mastery"
-        description="See whether members can still perform key skills over time — not just whether training happened. Roadmap combines graded evaluator attempts and class skill checkoffs into competency-specific retention trends."
+        kicker="Department insights"
+        title="Training Insights"
+        description="Review competency trends over time using evaluator observations and class skill checkoffs. Training completion records activity; competency trends summarize observed performance."
       />
       <Flash message={error} tone="danger" />
       <Flash message={message} tone="current" />
 
       <Card className="mb-5 p-4">
         <p className="text-sm text-navy-600">
-          <strong>Skill Mastery is training evidence, not a personnel rating.</strong> Results stay tied to the specific skill, evaluator observation, and date. Roadmap does not create one overall firefighter score.
+          <strong>Competency evidence is not a personnel rating.</strong> Results stay tied to the skill, evaluator observation, and date. Roadmap does not create one overall firefighter score.
         </p>
       </Card>
 

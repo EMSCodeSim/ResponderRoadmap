@@ -119,6 +119,9 @@ type Dashboard = {
   }>;
 };
 
+type MemberQualification = { id: string; name: string; status: string; requirementsMet: boolean; authorization: { restriction?: string | null; reviewDate?: string | null } | null };
+type MemberCredential = { id: string; credentialName: string; expirationDate: string | null; doesNotExpire: boolean; health?: string; verificationStatus?: string };
+
 export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,12 +150,12 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         kicker="Home"
-        title={data.instructor ? "My Classes" : data.personal ? "What do I need to do next?" : "Today’s Training Priorities"}
+        title={data.instructor ? "My Training Events" : data.personal ? "My Training" : "Today’s Training Priorities"}
         description={
           data.instructor
             ? "Teach, take attendance, evaluate skills, and finish the training record."
-            : data.personal
-              ? "Needs action, in progress, waiting, and recently completed work."
+              : data.personal
+              ? "Your next action, pending evaluations, progress, and qualifications."
               : "Start with the work that needs action today, then check overall team readiness."
         }
         actions={
@@ -174,7 +177,7 @@ export default function DashboardPage() {
           <OfficerToday data={data} onRefresh={loadDashboard} />
           <ActivationChecklist data={data} />
 
-          <DepartmentReadiness readiness={data.departmentReadiness} legacyReadiness={data.summary.readinessPercent ?? 0} />
+          <DepartmentReadiness readiness={data.departmentReadiness} />
           <TrainingGapsHome />
           {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
           <EvaluatorCoverage coverage={data.evaluatorCoverage} />
@@ -182,18 +185,6 @@ export default function DashboardPage() {
         </>
       )}
 
-      {data.personal ? <Card className="mt-6 p-5">
-        <h2 className="display text-2xl font-bold">Recent Activity</h2>
-        <ul className="mt-3 divide-y divide-navy-100">
-          {data.recentActivity.slice(0, 5).map((event) => (
-            <li key={event.id} className="flex flex-wrap items-baseline justify-between gap-2 py-3">
-              <span>{activityText(event.type, event.metadata, event.actorName)}</span>
-              <span className="text-xs text-navy-400">{relativeTime(event.timestamp)}</span>
-            </li>
-          ))}
-          {data.recentActivity.length === 0 ? <li className="py-3 text-sm text-navy-500">No recent department activity.</li> : null}
-        </ul>
-      </Card> : null}
     </div>
   );
 }
@@ -233,7 +224,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
       tone: "border-sky-300 bg-sky-50/60",
     },
     {
-      title: "Review now",
+      title: "Evaluations",
       count: today.signOffTotal,
       empty: "No evaluations are waiting.",
       href: "/evaluate",
@@ -243,7 +234,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
       tone: "border-fire/30 bg-fire/5",
     },
     {
-      title: "Certificates",
+      title: "Credentials",
       count: today.certificateTotal,
       empty: "No certificate records need attention.",
       href: "/certifications",
@@ -251,16 +242,6 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
       action: "Review",
       kind: "link" as const,
       tone: "border-amber-300 bg-amber-50/60",
-    },
-    {
-      title: "Follow up",
-      count: today.followUpTotal ?? today.followUp.length,
-      empty: "No stalled or overdue work.",
-      href: "/assignments",
-      items: today.followUp,
-      action: "Open",
-      kind: "link" as const,
-      tone: "border-navy-200 bg-white",
     },
     {
       title: "Due soon",
@@ -274,7 +255,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
     },
   ];
   const total = groups.reduce((sum, group) => sum + group.count, 0);
-  const urgent = today.joinRequestTotal + today.signOffTotal + today.certificateTotal + (today.followUpTotal ?? today.followUp.length);
+  const urgent = today.joinRequestTotal + today.signOffTotal + today.certificateTotal;
 
   return <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
     <Card className="p-5">
@@ -285,7 +266,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
             {urgent > 0 ? `${urgent} action${urgent === 1 ? "" : "s"} need you today` : total > 0 ? `${total} upcoming item${total === 1 ? "" : "s"} to watch` : "Your department is caught up"}
           </h2>
           <p className="mt-1 text-sm text-navy-600">
-            {urgent > 0 ? "Work left to right: member approvals, evaluations, certificate records, then stalled or overdue members. Due-soon work is shown for awareness, not counted as an action until it needs intervention." : total > 0 ? "Nothing requires intervention right now. Due-soon work is listed so you can stay ahead." : "No evaluations, certificate issues, overdue follow-up, or upcoming deadlines need action right now."}
+            {urgent > 0 ? "Start with member approvals, evaluations, and credentials. Upcoming deadlines are listed so you can stay ahead." : total > 0 ? "Nothing requires intervention right now. Upcoming deadlines are listed so you can stay ahead." : "No member approvals, evaluations, credential issues, or upcoming deadlines need action right now."}
           </p>
         </div>
         <Link href="/assignments" className="text-sm font-semibold text-fire underline">View all assignments</Link>
@@ -335,7 +316,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
                             <div className="mt-0.5 text-sm text-navy-600">{item.requirementTitle ?? item.taskBookTitle}</div>
                             {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
                             {item.dueDate ? <div className="mt-1 text-xs text-navy-500">Due {new Date(item.dueDate).toLocaleDateString()}</div> : null}
-                            {item.submittedAt && (group.title === "Review now" || group.title === "Member approvals") ? <div className="mt-1 text-xs text-navy-500">Submitted {relativeTime(item.submittedAt)}</div> : null}
+                            {item.submittedAt && (group.title === "Evaluations" || group.title === "Member approvals") ? <div className="mt-1 text-xs text-navy-500">Submitted {relativeTime(item.submittedAt)}</div> : null}
                           </div>
                           <span className="shrink-0 text-xs font-bold text-fire">{group.action} →</span>
                         </div>
@@ -346,7 +327,7 @@ function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => P
               </ul>
             )}
             <Link href={group.href} className="mt-3 inline-block text-sm font-semibold text-fire underline">
-              View all {group.count}
+              Open {group.title}
             </Link>
           </div>
         ))}
@@ -379,7 +360,7 @@ function TrainingGapsHome() {
         title: row.topic,
         kind: "Competency signal",
         detail: `${row.membersNeedingFollowUp} member${row.membersNeedingFollowUp === 1 ? " has" : "s have"} a documented evaluation follow-up signal in ${row.templateTitle}. Targeted practice and reassessment can confirm improvement.`,
-        action: "Review evaluation signal",
+        action: "View Analysis",
         href: "/reports?type=training-gaps",
         impact: row.membersNeedingFollowUp * 3,
       })) ?? []),
@@ -390,7 +371,7 @@ function TrainingGapsHome() {
         title: row.category.replaceAll("_", " "),
         kind: "Frequency gap",
         detail: `${row.membersBelowTarget} of ${row.membersExpected} members are below the ${row.targetHours}-hour annual target. Recorded frequency is below the department expectation.`,
-        action: "Assign training",
+        action: "Assign Training",
         href: createAssignmentPath(),
         impact: row.membersBelowTarget * 2,
       })) ?? []),
@@ -401,7 +382,7 @@ function TrainingGapsHome() {
         title: row.topic,
         kind: "Exposure gap",
         detail: `${row.membersUncovered} of ${row.expectedMembers} expected members have no practice recorded for ${row.topic} this year. This is a record gap, not proof that practice did not occur.`,
-        action: "Schedule drill",
+        action: "Schedule Training Event",
         href: "/classes",
         impact: row.membersUncovered,
       })) ?? []),
@@ -414,7 +395,7 @@ function TrainingGapsHome() {
         <h2 className="display mt-1 text-2xl font-bold">What should we train on next?</h2>
         <p className="mt-1 max-w-3xl text-sm text-navy-600">Based on department training and evaluation records, these areas may deserve attention next. A training opportunity does not automatically mean a member is not ready.</p>
       </div>
-      <Link href="/reports?type=training-gaps"><Button variant="secondary">View training analysis →</Button></Link>
+      <Link href="/skill-mastery"><Button variant="secondary">View Training Insights →</Button></Link>
     </div>
 
     {!report ? (
@@ -467,22 +448,22 @@ function InstructorHome({ data }: { data: Dashboard }) {
   const home = data.instructorHome;
   if (!home) return null;
   const next = home.nextClass;
-  const ClassRow = ({ item }: { item: InstructorClass }) => <Link href={item.href} className="block rounded-md border border-navy-200 p-4 hover:border-fire"><div className="flex flex-wrap items-start justify-between gap-2"><div><div className="font-bold">{item.title}</div><div className="mt-1 text-sm text-navy-500">{new Date(item.startsAt).toLocaleString()}{item.location ? ` · ${item.location}` : ""}</div></div><span className="text-sm font-semibold text-fire">Open Class →</span></div><div className="mt-3 text-xs text-navy-500">{item.rosterCount} registered · {item.presentCount} present · {item.completeCount} documented</div></Link>;
+  const ClassRow = ({ item }: { item: InstructorClass }) => <Link href={item.href} className="block rounded-md border border-navy-200 p-4 hover:border-fire"><div className="flex flex-wrap items-start justify-between gap-2"><div><div className="font-bold">{item.title}</div><div className="mt-1 text-sm text-navy-500">{new Date(item.startsAt).toLocaleString()}{item.location ? ` · ${item.location}` : ""}</div></div><span className="text-sm font-semibold text-fire">Open Event →</span></div><div className="mt-3 text-xs text-navy-500">{item.rosterCount} registered · {item.presentCount} present · {item.completeCount} documented</div></Link>;
   return <div className="space-y-6">
-    {next ? <Card className="border-fire/30 p-5"><div className="kicker">Next class</div><h2 className="display mt-1 text-2xl font-bold">{next.title}</h2><p className="mt-2 text-sm text-navy-600">{new Date(next.startsAt).toLocaleString()}{next.location ? ` · ${next.location}` : ""}</p><p className="mt-2 text-sm text-navy-500">{next.rosterCount} registered · {next.presentCount} present · {next.completeCount} documented</p><Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">Open Class →</Link></Card> : <Card className="p-5"><h2 className="display text-2xl font-bold">No upcoming classes</h2><p className="mt-2 text-sm text-navy-500">Create a class when you are ready to teach, take attendance, or use a QR roster.</p><Link href="/classes" className="mt-4 inline-flex text-sm font-semibold text-fire underline">Create Class</Link></Card>}
+    {next ? <Card className="border-fire/30 p-5"><div className="kicker">Next Training Event</div><h2 className="display mt-1 text-2xl font-bold">{next.title}</h2><p className="mt-2 text-sm text-navy-600">{new Date(next.startsAt).toLocaleString()}{next.location ? ` · ${next.location}` : ""}</p><p className="mt-2 text-sm text-navy-500">{next.rosterCount} registered · {next.presentCount} present · {next.completeCount} documented</p><Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">Open Event →</Link></Card> : <Card className="p-5"><h2 className="display text-2xl font-bold">No upcoming Training Events</h2><p className="mt-2 text-sm text-navy-500">Create an event when you are ready to teach, take attendance, or use a QR roster.</p><Link href="/classes" className="mt-4 inline-flex text-sm font-semibold text-fire underline">Create Training Event</Link></Card>}
     {home.inProgress.length ? <section><div className="kicker">Teaching now</div><h2 className="display mt-1 text-2xl font-bold">In Progress</h2><div className="mt-3 grid gap-3 lg:grid-cols-2">{home.inProgress.map((item) => <ClassRow key={item.id} item={item} />)}</div></section> : null}
-    <section><div className="flex items-end justify-between gap-3"><div><div className="kicker">Instructor workspace</div><h2 className="display mt-1 text-2xl font-bold">Upcoming Classes</h2></div><Link href="/classes" className="text-sm font-semibold text-fire underline">View all my classes</Link></div>{home.upcoming.length ? <div className="mt-3 grid gap-3 lg:grid-cols-2">{home.upcoming.map((item) => <ClassRow key={item.id} item={item} />)}</div> : <p className="mt-3 text-sm text-navy-500">No upcoming classes.</p>}</section>
+    <section><div className="flex items-end justify-between gap-3"><div><div className="kicker">Instructor workspace</div><h2 className="display mt-1 text-2xl font-bold">Upcoming Training Events</h2></div><Link href="/classes" className="text-sm font-semibold text-fire underline">View all my events</Link></div>{home.upcoming.length ? <div className="mt-3 grid gap-3 lg:grid-cols-2">{home.upcoming.map((item) => <ClassRow key={item.id} item={item} />)}</div> : <p className="mt-3 text-sm text-navy-500">No upcoming Training Events.</p>}</section>
     {home.recentlyCompleted.length ? <section><div className="kicker">Records</div><h2 className="display mt-1 text-2xl font-bold">Recently Completed</h2><div className="mt-3 grid gap-3 lg:grid-cols-2">{home.recentlyCompleted.map((item) => <ClassRow key={item.id} item={item} />)}</div></section> : null}
   </div>;
 }
 
-function DepartmentReadiness({ readiness, legacyReadiness }: { readiness?: NonNullable<Dashboard["departmentReadiness"]>; legacyReadiness: number }) {
+function DepartmentReadiness({ readiness }: { readiness?: NonNullable<Dashboard["departmentReadiness"]> }) {
   return <Card className="p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <div className="kicker">KNOW · Department Readiness</div>
         <h2 className="display mt-1 text-2xl font-bold">Can people perform their assigned roles?</h2>
-        <p className="mt-1 max-w-3xl text-sm text-navy-600">Role readiness checks explicit authorizations against required credentials, Task Books, competencies, and review dates. Members without an assigned role are not counted as ready or not ready.</p>
+        <p className="mt-1 max-w-3xl text-sm text-navy-600">Readiness checks department authorization against its required credentials, Task Books, and approved skill requirements. Members without an assigned role are not counted.</p>
       </div>
       <Link href="/qualifications" className="text-sm font-semibold text-fire underline">View qualifications →</Link>
     </div>
@@ -498,7 +479,7 @@ function DepartmentReadiness({ readiness, legacyReadiness }: { readiness?: NonNu
           <Link href="/qualifications" className="rounded-md border border-amber-200 bg-amber-50/50 p-3 hover:border-amber-400"><div className="text-xs font-semibold text-navy-500">ATTENTION · approval or review due</div><div className="mt-1 text-2xl font-bold text-navy-900">{readiness.attention}</div></Link>
           <Link href="/qualifications" className="rounded-md border border-rose-200 bg-rose-50/50 p-3 hover:border-rose-400"><div className="text-xs font-semibold text-navy-500">NOT READY · missing evidence or restricted</div><div className="mt-1 text-2xl font-bold text-navy-900">{readiness.notReady}</div></Link>
         </div>
-        <p className="mt-3 text-xs text-navy-500">{readiness.assigned} explicit member-to-role assignment{readiness.assigned === 1 ? "" : "s"} assessed across {readiness.configuredRoleCount} configured role{readiness.configuredRoleCount === 1 ? "" : "s"}. Legacy training progress: {legacyReadiness}% (not a qualification measure).</p>
+        <p className="mt-3 text-xs text-navy-500">{readiness.assigned} member-to-role assignment{readiness.assigned === 1 ? "" : "s"} assessed across {readiness.configuredRoleCount} configured role{readiness.configuredRoleCount === 1 ? "" : "s"}. Training completion is not the same as demonstrated competency or department authorization.</p>
       </>
     )}
     {readiness?.unconfiguredRoleCount ? <p className="mt-2 text-xs text-amber-800">{readiness.unconfiguredRoleCount} other role{readiness.unconfiguredRoleCount === 1 ? " has" : "s have"} no credential, Task Book, or competency requirement and are excluded.</p> : null}
@@ -541,7 +522,7 @@ function PeopleToFollowUp({ rows }: { rows: NonNullable<Dashboard["memberProgres
   return <Card className="mt-6 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <div className="kicker">Follow-up</div>
+        <div className="kicker">PEOPLE · Follow-up</div>
         <h2 className="display mt-1 text-2xl font-bold">People to Follow Up With</h2>
         <p className="mt-1 text-sm text-navy-500">Only members with a meaningful training or evaluation signal appear here. The full roster stays on Members.</p>
       </div>
@@ -556,9 +537,9 @@ function PeopleToFollowUp({ rows }: { rows: NonNullable<Dashboard["memberProgres
           <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div>
               <Link href={row.href} className="font-semibold text-navy-950 hover:text-fire hover:underline">{row.name}</Link>
-              <div className="mt-1 text-sm font-medium text-navy-700">{row.attentionReason}</div>
-              <div className="mt-1 text-xs text-navy-600">{row.currentWork}</div>
-              <div className="mt-1 text-xs text-navy-500">{row.lastActivity ? relativeTime(row.lastActivity) : "No recorded activity"}{row.dueDate ? ` · Due ${new Date(row.dueDate).toLocaleDateString()}` : ""}</div>
+              <div className="mt-1 text-sm font-medium text-navy-700">{followUpSummary(row).count} item{followUpSummary(row).count === 1 ? "" : "s"} need attention</div>
+              <div className="mt-1 text-xs text-navy-600">{followUpSummary(row).detail}</div>
+              <div className="mt-1 text-xs text-navy-500">Last meaningful activity {row.lastActivity ? relativeTime(row.lastActivity) : "not recorded"}</div>
             </div>
             <Link href={row.nextActionHref} className="inline-flex min-h-10 items-center rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-fire hover:border-fire">{row.nextActionLabel}</Link>
           </li>
@@ -568,58 +549,65 @@ function PeopleToFollowUp({ rows }: { rows: NonNullable<Dashboard["memberProgres
   </Card>;
 }
 
+function followUpSummary(row: NonNullable<Dashboard["memberProgress"]>[number]) {
+  const details = [
+    row.overdue > 0 ? `${row.overdue} overdue` : "",
+    row.stalledDays >= 30 ? `stalled ${row.stalledDays} days` : "",
+    row.evaluationEscalated ? "evaluation waiting past target" : "",
+  ].filter(Boolean);
+  return {
+    count: Math.max(1, row.overdue + Number(row.stalledDays >= 30) + Number(row.evaluationEscalated)),
+    detail: details.length ? details.join(" · ") : row.attentionReason,
+  };
+}
+
 function MemberHome({ data }: { data: Dashboard }) {
   const work = data.work;
   const next = data.doThisNext;
+  const [qualifications, setQualifications] = useState<MemberQualification[]>([]);
+  const [credentials, setCredentials] = useState<MemberCredential[]>([]);
+  const [qualificationsLoaded, setQualificationsLoaded] = useState(false);
+  const [credentialsLoaded, setCredentialsLoaded] = useState(false);
+  useEffect(() => {
+    Promise.allSettled([
+      api<{ roles: MemberQualification[] }>("app/qualifications"),
+      api<{ credentials: MemberCredential[] }>("app/certifications"),
+    ]).then(([qualificationResult, credentialResult]) => {
+      if (qualificationResult.status === "fulfilled") setQualifications(qualificationResult.value.roles);
+      if (credentialResult.status === "fulfilled") setCredentials(credentialResult.value.credentials);
+      setQualificationsLoaded(true);
+      setCredentialsLoaded(true);
+    });
+  }, []);
   return (
-    <div className="space-y-6">
-      <Card className="border-navy-200 p-5">
-        <div className="kicker">My profile</div>
-        <h2 className="display mt-1 text-2xl font-bold">Keep your certifications current</h2>
-        <p className="mt-2 text-sm text-navy-500">Finish your contact information and add certifications with expiration dates so your Training Officer has an accurate record.</p>
-        <Link href="/settings" className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 text-sm font-semibold text-white">Complete My Profile →</Link>
-      </Card>
+    <div className="space-y-5">
       {next ? <Card className="border-fire/30 p-5">
-        <div className="kicker">Do This Next</div>
+        <div className="kicker">DO NEXT</div>
         <h2 className="display mt-1 text-2xl font-bold">{next.title}</h2>
         <p className="mt-2 text-sm font-semibold text-navy-700">{next.detail}</p>
         <div className="mt-4 max-w-md"><ProgressBar value={next.percent} /></div>
         <p className="mt-1 text-xs text-navy-500">{next.percent}% approved{next.dueDate ? ` · Due ${new Date(next.dueDate).toLocaleDateString()}` : ""}</p>
-        <Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 text-sm font-semibold text-white">Continue Training →</Link>
-      </Card> : <Card className="p-5"><div className="kicker">My Training</div><h2 className="display mt-1 text-2xl font-bold">You&apos;re caught up</h2><p className="mt-2 text-sm text-navy-500">Nothing needs your action right now.</p></Card>}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <CountCard href="/my-task-books" label="Active Training" value={data.summary.activeTaskBooks} />
-        <CountCard href="/my-task-books" label="Waiting for Evaluator" value={data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff} warn={(data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff) > 0} />
-        <CountCard href="/my-task-books" label="Needs My Attention" value={data.summary.needsAttention ?? data.summary.overdueRequirements} danger={(data.summary.needsAttention ?? data.summary.overdueRequirements) > 0} />
+        <Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 text-sm font-semibold text-white">Continue →</Link>
+      </Card> : <Card className="p-5"><div className="kicker">DO NEXT</div><h2 className="display mt-1 text-2xl font-bold">You&apos;re caught up</h2><p className="mt-2 text-sm text-navy-500">Nothing needs your action right now.</p></Card>}
+      <Card className="p-5">
+        <h2 className="display text-xl font-bold">WAITING</h2>
+        {(work?.waiting ?? []).length ? <ul className="mt-2 divide-y divide-navy-100">{work?.waiting.map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3"><div><Link href={item.href} className="font-semibold text-navy-900 hover:text-fire">{item.title}</Link><p className="text-sm text-navy-500">Submitted · waiting for evaluator</p></div><span className="text-sm text-navy-600">{item.percent}%</span></li>)}</ul> : <p className="mt-2 text-sm text-navy-500">Nothing is waiting on an evaluator.</p>}
+      </Card>
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="display text-xl font-bold">MY PROGRESS</h2><Link href="/my-task-books" className="text-sm font-semibold text-fire underline">View all training →</Link></div>
+        {[...(work?.needsAction ?? []), ...(work?.inProgress ?? [])].length ? <ul className="mt-2 divide-y divide-navy-100">{[...(work?.needsAction ?? []), ...(work?.inProgress ?? [])].slice(0, 4).map((item) => <li key={item.id}><Link href={item.href} className="flex min-h-12 flex-wrap items-center justify-between gap-3 py-3 hover:text-fire"><span><span className="block font-semibold">{item.title}</span><span className="text-sm text-navy-500">{item.detail}</span></span><span className="w-full max-w-28"><ProgressBar value={item.percent} /></span></Link></li>)}</ul> : <p className="mt-2 text-sm text-navy-500">No active Task Books or assignments.</p>}
+        {(work?.completed ?? []).length ? <p className="mt-2 text-sm text-navy-500">{work?.completed.length} completed Task Book{work?.completed.length === 1 ? "" : "s"} · <Link href="/my-task-books" className="font-semibold text-fire underline">See completed work</Link></p> : null}
+      </Card>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="p-5"><h2 className="display text-xl font-bold">MY QUALIFICATIONS</h2><p className="mt-1 text-sm text-navy-500">Evaluations provide evidence; your department records authorization.</p>{qualifications.length ? <ul className="mt-3 divide-y divide-navy-100">{qualifications.slice(0, 5).map((item) => <li key={item.id} className="flex flex-wrap justify-between gap-2 py-3"><span className="font-semibold">{item.name}</span><span className="text-sm font-medium text-navy-700">{qualificationStatusLabel(item.status)}{item.authorization?.restriction ? ` · ${item.authorization.restriction}` : ""}</span></li>)}</ul> : <p className="mt-3 text-sm text-navy-500">{qualificationsLoaded ? "No department qualifications are recorded yet." : "Loading qualifications…"}</p>}</Card>
+        <Card className="p-5"><div className="flex items-center justify-between gap-2"><h2 className="display text-xl font-bold">CREDENTIALS</h2><Link href="/settings" className="text-sm font-semibold text-fire underline">Manage →</Link></div>{credentials.length ? <ul className="mt-3 divide-y divide-navy-100">{credentials.slice(0, 5).map((item) => <li key={item.id} className="flex flex-wrap justify-between gap-2 py-3"><span className="font-semibold">{item.credentialName}</span><span className="text-sm text-navy-600">{item.doesNotExpire ? "Does not expire" : item.expirationDate ? `Expires ${new Date(item.expirationDate).toLocaleDateString()}` : "Expiration not recorded"}</span></li>)}</ul> : <p className="mt-3 text-sm text-navy-500">{credentialsLoaded ? "No credentials have been shared with the department." : "Loading credentials…"}</p>}</Card>
       </div>
-      <WorkSection title="My Training" empty="No other active training." items={[...(work?.needsAction ?? []), ...(work?.inProgress ?? [])].filter((item) => item.id !== next?.id)} />
-      <WorkSection title="Waiting for Evaluator" empty="Nothing is waiting on someone else." items={work?.waiting ?? []} />
-      <WorkSection title="Recently Completed" empty="No recently completed work." items={(work?.completed ?? []).slice(0, 5)} />
     </div>
   );
 }
 
-function WorkSection({ title, empty, items }: { title: string; empty: string; items: WorkItem[] }) {
-  return (
-    <Card className="p-5">
-      <h2 className="display text-2xl font-bold">{title}</h2>
-      {items.length === 0 ? <p className="mt-3 text-sm text-navy-500">{empty}</p> : (
-        <ul className="mt-3 divide-y divide-navy-100">
-          {items.map((item) => (
-            <li key={item.id}>
-              <Link href={item.href} className="flex flex-wrap items-center justify-between gap-3 py-3 hover:text-fire">
-                <div>
-                  <div className="font-semibold">{item.title}</div>
-                  <div className="text-xs text-navy-500">{item.detail}</div>
-                </div>
-                <ProgressBar value={item.percent} />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
+function qualificationStatusLabel(status: string) {
+  return ({ APPROVED: "Approved", IN_TRAINING: "In Training", AWAITING_APPROVAL: "Awaiting Approval", RENEWAL_REQUIRED: "Renewal Required", RESTRICTED: "Restricted", NOT_STARTED: "Not Started" } as Record<string, string>)[status] ?? status.replaceAll("_", " ");
 }
 
 function MemberProgressTable({ rows }: { rows: NonNullable<Dashboard["memberProgress"]> }) {
@@ -736,16 +724,5 @@ function MemberProgressTable({ rows }: { rows: NonNullable<Dashboard["memberProg
         </>
       )}
     </Card>
-  );
-}
-
-function CountCard({ href, label, value, warn, danger }: { href: string; label: string; value: number; warn?: boolean; danger?: boolean }) {
-  return (
-    <Link href={href}>
-      <Card className="p-4 hover:border-navy-400">
-        <div className="kicker">{label}</div>
-        <div className={`mt-2 display text-4xl font-bold ${danger ? "text-danger" : warn ? "text-warn" : "text-navy-900"}`}>{value}</div>
-      </Card>
-    </Link>
   );
 }

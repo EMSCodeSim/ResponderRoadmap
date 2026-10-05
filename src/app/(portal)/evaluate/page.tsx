@@ -174,7 +174,7 @@ function EvaluateInner() {
       <WorkspaceTabs />
       <PageHeader
         kicker="Evaluator"
-        title="Needs My Evaluation"
+        title="Evaluations"
         description="Field-friendly sign-off. Open a task, mark the checklist, then sign with a large control."
       />
       {view === "queue" && groupOptions.length > 0 ? (

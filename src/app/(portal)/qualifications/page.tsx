@@ -168,8 +168,8 @@ export default function QualificationsPage() {
     <div className="space-y-6">
       <PageHeader
         kicker="Department authorization"
-        title="Qualifications / Who Can Do What"
-        description="Define department qualification roles, see readiness, and record explicit operational authorization. Certification or Task Book completion never grants authorization by itself."
+        title="Qualifications"
+        description="Define department roles, see readiness, and record explicit authorization. A current credential or completed Task Book alone does not grant department authorization."
       />
       <Flash message={error} tone="danger" />
       <Flash message={message} tone="current" />
