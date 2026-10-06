@@ -1,4 +1,4 @@
-import { computeAssignmentProgress } from "@/lib/progress";
+import { computeAssignmentProgress, requirementIsComplete } from "@/lib/progress";
 import { reviewStageForRequirement } from "@/lib/signoff";
 import { prisma } from "@/server/db";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
@@ -29,6 +29,7 @@ function parseEvaluationSteps(value: string): Array<{ id: string; text: string }
   }
 }
 
+/** Matches requirementIsComplete counting rules for mobile progress displays. */
 function effectiveRepetitionCount(completion: { status: string; repetitionCount: number } | null | undefined) {
   if (!completion) return 0;
   return Math.max(0, completion.repetitionCount, completion.status === "APPROVED" ? 1 : 0);
@@ -97,11 +98,7 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
     for (const id of prerequisiteIds) {
       const prerequisite = requirementById.get(id);
       const completion = completionByRequirement.get(id);
-      const complete = Boolean(
-        prerequisite &&
-          completion?.status === "APPROVED" &&
-          effectiveRepetitionCount(completion) >= Math.max(1, prerequisite.repetitionsRequired),
-      );
+      const complete = Boolean(prerequisite && requirementIsComplete(prerequisite, completion));
       if (!complete) blockedTitles.push(prerequisite?.title ?? "Required prerequisite");
     }
     return { prerequisiteIds, blockedTitles };
@@ -442,8 +439,8 @@ export async function submitRequirement(
     const blocked = prerequisites.some((id) => {
       const prerequisite = requirementById.get(id);
       const completion = completionByRequirement.get(id);
-      if (!prerequisite || !completion || completion.status !== "APPROVED") return true;
-      return effectiveRepetitionCount(completion) < Math.max(1, prerequisite.repetitionsRequired);
+      if (!prerequisite) return true;
+      return !requirementIsComplete(prerequisite, completion);
     });
     if (blocked) throw new HttpError(409, "Complete the prerequisite requirements before submitting this item.");
   }

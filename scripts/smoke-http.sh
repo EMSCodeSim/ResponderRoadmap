@@ -181,11 +181,18 @@ TO_QUEUE_BEFORE=$(json "$BASE/api/v1/sign-offs?view=needs_me")
 echo "$TO_QUEUE_BEFORE" | jq -e --arg id "$ALT_COMPLETION_ID" '[.data.items[] | select(.id == $id)] | length == 0' >/dev/null
 TO_WAITING=$(json "$BASE/api/v1/sign-offs?view=waiting")
 echo "$TO_WAITING" | jq -e --arg id "$ALT_COMPLETION_ID" '.data.items | any(.id == $id and .readOnly == true)' >/dev/null
+# Backend must reject Training Officer approval when they are not the assigned evaluator.
+# Follow-up / Waiting visibility is oversight only and must not create approval power.
+TO_BYPASS_CODE=$(curl -sS -b "$COOKIE" -c "$COOKIE" -H 'Content-Type: application/json' -o /tmp/rr-to-bypass.json -w '%{http_code}' -X POST "$BASE/api/v1/sign-offs/$ALT_COMPLETION_ID" -d '{"result":"APPROVED","notes":"Unauthorized Training Officer bypass attempt","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"EVALUATOR","attested":true}')
+[[ "$TO_BYPASS_CODE" == "403" ]] || { cat /tmp/rr-to-bypass.json; echo "Expected Training Officer bypass to be rejected with 403, got $TO_BYPASS_CODE"; exit 1; }
+ok 'Training Officer cannot approve evaluator-assigned work via API bypass'
+
+json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | $JQ '.data.session.role == "EVALUATOR"' >/dev/null
 ALT_APPROVED=$(json -X POST "$BASE/api/v1/sign-offs/$ALT_COMPLETION_ID" -d '{"result":"APPROVED","notes":"Authorized alternate evaluator approval","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"EVALUATOR","attested":true}')
 echo "$ALT_APPROVED" | $JQ '.data.status == "APPROVED"' >/dev/null
 COMPLETED=$(json "$BASE/api/v1/sign-offs?view=completed")
 echo "$COMPLETED" | jq -e --arg id "$ALT_COMPLETION_ID" '.data.items | any(.id == $id and .signedByName != null)' >/dev/null
-ok 'another authorized evaluator can sign without creating a Training Officer co-approval stage'
+ok 'authorized evaluator can sign without creating a Training Officer co-approval stage'
 
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.session.role == "MEMBER"' >/dev/null
 TO_DETAIL=$(json "$BASE/api/v1/assignments/$MEMBER_ASSIGNMENT_ID")

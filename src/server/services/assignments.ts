@@ -1,7 +1,7 @@
 import { prisma } from "@/server/db";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, canOpenAssignmentRecord, type AuthContext } from "@/server/permissions";
-import { computeAssignmentProgress } from "@/lib/progress";
+import { computeAssignmentProgress, requirementIsComplete } from "@/lib/progress";
 import { computeUpNext, deserializeRequirement, evaluationPasses, nextApprovalLevel } from "@/lib/taskbook";
 import { reviewerSeparationConflict, reviewStageForRequirement } from "@/lib/signoff";
 import { parseJsonArray, type SignOffResult } from "@/lib/constants";
@@ -588,6 +588,35 @@ export async function reviewSignOff(
   if (!roleCanSignLevel(ctx.role, level)) {
     throw new HttpError(403, `Your role cannot sign the ${level.replaceAll("_", " ").toLowerCase()} level.`);
   }
+  // Backend authorization must match workspace canAct rules. Training Officers may
+  // complete evaluator-stage work only when they are the assigned reviewer (or a
+  // configured supervisor stage). Follow-up / escalation never grants approval power.
+  const logicalStage = reviewStageForRequirement({
+    evaluatorSignOffRequired: completion.requirement.evaluatorSignOffRequired,
+    supervisorApprovalRequired: completion.requirement.supervisorApprovalRequired,
+    signOffs: completion.signOffs,
+    submittedAt: completion.submittedAt,
+  });
+  const assignedReviewerId = resolveAssignedReviewerId({
+    reviewStage: logicalStage,
+    requestedEvaluatorId: completion.requestedEvaluatorId,
+    assignmentEvaluatorId: completion.assignment.evaluatorId,
+    supervisorId: completion.assignment.supervisorId,
+  });
+  if (!evaluationIsActionableForViewer({
+    role: ctx.role,
+    userId: ctx.userId,
+    status: completion.status,
+    reviewStage: logicalStage,
+    assignedReviewerId,
+  })) {
+    throw new HttpError(
+      403,
+      logicalStage === "SUPERVISOR"
+        ? "This approval stage belongs to the assigned supervisor or training leadership required by the approval path."
+        : "Only the assigned or authorized evaluator for this stage can record the approval. Follow-up is not an approval stage.",
+    );
+  }
   const sameReviewerConflict = reviewerSeparationConflict({
     signOffs: completion.signOffs,
     reviewerId: ctx.userId,
@@ -788,8 +817,10 @@ export async function submitRequirement(
     throw new HttpError(409, "This requirement is already waiting for department review.");
   }
   const unmet = parsed.prerequisites.filter((id) => {
+    const prerequisite = assignment.version.sections.flatMap((section) => section.requirements).find((item) => item.id === id);
     const other = assignment.completions.find((item) => item.requirementId === id);
-    return other?.status !== "APPROVED";
+    if (!prerequisite) return true;
+    return !requirementIsComplete(prerequisite, other);
   });
   if (unmet.length) {
     throw new HttpError(400, "Complete the required prior tasks before submitting this one.");
@@ -971,8 +1002,10 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
       const parsed = deserializeRequirement(requirement as unknown as Record<string, unknown>);
       const completion = assignment.completions.find((item) => item.requirementId === requirement.id);
       const unmet = parsed.prerequisites.filter((id) => {
+        const prerequisite = requirements.find((item) => item.id === id);
         const other = assignment.completions.find((item) => item.requirementId === id);
-        return other?.status !== "APPROVED";
+        if (!prerequisite) return true;
+        return !requirementIsComplete(prerequisite, other);
       });
       const titleById = new Map(requirements.map((item) => [item.id, item.title]));
       return {
@@ -1017,7 +1050,8 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
           : null,
       };
     });
-    const complete = reqs.filter((req) => req.isRequired && req.completion?.status === "APPROVED").length;
+    // Section totals must use the same completion definition as assignment progress.
+    const complete = reqs.filter((req) => req.isRequired && requirementIsComplete(req, req.completion)).length;
     const total = reqs.filter((req) => req.isRequired).length;
     return { id: section.id, title: section.title, description: section.description, complete, total, requirements: reqs };
   });
