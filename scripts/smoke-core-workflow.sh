@@ -150,8 +150,13 @@ COMPLETION_B=$(echo "$SUBMIT_B" | jq -r '.data.submissionReceipt.receiptId // em
 [[ -n "$COMPLETION_B" ]]
 STAGE1=$(ev -X POST "$BASE/api/v1/sign-offs/$COMPLETION_B" -d '{"result":"APPROVED","notes":"Evaluator stage complete","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"EVALUATOR","attested":true}')
 echo "$STAGE1" | jq -e '.data.status == "SUBMITTED"' >/dev/null
-# Same reviewer cannot complete supervisor stage.
-status "$EVAL_COOKIE" 409 -X POST "$BASE/api/v1/sign-offs/$COMPLETION_B" -d '{"result":"APPROVED","notes":"same reviewer","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"SUPERVISOR","attested":true}'
+# Evaluator role cannot sign the supervisor stage (backend rejects before any credit is granted).
+status "$EVAL_COOKIE" 403 -X POST "$BASE/api/v1/sign-offs/$COMPLETION_B" -d '{"result":"APPROVED","notes":"same reviewer","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"SUPERVISOR","attested":true}'
+# After stage 1, requirement must still be incomplete.
+mem "$BASE/api/v1/assignments/$ASSIGNMENT_ID" | jq -e --arg rid "$REQ_B" '
+  ([.data.sections[].requirements[] | select(.id == $rid)][0].completion.status == "SUBMITTED")
+  and .data.progress < 100
+' >/dev/null
 # Training Officer acting as configured supervisor stage (no assignment supervisor → TO/Admin path).
 STAGE2=$(to -X POST "$BASE/api/v1/sign-offs/$COMPLETION_B" -d '{"result":"APPROVED","notes":"Supervisor stage complete","stepResults":[],"criticalFailuresTriggered":[],"approvalLevel":"SUPERVISOR","attested":true}')
 echo "$STAGE2" | jq -e '.data.status == "APPROVED"' >/dev/null

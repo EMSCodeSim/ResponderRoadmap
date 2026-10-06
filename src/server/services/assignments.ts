@@ -1051,7 +1051,14 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
       };
     });
     // Section totals must use the same completion definition as assignment progress.
-    const complete = reqs.filter((req) => req.isRequired && requirementIsComplete(req, req.completion)).length;
+    const complete = reqs.filter((req) => {
+      if (!req.isRequired || !req.completion) return false;
+      return requirementIsComplete(req, {
+        requirementId: req.id,
+        status: req.completion.status,
+        repetitionCount: req.completion.repetitionCount,
+      });
+    }).length;
     const total = reqs.filter((req) => req.isRequired).length;
     return { id: section.id, title: section.title, description: section.description, complete, total, requirements: reqs };
   });
