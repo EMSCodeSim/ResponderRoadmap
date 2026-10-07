@@ -41,10 +41,10 @@ export default function InboxPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Assignment Inbox" description="Assignments, submissions, returns, approvals, and overdue evaluations in one durable record." />
+      <PageHeader title="Inbox" description="Your individual assignments, evaluation requests, corrections, and notifications. Home provides the department overview." />
       {error ? <Card className="border-red-200 bg-red-50 text-red-800">{error}</Card> : null}
       <Card>
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div id="needs-my-action" className="mb-4 flex items-center justify-between gap-3 scroll-mt-6">
           <div><h2 className="text-lg font-bold">Needs my action</h2><p className="text-sm text-slate-500">Corrections and evaluations waiting on you.</p></div>
           <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-800">{data?.needsAction.length ?? 0}</span>
         </div>
