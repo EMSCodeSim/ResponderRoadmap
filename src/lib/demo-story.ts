@@ -165,6 +165,41 @@ export const DEMO_MEMBERS: DemoMember[] = [
   },
 ];
 
+export const DEMO_READINESS = {
+  score: 86,
+  label: "Department readiness",
+  explanation: "Most core requirements are covered. Pump operations and one expiring EMS credential need attention before the next readiness review.",
+  qualifications: [
+    { name: "Driver / Operator", qualified: 4, target: 5, status: "Needs coverage" },
+    { name: "Acting Officer", qualified: 3, target: 4, status: "Needs coverage" },
+    { name: "SCBA competency", qualified: 8, target: 8, status: "Ready" },
+    { name: "Ground ladders", qualified: 7, target: 8, status: "Ready with follow-up" },
+  ],
+  trainingGap: {
+    topic: "Pump operations",
+    scope: "Station 2 · Shift B",
+    reason: "Driver / Operator progress is stalled and recent pump-operation requirements show incomplete coverage.",
+    recommendation: "Schedule a pump-operations evolution, then route observed performance to an authorized evaluator.",
+  },
+  credentialRisk: {
+    member: "Morgan Garcia",
+    credential: "EMT certification",
+    expires: "Nov 21, 2026",
+    action: "Confirm renewal plan",
+  },
+  rmsHandoff: {
+    ready: 1,
+    item: "First-Due Residential Fire Drill",
+    detail: "Instructor-approved training sheet is ready for RMS entry.",
+  },
+};
+
+export const DEMO_EVALUATOR_COVERAGE = [
+  { evaluator: "Lt. Quinn Mercer", scope: "Firefighter skills · Station 1", pending: 1 },
+  { evaluator: "Capt. Maya Torres", scope: "Driver / Operator · Station 2", pending: 1 },
+  { evaluator: "Lt. Evan Cole", scope: "Apparatus · Station 3", pending: 1 },
+];
+
 export const DEMO_SUMMARY = {
   members: DEMO_MEMBERS.length,
   activeTaskBooks: 3,
@@ -351,8 +386,8 @@ export function demoMember(id: string) {
 }
 
 export const DEMO_STEPS = [
-  { id: "dashboard", title: "Department progress", short: "Home" },
-  { id: "member", title: "Member progress", short: "Member" },
+  { id: "dashboard", title: "Department readiness", short: "Ready" },
+  { id: "member", title: "Who can do what", short: "Qualify" },
   { id: "taskbook", title: "AI Task Book", short: "Build" },
   { id: "assignment", title: "Assignment", short: "Assign" },
   { id: "evaluation", title: "Evaluation", short: "Evaluate" },
