@@ -467,15 +467,15 @@ function TrainingGapAnalysis({ report }: { report: TrainingGapsReport }) {
   return <div className="space-y-4">
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><div className="kicker">Department readiness · {report.year}</div><h2 className="display mt-1 text-2xl font-bold">Training Gaps</h2><p className="mt-1 max-w-3xl text-sm text-navy-600">Compare completed training and member records with expectations set by the department. Low recorded coverage is a planning signal; it does not by itself prove a skill deficit or determine compliance.</p></div>
-        <Button onClick={() => void suggest()} disabled={suggestionBusy}>{suggestionBusy ? "Reviewing report…" : "AI training suggestions"}</Button>
+        <div><div className="kicker">Expected training & records · {report.year}</div><h2 className="display mt-1 text-2xl font-bold">Training Gaps</h2><p className="mt-1 max-w-3xl text-sm text-navy-600">What training or records are missing compared with department expectations? This checks credentials, annual hours, required topics, and configured requirements. A gap means Roadmap found missing or limited evidence — not that a member lacks the skill.</p></div>
+        <Button onClick={() => void suggest()} disabled={suggestionBusy}>{suggestionBusy ? "Reviewing report…" : "Suggest next training"}</Button>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <Field label="Shift"><Select value={shift} onChange={(event) => { setShift(event.target.value); setMemberId("ALL"); }}><option value="ALL">All shifts</option>{shifts.map((item) => <option key={item} value={item}>{item}</option>)}</Select></Field>
         <Field label="Person"><Select value={memberId} onChange={(event) => setMemberId(event.target.value)}><option value="ALL">All people in this view</option>{people.map((row) => <option key={row.memberId} value={row.memberId}>{row.memberName}</option>)}</Select></Field>
       </div>
       {suggestionError ? <p role="alert" className="mt-3 text-sm text-danger">{suggestionError}</p> : null}
-      {suggestion ? <div className="mt-4 rounded-md border border-sky-200 bg-sky-50 p-4"><div className="font-bold">AI suggestions · review before scheduling</div><p className="mt-2 whitespace-pre-wrap text-sm text-navy-700">{suggestion}</p></div> : null}
+      {suggestion ? <div className="mt-4 rounded-md border border-sky-200 bg-sky-50 p-4"><div className="font-bold">Suggested next steps · review before scheduling</div><p className="mt-2 whitespace-pre-wrap text-sm text-navy-700">{suggestion}</p></div> : null}
     </Card>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Card className="p-4"><div className="kicker">Members with gaps</div><div className="mt-1 text-3xl font-bold">{gapRows.length} / {rowsInScope.length}</div></Card>
