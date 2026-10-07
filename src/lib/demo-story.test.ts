@@ -7,6 +7,8 @@ import {
   DEMO_DEPARTMENT_NAME,
   DEMO_EVALUATION,
   DEMO_MEMBERS,
+  DEMO_READINESS,
+  DEMO_EVALUATOR_COVERAGE,
   DEMO_SUMMARY,
   DEMO_TRAINING_OFFICER,
 } from "@/lib/demo-story";
@@ -32,7 +34,7 @@ describe("Pine Ridge department demo story", () => {
     expect(DEMO_SUMMARY.needsAttention).toBeGreaterThan(0);
   });
 
-  it("generates a reviewable Task Book draft from the preloaded prompt", () => {
+  it("shows a believable readiness story rather than only activity counts", () => {\n    expect(DEMO_READINESS.score).toBeGreaterThan(0);\n    expect(DEMO_READINESS.score).toBeLessThan(100);\n    expect(DEMO_READINESS.qualifications.some((item) => item.status === "Needs coverage")).toBe(true);\n    expect(DEMO_READINESS.trainingGap.topic).toMatch(/pump/i);\n    expect(DEMO_READINESS.credentialRisk.expires).toBeTruthy();\n    expect(DEMO_READINESS.rmsHandoff.ready).toBeGreaterThan(0);\n    expect(DEMO_EVALUATOR_COVERAGE.length).toBeGreaterThanOrEqual(3);\n    expect(new Set(DEMO_EVALUATOR_COVERAGE.map((item) => item.evaluator)).size).toBe(DEMO_EVALUATOR_COVERAGE.length);\n  });\n\n  it("generates a reviewable Task Book draft from the preloaded prompt", () => {
     expect(AI_TASKBOOK_PROMPT.toLowerCase()).toContain("probationary");
     expect(DEMO_AI_TASKBOOK.sections.map((section) => section.title)).toEqual([
       "Apparatus orientation",
