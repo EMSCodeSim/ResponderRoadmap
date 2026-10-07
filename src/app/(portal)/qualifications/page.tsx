@@ -60,7 +60,7 @@ export default function QualificationsPage() {
   const visibleMembers = useMemo(() => { const term = q.trim().toLowerCase(); if (!term) return members; return members.filter(member => [member.name, member.rank || "", member.position || ""].some(value => value.toLowerCase().includes(term)) || member.qualifications.some(qualification => qualification.name.toLowerCase().includes(term))); }, [members, q]);
 
   return <div className="space-y-6">
-    <PageHeader kicker="Department authorization" title="Qualifications" description="Readiness you can verify: see what is complete, what is missing, who owns the next action, and the evidence supporting every qualification." />
+    <PageHeader kicker="Department authorization" title="Who can do what?" description="See who the department has authorized for each role, who is still in training, what is missing, and who owns the next action. A certificate or completed Task Book does not automatically create department authorization." />
     <Flash message={error} tone="danger" /><Flash message={message} tone="current" />
 
     <Card className="p-5">
@@ -77,7 +77,7 @@ export default function QualificationsPage() {
     </Card>
 
     <Card className="p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="display text-2xl font-bold">Department qualification matrix</h2><p className="mt-1 text-sm text-navy-500">Every status is traceable to its required evidence. Open a qualification to see exactly why it has its current status.</p></div><Input className="w-full sm:w-72" placeholder="Search member or role" value={q} onChange={e => setQ(e.target.value)} /></div>
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="display text-2xl font-bold">Who is qualified?</h2><p className="mt-1 text-sm text-navy-500">Search a member or role. Every status is traceable to its required evidence; open it to see why and what happens next.</p></div><Input className="w-full sm:w-72" placeholder="Search person or role — e.g. Driver" value={q} onChange={e => setQ(e.target.value)} /></div>
       <div className="mt-4 space-y-4">
         {visibleMembers.map(member => <div key={member.membershipId} className="rounded-lg border border-navy-200 p-4">
           <div><div className="font-bold text-navy-900">{member.name}</div><div className="text-sm text-navy-500">{[member.rank, member.position].filter(Boolean).join(" · ") || "No rank/position entered"}</div></div>
