@@ -8,8 +8,8 @@ describe("role-based portal navigation", () => {
     const { nav, inboxVisible, settingsVisible } = getPortalNavigation("TRAINING_OFFICER", officerPermissions);
     expect(nav.map(({ label, section }) => [label, section])).toEqual([
       ["Home", "HOME"], ["Task Books", "ASSIGN & TRAIN"], ["Assignments", "ASSIGN & TRAIN"], ["Training Events", "ASSIGN & TRAIN"],
-      ["People", "PEOPLE & READINESS"], ["Evaluations", "PEOPLE & READINESS"], ["Qualifications", "PEOPLE & READINESS"],
-      ["Training Insights", "IMPROVE & REPORT"], ["Reports", "IMPROVE & REPORT"],
+      ["People", "PEOPLE & READINESS"], ["Evaluations", "PEOPLE & READINESS"], ["Who Can Do What?", "PEOPLE & READINESS"],
+      ["Training Needs", "IMPROVE & REPORT"], ["Reports", "IMPROVE & REPORT"],
     ]);
     expect(nav.every((item) => item.description.length > 8)).toBe(true);\n    expect(inboxVisible).toBe(true);
     expect(settingsVisible).toBe(true);
