@@ -153,6 +153,26 @@ function ReportsInner() {
           </>
         }
       />
+      <Card className="mb-5 p-5">
+        <div className="kicker">Choose a job</div>
+        <h2 className="display mt-1 text-xl font-bold">Start with what you need to do</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            ["training-sheets", "Enter training into RMS", "Completed training sheets ready for your official record process"],
+            ["training-hours", "Review training hours", "Department and member hours by training area"],
+            ["training-gaps", "Check missing requirements", "Credentials, hours, required topics, and configured expectations"],
+            ["record", "Review one member’s history", "A chronological training record for one person"],
+            ["certs", "Check credentials", "Current, expiring, and expired credential records"],
+            ["progress", "Review Task Book progress", "Completion, outstanding work, and due dates"],
+          ].map(([type, title, help]) => (
+            <Link key={type} href={`/reports?type=${type}`} className={`rounded-md border p-4 ${report === type ? "border-fire bg-fire/5" : "border-navy-200 bg-white hover:border-navy-400"}`}>
+              <div className="font-bold text-navy-950">{title}</div>
+              <div className="mt-1 text-sm text-navy-600">{help}</div>
+              <div className="mt-2 text-sm font-semibold text-fire">{report === type ? "Open now" : "Open →"}</div>
+            </Link>
+          ))}
+        </div>
+      </Card>
       <div className="mb-4 flex flex-wrap gap-2">
         {[
           ["progress", "Task Book Progress"],
