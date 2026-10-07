@@ -15,7 +15,9 @@ import {
   DEMO_DEPARTMENT_NAME,
   DEMO_DEPARTMENT_TAG,
   DEMO_EVALUATION,
+  DEMO_EVALUATOR_COVERAGE,
   DEMO_MEMBERS,
+  DEMO_READINESS,
   DEMO_STEPS,
   DEMO_SUMMARY,
   DEMO_TRAINING_OFFICER,
@@ -118,8 +120,8 @@ export function DepartmentDemo({ liveDemoHref }: { liveDemoHref: string }) {
             title={DEMO_STEPS[step].title}
             body={
               [
-                "Start here. In one screen you can see what everyone is working on and what needs your attention.",
-                "Open any member to see exactly where they stand.",
+                "Start with readiness, not paperwork. See qualification coverage, the most important training gap, expiring credentials, evaluator work, and what is ready for RMS entry.",
+                "Drill into the people behind the readiness picture. Approved work builds qualification progress; pending or returned work stays visible until an authorized evaluator resolves it.",
                 "AI builds the first draft. You stay in control.",
                 "Assignments are the short work — a drill, a skill, a due date — without standing up a whole Task Book.",
                 "Nothing counts as complete until the required human approval occurs.",
@@ -188,12 +190,12 @@ function Welcome({ liveDemoHref, onStart }: { liveDemoHref: string; onStart: () 
       <p className="mt-4 text-lg text-white/70">You’re the Training Officer. In the next few minutes you’ll see how to:</p>
       <ol className="mt-6 space-y-3 text-base text-white/80">
         {[
-          "Check department progress.",
-          "Find members needing attention.",
-          "Create a Task Book.",
-          "Create an Assignment.",
-          "Review an evaluation.",
-          "Use Responder AI.",
+          "See department readiness and qualification coverage.",
+          "Find who is qualified—and what is holding others back.",
+          "Create a Task Book with observable evaluation criteria.",
+          "Assign targeted training to close a real gap.",
+          "See authorized evaluators make the competency decision.",
+          "Turn the record into the next training decision.",
         ].map((item, index) => (
           <li key={item} className="flex gap-3"><span className="font-bold text-[#FB7185]">{index + 1}.</span>{item}</li>
         ))}
@@ -212,8 +214,8 @@ function Complete({ liveDemoHref, onExplore }: { liveDemoHref: string; onExplore
   return (
     <main className="mx-auto max-w-3xl px-5 py-12 text-center sm:px-8 sm:py-20">
       <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">That’s Responder Roadmap</p>
-      <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">Task Books. Assignments. Evaluations. Progress.</h1>
-      <p className="mx-auto mt-5 max-w-xl text-lg text-white/70">With AI helping with the administrative work — and humans still making every official decision.</p>
+      <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">Know whether your people are actually ready.</h1>
+      <p className="mx-auto mt-5 max-w-xl text-lg text-white/70">Assign → Train → Evaluate → Qualify → Improve. Roadmap turns training activity into a defensible readiness picture while humans still make every official competency decision.</p>
       <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
         <TrackedLink href="/register" event="signup_clicked" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#E11D48] px-6 text-sm font-bold hover:bg-[#BE123C]">Start Live Test</TrackedLink>
         <button type="button" onClick={onExplore} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/30 px-6 text-sm font-bold hover:bg-white/10">Explore the Demo</button>
@@ -239,49 +241,40 @@ function Coach({ title, body }: { title: string; body: string }) {
 function DashboardStep({ onOpenMember }: { onOpenMember: (id: string) => void }) {
   return (
     <div>
-      <h2 className="text-xl font-bold">Department progress</h2>
-      <p className="mt-1 text-sm text-[#5A7196]">{DEMO_SUMMARY.awaitingEvaluation} evaluations awaiting approval · {DEMO_ATTENTION.filter((item) => item.kind === "follow-up").length} overdue items · {DEMO_SUMMARY.needsAttention} Task Books need attention</p>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-        {[
-          ["Members", DEMO_SUMMARY.members],
-          ["Active Task Books", DEMO_SUMMARY.activeTaskBooks],
-          ["Active Assignments", DEMO_SUMMARY.activeAssignments],
-          ["Awaiting Evaluation", DEMO_SUMMARY.awaitingEvaluation],
-          ["Needs Attention", DEMO_SUMMARY.needsAttention],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="rounded-lg border border-[#D6DDE8] bg-white px-3 py-3">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-[#5A7196]">{label}</div>
-            <div className={`mt-1 text-2xl font-bold ${label === "Needs Attention" ? "text-[#B42318]" : label === "Awaiting Evaluation" ? "text-[#C47A0A]" : ""}`}>{value}</div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><p className="text-xs font-bold uppercase tracking-wide text-[#5A7196]">Department readiness</p><h2 className="mt-1 text-3xl font-bold">{DEMO_READINESS.score}% ready</h2><p className="mt-1 max-w-2xl text-sm text-[#5A7196]">{DEMO_READINESS.explanation}</p></div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm"><strong>Primary gap:</strong> {DEMO_READINESS.trainingGap.topic}</div>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {DEMO_READINESS.qualifications.map((item) => (
+          <div key={item.name} className="rounded-lg border border-[#D6DDE8] bg-white p-4">
+            <div className="text-xs font-bold uppercase tracking-wide text-[#5A7196]">{item.name}</div>
+            <div className="mt-2 text-2xl font-bold">{item.qualified}/{item.target}</div>
+            <div className="mt-1 text-xs text-[#3A5278]">{item.status}</div>
           </div>
         ))}
+      </div>
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-rose-700">Training gap</p><h3 className="mt-1 font-bold">{DEMO_READINESS.trainingGap.topic}</h3><p className="mt-2 text-sm leading-6 text-[#3A5278]">{DEMO_READINESS.trainingGap.scope} · {DEMO_READINESS.trainingGap.reason}</p><p className="mt-3 text-sm font-semibold">{DEMO_READINESS.trainingGap.recommendation}</p></div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-amber-700">Credential watch</p><h3 className="mt-1 font-bold">{DEMO_READINESS.credentialRisk.member}</h3><p className="mt-2 text-sm text-[#3A5278]">{DEMO_READINESS.credentialRisk.credential} · expires {DEMO_READINESS.credentialRisk.expires}</p><p className="mt-3 text-sm font-semibold">{DEMO_READINESS.credentialRisk.action}</p></div>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-emerald-700">RMS actions needed</p><h3 className="mt-1 font-bold">{DEMO_READINESS.rmsHandoff.ready} record ready</h3><p className="mt-2 text-sm text-[#3A5278]">{DEMO_READINESS.rmsHandoff.item}</p><p className="mt-3 text-sm font-semibold">{DEMO_READINESS.rmsHandoff.detail}</p></div>
+      </div>
+      <div className="mt-5 rounded-lg border border-[#D6DDE8] bg-white p-4">
+        <h3 className="font-bold">Authorized evaluator workload</h3>
+        <p className="mt-1 text-xs text-[#5A7196]">Evaluation work is distributed to qualified evaluators—not routed through the Training Officer by default.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">{DEMO_EVALUATOR_COVERAGE.map((item) => <div key={item.evaluator} className="rounded-md bg-[#F3F5F8] p-3"><p className="text-sm font-semibold">{item.evaluator}</p><p className="mt-1 text-xs text-[#3A5278]">{item.scope}</p><p className="mt-2 text-xs font-bold">{item.pending} pending evaluation</p></div>)}</div>
       </div>
       <div className="mt-5 rounded-lg border border-[#D6DDE8] bg-white p-4">
         <h3 className="font-bold">Needs My Attention</h3>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
           {DEMO_ATTENTION.map((item) => (
-            <li key={item.id}>
-              <button type="button" onClick={() => onOpenMember(item.memberId)} className={`block w-full rounded-md border px-3 py-2 text-left ${item.kind === "follow-up" ? "border-rose-200 bg-rose-50/80" : "border-amber-200 bg-amber-50/80"}`}>
-                <div className="flex justify-between gap-2"><span className="font-semibold">{item.memberName}</span><span className="text-xs font-semibold">{item.action}</span></div>
-                <p className="mt-1 text-xs text-[#3A5278]">{item.detail}</p>
-              </button>
-            </li>
+            <li key={item.id}><button type="button" onClick={() => onOpenMember(item.memberId)} className={`block w-full rounded-md border px-3 py-2 text-left ${item.kind === "follow-up" ? "border-rose-200 bg-rose-50/80" : "border-amber-200 bg-amber-50/80"}`}><div className="flex justify-between gap-2"><span className="font-semibold">{item.memberName}</span><span className="text-xs font-semibold">{item.action}</span></div><p className="mt-1 text-xs text-[#3A5278]">{item.detail}</p></button></li>
           ))}
         </ul>
       </div>
       <div className="mt-5 overflow-hidden rounded-lg border border-[#D6DDE8] bg-white">
         <h3 className="px-4 py-3 font-bold">Member Progress</h3>
-        <ul className="divide-y divide-[#E6EAF0]">
-          {DEMO_MEMBERS.map((row) => (
-            <li key={row.id}>
-              <button type="button" onClick={() => onOpenMember(row.id)} className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-[#F3F5F8]">
-                <span className="font-semibold">{row.name}</span>
-                <span className="flex-1 truncate text-sm text-[#3A5278]">{row.currentWork}</span>
-                <span className="text-sm font-semibold">{row.percent}%</span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusClass[row.status]}`}>{row.status}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <ul className="divide-y divide-[#E6EAF0]">{DEMO_MEMBERS.map((row) => <li key={row.id}><button type="button" onClick={() => onOpenMember(row.id)} className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-[#F3F5F8]"><span className="font-semibold">{row.name}</span><span className="flex-1 truncate text-sm text-[#3A5278]">{row.currentWork}</span><span className="text-sm font-semibold">{row.percent}%</span><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusClass[row.status]}`}>{row.status}</span></button></li>)}</ul>
       </div>
     </div>
   );
