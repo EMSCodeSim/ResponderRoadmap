@@ -78,6 +78,35 @@ Preferred Personal-side language:
 
 Existing Personal Quick Add, credentials, history, exposure tracking, privacy, sharing controls, and other Personal functions remain unchanged.
 
+#### Personal first-run and Home experience
+A brand-new Personal user should reach useful value in a few minutes without joining a department or understanding Task Book terminology.
+
+**First run**
+1. Ask **What are you working toward?** Offer common responder goals such as Firefighter, Driver/Operator, Officer, EMT/Paramedic, Instructor, and **Something else**. Do not imply this list is exhaustive.
+2. Ask only the minimum useful context: **Where are you now?** and **Where do you want to go?** Department, state, certification body, academy, and employer details are optional and may be added later.
+3. Create a small Starter Roadmap, normally **5–7 meaningful stages**, rather than dozens of generated pseudo-requirements.
+4. Land the user on one obvious **YOUR NEXT STEP** action. A new user should be able to make progress before entering credentials, joining a department, finding an evaluator, or completing lengthy setup.
+5. Encourage one lightweight record through **Quick Add** after the roadmap exists so the Personal record begins becoming useful immediately.
+
+**Personal Home hierarchy**
+Personal Home should be goal-driven and use this hierarchy:
+- **YOUR NEXT STEP** — the single most useful actionable roadmap step, with one primary **Continue** action.
+- **MY ROADMAP** — current goal, simple stage progress, and the next few steps. Use Roadmap/Next Steps language, not department Task Book language.
+- **QUICK ADD** — prominent access to existing personal Training, Skill Practice, Drive Time, Calls, Credentials, Exposures, Experience, and other supported capture types.
+- **CREDENTIALS** — personal credentials and expiration awareness.
+- **RECENT ACTIVITY / HISTORY** — recent personal records without overwhelming the primary next action.
+- **CAREER GOAL** — visible/editable enough that the user can change direction without deleting their history.
+
+If the user has no Personal roadmap yet, do **not** show an empty-state message such as “No active Task Books.” Show **Build My Next Steps** with a short explanation that Roadmap will create an editable starting point.
+
+Personal should use **MY GOAL → MY NEXT STEP → MY PROGRESS** as its mental model. Reserve **Assignments → Task Books → Evaluations → Qualifications** for department-assigned work.
+
+**Personal Quick Add and recommendations**
+Quick Add is useful even when the user has no department. Personal logs can support future, clearly labeled suggestions such as noticing that the user has documented pump practice but little driving practice while pursuing Driver/Operator. Treat these as suggestions, not proof of competency or official requirements. Do not infer operational readiness, qualification, or authorization from self-entered Personal records.
+
+**Separation from Department**
+When a user belongs to a department, Personal and Department work may appear in the same app but must remain visibly distinct. A department-assigned Task Book is still called a **Task Book** and follows the official submit/evaluate/sign-off workflow. A Personal Starter Roadmap is the user's editable planning tool. Never relabel an official department Task Book as a Personal roadmap, and never make a Personal suggested step appear department-required unless an authoritative source has been explicitly identified.
+
 ### Department — field execution
 Department is optimized for members, instructors, and authorized evaluators doing work in the field. It is not a miniature Training Officer administration dashboard.
 
