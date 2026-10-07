@@ -160,6 +160,9 @@ async function verifyNoConflictingRows() {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PRODUCTION_DB_PUSH !== "I_UNDERSTAND_THE_RISK") {
+    throw new Error("Production db push is disabled. Use reviewed Prisma migrations, or explicitly approve the emergency override.");
+  }
   if (!(await verifyNoConflictingRows())) return;
   await prisma.$disconnect();
   const executable = path.join(process.cwd(), "node_modules", ".bin", process.platform === "win32" ? "prisma.cmd" : "prisma");
