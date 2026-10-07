@@ -7,11 +7,11 @@ describe("role-based portal navigation", () => {
   it("groups Training Officer work by task, competency, and insight", () => {
     const { nav, inboxVisible, settingsVisible } = getPortalNavigation("TRAINING_OFFICER", officerPermissions);
     expect(nav.map(({ label, section }) => [label, section])).toEqual([
-      ["Home", "HOME"], ["Task Books", "TRAINING"], ["Assignments", "TRAINING"], ["Training Events", "TRAINING"],
-      ["People", "COMPETENCY"], ["Evaluations", "COMPETENCY"], ["Qualifications", "COMPETENCY"],
-      ["Training Insights", "INSIGHTS"], ["Reports", "INSIGHTS"],
+      ["Home", "HOME"], ["Task Books", "ASSIGN & TRAIN"], ["Assignments", "ASSIGN & TRAIN"], ["Training Events", "ASSIGN & TRAIN"],
+      ["People", "PEOPLE & READINESS"], ["Evaluations", "PEOPLE & READINESS"], ["Qualifications", "PEOPLE & READINESS"],
+      ["Training Insights", "IMPROVE & REPORT"], ["Reports", "IMPROVE & REPORT"],
     ]);
-    expect(inboxVisible).toBe(true);
+    expect(nav.every((item) => item.description.length > 8)).toBe(true);\n    expect(inboxVisible).toBe(true);
     expect(settingsVisible).toBe(true);
   });
 
