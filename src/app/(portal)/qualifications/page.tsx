@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { TrainingLifecycle } from "@/components/TrainingLifecycle";
 import { api } from "@/lib/api";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
 
@@ -61,6 +62,7 @@ export default function QualificationsPage() {
 
   return <div className="space-y-6">
     <PageHeader kicker="Department authorization" title="Who can do what?" description="See who the department has authorized for each role, who is still in training, what is missing, and who owns the next action. A certificate or completed Task Book does not automatically create department authorization." />
+      <TrainingLifecycle current="QUALIFICATION" />
     <Flash message={error} tone="danger" /><Flash message={message} tone="current" />
 
     <Card className="p-5">
