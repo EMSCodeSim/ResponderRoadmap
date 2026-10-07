@@ -135,15 +135,15 @@ export default function SkillMasteryPage() {
   }
 
   if (!report) {
-    return <div><PageHeader kicker="Department insights" title="Training Insights" description="Loading competency trends…" /><Flash message={error} tone="danger" /></div>;
+    return <div><PageHeader kicker="Skill performance" title="Training Needs" description="Loading evaluator observations and skill trends…" /><Flash message={error} tone="danger" /></div>;
   }
 
   return (
     <div>
       <PageHeader
         kicker="Department insights"
-        title="Training Insights"
-        description="Review competency trends over time using evaluator observations and class skill checkoffs. Training completion records activity; competency trends summarize observed performance."
+        title="Training Needs"
+        description="What should we practice or reassess next? This page uses evaluator observations and class skill checkoffs to show skills that may need attention."
       />
       <Flash message={error} tone="danger" />
       <Flash message={message} tone="current" />
@@ -166,9 +166,9 @@ export default function SkillMasteryPage() {
       <Card className="mb-6 p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="display text-xl font-bold">Department proficiency settings</h2>
+            <h2 className="display text-xl font-bold">How Roadmap labels skill results</h2>
             <p className="mt-1 text-sm text-navy-500">
-              Numeric evaluations at or above the threshold are proficient. Successful qualitative evaluations remain proficient unless they become stale.
+              Your department chooses the score considered proficient and how long an observation stays current. These settings prioritize reassessment; they do not automatically grant or remove a qualification.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -185,8 +185,8 @@ export default function SkillMasteryPage() {
 
       <Card className="mb-6 overflow-hidden">
         <div className="border-b border-navy-100 p-5">
-          <h2 className="display text-xl font-bold">Department skill retention</h2>
-          <p className="mt-1 text-sm text-navy-500">Priority skills rise to the top when members need improvement, reassessment, or show a declining trend.</p>
+          <h2 className="display text-xl font-bold">Skills to look at next</h2>
+          <p className="mt-1 text-sm text-navy-500">Start here. Skills rise when members need improvement, are due for reassessment, or have a declining documented trend. Verify the member evidence below before assigning training.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -217,7 +217,7 @@ export default function SkillMasteryPage() {
                   <td className="p-3">{skill.averageLatestScore == null ? "—" : `${skill.averageLatestScore}%`}</td>
                 </tr>
               ))}
-              {report.skills.length === 0 ? <tr><td colSpan={7} className="p-6 text-center text-navy-500">No graded or observed skill evaluations have been recorded yet.</td></tr> : null}
+              {report.skills.length === 0 ? <tr><td colSpan={7} className="p-6 text-center text-navy-500">No skill evaluations are available yet. Once evaluators record Task Book or class skill observations, Roadmap will show which skills may need practice or reassessment here.</td></tr> : null}
             </tbody>
           </table>
         </div>
