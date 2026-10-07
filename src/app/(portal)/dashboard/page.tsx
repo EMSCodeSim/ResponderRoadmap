@@ -189,162 +189,44 @@ export default function DashboardPage() {
   );
 }
 
-function OfficerToday({ data, onRefresh }: { data: Dashboard; onRefresh: () => Promise<void> }) {
-  const today = data.today ?? { joinRequests: [], joinRequestTotal: 0, signOffs: [], signOffTotal: 0, followUp: [], followUpTotal: 0, dueSoon: [], dueSoonTotal: 0, certificates: [], certificateTotal: 0 };
-  const [joinBusy, setJoinBusy] = useState<string | null>(null);
-  const [joinMessage, setJoinMessage] = useState<string | null>(null);
-
-  async function decideJoinRequest(item: TodayItem, approve: boolean) {
-    if (!item.id) return;
-    setJoinBusy(item.id);
-    setJoinMessage(null);
-    try {
-      await api(`members/${item.id}/approve`, {
-        method: "POST",
-        body: JSON.stringify({ approve }),
-      });
-      setJoinMessage(`${item.memberName} was ${approve ? "approved" : "rejected"}.`);
-      await onRefresh();
-    } catch (err) {
-      setJoinMessage(err instanceof Error ? err.message : "Unable to update membership.");
-    } finally {
-      setJoinBusy(null);
-    }
-  }
-
+function OfficerToday({ data }: { data: Dashboard; onRefresh: () => Promise<void> }) {
+  const today = data.today;
   const groups = [
-    {
-      title: "Member approvals",
-      count: today.joinRequestTotal,
-      empty: "No member join requests are waiting.",
-      href: "/enrollment",
-      items: today.joinRequests,
-      action: "Approve",
-      kind: "join" as const,
-      tone: "border-sky-300 bg-sky-50/60",
-    },
-    {
-      title: "Evaluations",
-      count: today.signOffTotal,
-      empty: "No evaluations are waiting.",
-      href: "/evaluate",
-      items: today.signOffs,
-      action: "Review",
-      kind: "link" as const,
-      tone: "border-fire/30 bg-fire/5",
-    },
-    {
-      title: "Credentials",
-      count: today.certificateTotal,
-      empty: "No certificate records need attention.",
-      href: "/certifications",
-      items: today.certificates,
-      action: "Review",
-      kind: "link" as const,
-      tone: "border-amber-300 bg-amber-50/60",
-    },
-    {
-      title: "Due soon",
-      count: today.dueSoonTotal ?? today.dueSoon.length,
-      empty: "Nothing is due soon.",
-      href: "/assignments",
-      items: today.dueSoon,
-      action: "Open",
-      kind: "link" as const,
-      tone: "border-navy-200 bg-white",
-    },
+    { title: "Member approvals", count: today?.joinRequestTotal ?? 0, href: "/enrollment", description: "Membership requests waiting for approval" },
+    { title: "Evaluations", count: today?.signOffTotal ?? 0, href: "/inbox#needs-my-action", description: "Assigned reviews and sign-offs" },
+    { title: "Credentials", count: today?.certificateTotal ?? 0, href: "/certifications", description: "Expiring or missing credentials" },
+    { title: "Due soon", count: today?.dueSoonTotal ?? 0, href: "/assignments", description: "Upcoming assignment deadlines" },
   ];
   const total = groups.reduce((sum, group) => sum + group.count, 0);
-  const urgent = today.joinRequestTotal + today.signOffTotal + today.certificateTotal;
-
-  return <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
-    <Card className="p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="kicker">DO · Needs Attention</div>
-          <h2 id="today-priorities-title" className="display mt-1 text-2xl font-bold">
-            {urgent > 0 ? `${urgent} action${urgent === 1 ? "" : "s"} need you today` : total > 0 ? `${total} upcoming item${total === 1 ? "" : "s"} to watch` : "Your department is caught up"}
-          </h2>
-          <p className="mt-1 text-sm text-navy-600">
-            {urgent > 0 ? "Start with member approvals, evaluations, and credentials. Upcoming deadlines are listed so you can stay ahead." : total > 0 ? "Nothing requires intervention right now. Upcoming deadlines are listed so you can stay ahead." : "No member approvals, evaluations, credential issues, or upcoming deadlines need action right now."}
-          </p>
-        </div>
-        <Link href="/assignments" className="text-sm font-semibold text-fire underline">View all assignments</Link>
-      </div>
-
-      {joinMessage ? <p className="mt-3 text-sm font-semibold text-navy-700">{joinMessage}</p> : null}
-      <div className="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        {groups.map((group) => (
-          <div key={group.title} className={`rounded-lg border p-4 ${group.tone}`}>
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-bold text-navy-950">{group.title}</h3>
-              <span className="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-navy-800 shadow-sm">{group.count}</span>
-            </div>
-            {group.items.length === 0 ? (
-              <p className="mt-4 text-sm text-navy-500">{group.empty}</p>
-            ) : (
-              <ul className="mt-3 divide-y divide-navy-200">
-                {group.items.map((item, index) => (
-                  <li key={item.id ?? `${group.title}-${item.memberId}-${index}`} className="py-3">
-                    {group.kind === "join" ? (
-                      <div>
-                        <div className="font-semibold">{item.memberName}</div>
-                        <div className="mt-0.5 text-sm text-navy-600">{item.taskBookTitle}</div>
-                        {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
-                        <div className="mt-3 flex gap-2">
-                          <Button
-                            variant="success"
-                            disabled={joinBusy !== null}
-                            onClick={() => void decideJoinRequest(item, true)}
-                          >
-                            {joinBusy === item.id ? "Working…" : "Approve"}
-                          </Button>
-                          <Button
-                            variant="danger"
-                            disabled={joinBusy !== null}
-                            onClick={() => void decideJoinRequest(item, false)}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Link href={item.href} className="block hover:text-fire">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="font-semibold">{item.memberName}</div>
-                            <div className="mt-0.5 text-sm text-navy-600">{item.requirementTitle ?? item.taskBookTitle}</div>
-                            {item.reason ? <div className="mt-1 text-xs font-medium text-navy-500">{item.reason}</div> : null}
-                            {item.dueDate ? <div className="mt-1 text-xs text-navy-500">Due {new Date(item.dueDate).toLocaleDateString()}</div> : null}
-                            {item.submittedAt && (group.title === "Evaluations" || group.title === "Member approvals") ? <div className="mt-1 text-xs text-navy-500">Submitted {relativeTime(item.submittedAt)}</div> : null}
-                          </div>
-                          <span className="shrink-0 text-xs font-bold text-fire">{group.action} →</span>
-                        </div>
-                      </Link>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Link href={group.href} className="mt-3 inline-block text-sm font-semibold text-fire underline">
-              Open {group.title}
-            </Link>
+  return (
+    <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
+      <Card className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="kicker">DO · Needs Attention</div>
+            <h2 id="today-priorities-title" className="display mt-1 text-2xl font-bold">
+              {total ? `${total} items to follow up` : "Your department is caught up"}
+            </h2>
+            <p className="mt-1 text-sm text-navy-600">Home shows the overview. Open Inbox to work through your individual assignments and evaluations.</p>
           </div>
-        ))}
-      </div>
-    </Card>
-  </section>;
+          <Link href="/inbox" className="text-sm font-semibold text-fire underline">Open my Inbox</Link>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {groups.map((group) => (
+            <Link key={group.title} href={group.href} className="rounded-lg border border-navy-200 p-4 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-bold text-navy-950">{group.title}</h3>
+                <span className="rounded-full bg-navy-100 px-2.5 py-1 text-sm font-bold">{group.count}</span>
+              </div>
+              <p className="mt-2 text-sm text-navy-600">{group.description}</p>
+              <span className="mt-3 inline-block text-sm font-semibold text-fire">View details →</span>
+            </Link>
+          ))}
+        </div>
+      </Card>
+    </section>
+  );
 }
-
-type HomeGapReport = {
-  year: number;
-  members: number;
-  membersWithGaps: number;
-  totalGaps: number;
-  trainingHourGaps: number;
-  coverageByCategory: Array<{ category: string; targetHours: number; recordedHours: number; membersExpected: number; membersBelowTarget: number; membersWithRecordedHours: number }>;
-  topicCoverageByRequirement: Array<{ templateId: string; templateTitle: string; topic: string; expectedMembers: number; membersUncovered: number; membersLimited: number; membersNeedingFollowUp: number; practiceCount: number }>;
-};
 
 function TrainingGapsHome() {
   const [report, setReport] = useState<HomeGapReport | null>(null);
