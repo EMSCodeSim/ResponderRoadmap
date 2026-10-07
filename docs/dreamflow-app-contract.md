@@ -45,8 +45,38 @@ Use the existing app bearer/session token from `POST /api/v1/auth/app-login`.
 ## App product boundary and navigation
 The app has two contexts with intentionally different jobs.
 
-### Personal — preserve current behavior
+### Personal — preserve current behavior, change Task Book guidance
 Do not simplify away or replace existing Personal-side functions. Personal remains the user's career/professional record, including existing personal Roadmap/task books, credentials/certificates, Quick Add records, drive time, calls, skills, exposure tracking, personal training history, career-development features, and privacy/share-with-department controls. Personal records stay private unless the user explicitly shares supported data with a department.
+
+Personal must **stop presenting AI-generated content as a finished or authoritative Task Book**. Replace the Personal-side “Generate Task Book” mental model with **Build My Next Steps / Create Starter Roadmap**.
+
+The output is a **Next Best Step Roadmap**: an editable starting point the user can build upon. It should guide the user from **Where I am → Where I want to go → What I should do next**, not claim to define every requirement for a position, certification, state, or department.
+
+A generated starter roadmap should normally use a practical sequence such as:
+1. **Confirm requirements** — identify the applicable department, state, certification, academy, or employer requirements and add anything missing.
+2. **Build foundational knowledge** — suggested knowledge topics appropriate to the user's goal.
+3. **Practice core skills** — suggested hands-on skills and drills.
+4. **Document experience** — relevant calls, drive time, drills, practice, training, credentials, or other experience.
+5. **Get evaluated** — identify appropriate evaluators/instructors and record feedback or verified results where applicable.
+6. **Close gaps** — turn weak areas, returned evaluations, or missing experience into additional practice steps.
+7. **Prepare for qualification / next milestone** — compare the accumulated personal record against the actual authoritative requirements the user has added.
+
+Every generated task is a **starter recommendation**, not an official requirement. The UI must clearly distinguish:
+- **Suggested** — generated or recommended by Responder Roadmap.
+- **Official source** — a requirement the user added from an identified department/state/certification/employer source.
+- **User added** — a custom step the user created.
+
+The user must be able to build on the roadmap rather than regenerate it from scratch: **Add Task, Edit, Delete, Reorder, Add Requirement, Add Milestone, attach/link a credential or relevant personal record, log practice, and mark a requirement as coming from an official source**. Preserve completed/history items when the roadmap is edited.
+
+When the user's goal is broad or the authoritative requirements are unknown, prefer a useful next-step sequence plus a prominent **Find/confirm your official requirements** step. Never fabricate state, department, certification, NFPA, legal, or employer requirements. If authoritative requirements are later added, incorporate them into the existing roadmap and let the user organize suggested steps around them.
+
+Preferred Personal-side language:
+- **Build My Next Steps** or **Create Starter Roadmap**, not “Generate Task Book.”
+- **Starter Roadmap** / **Next Best Step Roadmap**, not “finished Task Book.”
+- **Suggested step**, not “required” unless the user has identified an authoritative source.
+- Completion means the user finished that roadmap step; it does not imply department qualification, certification, authorization, or competency sign-off.
+
+Existing Personal Quick Add, credentials, history, exposure tracking, privacy, sharing controls, and other Personal functions remain unchanged.
 
 ### Department — field execution
 Department is optimized for members, instructors, and authorized evaluators doing work in the field. It is not a miniature Training Officer administration dashboard.
