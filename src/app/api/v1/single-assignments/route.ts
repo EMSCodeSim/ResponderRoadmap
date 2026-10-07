@@ -8,7 +8,7 @@ async function run(req: Request) {
   try {
     const session = await getRequestSession(req);
     if (!session) return jsonError("Authentication required.", 401);
-    const ctx = requireDepartmentSession(session);
+    const ctx = await requireDepartmentSession(session);
     if (ctx.role !== "TRAINING_OFFICER" && ctx.role !== "DEPARTMENT_ADMINISTRATOR") {
       throw new HttpError(403, "Only department training administrators can view the assignment workspace.");
     }
