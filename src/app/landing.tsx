@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { DashboardPreview } from "@/components/marketing/DashboardPreview";
 import { TrackedLink } from "@/components/marketing/TrackedLink";
-import { DEMO_DEPARTMENT_NAME, DEMO_MEMBERS } from "@/lib/demo-story";
+import { DEMO_DEPARTMENT_NAME, DEMO_MEMBERS, DEMO_READINESS } from "@/lib/demo-story";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
 
@@ -100,10 +100,10 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <div>
             <p className={kicker}>Fire & EMS Training Readiness</p>
             <h1 className="mt-4 max-w-xl text-[2.35rem] font-semibold leading-[1.12] tracking-tight text-white sm:text-5xl">
-              Digital Task Books and training tracking for Fire & EMS.
+              Know whether your people are actually ready.
             </h1>
             <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/68">
-              Create and assign firefighter Task Books, document evaluations, track member progress, and see what training needs attention next — while keeping your existing RMS.
+              See who is qualified, what is holding others back, which evaluations need action, and what your department should train on next. Task Books, evaluations, credentials, and training records build the readiness picture — while your existing RMS remains the official records system.
             </p>
             <div className="mt-8"><Ctas demoHref={demoHref} /></div>
             <Link href="/digital-firefighter-task-books" className="mt-4 inline-flex text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">Explore Digital Firefighter Task Books →</Link>
@@ -125,8 +125,8 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         </section>
 
         <section id="product" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>One focused training-readiness workflow</p>
-          <h2 className={heading}>Define. Assign. Document. Verify. Find the gaps.</h2>
+          <p className={kicker}>From training activity to operational readiness</p>
+          <h2 className={heading}>Know who can do what. See what is missing. Act on the next training need.</h2>
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {capabilities.map((item, index) => (
               <article key={item.title} className={`${card} p-6`}>
@@ -142,9 +142,36 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         <section className="border-y border-white/[0.08] bg-[#0E1624]">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
             <p className={kicker}>Training Officer view</p>
-            <h2 className={heading}>Your department at a glance.</h2>
-            <p className={body}>Training readiness — not employee rankings or performance scores. See what each member has completed, what is in progress, and what requires attention.</p>
-            <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            <h2 className={heading}>Readiness you can explain — not a black-box score.</h2>
+            <p className={body}>Roadmap connects department-defined role expectations to approved qualifications, Task Book progress, credentials, evaluations, and training gaps. Humans still decide competency and authorization.</p>
+            <div className="mt-10 grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
+              <article className={`${card} p-6`}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Department readiness</p>
+                <p className="mt-3 text-5xl font-semibold tabular-nums">{DEMO_READINESS.score}%</p>
+                <p className="mt-3 text-sm leading-6 text-white/55">{DEMO_READINESS.explanation}</p>
+                <div className="mt-5 border-t border-white/[0.08] pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#FB7185]">Next training need</p>
+                  <p className="mt-1 font-semibold">{DEMO_READINESS.trainingGap.topic}</p>
+                  <p className="mt-1 text-sm text-white/50">{DEMO_READINESS.trainingGap.scope}</p>
+                </div>
+              </article>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {DEMO_READINESS.qualifications.map((item) => (
+                  <article key={item.name} className={`${card} p-5`}>
+                    <p className="text-sm font-semibold">{item.name}</p>
+                    <p className="mt-3 text-3xl font-semibold tabular-nums">{item.qualified}/{item.target}</p>
+                    <p className="mt-1 text-xs text-white/45">{item.status}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <article className={`${card} p-5`}><p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Training gap</p><p className="mt-2 font-semibold">{DEMO_READINESS.trainingGap.topic}</p><p className="mt-2 text-sm leading-6 text-white/50">{DEMO_READINESS.trainingGap.reason}</p></article>
+              <article className={`${card} p-5`}><p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Credential watch</p><p className="mt-2 font-semibold">{DEMO_READINESS.credentialRisk.member}</p><p className="mt-2 text-sm leading-6 text-white/50">{DEMO_READINESS.credentialRisk.credential} · expires {DEMO_READINESS.credentialRisk.expires}</p></article>
+              <article className={`${card} p-5`}><p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">RMS action</p><p className="mt-2 font-semibold">{DEMO_READINESS.rmsHandoff.ready} record ready</p><p className="mt-2 text-sm leading-6 text-white/50">{DEMO_READINESS.rmsHandoff.detail}</p></article>
+            </div>
+            <p className="mt-8 text-xs font-semibold uppercase tracking-[0.14em] text-white/35">Drill into the people behind the readiness picture</p>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
               {glance.map((member) => {
                 const status = glanceStatus(member);
                 return (
@@ -230,8 +257,8 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
 
         <section className="border-t border-white/[0.08] bg-[#0E1624] px-5 py-16 text-center sm:py-20">
           <p className={kicker}>See it in three minutes</p>
-          <h2 className="mx-auto mt-3 max-w-2xl text-[1.85rem] font-semibold tracking-tight sm:text-[2.35rem]">Stop chasing training progress.</h2>
-          <p className="mx-auto mb-8 mt-4 max-w-xl text-[15px] leading-7 text-white/60">See how Responder Roadmap gives your Training Officer one place to define expectations, manage training, verify completion, identify gaps, and prepare records for the RMS.</p>
+          <h2 className="mx-auto mt-3 max-w-2xl text-[1.85rem] font-semibold tracking-tight sm:text-[2.35rem]">Turn training records into a readiness decision.</h2>
+          <p className="mx-auto mb-8 mt-4 max-w-xl text-[15px] leading-7 text-white/60">See how Responder Roadmap shows who is qualified, where readiness is thin, what needs evaluation, and what training should happen next — with a clear human-approved record behind every answer.</p>
           <Ctas demoHref={demoHref} centered />
           <p className="mt-6 text-sm text-white/40">Already invited? <Link href="/login" className="font-medium text-white/70 underline underline-offset-4 hover:text-white">Sign in</Link></p>
         </section>
