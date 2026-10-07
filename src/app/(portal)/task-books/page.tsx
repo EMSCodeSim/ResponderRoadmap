@@ -1,4 +1,4 @@
-"use client";
+"use client";\n\nimport { TrainingLifecycle } from "@/components/TrainingLifecycle";
 
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import Link from "next/link";
@@ -59,6 +59,7 @@ export default function TaskBooksPage() {
         description="Task Books define what the department requires. Assignments record who is expected to complete a Task Book or requirement."
         actions={<Link href="/task-books/fast-start"><Button>Create Task Book</Button></Link>}
       />
+      <TrainingLifecycle current="TASK_BOOK" />
       <Card className="mb-5 border-fire/20 p-5">
         <div><h2 className="display text-xl font-bold text-navy-950">A clear path from draft to assignment</h2><p className="mt-1 max-w-2xl text-sm text-navy-600">Select Create Task Book to use a template, copy an existing book, import a PDF, describe a book with AI, or start blank. Review every requirement before publishing.</p></div>
         <ol className="mt-4 grid gap-2 text-sm sm:grid-cols-4"><li className="rounded bg-navy-50 p-3"><strong className="block">1. Create draft</strong><span className="text-navy-600">Choose a starting point</span></li><li className="rounded bg-navy-50 p-3"><strong className="block">2. Review requirements</strong><span className="text-navy-600">Edit and save details</span></li><li className="rounded bg-navy-50 p-3"><strong className="block">3. Publish version</strong><span className="text-navy-600">Training Officer verifies content</span></li><li className="rounded bg-navy-50 p-3"><strong className="block">4. Assign</strong><span className="text-navy-600">Select members and monitor progress</span></li></ol>
