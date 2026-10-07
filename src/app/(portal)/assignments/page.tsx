@@ -1,4 +1,4 @@
-"use client";
+"use client";\n\nimport { TrainingLifecycle } from "@/components/TrainingLifecycle";
 
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 
@@ -304,6 +304,7 @@ function AssignmentsInner() {
         ) : undefined}
       />
 
+      <TrainingLifecycle current="ASSIGNMENT" />
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
           href="/assignments"
