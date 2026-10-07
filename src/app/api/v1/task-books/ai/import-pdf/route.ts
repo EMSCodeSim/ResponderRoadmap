@@ -10,7 +10,7 @@ async function start(req: Request) {
   try {
     const session = await getRequestSession(req);
     if (!session) return jsonError("Authentication required.", 401);
-    const ctx = requireDepartmentSession(session);
+    const ctx = await requireDepartmentSession(session);
     const body = await req.json().catch(() => ({}));
     return jsonOk(await startPdfTaskBookImport(ctx, { filename: body.filename, fileData: body.fileData, notes: body.notes }));
   } catch (error) { return handleError(error); }
@@ -20,7 +20,7 @@ async function poll(req: Request) {
   try {
     const session = await getRequestSession(req);
     if (!session) return jsonError("Authentication required.", 401);
-    const ctx = requireDepartmentSession(session);
+    const ctx = await requireDepartmentSession(session);
     const token = new URL(req.url).searchParams.get("job") || "";
     if (!token) return jsonError("PDF import job is required.", 400);
     return jsonOk(await pollPdfTaskBookImport(ctx, token));
