@@ -420,18 +420,18 @@ function TrainingGapsHome() {
 function ActivationChecklist({ data }: { data: Dashboard }) {
   const activeWork = data.summary.activeAssignments ?? data.summary.membersAssigned ?? 0;
   const items = [
-    { label: "Department created", done: true, href: "/settings" },
-    { label: "Add members", done: data.summary.activeMembers > 1, href: "/enrollment" },
-    { label: "Review evaluator access", done: null, href: "/evaluators" },
-    { label: "Publish a Task Book", done: data.summary.activeTaskBooks > 0, href: createTaskBookPath() },
-    { label: "Create the first assignment", done: activeWork > 0, href: createAssignmentPath() },
+    { label: "Department ready", done: true, href: "/settings" },
+    { label: "1. Add your people", done: data.summary.activeMembers > 1, href: "/enrollment" },
+    { label: "2. Choose evaluators", done: null, href: "/evaluators" },
+    { label: "3. Add a Task Book", done: data.summary.activeTaskBooks > 0, href: createTaskBookPath() },
+    { label: "4. Assign it to someone", done: activeWork > 0, href: createAssignmentPath() },
   ];
   const automaticItems = items.filter((item) => item.done !== null);
   const completed = automaticItems.filter((item) => item.done).length;
   if (automaticItems.every((item) => item.done)) return null;
   return <Card className="mb-6 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><div className="kicker">First-use checklist</div><h2 className="display mt-1 text-xl font-bold">Activate your department</h2><p className="mt-1 text-sm text-navy-600">Complete these setup steps before relying on readiness totals.</p></div>
+      <div><div className="kicker">First-use guide</div><h2 className="display mt-1 text-xl font-bold">Get your first member into training</h2><p className="mt-1 text-sm text-navy-600">Follow this path once. After you assign the first Task Book, Roadmap will guide the normal workflow from Home.</p></div>
       <span className="rounded-full bg-navy-100 px-3 py-1 text-sm font-bold text-navy-700">{completed} of {automaticItems.length} detected</span>
     </div>
     <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
