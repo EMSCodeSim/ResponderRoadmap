@@ -159,6 +159,27 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && match(path, "app/evaluators")) {
       return jsonOk(await memberApp.listMyEvaluators(ctx));
     }
+    if (method === "GET" && match(path, "app/sign-offs")) {
+      return jsonOk(await assignments.listSignOffQueue(ctx, { ...q, view: q.view || "needs_me" }));
+    }
+    const appSignOff = match(path, "app/sign-offs/:id");
+    if (method === "POST" && appSignOff) {
+      const body = await readBody(req);
+      if (body.result === "APPROVED" && body.attested !== true) {
+        return jsonError("Confirm the electronic attestation before approving this requirement.", 400);
+      }
+      const notes =
+        body.result === "APPROVED"
+          ? [
+              String(body.notes || "").trim(),
+              taskBookAttestationRecord({ reviewerName: ctx.name, reviewerRole: ctx.role }),
+            ]
+              .filter(Boolean)
+              .join("\n\n")
+          : body.notes;
+      const signed = await assignments.reviewSignOff(ctx, appSignOff.id, { ...body, notes });
+      return jsonOk({ ...signed, attested: body.result === "APPROVED", signedByName: ctx.name });
+    }
     if (method === "GET" && match(path, "app/inbox")) return jsonOk(await inbox.getInbox(ctx));
     const inboxRead = match(path, "app/inbox/:id/read");
     if (method === "POST" && inboxRead) return jsonOk(await inbox.markRead(ctx, inboxRead.id));
