@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { TrainingLifecycle } from "@/components/TrainingLifecycle";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
@@ -225,6 +226,7 @@ function EvaluateInner() {
         title="Evaluations"
         description="Who needs to evaluate what next — then sign, return, or follow up."
       />
+      <TrainingLifecycle current="EVALUATION" />
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((tab) => {
           const count = counts[tab.countKey];
