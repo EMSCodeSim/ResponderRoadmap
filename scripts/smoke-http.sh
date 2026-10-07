@@ -23,7 +23,8 @@ expect_page "$BASE/department-interest"
 expect_page "$BASE/department-interest?plan=station"
 
 HOME=$(curl -fsS "$BASE/")
-echo "$HOME" | grep -q 'Digital Task Books and training tracking for Fire &amp; EMS.' || { echo 'Homepage missing current hero headline'; exit 1; }
+echo "$HOME" | grep -q 'Know whether your people are actually ready.' || { echo 'Homepage missing readiness hero headline'; exit 1; }
+echo "$HOME" | grep -q 'Readiness you can explain' || { echo 'Homepage missing readiness proof section'; exit 1; }
 echo "$HOME" | grep -q 'See the 3-Minute Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
 ok 'homepage Training Officer positioning without embedded pricing'
 PRICING=$(curl -fsS "$BASE/pricing")
