@@ -8,7 +8,7 @@ async function run(req: Request) {
   try {
     const session = await getRequestSession(req);
     if (!session) return jsonError("Authentication required.", 401);
-    const ctx = requireDepartmentSession(session);
+    const ctx = await requireDepartmentSession(session);
     const body = await req.json().catch(() => ({}));
     return jsonOk(await createTrainingTask(ctx, body), 201);
   } catch (error) {
