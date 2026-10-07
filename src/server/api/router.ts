@@ -133,7 +133,7 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk(await department.getAccount(session.userId));
     }
 
-    const ctx = requireDepartmentSession(session);
+    const ctx = await requireDepartmentSession(session);
 
     if (method === "GET" && match(path, "my-credentials")) {
       return jsonOk(await credentials.listMyCredentials(ctx));
