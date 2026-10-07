@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, SESSION_MAX_AGE, type Role } from "@/lib/constants";
 import type { AuthContext } from "@/server/permissions";
+import { prisma } from "@/server/db";
 
 export type SessionPayload = {
   userId: string;
@@ -15,8 +16,10 @@ export type SessionPayload = {
 };
 
 function secretKey() {
-  const secret = process.env.AUTH_SECRET || "responder-roadmap-dev-secret-change-in-production";
-  return new TextEncoder().encode(secret);
+  const secret = process.env.AUTH_SECRET;
+  if (process.env.NODE_ENV === "production" && (!secret || secret.length < 32 || /change.in.production|dev.secret|example|placeholder/i.test(secret))) throw new Error("Production AUTH_SECRET must be at least 32 characters and not a placeholder.");
+  const signingSecret = secret || "responder-roadmap-dev-secret-change-in-production";
+  return new TextEncoder().encode(signingSecret);
 }
 
 export async function signSession(payload: SessionPayload): Promise<string> {
@@ -78,7 +81,7 @@ export async function clearSessionCookie(): Promise<void> {
   store.delete(SESSION_COOKIE);
 }
 
-export function requireDepartmentSession(session: SessionPayload | null): AuthContext {
+export async function requireDepartmentSession(session: SessionPayload | null): Promise<AuthContext> {
   if (!session?.userId) {
     const error = new Error("Authentication required.");
     (error as Error & { status: number }).status = 401;
@@ -89,14 +92,16 @@ export function requireDepartmentSession(session: SessionPayload | null): AuthCo
     (error as Error & { status: number }).status = 403;
     throw error;
   }
+  const membership = await prisma.departmentMembership.findFirst({ where: { id: session.membershipId, userId: session.userId, departmentId: session.departmentId, status: "ACTIVE" }, select: { role: true, rank: true, department: { select: { name: true } } } });
+  if (!membership) { const error = new Error("Department membership is no longer active."); (error as Error & { status: number }).status = 403; throw error; }
   return {
     userId: session.userId,
     email: session.email,
     name: session.name,
     departmentId: session.departmentId,
-    departmentName: session.departmentName || "",
+    departmentName: membership.department.name,
     membershipId: session.membershipId,
-    role: session.role,
-    rank: session.rank,
+    role: membership.role as Role,
+    rank: membership.rank,
   };
 }
