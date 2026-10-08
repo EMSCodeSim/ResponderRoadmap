@@ -114,7 +114,7 @@ export default function ClassesPage() {
 
   const visibleRows = useMemo(() => rows.filter((row) => {
     const matchesSearch = [row.title, row.location, row.trainingCategory, row.classType].some((value) => value.toLowerCase().includes(search.trim().toLowerCase()));
-    const matchesStatus = sheetFilter === "all" || (sheetFilter === "complete" && row.status === "COMPLETE") || (sheetFilter === "pending" && row.status !== "COMPLETE") || (sheetFilter === "rms-entered" && row.rmsStatus === "RMS_ENTERED") || (sheetFilter === "rms-needed" && row.rmsStatus === "ACTIONS_NEEDED");
+    const matchesStatus = sheetFilter === "all" || (sheetFilter === "approved" && Boolean(row.instructorApprovedAt)) || (sheetFilter === "complete" && row.status === "COMPLETE") || (sheetFilter === "pending" && row.status !== "COMPLETE") || (sheetFilter === "rms-entered" && row.rmsStatus === "RMS_ENTERED") || (sheetFilter === "rms-needed" && row.rmsStatus === "ACTIONS_NEEDED");
     return matchesSearch && matchesStatus;
   }).sort((a, b) => sort === "oldest" ? new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime() : new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime()), [rows, search, sort, sheetFilter]);
 
@@ -141,18 +141,30 @@ export default function ClassesPage() {
           <option value="all">All training sheets</option>
           <option value="complete">Completed</option>
           <option value="pending">Not completed</option>
+          <option value="approved">Instructor approved</option>
           <option value="rms-needed">RMS actions needed</option>
           <option value="rms-entered">Entered into RMS</option>
         </Select>
       </div>
-      <div className="mb-2 text-sm text-navy-500">{visibleRows.length} of {rows.length} training events</div>
-      <div className="overflow-x-auto rounded-lg border border-navy-200 bg-white">
-        <table className="w-full min-w-[760px] text-left text-sm">
+      <div className="mb-2 text-sm text-navy-500">{visibleRows.length} of {rows.length} training sheets</div>
+      <p className="mb-3 text-xs text-navy-600">Training completed, instructor approved, and entered into RMS are separate milestones. Only the RMS entry confirms the department’s official RMS record.</p>
+      <div className="space-y-2 md:hidden">
+        {visibleRows.map(row => <Link key={row.id} href={`/classes/${row.id}`} className="block rounded-lg border border-navy-200 bg-white p-4">
+          <div className="flex items-start justify-between gap-2"><span className="font-semibold text-navy-900">{row.title}</span><span className="text-xs text-navy-500">{formatDate(row.startsAt)}</span></div>
+          <div className="mt-2 text-xs text-navy-600">Roster {row.completeCount}/{row.rosterCount}</div>
+          <div className="mt-2 flex flex-wrap gap-2"><Badge tone={row.status === "COMPLETE" ? "current" : "info"}>{row.status === "COMPLETE" ? "Training completed" : "Training not completed"}</Badge><Badge tone={row.instructorApprovedAt ? "current" : "warn"}>{row.instructorApprovedAt ? "Instructor approved" : "Instructor not approved"}</Badge><Badge tone={row.rmsStatus === "RMS_ENTERED" ? "current" : "warn"}>{row.rmsStatus === "RMS_ENTERED" ? "Entered into RMS" : "Not entered into RMS"}</Badge></div>
+          <div className="mt-3 text-sm font-semibold text-fire">Open details →</div>
+        </Link>)}
+        {visibleRows.length === 0 ? <p className="py-5 text-center text-sm text-navy-500">No matching training sheets.</p> : null}
+      </div>
+      <div className="hidden overflow-x-auto rounded-lg border border-navy-200 bg-white md:block">
+        <table className="w-full min-w-[880px] text-left text-sm">
           <thead className="bg-navy-50 text-navy-700"><tr>
             <th className="px-4 py-3 font-semibold">Date</th>
             <th className="px-4 py-3 font-semibold">Training event</th>
             <th className="px-4 py-3 font-semibold">Roster</th>
-            <th className="px-4 py-3 font-semibold">Sheet status</th>
+            <th className="px-4 py-3 font-semibold">Training</th>
+            <th className="px-4 py-3 font-semibold">Instructor</th>
             <th className="px-4 py-3 font-semibold">RMS status</th>
             <th className="px-4 py-3 font-semibold">Record</th>
           </tr></thead>
@@ -163,11 +175,12 @@ export default function ClassesPage() {
                 <td className="px-4 py-3"><Link href={`/classes/${row.id}`} className="font-semibold text-navy-900 hover:text-fire hover:underline">{row.title}</Link><div className="text-xs text-navy-500">{row.trainingCategory.replaceAll("_", " ")}{row.location ? ` · ${row.location}` : ""}</div></td>
                 <td className="whitespace-nowrap px-4 py-3">{row.completeCount}/{row.rosterCount}</td>
                 <td className="px-4 py-3"><Badge tone={row.status === "COMPLETE" ? "current" : row.status === "ACTIVE" ? "info" : "neutral"}>{row.status === "COMPLETE" ? "Completed" : row.status === "ACTIVE" ? "In progress" : row.status === "DRAFT" ? "Draft" : row.status === "CANCELLED" ? "Cancelled" : row.status}</Badge></td>
+                <td className="px-4 py-3"><Badge tone={row.instructorApprovedAt ? "current" : "warn"}>{row.instructorApprovedAt ? "Approved" : "Not approved"}</Badge></td>
                 <td className="px-4 py-3"><Badge tone={row.rmsStatus === "RMS_ENTERED" ? "current" : row.rmsStatus === "ACTIONS_NEEDED" ? "warn" : "neutral"}>{row.rmsStatus === "RMS_ENTERED" ? "Entered into RMS" : row.rmsStatus === "ACTIONS_NEEDED" ? "Action needed" : "Not ready"}</Badge></td>
                 <td className="px-4 py-3"><Link href={`/classes/${row.id}`} className="font-semibold text-fire underline">Open</Link></td>
               </tr>
             ))}
-            {visibleRows.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-navy-500">{rows.length === 0 ? "No training events yet." : "No training events match these filters."}</td></tr> : null}
+            {visibleRows.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-navy-500">{rows.length === 0 ? "No training events yet." : "No training events match these filters."}</td></tr> : null}
           </tbody>
         </table>
       </div>
