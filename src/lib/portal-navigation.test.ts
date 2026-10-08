@@ -11,7 +11,8 @@ describe("role-based portal navigation", () => {
       ["People", "PEOPLE & READINESS"], ["Evaluations", "PEOPLE & READINESS"], ["Who Can Do What?", "PEOPLE & READINESS"],
       ["Training Needs", "IMPROVE & REPORT"], ["Reports", "IMPROVE & REPORT"],
     ]);
-    expect(nav.every((item) => item.description.length > 8)).toBe(true);\n    expect(inboxVisible).toBe(true);
+    expect(nav.every((item) => item.description.length > 8)).toBe(true);
+    expect(inboxVisible).toBe(true);
     expect(settingsVisible).toBe(true);
   });
 
