@@ -185,8 +185,7 @@ export default function DashboardPage() {
 
           <TrainingGapsHome />
           {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
-          <EvaluatorCoverage coverage={data.evaluatorCoverage} />
-          <DepartmentRecentActivity events={data.recentActivity} />
+          <details className="rounded-lg border border-navy-200 bg-white p-4"><summary className="cursor-pointer font-semibold text-navy-900">More department insights</summary><div className="mt-4 space-y-4"><EvaluatorCoverage coverage={data.evaluatorCoverage} /><DepartmentRecentActivity events={data.recentActivity} /></div></details>
         </>
       )}
 
