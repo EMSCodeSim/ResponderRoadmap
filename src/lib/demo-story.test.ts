@@ -43,7 +43,7 @@ describe("Pine Ridge department demo story", () => {
     expect(DEMO_READINESS.rmsHandoff.ready).toBeGreaterThan(0);
     expect(DEMO_EVALUATOR_COVERAGE.length).toBeGreaterThanOrEqual(3);
     expect(new Set(DEMO_EVALUATOR_COVERAGE.map((item) => item.evaluator)).size).toBe(DEMO_EVALUATOR_COVERAGE.length);
-  });\n
+  });
   it("generates a reviewable Task Book draft from the preloaded prompt", () => {
     expect(AI_TASKBOOK_PROMPT.toLowerCase()).toContain("probationary");
     expect(DEMO_AI_TASKBOOK.sections.map((section) => section.title)).toEqual([
