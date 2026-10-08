@@ -26,7 +26,7 @@ export function getPortalNavigation(role: Role | null, permissions: string[], en
 
   if (role === "MEMBER") return { nav: allowed.has("dashboard") ? [home] : [], inboxVisible, settingsVisible };
   if (role === "INSTRUCTOR") return {
-    nav: [home, make("/classes", "My Training Events", "Classes and rosters you teach", "events", "classes", "TRAIN")].filter((item): item is PortalNavItem => !!item && (item === home ? allowed.has("dashboard") : true)),
+    nav: [home, make("/classes", "My Training Sheets", "Classes and rosters you teach", "events", "classes", "TRAIN")].filter((item): item is PortalNavItem => !!item && (item === home ? allowed.has("dashboard") : true)),
     inboxVisible,
     settingsVisible,
   };
@@ -41,7 +41,7 @@ export function getPortalNavigation(role: Role | null, permissions: string[], en
       allowed.has("dashboard") ? home : null,
       make("/task-books", "Task Books", "Build and track qualification paths", "book", "task-books", "ASSIGN & TRAIN", TRAINING_PATHS),
       make("/assignment-library", "Assignments", "Give members specific work to complete", "assignment", "training-assignments", "ASSIGN & TRAIN", ASSIGNMENT_PATHS),
-      make("/classes", "Training Events", "Classes, drills, QR rosters, and attendance", "events", "classes", "ASSIGN & TRAIN"),
+      make("/classes", "Training Sheets", "Classes, drills, QR rosters, and attendance", "events", "classes", "ASSIGN & TRAIN"),
       make("/members", "People", "Members, roles, shifts, and evaluators", "people", "members", "PEOPLE & READINESS", ["/members", "/enrollment", "/evaluators"]),
       make("/evaluate", "Evaluations", "Review and sign off submitted skills", "evaluation", "evaluate", "PEOPLE & READINESS"),
       featureOn("QUALIFICATIONS") ? make("/qualifications", "Approved Roles", "Department-authorized roles and what is missing", "qualification", "members", "PEOPLE & READINESS") : null,
