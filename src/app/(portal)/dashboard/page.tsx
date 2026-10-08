@@ -183,7 +183,6 @@ export default function DashboardPage() {
           <DepartmentSetupGuide data={data} />
           <ActivationChecklist data={data} />
 
-          <DepartmentReadiness readiness={data.departmentReadiness} />
           <TrainingGapsHome />
           {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
           <EvaluatorCoverage coverage={data.evaluatorCoverage} />
@@ -364,35 +363,6 @@ function InstructorHome({ data }: { data: Dashboard }) {
     <section><div className="flex items-end justify-between gap-3"><div><div className="kicker">Instructor workspace</div><h2 className="display mt-1 text-2xl font-bold">Upcoming Training Events</h2></div><Link href="/classes" className="text-sm font-semibold text-fire underline">View all my events</Link></div>{home.upcoming.length ? <div className="mt-3 grid gap-3 lg:grid-cols-2">{home.upcoming.map((item) => <ClassRow key={item.id} item={item} />)}</div> : <p className="mt-3 text-sm text-navy-500">No upcoming Training Events.</p>}</section>
     {home.recentlyCompleted.length ? <section><div className="kicker">Records</div><h2 className="display mt-1 text-2xl font-bold">Recently Completed</h2><div className="mt-3 grid gap-3 lg:grid-cols-2">{home.recentlyCompleted.map((item) => <ClassRow key={item.id} item={item} />)}</div></section> : null}
   </div>;
-}
-
-function DepartmentReadiness({ readiness }: { readiness?: NonNullable<Dashboard["departmentReadiness"]> }) {
-  return <Card className="p-5">
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <div className="kicker">KNOW · Department Readiness</div>
-        <h2 className="display mt-1 text-2xl font-bold">Role readiness</h2>
-        <p className="mt-1 max-w-3xl text-sm text-navy-600">Readiness checks department authorization against its required credentials, Task Books, and approved skill requirements. Members without an assigned role are not counted.</p>
-      </div>
-      <Link href="/qualifications" className="text-sm font-semibold text-fire underline">View qualifications →</Link>
-    </div>
-    {!readiness || readiness.configuredRoleCount === 0 ? (
-      <div className="mt-4 rounded-md border border-amber-200 bg-amber-50/60 p-4 text-sm text-navy-700">
-        {readiness?.unconfiguredRoleCount ? `${readiness.unconfiguredRoleCount} qualification role${readiness.unconfiguredRoleCount === 1 ? "" : "s"} lack configured requirements. ` : "No qualification requirements are configured. "}
-        Readiness cannot be confirmed until department role requirements are set up.
-      </div>
-    ) : (
-      <>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <Link href="/qualifications" className="rounded-md border border-emerald-200 bg-emerald-50/40 p-3 hover:border-emerald-400"><div className="text-xs font-semibold text-navy-500">READY · evidence current and authorized</div><div className="mt-1 text-2xl font-bold text-navy-900">{readiness.ready}</div></Link>
-          <Link href="/qualifications" className="rounded-md border border-amber-200 bg-amber-50/50 p-3 hover:border-amber-400"><div className="text-xs font-semibold text-navy-500">ATTENTION · approval or review due</div><div className="mt-1 text-2xl font-bold text-navy-900">{readiness.attention}</div></Link>
-          <Link href="/qualifications" className="rounded-md border border-rose-200 bg-rose-50/50 p-3 hover:border-rose-400"><div className="text-xs font-semibold text-navy-500">NOT READY · missing evidence or restricted</div><div className="mt-1 text-2xl font-bold text-navy-900">{readiness.notReady}</div></Link>
-        </div>
-        <p className="mt-3 text-xs text-navy-500">{readiness.assigned} member-to-role assignment{readiness.assigned === 1 ? "" : "s"} assessed across {readiness.configuredRoleCount} configured role{readiness.configuredRoleCount === 1 ? "" : "s"}. Training completion is not the same as demonstrated competency or department authorization.</p>
-      </>
-    )}
-    {readiness?.unconfiguredRoleCount ? <p className="mt-2 text-xs text-amber-800">{readiness.unconfiguredRoleCount} other role{readiness.unconfiguredRoleCount === 1 ? " has" : "s have"} no credential, Task Book, or competency requirement and are excluded.</p> : null}
-  </Card>;
 }
 
 function EvaluatorCoverage({ coverage }: { coverage?: NonNullable<Dashboard["evaluatorCoverage"]> }) {
