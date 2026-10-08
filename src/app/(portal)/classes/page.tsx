@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { Badge, Button, Card, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
@@ -17,6 +17,9 @@ type ClassRow = {
   startsAt: string;
   location: string;
   status: string;
+  rmsStatus: string;
+  instructorApprovedAt: string | null;
+  rmsEnteredAt: string | null;
   rosterCount: number;
   completeCount: number;
   proctors: string[];
@@ -48,6 +51,9 @@ const emptyForm = {
 
 export default function ClassesPage() {
   const [rows, setRows] = useState<ClassRow[]>([]);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("newest");
+  const [sheetFilter, setSheetFilter] = useState("all");
   const [setup, setSetup] = useState<Setup | null>(null);
   const [templates, setTemplates] = useState<TrainingSheetTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -106,6 +112,12 @@ export default function ClassesPage() {
     setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 
+  const visibleRows = useMemo(() => rows.filter((row) => {
+    const matchesSearch = [row.title, row.location, row.trainingCategory, row.classType].some((value) => value.toLowerCase().includes(search.trim().toLowerCase()));
+    const matchesStatus = sheetFilter === "all" || (sheetFilter === "complete" && row.status === "COMPLETE") || (sheetFilter === "pending" && row.status !== "COMPLETE") || (sheetFilter === "rms-entered" && row.rmsStatus === "RMS_ENTERED") || (sheetFilter === "rms-needed" && row.rmsStatus === "ACTIONS_NEEDED");
+    return matchesSearch && matchesStatus;
+  }).sort((a, b) => sort === "oldest" ? new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime() : new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime()), [rows, search, sort, sheetFilter]);
+
   const required = new Set(setup?.requiredFields || []);
   const req = (field: string) => required.has(field);
 
@@ -119,30 +131,45 @@ export default function ClassesPage() {
       />
       <Flash message={error} tone="danger" />
       {setup ? <button type="button" onClick={() => openTraining(true)} className="fixed bottom-20 right-4 z-40 flex min-h-14 items-center rounded-full bg-fire px-5 text-sm font-bold text-white shadow-lg md:hidden" aria-label="Create quick training sheet">+ Quick training</button> : null}
-      <div className="grid gap-4 xl:grid-cols-2">
-        {rows.length === 0 ? (
-          <Card className="p-6 text-navy-500">No classes are assigned to you.</Card>
-        ) : rows.map((row) => (
-          <Link key={row.id} href={`/classes/${row.id}`} className="card block p-5 hover:border-fire/50">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="kicker">{row.classType.replaceAll("_", " ")}</div>
-                <h2 className="mt-1 text-xl font-bold text-navy-900">{row.title}</h2>
-                <p className="mt-1 text-sm text-navy-500">{row.checklistVersion ? `${row.checklistTitle} v${row.checklistVersion}` : row.checklistTitle}</p>
-              </div>
-              <Badge tone={row.status === "ACTIVE" ? "info" : row.status === "COMPLETE" ? "current" : "neutral"}>{row.status}</Badge>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div><span className="font-semibold">Date:</span> {formatDate(row.startsAt)}</div>
-              <div><span className="font-semibold">Location:</span> {row.location || "—"}</div>
-              <div><span className="font-semibold">Roster:</span> {row.rosterCount}</div>
-              <div><span className="font-semibold">Finished:</span> {row.completeCount}/{row.rosterCount}</div>
-              <div><span className="font-semibold">Training category:</span> {row.trainingCategory.replaceAll("_", " ")}</div>
-              <div><span className="font-semibold">Credit:</span> {row.creditHours > 0 ? `${row.creditHours} hr` : "Uses class duration"}</div>
-            </div>
-            <p className="mt-3 text-xs text-navy-500">Proctors: {row.proctors.join(", ") || "None"}</p>
-          </Link>
-        ))}
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <Input aria-label="Search training events" placeholder="Search class or training sheet…" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <Select aria-label="Sort training events by date" value={sort} onChange={(event) => setSort(event.target.value)}>
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </Select>
+        <Select aria-label="Filter training sheet status" value={sheetFilter} onChange={(event) => setSheetFilter(event.target.value)}>
+          <option value="all">All training sheets</option>
+          <option value="complete">Completed</option>
+          <option value="pending">Not completed</option>
+          <option value="rms-needed">RMS actions needed</option>
+          <option value="rms-entered">Entered into RMS</option>
+        </Select>
+      </div>
+      <div className="mb-2 text-sm text-navy-500">{visibleRows.length} of {rows.length} training events</div>
+      <div className="overflow-x-auto rounded-lg border border-navy-200 bg-white">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="bg-navy-50 text-navy-700"><tr>
+            <th className="px-4 py-3 font-semibold">Date</th>
+            <th className="px-4 py-3 font-semibold">Training event</th>
+            <th className="px-4 py-3 font-semibold">Roster</th>
+            <th className="px-4 py-3 font-semibold">Sheet status</th>
+            <th className="px-4 py-3 font-semibold">RMS status</th>
+            <th className="px-4 py-3 font-semibold">Record</th>
+          </tr></thead>
+          <tbody className="divide-y divide-navy-100">
+            {visibleRows.map((row) => (
+              <tr key={row.id} className="hover:bg-navy-50/60">
+                <td className="whitespace-nowrap px-4 py-3">{formatDate(row.startsAt)}</td>
+                <td className="px-4 py-3"><Link href={`/classes/${row.id}`} className="font-semibold text-navy-900 hover:text-fire hover:underline">{row.title}</Link><div className="text-xs text-navy-500">{row.trainingCategory.replaceAll("_", " ")}{row.location ? ` · ${row.location}` : ""}</div></td>
+                <td className="whitespace-nowrap px-4 py-3">{row.completeCount}/{row.rosterCount}</td>
+                <td className="px-4 py-3"><Badge tone={row.status === "COMPLETE" ? "current" : row.status === "ACTIVE" ? "info" : "neutral"}>{row.status === "COMPLETE" ? "Completed" : row.status === "ACTIVE" ? "In progress" : row.status === "DRAFT" ? "Draft" : row.status === "CANCELLED" ? "Cancelled" : row.status}</Badge></td>
+                <td className="px-4 py-3"><Badge tone={row.rmsStatus === "RMS_ENTERED" ? "current" : row.rmsStatus === "ACTIONS_NEEDED" ? "warn" : "neutral"}>{row.rmsStatus === "RMS_ENTERED" ? "Entered into RMS" : row.rmsStatus === "ACTIONS_NEEDED" ? "Action needed" : "Not ready"}</Badge></td>
+                <td className="px-4 py-3"><Link href={`/classes/${row.id}`} className="font-semibold text-fire underline">Open</Link></td>
+              </tr>
+            ))}
+            {visibleRows.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-navy-500">{rows.length === 0 ? "No training events yet." : "No training events match these filters."}</td></tr> : null}
+          </tbody>
+        </table>
       </div>
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
