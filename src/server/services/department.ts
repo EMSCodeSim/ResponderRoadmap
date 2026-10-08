@@ -42,6 +42,7 @@ export async function updateDepartment(
     enabledFeatures?: string[];
   },
 ) {
+  assertPermission(ctx, "department.read");
   if (ctx.role !== "TRAINING_OFFICER" && ctx.role !== "DEPARTMENT_ADMINISTRATOR") throw new HttpError(403, "Training leadership access required.");
   const allowedFeatures = ["CLASSES", "TRAINING_GAPS", "QUALIFICATIONS", "CREDENTIALS", "REPORTS"];
   if (input.enabledFeatures !== undefined && (!Array.isArray(input.enabledFeatures) || input.enabledFeatures.some((feature) => !allowedFeatures.includes(feature)))) throw new HttpError(400, "Invalid department feature selection.");
