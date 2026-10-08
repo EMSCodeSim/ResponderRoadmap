@@ -7,8 +7,10 @@ export type PortalNavigation = { nav: PortalNavItem[]; inboxVisible: boolean; se
 const TRAINING_PATHS = ["/task-books", "/my-task-books", "/task-book-progress"];
 const ASSIGNMENT_PATHS = ["/assignment-library", "/assignments", "/single-assignments", "/training-assignments", "/my-assignments"];
 
-export function getPortalNavigation(role: Role | null, permissions: string[]): PortalNavigation {
+export function getPortalNavigation(role: Role | null, permissions: string[], enabledFeatures?: string[]): PortalNavigation {
   const allowed = new Set(permissions);
+  const enabled = new Set(enabledFeatures);
+  const featureOn = (feature: string) => !enabledFeatures || enabled.has(feature);
   const home: PortalNavItem = {
     href: "/dashboard",
     label: "Home",
@@ -18,7 +20,7 @@ export function getPortalNavigation(role: Role | null, permissions: string[]): P
     paths: role === "MEMBER" ? ["/dashboard", ...TRAINING_PATHS, ...ASSIGNMENT_PATHS] : ["/dashboard"],
   };
   const make = (href: string, label: string, description: string, icon: PortalNavIcon, permission: string, section: string, paths = [href]): PortalNavItem | null =>
-    allowed.has(permission) ? { href, label, description, icon, section, paths } : null;
+    allowed.has(permission) && (permission !== "classes" || featureOn("CLASSES")) && (permission !== "skill-mastery" || featureOn("TRAINING_GAPS")) && (permission !== "reports" || featureOn("REPORTS")) ? { href, label, description, icon, section, paths } : null;
   const inboxVisible = allowed.has("inbox");
   const settingsVisible = allowed.has("settings");
 
@@ -42,7 +44,7 @@ export function getPortalNavigation(role: Role | null, permissions: string[]): P
       make("/classes", "Training Events", "Classes, drills, QR rosters, and attendance", "events", "classes", "ASSIGN & TRAIN"),
       make("/members", "People", "Members, roles, shifts, and evaluators", "people", "members", "PEOPLE & READINESS", ["/members", "/enrollment", "/evaluators"]),
       make("/evaluate", "Evaluations", "Review and sign off submitted skills", "evaluation", "evaluate", "PEOPLE & READINESS"),
-      make("/qualifications", "Who Can Do What?", "Department-authorized roles and what is missing", "qualification", "members", "PEOPLE & READINESS"),
+      featureOn("QUALIFICATIONS") ? make("/qualifications", "Who Can Do What?", "Department-authorized roles and what is missing", "qualification", "members", "PEOPLE & READINESS") : null,
       make("/skill-mastery", "Training Needs", "What to train next and why", "insights", "skill-mastery", "IMPROVE & REPORT"),
       make("/reports", "Reports", "Training gaps, hours, and RMS-ready records", "reports", "reports", "IMPROVE & REPORT"),
     ].filter((item): item is PortalNavItem => !!item),
