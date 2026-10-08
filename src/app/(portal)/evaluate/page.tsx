@@ -120,7 +120,7 @@ function EvaluateInner() {
       : payload.counts;
     setQueue(rows);
     setCounts(nextCounts);
-    setSelected((current) => rows.find((row) => row.id === focus) || rows.find((row) => row.id === current?.id) || rows[0] || null);
+    setSelected((current) => rows.find((row) => row.id === focus) || rows.find((row) => row.id === current?.id) || null);
   }
 
   useEffect(() => {
@@ -285,29 +285,25 @@ function EvaluateInner() {
       {queue.length === 0 ? (
         <EmptyState title={empty.title} body={empty.body} />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
+        <div className="space-y-4">
           <Card>
             <div className="border-b border-navy-100 p-3">
               <Input aria-label="Search evaluations" placeholder="Search member, skill, or Task Book" value={searchText} onChange={(event) => setSearchText(event.target.value)} />
               <p className="mt-2 text-xs text-navy-500">{visibleQueue.length} evaluations shown</p>
             </div>
-            <div className="max-h-[760px] overflow-y-auto">
+            <div className="overflow-x-auto">
               <ul className="divide-y divide-navy-100">
                 {visibleQueue.map((item) => {
                   const isSigned = view === "completed";
                   const isApproved = isSigned && item.result === "APPROVED";
-                  const fullyChecked = isApproved && (item.repetitionsRequired <= 1 || item.repetitionCount >= item.repetitionsRequired) && (!item.approvalPath.length || item.reviewStage === item.approvalPath[item.approvalPath.length - 1]);
+                  const fullyChecked = isApproved && item.repetitionCount >= item.repetitionsRequired && (!item.approvalPath.length || item.reviewStage === item.approvalPath[item.approvalPath.length - 1]);
                   const state = fullyChecked ? "Fully checked off" : isApproved ? "Signed · check remaining approvals" : isSigned ? `Reviewed · ${resultLabel(item.result)}` : item.status === "RETURNED" ? "Needs remediation" : item.followUpOnly || item.escalated ? "Overdue approval" : view === "waiting" ? "Awaiting approval" : "Needs approval";
                   return (
                     <li key={item.id}>
-                      <button type="button" onClick={() => setSelected(item)} className={`w-full px-3 py-3 text-left hover:bg-navy-50 ${selected?.id === item.id ? "bg-fire-soft" : ""}`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-navy-900">{item.memberName}</span>
-                          <Badge tone={fullyChecked ? "current" : isSigned ? "info" : item.escalated ? "danger" : "warn"}>{state}</Badge>
-                        </div>
-                        <div className="mt-1 text-sm text-navy-800">{item.requirementTitle}</div>
-                        <div className="mt-1 truncate text-xs text-navy-500">{item.taskBookTitle}</div>
-                        <div className="mt-1 text-xs text-navy-500">{isSigned ? `Signed by ${item.signedByName || item.evaluatorName || "evaluator"}` : `Next: ${item.owner || item.currentOwner || "evaluator"}`} · {item.signedAt ? formatDateTime(item.signedAt) : relativeTime(item.submittedAt)}</div>
+                      <button type="button" onClick={() => setSelected(item)} aria-expanded={selected?.id === item.id} className={`grid w-full gap-2 px-4 py-3 text-left hover:bg-navy-50 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] sm:items-center ${selected?.id === item.id ? "bg-fire-soft" : ""}`}>
+                        <div className="min-w-0"><div className="font-semibold text-navy-900">{item.memberName}</div><div className="text-sm text-navy-800">{item.requirementTitle}</div><div className="truncate text-xs text-navy-500">{item.taskBookTitle}</div></div>
+                        <div className="text-xs text-navy-500">{isSigned ? `Signed by ${item.signedByName || item.evaluatorName || "evaluator"}` : `Next: ${item.owner || item.currentOwner || "evaluator"}`}<div className="mt-1">{item.signedAt ? formatDateTime(item.signedAt) : relativeTime(item.submittedAt)}</div></div>
+                        <div className="flex items-center gap-2"><Badge tone={fullyChecked ? "current" : isSigned ? "info" : item.escalated ? "danger" : "warn"}>{state}</Badge><span className="text-xs font-semibold text-fire">{selected?.id === item.id ? "Opened" : "View details →"}</span></div>
                       </button>
                     </li>
                   );
@@ -318,6 +314,7 @@ function EvaluateInner() {
           </Card>
           {selected ? (
             <Card className="p-5">
+              <div className="mb-3 flex justify-end"><Button onClick={() => setSelected(null)}>Close details</Button></div>
               <div className="kicker">{view === "completed" ? "Completed evaluation" : view === "follow_up" ? "Follow-up evaluation" : view === "waiting" ? "Waiting evaluation" : "Skill evaluation"}</div>
               <h2 className="display text-4xl font-bold">{selected.requirementTitle}</h2>
               <p className="text-navy-600">
