@@ -31,6 +31,7 @@ export default function QualificationsPage() {
   const [q, setQ] = useState("");
   const [creatingRole, setCreatingRole] = useState(false);
   const [openRoleId, setOpenRoleId] = useState<string | null>(null);
+  const [memberFilter, setMemberFilter] = useState("all");
   const [name, setName] = useState(""); const [category, setCategory] = useState("OPERATIONS"); const [description, setDescription] = useState("");
   const [selectedCredentials, setSelectedCredentials] = useState<string[]>([]); const [selectedBooks, setSelectedBooks] = useState<string[]>([]);
   const [savingRole, setSavingRole] = useState(false); const [savingKey, setSavingKey] = useState("");
@@ -96,10 +97,10 @@ export default function QualificationsPage() {
             </button>
             {open ? <div className="border-t border-navy-100 bg-navy-50/50 p-4">
               <p className="mb-4 text-sm text-navy-700">{role.description || "No role description entered."}</p>
-              <h3 className="font-semibold text-navy-900">Who can perform this role?</h3>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-navy-900">Who can perform this role?</h3><Select aria-label="Filter members by role authorization" value={memberFilter} onChange={event => setMemberFilter(event.target.value)}><option value="all">All assigned members</option><option value="approved">Approved only</option><option value="pending">Not approved</option></Select></div>
               <div className="mt-3 space-y-3">
-                {members.filter(member => member.qualifications.some(qualification => qualification.id === role.id)).map(member => <div key={member.membershipId} className="rounded-lg border border-navy-200 bg-white p-3">
-                  <div className="font-bold text-navy-900">{member.name}</div><div className="text-xs text-navy-500">{[member.rank, member.position].filter(Boolean).join(" · ") || "No rank/position entered"}</div>
+                {members.filter(member => member.qualifications.some(qualification => qualification.id === role.id && (memberFilter === "all" || (memberFilter === "approved" ? qualification.status === "APPROVED" : qualification.status !== "APPROVED")))).map(member => <div key={member.membershipId} className="rounded-lg border border-navy-200 bg-white p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2"><div className="font-bold text-navy-900">{member.name}</div><Badge tone={tone(member.qualifications.find(qualification => qualification.id === role.id)?.status || "IN_TRAINING")}>{(member.qualifications.find(qualification => qualification.id === role.id)?.status || "IN_TRAINING").replaceAll("_", " ")}</Badge></div><div className="text-xs text-navy-500">{[member.rank, member.position].filter(Boolean).join(" · ") || "No rank/position entered"}</div>
           <div className="mt-3 grid gap-3 xl:grid-cols-2">{member.qualifications.filter(qualification => qualification.id === role.id).map(qualification => {
             const key = `${member.membershipId}:${qualification.id}`; const missing = qualification.missing.credentialTypeIds.length + qualification.missing.taskBookTemplateIds.length + qualification.missing.requirementIds.length;
             const completeCount = qualification.evidence?.filter(item => item.complete).length || 0; const totalCount = qualification.evidence?.length || 0; const expanded = expandedKey === key;
