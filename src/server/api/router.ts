@@ -100,10 +100,12 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && match(path, "auth/me")) {
       const session = await getRequestSession(req);
       if (!session) return jsonError("Authentication required.", 401);
-      return jsonOk({
-        ...session,
-        nav: session.role ? navItemsForRole(session.role) : ["dashboard", "settings"],
-      });
+      const ctx = session.departmentId ? await requireDepartmentSession(session) : null;
+      const features = ctx ? await department.getDepartment(ctx) : null;
+      const enabled = features ? JSON.parse(features.enabledFeaturesJson || "[]") as string[] : [];
+      const nav = ctx ? navItemsForRole(ctx.role) : ["dashboard", "settings"];
+      const featureNav: Record<string, string> = { classes: "CLASSES", "skill-mastery": "TRAINING_GAPS", certifications: "CREDENTIALS", reports: "REPORTS" };
+      return jsonOk({ ...session, ...(ctx ? { role: ctx.role, rank: ctx.rank, departmentName: ctx.departmentName } : {}), nav: nav.filter(key => !featureNav[key] || enabled.includes(featureNav[key])), enabledFeatures: enabled });
     }
 
     const session = await getRequestSession(req);
