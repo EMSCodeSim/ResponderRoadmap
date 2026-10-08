@@ -44,7 +44,7 @@ export function getPortalNavigation(role: Role | null, permissions: string[], en
       make("/classes", "Training Events", "Classes, drills, QR rosters, and attendance", "events", "classes", "ASSIGN & TRAIN"),
       make("/members", "People", "Members, roles, shifts, and evaluators", "people", "members", "PEOPLE & READINESS", ["/members", "/enrollment", "/evaluators"]),
       make("/evaluate", "Evaluations", "Review and sign off submitted skills", "evaluation", "evaluate", "PEOPLE & READINESS"),
-      featureOn("QUALIFICATIONS") ? make("/qualifications", "Who Can Do What?", "Department-authorized roles and what is missing", "qualification", "members", "PEOPLE & READINESS") : null,
+      featureOn("QUALIFICATIONS") ? make("/qualifications", "Approved Roles", "Department-authorized roles and what is missing", "qualification", "members", "PEOPLE & READINESS") : null,
       make("/skill-mastery", "Training Needs", "What to train next and why", "insights", "skill-mastery", "IMPROVE & REPORT"),
       make("/reports", "Reports", "Training gaps, hours, and RMS-ready records", "reports", "reports", "IMPROVE & REPORT"),
     ].filter((item): item is PortalNavItem => !!item),
