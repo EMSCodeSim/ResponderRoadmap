@@ -313,10 +313,10 @@ function EvaluateInner() {
             </div>
           </Card>
           {selected ? (
-            <Card className="p-5">
+            <Card id="evaluation-details" className="p-4 sm:p-5">
               <div className="mb-3 flex justify-end"><Button onClick={() => setSelected(null)}>Close details</Button></div>
               <div className="kicker">{view === "completed" ? "Completed evaluation" : view === "follow_up" ? "Follow-up evaluation" : view === "waiting" ? "Waiting evaluation" : "Skill evaluation"}</div>
-              <h2 className="display text-4xl font-bold">{selected.requirementTitle}</h2>
+              <h2 className="display text-2xl font-bold sm:text-3xl">{selected.requirementTitle}</h2>
               <p className="text-navy-600">
                 {selected.memberName} · {selected.taskBookTitle} · {selected.sectionTitle}
               </p>
