@@ -39,9 +39,12 @@ export async function updateDepartment(
     agencyType?: string;
     operationalCapabilities?: string[];
     customCapabilities?: string[];
+    enabledFeatures?: string[];
   },
 ) {
-  assertPermission(ctx, "department.write");
+  if (ctx.role !== "TRAINING_OFFICER" && ctx.role !== "DEPARTMENT_ADMINISTRATOR") throw new HttpError(403, "Training leadership access required.");
+  const allowedFeatures = ["CLASSES", "TRAINING_GAPS", "QUALIFICATIONS", "CREDENTIALS", "REPORTS"];
+  if (input.enabledFeatures !== undefined && (!Array.isArray(input.enabledFeatures) || input.enabledFeatures.some((feature) => !allowedFeatures.includes(feature)))) throw new HttpError(400, "Invalid department feature selection.");
   const department = await prisma.department.update({
     where: { id: ctx.departmentId },
     data: {
@@ -63,6 +66,7 @@ export async function updateDepartment(
       agencyType: input.agencyType?.trim().toUpperCase() || undefined,
       operationalCapabilitiesJson: input.operationalCapabilities === undefined ? undefined : JSON.stringify([...new Set(input.operationalCapabilities.map((item) => String(item).trim().toUpperCase()).filter(Boolean))]),
       customCapabilitiesJson: input.customCapabilities === undefined ? undefined : JSON.stringify([...new Set(input.customCapabilities.map((item) => String(item).trim().slice(0, 80)).filter(Boolean))]),
+      enabledFeaturesJson: input.enabledFeatures === undefined ? undefined : JSON.stringify([...new Set(input.enabledFeatures)]),
     },
   });
   await writeAudit(ctx, "department.updated", "Department", department.id, {});
