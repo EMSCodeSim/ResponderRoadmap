@@ -73,24 +73,19 @@ export default function TaskBooksPage() {
       ) : books && visible.length === 0 ? (
         <EmptyState title="No matching Task Books" body="Try a different search or status filter." action={<Button variant="secondary" onClick={() => { setQ(""); setStatus(""); }}>Clear filters</Button>} />
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="divide-y divide-navy-100 overflow-hidden rounded-lg border border-navy-200 bg-white">
           {visible.map((book) => (
-            <Card key={book.id} className="flex flex-col justify-between p-5">
-              <div>
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <Badge tone={statusTone(book.status)}>{statusLabel(book.status)}</Badge>
-                  {book.templateKind === "VERIFIED" ? <Badge tone="current">Verified source</Badge> : null}
-                  <span className="text-xs text-navy-500">Version {book.version}</span>
-                </div>
-                <h2 className="display text-xl font-bold text-navy-950">{book.title}</h2>
-                <p className="mt-1 text-sm text-navy-500">{book.category}{book.intendedPosition ? ` · ${book.intendedPosition}` : ""}</p>
-                <p className="mt-3 text-sm font-semibold text-navy-700">{book.assignedMembers} {book.assignedMembers === 1 ? "member" : "members"} assigned</p>
+            <Link key={book.id} href={`/task-books/${book.id}`} className="flex min-h-20 flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-navy-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-navy-950">{book.title}</div>
+                <div className="mt-1 text-xs text-navy-500">{book.category}{book.intendedPosition ? ` · ${book.intendedPosition}` : ""} · Version {book.version}</div>
               </div>
-              <div className="mt-5 flex flex-wrap gap-2 border-t border-navy-100 pt-4">
-                <Link href={`/task-books/${book.id}`}><Button variant={book.status === "DRAFT" ? "primary" : "secondary"}>{book.status === "DRAFT" ? "Continue editing" : "Open / edit"}</Button></Link>
-                {book.status === "ACTIVE" ? <Link href={`/task-books/${book.id}`}><Button>Open to assign</Button></Link> : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-navy-600">{book.assignedMembers} assigned</span>
+                <Badge tone={statusTone(book.status)}>{statusLabel(book.status)}</Badge>
+                <span className="text-sm font-semibold text-fire">Open →</span>
               </div>
-            </Card>
+            </Link>
           ))}
         </div>
       )}
