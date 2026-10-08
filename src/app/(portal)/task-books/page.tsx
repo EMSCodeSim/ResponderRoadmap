@@ -4,7 +4,7 @@ import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { Badge, Button, Card, EmptyState, Input, PageHeader, Select } from "@/components/ui";
+import { Badge, Button, EmptyState, Input, PageHeader, Select } from "@/components/ui";
 
 type Book = {
   id: string;
