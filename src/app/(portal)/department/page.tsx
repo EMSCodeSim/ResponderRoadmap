@@ -24,6 +24,7 @@ type Department = {
   agencyType: string;
   operationalCapabilitiesJson: string;
   customCapabilitiesJson: string;
+  enabledFeaturesJson: string;
 };
 
 type Invitation = { id: string; email: string | null; token: string; role: string; status: string };
@@ -33,6 +34,14 @@ const AGENCY_TYPES = [["FIRE", "Fire department"], ["EMS", "EMS-only agency"], [
 const CAPABILITIES = [
   ["STRUCTURAL_FIRE","Structural fire"],["WILDLAND","Wildland fire"],["EMS_BLS","EMS — BLS"],["EMS_ALS","EMS — ALS"],["HAZMAT","HazMat"],["DRIVER_APPARATUS","Driver / apparatus"],
   ["TECHNICAL_RESCUE","Technical rescue"],["ROPE_HIGH_ANGLE","High-angle / rope rescue"],["SWIFT_WATER","Swift water rescue"],["DIVE","Dive rescue"],["TRENCH","Trench rescue"],["CONFINED_SPACE","Confined space"],["COLLAPSE","Structural collapse"],["ARFF","Airport / ARFF"]
+] as const;
+
+const OPTIONAL_FEATURES = [
+  ["CLASSES", "Classes and QR attendance", "Organize classes and training attendance."],
+  ["TRAINING_GAPS", "Training gaps", "Highlight department-wide training needs."],
+  ["QUALIFICATIONS", "Qualifications", "Track operational role readiness."],
+  ["CREDENTIALS", "Credentials", "Manage certification records and expirations."],
+  ["REPORTS", "Reports", "View department training reports."],
 ] as const;
 
 const TRAINING_SHEET_FIELDS = [
@@ -69,7 +78,8 @@ export default function DepartmentPage() {
       const trainingSheetRequiredFields = (() => { try { const value = JSON.parse(dept.trainingSheetRequiredFieldsJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
       const operationalCapabilities = (() => { try { const value = JSON.parse(dept.operationalCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
       const customCapabilities = (() => { try { const value = JSON.parse(dept.customCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
-      await api("department", { method: "PATCH", body: JSON.stringify({ ...dept, trainingSheetRequiredFields, operationalCapabilities, customCapabilities }) });
+      const enabledFeatures = JSON.parse(dept.enabledFeaturesJson || "[]");
+      await api("department", { method: "PATCH", body: JSON.stringify({ ...dept, trainingSheetRequiredFields, operationalCapabilities, customCapabilities, enabledFeatures }) });
       setMessage("Department settings saved.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to save.");
@@ -94,6 +104,8 @@ export default function DepartmentPage() {
   }
 
   if (!dept) return <p className="text-navy-500">Loading department…</p>;
+  const enabledFeatures: string[] = (() => { try { const value = JSON.parse(dept.enabledFeaturesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
+  const toggleFeature = (feature: string) => setDept({ ...dept, enabledFeaturesJson: JSON.stringify(enabledFeatures.includes(feature) ? enabledFeatures.filter(item => item !== feature) : [...enabledFeatures, feature]) });
   const requiredTrainingFields: string[] = (() => { try { const value = JSON.parse(dept.trainingSheetRequiredFieldsJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
   const toggleTrainingField = (field: string) => setDept({ ...dept, trainingSheetRequiredFieldsJson: JSON.stringify(requiredTrainingFields.includes(field) ? requiredTrainingFields.filter((item) => item !== field) : [...requiredTrainingFields, field]) });
   const capabilities: string[] = (() => { try { const value = JSON.parse(dept.operationalCapabilitiesJson || "[]"); return Array.isArray(value) ? value : []; } catch { return []; } })();
@@ -151,6 +163,11 @@ export default function DepartmentPage() {
               <div className="mt-4 max-w-md"><Field label="Agency type"><Select value={dept.agencyType} onChange={(e) => setDept({...dept, agencyType:e.target.value})}>{AGENCY_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</Select></Field></div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{CAPABILITIES.map(([value,label])=><label key={value} className="flex min-h-10 items-center gap-2 rounded-md bg-navy-50 px-3 text-sm"><input type="checkbox" checked={capabilities.includes(value)} onChange={()=>toggleCapability(value)}/>{label}</label>)}</div>
               <div className="mt-4"><Field label="Other specialties" hint="Comma-separated department-specific capabilities."><Input value={customCapabilities.join(", ")} onChange={(e)=>setDept({...dept,customCapabilitiesJson:JSON.stringify(e.target.value.split(",").map(v=>v.trim()).filter(Boolean))})} placeholder="Ice rescue, mountain rescue, bike medic…" /></Field></div>
+            </div>
+            <div className="md:col-span-2 rounded-lg border border-navy-200 p-4">
+              <div className="font-semibold text-navy-900">Optional department features</div>
+              <p className="mt-1 text-sm text-navy-500">Choose which optional tools your department uses. Turning one off preserves existing records. Assignments, evaluations, approvals, and audit records remain essential and cannot be disabled.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">{OPTIONAL_FEATURES.map(([key, title, description]) => <label key={key} className="flex gap-3 rounded-md bg-navy-50 p-3 text-sm"><input type="checkbox" checked={enabledFeatures.includes(key)} onChange={() => toggleFeature(key)} /><span><strong className="block">{title}</strong><span className="text-navy-500">{description}</span></span></label>)}</div>
             </div>
             <div className="md:col-span-2 rounded-lg border border-navy-200 p-4">
               <div className="font-semibold text-navy-900">Required RMS training-sheet fields</div>
