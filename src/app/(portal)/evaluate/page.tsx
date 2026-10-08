@@ -1,7 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { TrainingLifecycle } from "@/components/TrainingLifecycle";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
@@ -9,7 +8,7 @@ import { formatDateTime, relativeTime } from "@/lib/dates";
 import { STEP_RATING_LABELS, STEP_RATINGS } from "@/lib/constants";
 import { TASKBOOK_ATTESTATION_TEXT } from "@/lib/taskbook-attestation";
 import { normalizeEvaluationView, type EvaluationWorkspaceView } from "@/lib/evaluation-routing";
-import { Badge, Button, Card, EmptyState, Field, Flash, PageHeader, TextArea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Field, Flash, Input, PageHeader, TextArea } from "@/components/ui";
 
 type QueueItem = {
   id: string;
@@ -91,6 +90,7 @@ function EvaluateInner() {
   const view = normalizeEvaluationView(search.get("view"));
   const focus = search.get("focus");
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [searchText, setSearchText] = useState("");
   const [counts, setCounts] = useState<SignOffQueueResponse["counts"]>({ needsMe: 0, waiting: 0, followUp: 0, completed: 0 });
   const [selected, setSelected] = useState<QueueItem | null>(null);
   const [note, setNote] = useState("");
@@ -108,6 +108,7 @@ function EvaluateInner() {
   const [numericScore, setNumericScore] = useState("");
   const groupOptions = Array.from(new Map(queue.map((item) => [item.requirementTitle, item])).values());
   const activeQueue = groupRequirementId ? queue.filter((item) => item.requirementTitle === groupRequirementId) : queue;
+  const visibleQueue = useMemo(() => activeQueue.filter((item) => [item.memberName, item.requirementTitle, item.taskBookTitle, item.assignedEvaluatorName || "", item.signedByName || ""].some((value) => value.toLowerCase().includes(searchText.trim().toLowerCase()))), [activeQueue, searchText]);
   const activeIndex = selected ? activeQueue.findIndex((item) => item.id === selected.id) : -1;
   const showActions = !!selected && selected.status === "SUBMITTED" && !!selected.canAct && !selected.readOnly && (view === "needs_me" || view === "follow_up");
 
@@ -226,7 +227,6 @@ function EvaluateInner() {
         title="Evaluations"
         description="Who needs to evaluate what next — then sign, return, or follow up."
       />
-      <TrainingLifecycle current="EVALUATION" />
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((tab) => {
           const count = counts[tab.countKey];
@@ -287,30 +287,34 @@ function EvaluateInner() {
       ) : (
         <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
           <Card>
-            <ul>
-              {activeQueue.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(item)}
-                    className={`w-full border-b border-navy-100 px-4 py-4 text-left ${selected?.id === item.id ? "bg-fire-soft" : ""}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-semibold">{item.memberName}</div>
-                      {item.status === "RETURNED" ? <Badge tone="danger">remediation</Badge> : item.followUpOnly ? <Badge tone="danger">follow-up</Badge> : item.escalated ? <Badge tone="danger">overdue</Badge> : item.assignedElsewhere && view === "needs_me" ? <Badge tone="neutral">available</Badge> : null}
-                    </div>
-                    <div className="text-sm text-navy-700">{item.requirementTitle}</div>
-                    <div className={`text-xs ${item.escalated ? "font-semibold text-danger" : "text-navy-400"}`}>
-                      {view === "completed"
-                        ? (item.signedAt ? formatDateTime(item.signedAt) : relativeTime(item.submittedAt))
-                        : item.escalated
-                          ? `${item.waitingHours}h waiting · ${item.escalationHours}h target`
-                          : relativeTime(item.submittedAt)}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="border-b border-navy-100 p-3">
+              <Input aria-label="Search evaluations" placeholder="Search member, skill, or Task Book" value={searchText} onChange={(event) => setSearchText(event.target.value)} />
+              <p className="mt-2 text-xs text-navy-500">{visibleQueue.length} evaluations shown</p>
+            </div>
+            <div className="max-h-[760px] overflow-y-auto">
+              <ul className="divide-y divide-navy-100">
+                {visibleQueue.map((item) => {
+                  const isSigned = view === "completed";
+                  const isApproved = isSigned && item.result === "APPROVED";
+                  const fullyChecked = isApproved && (item.repetitionsRequired <= 1 || item.repetitionCount >= item.repetitionsRequired) && (!item.approvalPath.length || item.reviewStage === item.approvalPath[item.approvalPath.length - 1]);
+                  const state = fullyChecked ? "Fully checked off" : isApproved ? "Signed · check remaining approvals" : isSigned ? `Reviewed · ${resultLabel(item.result)}` : item.status === "RETURNED" ? "Needs remediation" : item.followUpOnly || item.escalated ? "Overdue approval" : view === "waiting" ? "Awaiting approval" : "Needs approval";
+                  return (
+                    <li key={item.id}>
+                      <button type="button" onClick={() => setSelected(item)} className={`w-full px-3 py-3 text-left hover:bg-navy-50 ${selected?.id === item.id ? "bg-fire-soft" : ""}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-navy-900">{item.memberName}</span>
+                          <Badge tone={fullyChecked ? "current" : isSigned ? "info" : item.escalated ? "danger" : "warn"}>{state}</Badge>
+                        </div>
+                        <div className="mt-1 text-sm text-navy-800">{item.requirementTitle}</div>
+                        <div className="mt-1 truncate text-xs text-navy-500">{item.taskBookTitle}</div>
+                        <div className="mt-1 text-xs text-navy-500">{isSigned ? `Signed by ${item.signedByName || item.evaluatorName || "evaluator"}` : `Next: ${item.owner || item.currentOwner || "evaluator"}`} · {item.signedAt ? formatDateTime(item.signedAt) : relativeTime(item.submittedAt)}</div>
+                      </button>
+                    </li>
+                  );
+                })}
+                {visibleQueue.length === 0 ? <li className="p-4 text-sm text-navy-500">No matching evaluations.</li> : null}
+              </ul>
+            </div>
           </Card>
           {selected ? (
             <Card className="p-5">
