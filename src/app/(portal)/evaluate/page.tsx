@@ -22,6 +22,8 @@ type QueueItem = {
   instructions: string;
   objectives: string[];
   status?: string;
+  requirementComplete: boolean;
+  evaluationStatus: "NEEDS_APPROVAL" | "IN_PROGRESS" | "FULLY_COMPLETED" | "RETURNED";
   submittedAt: string | null;
   waitingHours: number;
   escalationHours: number;
@@ -91,6 +93,7 @@ function EvaluateInner() {
   const focus = search.get("focus");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [counts, setCounts] = useState<SignOffQueueResponse["counts"]>({ needsMe: 0, waiting: 0, followUp: 0, completed: 0 });
   const [selected, setSelected] = useState<QueueItem | null>(null);
   const [note, setNote] = useState("");
@@ -108,7 +111,7 @@ function EvaluateInner() {
   const [numericScore, setNumericScore] = useState("");
   const groupOptions = Array.from(new Map(queue.map((item) => [item.requirementTitle, item])).values());
   const activeQueue = groupRequirementId ? queue.filter((item) => item.requirementTitle === groupRequirementId) : queue;
-  const visibleQueue = useMemo(() => activeQueue.filter((item) => [item.memberName, item.requirementTitle, item.taskBookTitle, item.assignedEvaluatorName || "", item.signedByName || ""].some((value) => value.toLowerCase().includes(searchText.trim().toLowerCase()))), [activeQueue, searchText]);
+  const visibleQueue = useMemo(() => activeQueue.filter((item) => (statusFilter === "all" || item.evaluationStatus === statusFilter) && [item.memberName, item.requirementTitle, item.taskBookTitle, item.assignedEvaluatorName || "", item.signedByName || ""].some((value) => value.toLowerCase().includes(searchText.trim().toLowerCase()))), [activeQueue, searchText, statusFilter]);
   const activeIndex = selected ? activeQueue.findIndex((item) => item.id === selected.id) : -1;
   const showActions = !!selected && selected.status === "SUBMITTED" && !!selected.canAct && !selected.readOnly && (view === "needs_me" || view === "follow_up");
 
@@ -288,16 +291,15 @@ function EvaluateInner() {
         <div className="space-y-4">
           <Card>
             <div className="border-b border-navy-100 p-3">
-              <Input aria-label="Search evaluations" placeholder="Search member, skill, or Task Book" value={searchText} onChange={(event) => setSearchText(event.target.value)} />
+              <div className="flex flex-wrap gap-2"><Input className="min-w-48 flex-1" aria-label="Search evaluations" placeholder="Search member, skill, or Task Book" value={searchText} onChange={(event) => setSearchText(event.target.value)} /><select aria-label="Filter evaluation completion status" className="min-h-11 rounded-md border border-navy-200 bg-white px-3 text-sm" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="all">All statuses</option><option value="NEEDS_APPROVAL">Needs Approval</option><option value="IN_PROGRESS">In Progress</option><option value="FULLY_COMPLETED">Fully Completed</option><option value="RETURNED">Returned</option></select></div>
               <p className="mt-2 text-xs text-navy-500">{visibleQueue.length} evaluations shown</p>
             </div>
             <div className="overflow-x-auto">
               <ul className="divide-y divide-navy-100">
                 {visibleQueue.map((item) => {
                   const isSigned = view === "completed";
-                  const isApproved = isSigned && item.result === "APPROVED";
-                  const fullyChecked = isApproved && item.repetitionCount >= item.repetitionsRequired && (!item.approvalPath.length || item.reviewStage === item.approvalPath[item.approvalPath.length - 1]);
-                  const state = fullyChecked ? "Fully checked off" : isApproved ? "Signed · check remaining approvals" : isSigned ? `Reviewed · ${resultLabel(item.result)}` : item.status === "RETURNED" ? "Needs remediation" : item.followUpOnly || item.escalated ? "Overdue approval" : view === "waiting" ? "Awaiting approval" : "Needs approval";
+                  const fullyChecked = item.requirementComplete;
+                  const state = fullyChecked ? "Fully Completed" : item.evaluationStatus === "RETURNED" ? "Returned" : item.evaluationStatus === "IN_PROGRESS" ? "In Progress" : item.followUpOnly || item.escalated ? "Needs Approval · Overdue" : "Needs Approval";
                   return (
                     <li key={item.id}>
                       <button type="button" onClick={() => { setSelected(item); window.requestAnimationFrame(() => document.getElementById("evaluation-details")?.scrollIntoView({ behavior: "smooth", block: "start" })); }} aria-expanded={selected?.id === item.id} className={`grid w-full gap-2 px-4 py-3 text-left hover:bg-navy-50 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] sm:items-center ${selected?.id === item.id ? "bg-fire-soft" : ""}`}>
