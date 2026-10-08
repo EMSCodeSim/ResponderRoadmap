@@ -81,6 +81,7 @@ model Department {
   agencyType                      String                           @default("FIRE_EMS")
   operationalCapabilitiesJson     String                           @default("[\"STRUCTURAL_FIRE\",\"EMS_BLS\"]")
   customCapabilitiesJson          String                           @default("[]")
+  enabledFeaturesJson             String                           @default("[\"CLASSES\",\"TRAINING_GAPS\",\"QUALIFICATIONS\",\"CREDENTIALS\",\"REPORTS\"]")
   operationalRoles                OperationalRole[]
   memberOperationalAuthorizations MemberOperationalAuthorization[]
   notificationPreferences         NotificationPreference[]
