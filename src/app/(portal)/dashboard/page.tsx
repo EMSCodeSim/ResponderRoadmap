@@ -119,6 +119,11 @@ type Dashboard = {
   }>;
 };
 
+type HomeGapReport = {
+  coverageByCategory: Array<{ category: string; targetHours: number; recordedHours: number; membersExpected: number; membersBelowTarget: number; membersWithRecordedHours: number }>;
+  topicCoverageByRequirement: Array<{ templateId: string; templateTitle: string; topic: string; expectedMembers: number; membersUncovered: number; membersLimited: number; membersNeedingFollowUp: number; practiceCount: number; passCount: number }>;
+};
+
 type MemberQualification = { id: string; name: string; status: string; requirementsMet: boolean; authorization: { restriction?: string | null; reviewDate?: string | null } | null };
 type MemberCredential = { id: string; credentialName: string; expirationDate: string | null; doesNotExpire: boolean; health?: string; verificationStatus?: string };
 
