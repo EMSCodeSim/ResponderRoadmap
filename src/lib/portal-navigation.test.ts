@@ -7,7 +7,7 @@ describe("role-based portal navigation", () => {
   it("groups Training Officer work by task, competency, and insight", () => {
     const { nav, inboxVisible, settingsVisible } = getPortalNavigation("TRAINING_OFFICER", officerPermissions);
     expect(nav.map(({ label, section }) => [label, section])).toEqual([
-      ["Home", "HOME"], ["Task Books", "ASSIGN & TRAIN"], ["Assignments", "ASSIGN & TRAIN"], ["Training Events", "ASSIGN & TRAIN"],
+      ["Home", "HOME"], ["Task Books", "ASSIGN & TRAIN"], ["Assignments", "ASSIGN & TRAIN"], ["Training Sheets", "ASSIGN & TRAIN"],
       ["People", "PEOPLE & READINESS"], ["Evaluations", "PEOPLE & READINESS"], ["Who Can Do What?", "PEOPLE & READINESS"],
       ["Training Needs", "IMPROVE & REPORT"], ["Reports", "IMPROVE & REPORT"],
     ]);
@@ -25,7 +25,7 @@ describe("role-based portal navigation", () => {
   });
 
   it("keeps Instructor and Evaluator workspaces role-specific", () => {
-    expect(getPortalNavigation("INSTRUCTOR", ["dashboard", "classes", "inbox", "settings"]).nav.map(({ label }) => label)).toEqual(["Home", "My Training Events"]);
+    expect(getPortalNavigation("INSTRUCTOR", ["dashboard", "classes", "inbox", "settings"]).nav.map(({ label }) => label)).toEqual(["Home", "My Training Sheets"]);
     expect(getPortalNavigation("EVALUATOR", ["dashboard", "evaluate", "inbox", "settings"]).nav.map(({ label }) => label)).toEqual(["Home", "Evaluations"]);
   });
 
