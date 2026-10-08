@@ -334,70 +334,7 @@ function ReportsInner() {
         </div>
       )}
 
-      {report === "training-hours" && trainingHours && (
-        <div className="space-y-4">
-          <Card className="p-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <div className="kicker">Verified training hours</div>
-                <h2 className="display mt-1 text-2xl font-bold">{trainingHours.year} Training Hours</h2>
-                <p className="mt-1 max-w-3xl text-sm text-navy-600">
-                  Counts completed classes for department members marked PRESENT. Credit comes from the class credit-hours field, or from the scheduled duration when credit hours are left blank.
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="text-4xl font-bold">{trainingHours.departmentTotalHours}</div>
-                <div className="text-xs text-navy-500">department member-hours</div>
-              </div>
-            </div>
-          </Card>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Object.entries(trainingHours.categoryTotals).map(([category, hours]) => (
-              <Card key={category} className="p-4">
-                <div className="kicker">{category.replaceAll("_", " ")}</div>
-                <div className="mt-1 text-3xl font-bold">{hours}</div>
-                <div className="text-xs text-navy-500">member-hours</div>
-              </Card>
-            ))}
-          </div>
-          <Card>
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Member</th>
-                    <th>Rank</th>
-                    <th>Station / Shift</th>
-                    <th>Company</th>
-                    <th>Facility</th>
-                    <th>HazMat</th>
-                    <th>Driver</th>
-                    <th>Officer</th>
-                    <th>EMS</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {trainingHours.members.map((member) => (
-                    <tr key={member.memberId}>
-                      <td className="font-semibold">{member.memberName}</td>
-                      <td>{member.rank || "—"}</td>
-                      <td>{member.station || "—"}{member.shift ? ` · ${member.shift}` : ""}</td>
-                      <td>{member.categories.COMPANY || 0}</td>
-                      <td>{member.categories.FACILITY || 0}</td>
-                      <td>{member.categories.HAZMAT || 0}</td>
-                      <td>{member.categories.DRIVER || 0}</td>
-                      <td>{member.categories.OFFICER || 0}</td>
-                      <td>{member.categories.EMS || 0}</td>
-                      <td className="font-bold">{member.totalHours}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
+      {report === "training-hours" && trainingHours && <TrainingHoursAnalysis report={trainingHours} />}
 
       {report === "training-gaps" && trainingGaps && <TrainingGapAnalysis report={trainingGaps} />}
 
@@ -426,6 +363,47 @@ function ReportsInner() {
   );
 }
 
+
+function TrainingHoursAnalysis({ report }: { report: TrainingHoursReport }) {
+  const [scope, setScope] = useState<"department" | "shift" | "member">("department");
+  const [shift, setShift] = useState("ALL");
+  const [memberId, setMemberId] = useState("ALL");
+  const [sort, setSort] = useState<"hours-desc" | "hours-asc" | "name">("hours-desc");
+  const shifts = [...new Set(report.members.map(member => member.shift).filter((value): value is string => Boolean(value)))].sort();
+  const scopedMembers = report.members.filter(member =>
+    scope === "department" || (scope === "shift" ? shift === "ALL" || (member.shift || "UNASSIGNED") === shift : memberId === "ALL" || member.memberId === memberId)
+  );
+  const ordered = [...scopedMembers].sort((a, b) => sort === "name"
+    ? a.memberName.localeCompare(b.memberName)
+    : sort === "hours-asc" ? a.totalHours - b.totalHours : b.totalHours - a.totalHours);
+  const total = scopedMembers.reduce((sum, member) => sum + member.totalHours, 0);
+  const categories = [...new Set(scopedMembers.flatMap(member => Object.keys(member.categories)))].sort();
+  const categoryTotals = categories.map(category => ({
+    category, hours: scopedMembers.reduce((sum, member) => sum + (member.categories[category] || 0), 0),
+  }));
+  const selectedIds = new Set(scopedMembers.map(member => member.memberId));
+  const records = report.records.filter(record => selectedIds.has(record.memberId));
+  return <div className="space-y-4">
+    <Card className="p-5">
+      <div className="kicker">Verified training hours · {report.year}</div>
+      <h2 className="display mt-1 text-2xl font-bold">Review training hours</h2>
+      <p className="mt-1 text-sm text-navy-600">Completed classes with PRESENT attendance. Hours are member-hours, not unique class hours. Changing the view does not alter the underlying records.</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Field label="View by"><Select aria-label="View training hours by" value={scope} onChange={event => { setScope(event.target.value as typeof scope); setShift("ALL"); setMemberId("ALL"); }}><option value="department">Department</option><option value="shift">Shift</option><option value="member">Member</option></Select></Field>
+        {scope === "shift" ? <Field label="Shift"><Select aria-label="Choose shift" value={shift} onChange={event => setShift(event.target.value)}><option value="ALL">All shifts</option>{shifts.map(value => <option key={value} value={value}>{value}</option>)}{report.members.some(member => !member.shift) ? <option value="UNASSIGNED">Unassigned</option> : null}</Select></Field> : null}
+        {scope === "member" ? <Field label="Member"><Select aria-label="Choose member" value={memberId} onChange={event => setMemberId(event.target.value)}><option value="ALL">All members</option>{[...report.members].sort((a,b) => a.memberName.localeCompare(b.memberName)).map(member => <option key={member.memberId} value={member.memberId}>{member.memberName}</option>)}</Select></Field> : null}
+        <Field label="Sort members"><Select aria-label="Sort training hours" value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="hours-desc">Most hours first</option><option value="hours-asc">Fewest hours first</option><option value="name">Member name A–Z</option></Select></Field>
+        <div className="flex items-end"><Button variant="secondary" onClick={() => downloadCsv("training-hours-filtered.csv", records as unknown as Array<Record<string, unknown>>)}>Export selected hours CSV</Button></div>
+      </div>
+    </Card>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Card className="p-4"><div className="kicker">Hours in selected view</div><div className="mt-1 text-3xl font-bold">{Number(total.toFixed(2))}</div><div className="text-xs text-navy-500">{scopedMembers.length} member{scopedMembers.length === 1 ? "" : "s"}</div></Card>
+      <Card className="p-4"><div className="kicker">Department-wide member-hours</div><div className="mt-1 text-3xl font-bold">{report.departmentTotalHours}</div><div className="text-xs text-navy-500">All recorded members</div></Card>
+    </div>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{categoryTotals.map(row => <Card key={row.category} className="p-4"><div className="kicker">{row.category.replaceAll("_", " ")}</div><div className="mt-1 text-2xl font-bold">{Number(row.hours.toFixed(2))}</div><div className="text-xs text-navy-500">member-hours in selected view</div></Card>)}</div>
+    <Card><div className="table-wrap"><table className="table"><thead><tr><th>Member</th><th>Rank</th><th>Station / Shift</th>{categories.map(category => <th key={category}>{category.replaceAll("_", " ")}</th>)}<th>Total</th></tr></thead><tbody>{ordered.map(member => <tr key={member.memberId}><td className="font-semibold">{member.memberName}</td><td>{member.rank || "—"}</td><td>{member.station || "—"}{member.shift ? ` · ${member.shift}` : ""}</td>{categories.map(category => <td key={category}>{member.categories[category] || 0}</td>)}<td className="font-bold">{member.totalHours}</td></tr>)}{!ordered.length ? <tr><td colSpan={categories.length + 4}>No training hours in this selection.</td></tr> : null}</tbody></table></div></Card>
+  </div>;
+}
 
 function TrainingGapAnalysis({ report }: { report: TrainingGapsReport }) {
   const [shift, setShift] = useState("ALL");
