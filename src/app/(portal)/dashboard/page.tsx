@@ -371,7 +371,7 @@ function DepartmentReadiness({ readiness }: { readiness?: NonNullable<Dashboard[
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <div className="kicker">KNOW · Department Readiness</div>
-        <h2 className="display mt-1 text-2xl font-bold">Can people perform their assigned roles?</h2>
+        <h2 className="display mt-1 text-2xl font-bold">Role readiness</h2>
         <p className="mt-1 max-w-3xl text-sm text-navy-600">Readiness checks department authorization against its required credentials, Task Books, and approved skill requirements. Members without an assigned role are not counted.</p>
       </div>
       <Link href="/qualifications" className="text-sm font-semibold text-fire underline">View qualifications →</Link>
