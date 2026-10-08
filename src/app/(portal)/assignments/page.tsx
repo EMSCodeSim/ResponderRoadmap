@@ -1,4 +1,6 @@
-"use client";\n\nimport { TrainingLifecycle } from "@/components/TrainingLifecycle";
+"use client";
+
+import { TrainingLifecycle } from "@/components/TrainingLifecycle";
 
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 
