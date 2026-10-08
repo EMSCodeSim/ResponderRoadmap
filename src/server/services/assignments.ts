@@ -448,6 +448,8 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
       objectives: parseJsonArray(item.requirement.objectivesJson),
       evidenceType: item.requirement.evidenceType,
       status: item.status,
+      requirementComplete: requirementIsComplete(item.requirement, item),
+      evaluationStatus: requirementIsComplete(item.requirement, item) ? "FULLY_COMPLETED" : item.status === "RETURNED" ? "RETURNED" : item.status === "SUBMITTED" ? "NEEDS_APPROVAL" : "IN_PROGRESS",
       submittedAt: item.submittedAt,
       waitingHours,
       escalationHours,
