@@ -175,6 +175,7 @@ export default function DashboardPage() {
       ) : (
         <>
           <OfficerToday data={data} onRefresh={loadDashboard} />
+          <DepartmentSetupGuide data={data} />
           <ActivationChecklist data={data} />
 
           <DepartmentReadiness readiness={data.departmentReadiness} />
@@ -187,6 +188,27 @@ export default function DashboardPage() {
 
     </div>
   );
+}
+
+function DepartmentSetupGuide({ data }: { data: Dashboard }) {
+  const [expanded, setExpanded] = useState(false);
+  const steps = [
+    { title: "Department basics", description: "Confirm department details, stations and shifts.", href: "/department" },
+    { title: "People and permissions", description: "Invite members and authorize instructors and evaluators.", href: "/enrollment" },
+    { title: "Training requirements", description: "Configure task books, credentials and training expectations.", href: "/training-expectations" },
+    { title: "Evaluation workflow", description: "Review who can sign off and when an evaluation escalates.", href: "/department" },
+    { title: "First training activity", description: "Assign training and follow approvals in Inbox.", href: createAssignmentPath() },
+  ];
+  return <Card className="mb-6 p-5">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><div className="kicker">TRAINING OFFICER GUIDE</div><h2 className="mt-1 text-xl font-bold">Set up your department</h2><p className="mt-1 text-sm text-navy-600">Learn each section as you configure your training program.</p></div>
+      <Button variant="secondary" onClick={() => setExpanded(!expanded)}>{expanded ? "Hide guide" : "Start setup"}</Button>
+    </div>
+    {expanded ? <div className="mt-4 grid gap-3 md:grid-cols-2">
+      {steps.map((step, index) => <Link key={step.title} href={step.href} className="rounded-lg border border-navy-200 p-4 hover:border-fire"><strong>{index + 1}. {step.title}</strong><p className="mt-2 text-sm text-navy-600">{step.description}</p><span className="mt-2 inline-block text-sm font-semibold text-fire">Open section →</span></Link>)}
+      <div className="rounded-lg border border-navy-200 p-4"><strong>Where does everything go?</strong><p className="mt-2 text-sm text-navy-600">Home is the overview. Inbox holds your personal action queue. Task Books define work, Evaluations record sign-offs, and Qualifications show readiness.</p></div>
+    </div> : null}
+  </Card>;
 }
 
 function OfficerToday({ data }: { data: Dashboard; onRefresh: () => Promise<void> }) {
