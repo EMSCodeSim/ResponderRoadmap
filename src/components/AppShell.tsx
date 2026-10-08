@@ -20,6 +20,7 @@ type Session = {
   role: Role | null;
   rank: string | null;
   nav: string[];
+  enabledFeatures?: string[];
 };
 
 const ADMIN_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/platform-admin", "/enrollment", "/training-expectations"];
@@ -66,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const { nav, inboxVisible, settingsVisible } = useMemo(() => {
-    return getPortalNavigation(session?.role ?? null, session?.nav ?? ["dashboard", "settings"]);
+    return getPortalNavigation(session?.role ?? null, session?.nav ?? ["dashboard", "settings"], session?.enabledFeatures);
   }, [session]);
 
   const isDemo = session?.departmentId === DEMO_DEPARTMENT_ID;
