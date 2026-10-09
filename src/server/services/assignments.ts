@@ -772,6 +772,7 @@ export async function submitRequirement(
     hours?: number;
     evaluatorId?: string | null;
     clientRequestId?: string | null;
+    classSkillResultId?: string | null;
   } = {},
 ) {
   assertPermission(ctx, "assignments.write");
@@ -834,6 +835,27 @@ export async function submitRequirement(
     if (Number.isFinite(maxAttempts) && attempts >= maxAttempts && existing?.status === "RETURNED") {
       throw new HttpError(400, "Maximum evaluation attempts have been reached.");
     }
+  }
+
+  // A Training Sheet result may be attached only by the member it documents,
+  // for the exact same published requirement. Do not treat it as Task Book approval.
+  const linkedClassResult = input.classSkillResultId
+    ? await prisma.trainingClassSkillResult.findFirst({
+        where: {
+          id: input.classSkillResultId,
+          requirementId,
+          result: "PASS",
+          enrollment: {
+            membershipId: assignment.membershipId,
+            attendance: "PRESENT",
+            class: { departmentId: ctx.departmentId, status: "COMPLETE", instructorApprovedAt: { not: null } },
+          },
+        },
+        include: { enrollment: { include: { class: { select: { id: true, title: true } } } } },
+      })
+    : null;
+  if (input.classSkillResultId && !linkedClassResult) {
+    throw new HttpError(400, "Choose a finalized, instructor-approved Training Sheet pass for this same member and skill.");
   }
 
   const submittedRepetition = Math.min(repetitionsRequired, currentRepetitionCount + 1);
@@ -915,6 +937,17 @@ export async function submitRequirement(
           description: item.description?.trim() || "",
           fileUrl: item.fileUrl || null,
         })),
+    });
+  }
+
+  if (linkedClassResult) {
+    await prisma.evidence.create({
+      data: {
+        completionId: completion.id,
+        type: "TRAINING_SHEET_REFERENCE",
+        description: `Training Sheet: ${linkedClassResult.enrollment.class.title} · verified source result ${linkedClassResult.id} · PASS (separate Task Book approval required)`,
+        fileUrl: null,
+      },
     });
   }
 
@@ -1078,6 +1111,38 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
     completions: assignment.completions,
   });
 
+  // Reuse only explicitly matched checklist requirement IDs for the same member
+  // and department. A recorded class result never approves this Task Book.
+  const relatedClassResults = await prisma.trainingClassSkillResult.findMany({
+    where: {
+      requirementId: { in: requirements.map((item) => item.id) },
+      result: "PASS",
+      enrollment: {
+        membershipId: assignment.membershipId,
+        attendance: "PRESENT",
+        class: { departmentId: ctx.departmentId, status: "COMPLETE", instructorApprovedAt: { not: null } },
+      },
+    },
+    include: {
+      evaluator: { select: { name: true } },
+      enrollment: { include: { class: { select: { title: true, startsAt: true } } } },
+    },
+    orderBy: { evaluatedAt: "desc" },
+    take: 100,
+  });
+  const relatedEvidence = relatedClassResults.map((item) => ({
+    id: item.id,
+    requirementId: item.requirementId,
+    classTitle: item.enrollment.class.title,
+    classDate: item.enrollment.class.startsAt,
+    result: item.result,
+    notes: item.notes,
+    evaluatedAt: item.evaluatedAt,
+    evaluatorName: item.evaluator.name,
+    source: "TRAINING_SHEET" as const,
+    verification: "INSTRUCTOR_APPROVED_SOURCE" as const,
+  }));
+
   const evaluators = await prisma.departmentMembership.findMany({
     where: {
       departmentId: ctx.departmentId,
@@ -1094,6 +1159,7 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
     progressDetail: progress,
     sections,
     upNext,
+    relatedEvidence,
     evaluators: evaluators.map((item) => ({ id: item.userId, name: item.user.name, role: item.role })),
     isComplete: progress.status === "COMPLETE",
   };

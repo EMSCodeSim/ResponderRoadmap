@@ -38,6 +38,7 @@ type Detail = {
   isComplete: boolean;
   upNext: Array<{ requirementId: string; title: string; reason: string; locked: boolean; lockReason?: string }>;
   evaluators: Array<{ id: string; name: string; role: string }>;
+  relatedEvidence: Array<{ id: string; requirementId: string; classTitle: string; classDate: string; result: string; evaluatorName: string; evaluatedAt: string; notes: string; verification: string }>;
   sections: Array<{
     id: string;
     title: string;
@@ -89,6 +90,7 @@ export default function MyTaskBookDetailPage() {
   const [notes, setNotes] = useState("");
   const [evidence, setEvidence] = useState("");
   const [evaluatorId, setEvaluatorId] = useState("");
+  const [classSkillResultId, setClassSkillResultId] = useState("");
   const [busy, setBusy] = useState(false);
   const [syncState, setSyncState] = useState<"idle" | "saving" | "synced" | "waiting" | "failed">("idle");
   const [lastReceipt, setLastReceipt] = useState<{ receiptId: string; recordedAt: string | null; status: string } | null>(null);
@@ -112,6 +114,7 @@ export default function MyTaskBookDetailPage() {
       evaluatorId: evaluatorId || null,
       evidence: evidence.trim() ? [{ type: "WRITTEN_NOTE", description: evidence.trim() }] : [],
       clientRequestId,
+      classSkillResultId: classSkillResultId || null,
     };
 
     setBusy(true);
@@ -146,6 +149,7 @@ export default function MyTaskBookDetailPage() {
       );
       setNotes("");
       setEvidence("");
+      setClassSkillResultId("");
     } catch (err) {
       setSyncState("failed");
       setMessage(null);
@@ -252,7 +256,7 @@ export default function MyTaskBookDetailPage() {
                 const reps = req.completion?.repetitionCount || 0;
                 return (
                   <li key={req.id} id={`requirement-${req.id}`} className="scroll-mt-4 rounded-md border border-navy-200">
-                    <button type="button" className="w-full p-4 text-left" onClick={() => setOpenId(openId === req.id ? null : req.id)}>
+                    <button type="button" className="w-full p-4 text-left" onClick={() => { setOpenId(openId === req.id ? null : req.id); setClassSkillResultId(""); }}>
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <div className="text-lg font-semibold">{req.title}</div>
@@ -314,6 +318,27 @@ export default function MyTaskBookDetailPage() {
                               {req.completion.signOffs.map((sign) => (
                                 <li key={sign.id}>
                                   {sign.evaluatorName} ({sign.approvalLevel.toLowerCase()}) {sign.result.toLowerCase().replaceAll("_", " ")} · {formatDate(sign.signedAt)}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {(data.relatedEvidence || []).some((item) => item.requirementId === req.id) ? (
+                          <div className="mt-4 rounded-md border border-navy-200 bg-navy-50 p-3">
+                            <div className="font-semibold text-navy-900">Matching Training Sheet evidence</div>
+                            <p className="mt-1 text-xs text-navy-600">Only instructor-approved, finalized Training Sheet passes for this exact skill are shown. They do not automatically approve your Task Book.</p>
+                            <ul className="mt-2 space-y-2">
+                              {data.relatedEvidence.filter((item) => item.requirementId === req.id).map((item) => (
+                                <li key={item.id} className="rounded-md bg-white p-3 text-sm">
+                                  <div className="font-semibold">{item.classTitle}</div>
+                                  <div className="mt-1 text-xs text-navy-600">Passed · {item.evaluatorName} · {formatDate(item.evaluatedAt)}</div>
+                                  {item.notes ? <p className="mt-1 text-xs text-navy-600">{item.notes}</p> : null}
+                                  {!req.locked && status !== "APPROVED" && status !== "SUBMITTED" ? (
+                                    <label className="mt-2 flex min-h-11 items-center gap-2 text-sm font-semibold">
+                                      <input type="radio" name={`training-evidence-${req.id}`} checked={classSkillResultId === item.id} onChange={() => setClassSkillResultId(item.id)} />
+                                      Attach this verified source to my submission
+                                    </label>
+                                  ) : null}
                                 </li>
                               ))}
                             </ul>
