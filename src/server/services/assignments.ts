@@ -1127,7 +1127,7 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
     where: { departmentId: ctx.departmentId, targetRequirementId: { in: requirements.map((item) => item.id) }, revokedAt: null },
     select: { id: true, sourceRequirementId: true, targetRequirementId: true },
   });
-  const equivalentTargets = new Map(equivalentRequirements.map((item) => [item.sourceRequirementId, item.targetRequirementId]));
+  const targetRequirementIds = new Set(requirements.map((item) => item.id));
   const allowedSourceIds = [...new Set([...requirements.map((item) => item.id), ...equivalentRequirements.map((item) => item.sourceRequirementId)])];
   const relatedClassResults = await prisma.trainingClassSkillResult.findMany({
     where: {
@@ -1146,20 +1146,26 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
     orderBy: { evaluatedAt: "desc" },
     take: 100,
   });
-  const relatedEvidence = relatedClassResults.map((item) => ({
-    id: item.id,
-    requirementId: equivalentTargets.get(item.requirementId) || item.requirementId,
-    sourceRequirementId: item.requirementId,
-    matchType: equivalentTargets.has(item.requirementId) ? "APPROVED_EQUIVALENCY" : "EXACT" as string,
-    classTitle: item.enrollment.class.title,
-    classDate: item.enrollment.class.startsAt,
-    result: item.result,
-    notes: item.notes,
-    evaluatedAt: item.evaluatedAt,
-    evaluatorName: item.evaluator.name,
-    source: "TRAINING_SHEET" as const,
-    verification: "INSTRUCTOR_APPROVED_SOURCE" as const,
-  }));
+  const relatedEvidence = relatedClassResults.flatMap((item) => {
+    const targets = targetRequirementIds.has(item.requirementId)
+      ? [{ requirementId: item.requirementId, matchType: "EXACT" }]
+      : equivalentRequirements.filter((link) => link.sourceRequirementId === item.requirementId)
+          .map((link) => ({ requirementId: link.targetRequirementId, matchType: "APPROVED_EQUIVALENCY" }));
+    return targets.map((target) => ({
+      id: item.id,
+      requirementId: target.requirementId,
+      sourceRequirementId: item.requirementId,
+      matchType: target.matchType,
+      classTitle: item.enrollment.class.title,
+      classDate: item.enrollment.class.startsAt,
+      result: item.result,
+      notes: item.notes,
+      evaluatedAt: item.evaluatedAt,
+      evaluatorName: item.evaluator.name,
+      source: "TRAINING_SHEET" as const,
+      verification: "INSTRUCTOR_APPROVED_SOURCE" as const,
+    }));
+  });
 
   const evaluators = await prisma.departmentMembership.findMany({
     where: {
