@@ -228,7 +228,7 @@ function EvaluateInner() {
       <PageHeader
         kicker="Evaluate"
         title="Evaluations"
-        description="Who needs to evaluate what next — then sign, return, or follow up."
+        description="Choose a submitted skill, review the evidence and criteria, then sign or return it."
       />
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((tab) => {
@@ -247,8 +247,9 @@ function EvaluateInner() {
         })}
       </div>
       {view === "needs_me" && groupOptions.length > 0 ? (
-        <Card className="mb-4 p-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
+        <details className="mb-4 rounded-lg border border-navy-200 bg-white p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-navy-900">Evaluate the same skill for several members (optional)</summary>
+          <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="kicker">Group practical mode</div>
               <h2 className="display mt-1 text-xl font-bold">Evaluate one skill across multiple members</h2>
@@ -274,7 +275,7 @@ function EvaluateInner() {
               })}
             </select>
           </label>
-        </Card>
+        </details>
       ) : null}
       {view === "follow_up" ? (
         <div className="mb-4 rounded-md border border-danger/30 bg-danger-soft p-3 text-sm text-navy-800">
@@ -446,8 +447,8 @@ function EvaluateInner() {
                 </div>
               ) : null}
               {showActions ? (
-                <div className="mt-5">
-                  <div className="kicker">Graded skill score</div>
+                <details className="mt-5 rounded-md border border-navy-200 p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-navy-900">Add an optional numeric score</summary>
                   <p className="mt-1 text-sm text-navy-600">Optional 0–100 score for retention and trend tracking. Pass/fail remains part of the evaluator decision.</p>
                   <input
                     type="number"
@@ -460,7 +461,7 @@ function EvaluateInner() {
                     placeholder="0–100"
                     aria-label="Skill score"
                   />
-                </div>
+                </details>
               ) : null}
               {selected.criticalFailures.length ? (
                 <div className="mt-5">
@@ -568,13 +569,13 @@ function EvaluateInner() {
                     disabled={busy || critical.length > 0 || !attested || selected.evaluationSteps.some((step) => steps[step.id] !== "MEETS") || (selected.sameReviewerConflict && (!selected.sameReviewerOverrideAllowed || !sameReviewerOverride || !overrideReason.trim()))}
                     onClick={() => evaluate("APPROVED")}
                   >
-                    PASS & SIGN
+                    Approve & Sign
                   </Button>
                   <Button className="min-h-16 text-base" variant="danger" disabled={busy} onClick={() => evaluate("NEEDS_REMEDIATION")}>
-                    NEEDS REMEDIATION
+                    Return for Improvement
                   </Button>
                   <Button className="min-h-16 text-base" variant="secondary" disabled={busy} onClick={() => evaluate("NOT_EVALUATED")}>
-                    NOT EVALUATED
+                    Not Evaluated
                   </Button>
                 </div>
               ) : null}
