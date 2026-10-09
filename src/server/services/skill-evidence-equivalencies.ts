@@ -14,7 +14,19 @@ export async function listEligibleSkillRequirements(ctx: AuthContext) {
   assertPermission(ctx, "taskbooks.read");
   const rows = await prisma.taskBookRequirement.findMany({
     where: { section: { version: { status: "PUBLISHED", template: { departmentId: ctx.departmentId } } } },
-    select: { id: true, title: true, section: { select: { version: { select: { template: { select: { title: true } } } } } } } },
+    select: {
+      id: true,
+      title: true,
+      section: {
+        select: {
+          version: {
+            select: {
+              template: { select: { title: true } },
+            },
+          },
+        },
+      },
+    },
     orderBy: { title: "asc" },
     take: 1000,
   });
