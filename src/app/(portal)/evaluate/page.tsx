@@ -581,7 +581,7 @@ function EvaluateInner() {
               ) : null}
               {showActions && critical.length ? <p className="mt-2 text-sm text-danger">A critical failure is marked. This attempt cannot pass.</p> : null}
               {showActions && selected.evaluationSteps.some((step) => !steps[step.id]) ? <p className="mt-2 text-sm text-navy-600">Rate each criterion explicitly before signing. Unrated criteria are not assumed to pass.</p> : null}
-              {showActions && !attested && !critical.length ? <p className="mt-2 text-sm text-navy-500">Check “I verify this completion” to enable PASS & SIGN.</p> : null}
+              {showActions && !attested && !critical.length ? <p className="mt-2 text-sm text-navy-500">Check “I verify this completion” to enable Approve & Sign.</p> : null}
               {showActions ? <p className="mt-3 text-center text-sm font-semibold text-navy-700">The signed evaluation is stored in the append-only audit history.</p> : null}
               {showActions && activeQueue.length > 1 ? (
                 <Button
