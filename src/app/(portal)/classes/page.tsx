@@ -187,7 +187,7 @@ export default function ClassesPage() {
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
-          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Phone / field mode</div><p className="mt-1 text-sm text-navy-600">Start with the essentials now. QR registration is on by default so the crew can scan in. Department-required RMS fields are still enforced.</p></div> : null}
+          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Phone / field mode</div><p className="mt-1 text-sm text-navy-600">Choose a template, confirm the details and optional grading checklist, then create the sheet. QR sign-in starts enabled; department-required fields still apply.</p></div> : null}
           {templates.length ? <Field label="Start from a training template" hint="Prefills the checklist and sheet details. You can adjust them before creating the class."><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Start with a blank sheet</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field> : null}
           {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> fields marked * are required by your department before this training sheet is created or completed.</div> : null}
           <div className="grid gap-4 md:grid-cols-2">
@@ -214,12 +214,12 @@ export default function ClassesPage() {
             <Field label={`Credit hours${req("HOURS") ? " *" : ""}`} hint="Leave blank to use the time between Starts and Ends.">
               <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
             </Field>
-            {!quickMode ? <Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
+            {<Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
               <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}>
                 <option value="">No checklist — attendance/training record only</option>
                 {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
-            </Field> : null}
+            </Field>}
             <Field label={`Location${req("LOCATION") ? " *" : ""}`}><Input required={req("LOCATION")} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
             <Field label="Starts"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
             <Field label={`Ends${req("END_TIME") ? " *" : ""}`}><Input required={req("END_TIME")} type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field>
