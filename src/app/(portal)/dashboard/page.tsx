@@ -224,7 +224,7 @@ function DepartmentReadinessOverview({ data }: { data: Dashboard }) {
           </>
         ) : <p className="mt-4 text-sm text-navy-600">Qualification summary is unavailable. Open Qualifications to review individual records.</p>}
         <div className="mt-4 flex flex-wrap gap-4 text-sm">
-          <Link className="font-semibold text-fire underline" href="/evaluations">Review competency evaluations →</Link>
+          <Link className="font-semibold text-fire underline" href="/evaluate">Review competency evaluations →</Link>
           <Link className="font-semibold text-fire underline" href="/reports?type=training-gaps">Identify training needs →</Link>
         </div>
       </Card>
