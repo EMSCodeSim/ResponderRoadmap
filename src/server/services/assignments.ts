@@ -839,11 +839,18 @@ export async function submitRequirement(
 
   // A Training Sheet result may be attached only by the member it documents,
   // for the exact same published requirement. Do not treat it as Task Book approval.
+  const approvedLinks = input.classSkillResultId
+    ? await prisma.skillEvidenceEquivalency.findMany({
+        where: { departmentId: ctx.departmentId, targetRequirementId: requirementId, revokedAt: null },
+        select: { id: true, sourceRequirementId: true },
+      })
+    : [];
+  const approvedSourceIds = approvedLinks.map((item) => item.sourceRequirementId);
   const linkedClassResult = input.classSkillResultId
     ? await prisma.trainingClassSkillResult.findFirst({
         where: {
           id: input.classSkillResultId,
-          requirementId,
+          requirementId: { in: [requirementId, ...approvedSourceIds] },
           result: "PASS",
           enrollment: {
             membershipId: assignment.membershipId,
@@ -853,6 +860,9 @@ export async function submitRequirement(
         },
         include: { enrollment: { include: { class: { select: { id: true, title: true } } } } },
       })
+    : null;
+  const approvedLink = linkedClassResult && linkedClassResult.requirementId !== requirementId
+    ? approvedLinks.find((item) => item.sourceRequirementId === linkedClassResult.requirementId)
     : null;
   if (input.classSkillResultId && !linkedClassResult) {
     throw new HttpError(400, "Choose a finalized, instructor-approved Training Sheet pass for this same member and skill.");
@@ -945,7 +955,7 @@ export async function submitRequirement(
       data: {
         completionId: completion.id,
         type: "TRAINING_SHEET_REFERENCE",
-        description: `Training Sheet: ${linkedClassResult.enrollment.class.title} · verified source result ${linkedClassResult.id} · PASS (separate Task Book approval required)`,
+        description: `Training Sheet: ${linkedClassResult.enrollment.class.title} · source result ${linkedClassResult.id} · ${approvedLink ? `department-approved equivalency ${approvedLink.id}` : "exact skill match"} · PASS (separate Task Book approval required)`,
         fileUrl: null,
       },
     });
@@ -1113,9 +1123,15 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
 
   // Reuse only explicitly matched checklist requirement IDs for the same member
   // and department. A recorded class result never approves this Task Book.
+  const equivalentRequirements = await prisma.skillEvidenceEquivalency.findMany({
+    where: { departmentId: ctx.departmentId, targetRequirementId: { in: requirements.map((item) => item.id) }, revokedAt: null },
+    select: { id: true, sourceRequirementId: true, targetRequirementId: true },
+  });
+  const equivalentTargets = new Map(equivalentRequirements.map((item) => [item.sourceRequirementId, item.targetRequirementId]));
+  const allowedSourceIds = [...new Set([...requirements.map((item) => item.id), ...equivalentRequirements.map((item) => item.sourceRequirementId)])];
   const relatedClassResults = await prisma.trainingClassSkillResult.findMany({
     where: {
-      requirementId: { in: requirements.map((item) => item.id) },
+      requirementId: { in: allowedSourceIds },
       result: "PASS",
       enrollment: {
         membershipId: assignment.membershipId,
@@ -1132,7 +1148,9 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
   });
   const relatedEvidence = relatedClassResults.map((item) => ({
     id: item.id,
-    requirementId: item.requirementId,
+    requirementId: equivalentTargets.get(item.requirementId) || item.requirementId,
+    sourceRequirementId: item.requirementId,
+    matchType: equivalentTargets.has(item.requirementId) ? "APPROVED_EQUIVALENCY" : "EXACT" as string,
     classTitle: item.enrollment.class.title,
     classDate: item.enrollment.class.startsAt,
     result: item.result,
