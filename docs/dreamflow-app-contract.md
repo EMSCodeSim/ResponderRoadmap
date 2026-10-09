@@ -26,6 +26,12 @@ Use the existing app bearer/session token from `POST /api/v1/auth/app-login`.
 - Backend requires either an expiration date or `doesNotExpire=true`; member edits are marked pending verification.
 - Render Current / Expiring / Expired / Missing / Does Not Expire from returned credential status.
 
+## Training evidence reuse — mobile
+- `GET /api/v1/app/assignments/:id/training-evidence` returns `{ assignmentId, items }`, scoped to the logged-in assignment owner. Each item has `id` (class skill result identifier), `requirementId` (target requirement), `sourceRequirementId`, `matchType` (`EXACT` or `APPROVED_EQUIVALENCY`), `classTitle`, `classDate`, `result`, `notes`, `evaluatorName`, `evaluatedAt`, and `verification`. Only PASS results from PRESENT members in finalized, instructor-approved classes are eligible.
+- When requesting a Task Book evaluation, optionally pass `classSkillResultId` in the existing `POST /api/v1/app/assignments/:id/requirements/:requirementId/submit` body alongside `memberAttested`, `checkedStepIds`, `evaluatorId` and the usual idempotency request ID. The server checks the same member, department, finalized source, exact skill or active approved directional equivalency, and writes the source reference. A stale or revoked match returns an error; do not silently discard it.
+- Present matching Training Sheet evidence below each requirement with an explicit **Use this evidence** choice and label whether the match is exact or department-approved. Never auto-check steps, bypass attestation, mark Task Book sign-off approved, or claim RMS entry.
+- Keep Personal Quick Add and device-local career records separate from department evidence. Do not upload private records without the member's explicit supported sharing action.
+
 ## Department qualifications
 - `GET /api/v1/app/qualifications` — current member's role readiness and explicit department authorization.
 - `GET /api/v1/app/department-qualifications` — read-only department lookup for Acting Officer/officer titles and Training Officer/Admin. Use for “Who can drive the medic?” and similar lookups.
@@ -34,6 +40,11 @@ Use the existing app bearer/session token from `POST /api/v1/auth/app-login`.
 - Training Officer/Admin portal management: `GET/POST /api/v1/qualification-roles`; `PATCH /api/v1/members/:membershipId/qualifications/:roleId`.
 
 ## Training Sheets
+- Mobile instructor endpoints use the same production class services as desktop: `GET /api/v1/app/training-sheets`, `GET /api/v1/app/training-sheets/setup`, `POST /api/v1/app/training-sheets`, `POST /api/v1/app/training-sheets/:id/registration` with `{action: "OPEN"|"CLOSE"|"ROTATE"}`, `POST /api/v1/app/training-sheets/:id/roster/:enrollmentId` for attendance/score updates, and `POST /api/v1/app/training-sheets/:id/roster/:enrollmentId/skills/:requirementId` for one member's observed grading.
+- Quick field creation uses a saved template when available and self-registration; display, share, download or print the registration QR from the token returned by the class record. QR registration does not mark attendance or skill competency.
+- Group attendance and group skill evaluation should use per-member calls with a clear saved/failed counter. Never bulk-pass a class or assume a partial save succeeded.
+- Keep three separately labeled stages: instructor training completion, instructor-approved record, and official RMS entered. RMS entry requires the instructor to record it after entering data into the department RMS.
+
 - `GET /api/v1/app/training-sheet-templates` — department-defined templates.
 - Existing class creation/QR registration APIs remain the source for creating sessions and joining rosters.
 - `GET /api/v1/app/training-sheets/:id` — roster, skills, status, RMS state.
