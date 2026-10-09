@@ -1078,6 +1078,36 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
     completions: assignment.completions,
   });
 
+  // Reuse only explicitly matched checklist requirement IDs for the same member
+  // and department. A recorded class result never approves this Task Book.
+  const relatedClassResults = await prisma.trainingClassSkillResult.findMany({
+    where: {
+      requirementId: { in: requirements.map((item) => item.id) },
+      enrollment: {
+        membershipId: assignment.membershipId,
+        class: { departmentId: ctx.departmentId },
+      },
+    },
+    include: {
+      evaluator: { select: { name: true } },
+      enrollment: { include: { class: { select: { title: true, startsAt: true } } } },
+    },
+    orderBy: { evaluatedAt: "desc" },
+    take: 100,
+  });
+  const relatedEvidence = relatedClassResults.map((item) => ({
+    id: item.id,
+    requirementId: item.requirementId,
+    classTitle: item.enrollment.class.title,
+    classDate: item.enrollment.class.startsAt,
+    result: item.result,
+    notes: item.notes,
+    evaluatedAt: item.evaluatedAt,
+    evaluatorName: item.evaluator.name,
+    source: "TRAINING_SHEET" as const,
+    verification: "RECORDED" as const,
+  }));
+
   const evaluators = await prisma.departmentMembership.findMany({
     where: {
       departmentId: ctx.departmentId,
@@ -1094,6 +1124,7 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
     progressDetail: progress,
     sections,
     upNext,
+    relatedEvidence,
     evaluators: evaluators.map((item) => ({ id: item.userId, name: item.user.name, role: item.role })),
     isComplete: progress.status === "COMPLETE",
   };
