@@ -256,7 +256,7 @@ export default function MyTaskBookDetailPage() {
                 const reps = req.completion?.repetitionCount || 0;
                 return (
                   <li key={req.id} id={`requirement-${req.id}`} className="scroll-mt-4 rounded-md border border-navy-200">
-                    <button type="button" className="w-full p-4 text-left" onClick={() => setOpenId(openId === req.id ? null : req.id)}>
+                    <button type="button" className="w-full p-4 text-left" onClick={() => { setOpenId(openId === req.id ? null : req.id); setClassSkillResultId(""); }}>
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <div className="text-lg font-semibold">{req.title}</div>
