@@ -155,13 +155,13 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         kicker="Home"
-        title={data.instructor ? "My Training Events" : data.personal ? "My Training" : "Today’s Training Priorities"}
+        title={data.instructor ? "My Training Events" : data.personal ? "My Training" : "Department Qualifications & Competency"}
         description={
           data.instructor
             ? "Teach, take attendance, evaluate skills, and finish the training record."
               : data.personal
               ? "Your next action, pending evaluations, progress, and qualifications."
-              : "Start with the work that needs action today, then check overall team readiness."
+              : "See who is qualified, which competencies need review, and what to develop next."
         }
         actions={
           data.instructor ? <Link href="/classes"><Button>Create Class</Button></Link> : data.personal ? undefined : (
@@ -179,17 +179,57 @@ export default function DashboardPage() {
         <MemberHome data={data} />
       ) : (
         <>
+          <DepartmentReadinessOverview data={data} />
           <OfficerToday data={data} onRefresh={loadDashboard} />
           <DepartmentSetupGuide data={data} />
           <ActivationChecklist data={data} />
-
-          <TrainingGapsHome />
           {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
           <details className="rounded-lg border border-navy-200 bg-white p-4"><summary className="cursor-pointer font-semibold text-navy-900">More department insights</summary><div className="mt-4 space-y-4"><EvaluatorCoverage coverage={data.evaluatorCoverage} /><DepartmentRecentActivity events={data.recentActivity} /></div></details>
         </>
       )}
 
     </div>
+  );
+}
+
+function DepartmentReadinessOverview({ data }: { data: Dashboard }) {
+  const readiness = data.departmentReadiness;
+  return (
+    <section className="mb-6" aria-labelledby="department-readiness-title">
+      <Card className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="kicker">KNOW · Department Readiness</div>
+            <h2 id="department-readiness-title" className="display mt-1 text-2xl font-bold">Qualifications and competency</h2>
+            <p className="mt-1 max-w-3xl text-sm text-navy-600">Review approved qualifications, items needing attention, and documented competency evidence. Training attendance or an evaluation alone does not grant qualification.</p>
+          </div>
+          <Link href="/qualifications"><Button variant="secondary">View Qualifications →</Button></Link>
+        </div>
+        {readiness ? (
+          <>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: "Qualified", count: readiness.ready },
+                { label: "Needs review", count: readiness.attention },
+                { label: "Not yet qualified", count: readiness.notReady },
+                { label: "Roles to configure", count: readiness.unconfiguredRoleCount },
+              ].map((item) => (
+                <div key={item.label} className="rounded-lg border border-navy-200 p-4">
+                  <div className="text-2xl font-bold text-navy-950">{item.count}</div>
+                  <div className="mt-1 text-sm text-navy-600">{item.label}</div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-navy-500">Counts reflect configured role assessments, not unique members. Qualification approval remains governed by department requirements.</p>
+          </>
+        ) : <p className="mt-4 text-sm text-navy-600">Qualification summary is unavailable. Open Qualifications to review individual records.</p>}
+        <div className="mt-4 flex flex-wrap gap-4 text-sm">
+          <Link className="font-semibold text-fire underline" href="/evaluate">Review competency evaluations →</Link>
+          <Link className="font-semibold text-fire underline" href="/reports?type=training-gaps">Identify training needs →</Link>
+        </div>
+      </Card>
+      <TrainingGapsHome />
+    </section>
   );
 }
 

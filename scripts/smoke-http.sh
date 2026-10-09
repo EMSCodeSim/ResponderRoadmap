@@ -5,7 +5,19 @@ COOKIE="/tmp/rr-smoke.cookies"
 JQ='jq -e'
 
 ok() { printf '✓ %s\n' "$1"; }
-json() { curl -fsS -b "$COOKIE" -c "$COOKIE" -H 'Content-Type: application/json' "$@"; }
+json() {
+  local response status
+  response=$(mktemp)
+  status=$(curl -sS -b "$COOKIE" -c "$COOKIE" -H 'Content-Type: application/json' -o "$response" -w '%{http_code}' "$@") || { rm -f "$response"; return 1; }
+  if [[ "$status" -lt 200 || "$status" -ge 300 ]]; then
+    echo "Smoke HTTP request failed (HTTP $status): $*" >&2
+    cat "$response" >&2
+    rm -f "$response"
+    return 1
+  fi
+  cat "$response"
+  rm -f "$response"
+}
 expect_page() {
   local url="$1"
   local code

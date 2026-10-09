@@ -20,6 +20,7 @@ import * as qualifications from "@/server/services/qualifications";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
+import { prisma } from "@/server/db";
 import { taskBookAttestationRecord } from "@/lib/taskbook-attestation";
 import type { Role } from "@/lib/constants";
 
@@ -101,7 +102,9 @@ export async function handleApi(req: Request, path: string[]) {
       const session = await getRequestSession(req);
       if (!session) return jsonError("Authentication required.", 401);
       const ctx = session.departmentId ? await requireDepartmentSession(session) : null;
-      const features = ctx ? await department.getDepartment(ctx) : null;
+      // Session feature flags are readable by every active department role;
+      // the department administration endpoint remains permission-gated.
+      const features = ctx ? await prisma.department.findUnique({ where: { id: ctx.departmentId }, select: { enabledFeaturesJson: true } }) : null;
       const enabled = features ? JSON.parse(features.enabledFeaturesJson || "[]") as string[] : [];
       const nav = ctx ? navItemsForRole(ctx.role) : ["dashboard", "settings"];
       const featureNav: Record<string, string> = { classes: "CLASSES", "skill-mastery": "TRAINING_GAPS", certifications: "CREDENTIALS", reports: "REPORTS" };
