@@ -10,6 +10,17 @@ export async function listSkillEvidenceEquivalencies(ctx: AuthContext) {
   });
 }
 
+export async function listEligibleSkillRequirements(ctx: AuthContext) {
+  assertPermission(ctx, "taskbooks.read");
+  const rows = await prisma.taskBookRequirement.findMany({
+    where: { section: { version: { status: "PUBLISHED", template: { departmentId: ctx.departmentId } } } },
+    select: { id: true, title: true, section: { select: { version: { select: { template: { select: { title: true } } } } } } } },
+    orderBy: { title: "asc" },
+    take: 1000,
+  });
+  return rows.map((item) => ({ id: item.id, title: item.title, taskBook: item.section.version.template.title }));
+}
+
 export async function approveSkillEvidenceEquivalency(
   ctx: AuthContext,
   input: { sourceRequirementId?: string; targetRequirementId?: string; reason?: string },
