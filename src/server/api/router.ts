@@ -209,6 +209,12 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await memberApp.syncMySharedCertifications(ctx, body.certifications));
     }
+    const appEvidence = match(path, "app/assignments/:id/training-evidence");
+    if (method === "GET" && appEvidence) {
+      const detail = await assignments.getAssignmentDetail(ctx, appEvidence.id);
+      if (ctx.membershipId !== detail.membershipId) return jsonError("Only the assigned member may use mobile evidence.", 403);
+      return jsonOk({ assignmentId: appEvidence.id, items: detail.relatedEvidence });
+    }
     const appAssignment = match(path, "app/assignments/:id");
     if (method === "GET" && appAssignment) {
       return jsonOk(await memberApp.getMyAssignment(ctx, appAssignment.id));
@@ -225,6 +231,7 @@ export async function handleApi(req: Request, path: string[]) {
           evaluatorId: body.evaluatorId,
           checkedStepIds: body.checkedStepIds,
           memberAttested: body.memberAttested,
+          classSkillResultId: body.classSkillResultId,
         }),
       );
     }
