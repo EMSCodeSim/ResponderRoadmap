@@ -704,7 +704,7 @@ async function getMemberDashboard(ctx: AuthContext) {
     percent: row.progress.percent,
     status: row.progress.status,
     dueDate: row.assignment.dueDate,
-    href: row.assignment.version.template.templateKind === "TRAINING_TASK" ? `/my-assignments/${row.assignment.id}` : `/my-task-books/${row.assignment.id}`,
+    href: `/my-task-books/${row.assignment.id}`,
     detail: extra || `${row.progress.complete} of ${row.progress.totalRequired} approved`,
   });
 
