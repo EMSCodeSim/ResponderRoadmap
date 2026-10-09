@@ -172,14 +172,11 @@ export default function CreateAssignmentPage() {
       <PageHeader
         kicker="Assignments"
         title="Create Assignment"
-        description="Choose members, add instructions, name an evaluator if needed, set a due date, then assign. AI can draft the content; you confirm the assignment."
+        description="Describe the work, choose who receives it, then assign. Additional requirements are optional."
       />
       <Flash tone="danger" message={error} />
       <div className="mb-4"><Flash tone="current" message={message} /></div>
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button type="button" onClick={() => setMode("manual")} className={`min-h-11 rounded-md px-4 text-sm font-semibold ${mode === "manual" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>Create Manually</button>
-        <button type="button" onClick={() => setMode("ai")} className={`min-h-11 rounded-md px-4 text-sm font-semibold ${mode === "ai" ? "bg-navy-900 text-white" : "border border-navy-200 bg-white"}`}>Create with AI</button>
-      </div>
+      <div className="mb-4"><button type="button" onClick={() => setMode(mode === "ai" ? "manual" : "ai")} className="min-h-11 rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:border-fire">{mode === "ai" ? "Hide AI draft" : "Help me write this with AI (optional)"}</button></div>
       {mode === "ai" ? (
         <Card className="mb-5 p-5">
           <Field label="Describe the Assignment" hint="AI creates a draft only. You review and assign.">
@@ -190,18 +187,19 @@ export default function CreateAssignmentPage() {
       ) : null}
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="p-5">
-          <div className="kicker">1 · Instructions / requirements</div>
+          <div className="kicker">1 · What should they do?</div>
           <div className="mt-4 grid gap-4">
             <Field label="Assignment title" required>
               <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="First-due residential fire drill" />
             </Field>
-            <Field label="Objective">
+            <Field label="Goal (optional)">
               <TextArea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What members should be able to do." />
             </Field>
-            <Field label="Instructions">
+            <Field label="What to do">
               <TextArea value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} placeholder="Setup, activities, equipment, and completion requirements." />
             </Field>
-            <div className="grid gap-4 md:grid-cols-2">
+            <details className="rounded-md border border-navy-200 p-4"><summary className="cursor-pointer text-sm font-semibold text-navy-900">More requirements (optional)</summary>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <Field label="Required activities" hint="One per line">
                 <TextArea value={form.objectives} onChange={(e) => setForm({ ...form, objectives: e.target.value })} />
               </Field>
@@ -209,16 +207,17 @@ export default function CreateAssignmentPage() {
                 <TextArea value={form.evaluationSteps} onChange={(e) => setForm({ ...form, evaluationSteps: e.target.value })} />
               </Field>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Required repetitions"><Input type="number" min="1" max="25" value={form.repetitionsRequired} onChange={(e) => setForm({ ...form, repetitionsRequired: e.target.value })} /></Field>
               <Field label="Estimated minutes"><Input type="number" min="1" value={form.estimatedMinutes} onChange={(e) => setForm({ ...form, estimatedMinutes: e.target.value })} /></Field>
-              <Field label="Due date"><Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></Field>
             </div>
+            </details>
+            <Field label="Due date (optional)"><Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></Field>
           </div>
         </Card>
         <div className="space-y-5">
           <Card className="p-5">
-            <div className="kicker">2 · Members</div>
+            <div className="kicker">2 · Who should receive it?</div>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               {([["MEMBERS", "Select members"], ["GROUP", "Shift / station / rank"], ["ALL", "Entire department"]] as const).map(([value, label]) => (
                 <button key={value} type="button" onClick={() => setTargetMode(value)} className={`min-h-11 rounded-md border px-3 text-sm font-semibold ${targetMode === value ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-800"}`}>{label}</button>
@@ -244,8 +243,12 @@ export default function CreateAssignmentPage() {
             ) : null}
           </Card>
           <Card className="p-5">
-            <div className="kicker">3 · Evaluation and review</div>
+            <div className="kicker">3 · Assign</div>
+            <p className="mt-2 text-sm text-navy-600">Review the title and recipients, then create the assignment. Nothing is sent until you select Assign Training.</p>
             <div className="mt-4 grid gap-4">
+              <div className="rounded-md bg-navy-50 p-3 text-sm"><strong>{form.title.trim() || "Untitled assignment"}</strong><p className="mt-1 text-navy-600">{targetMode === "ALL" ? `Entire department · ${members.length} active members` : targetMode === "GROUP" ? [form.rank, form.station, form.shift].filter(Boolean).join(" · ") || "Choose a group above" : `${form.membershipIds.length} selected member${form.membershipIds.length === 1 ? "" : "s"}`}</p></div>
+              <details className="rounded-md border border-navy-200 p-4"><summary className="cursor-pointer text-sm font-semibold text-navy-900">Evaluator and approval options</summary>
+              <div className="mt-4 grid gap-4">
               <Field label="Evaluator" hint="Optional">
                 <Select value={form.evaluatorId} onChange={(e) => setForm({ ...form, evaluatorId: e.target.value })}>
                   <option value="">No specific evaluator</option>
@@ -265,7 +268,8 @@ export default function CreateAssignmentPage() {
                 </Field>
               ) : null}
               <Field label="Assignment note"><TextArea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
-              <Button onClick={() => void submit()} disabled={busy || !canAssign}>{busy ? "Assigning…" : "Review & Assign"}</Button>
+              </div></details>
+              <Button onClick={() => void submit()} disabled={busy || !canAssign || !form.title.trim() || (targetMode === "MEMBERS" && form.membershipIds.length === 0) || (targetMode === "GROUP" && !form.rank && !form.station && !form.shift)}>{busy ? "Assigning…" : "Assign Training"}</Button>
               <p className="text-xs text-navy-500">Assigned work appears on the member dashboard, Member Progress, and the evaluator queue when submitted. AI cannot assign this for you.</p>
             </div>
           </Card>
