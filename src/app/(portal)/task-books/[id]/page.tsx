@@ -878,7 +878,13 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                   <p className="mt-2 text-xs text-navy-500">Suggestions update the draft only. Review before saving or publishing. Core editing still works if AI is unavailable.</p>
                 </div>
               ) : null}
-              <div className="flex flex-wrap gap-1">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Button variant="secondary" onClick={() => { setAdvancedEditing((open) => !open); setEditorTab("basics"); }}>
+                  {advancedEditing ? "Hide advanced settings" : "Evaluation, sign-off & advanced settings"}
+                </Button>
+                <span className="text-xs text-navy-500">Start with the skill title, description and instructions.</span>
+              </div>
+              {advancedEditing ? <div className="flex flex-wrap gap-1">
                 {(["basics", "evaluation", "signoff", "standards"] as const).map((tab) => (
                   <button
                     key={tab}
@@ -889,7 +895,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                     {tab === "signoff" ? "Sign-off" : tab[0].toUpperCase() + tab.slice(1)}
                   </button>
                 ))}
-              </div>
+              </div> : null}
               {editorTab === "basics" ? (
                 <>
                   <Field label="Task title">
