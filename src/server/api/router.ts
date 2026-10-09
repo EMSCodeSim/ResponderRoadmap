@@ -401,6 +401,7 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && asgPrint) return jsonOk(await assignments.getPrintRecord(ctx, asgPrint.id));
     const asgDetail = match(path, "assignments/:id/detail");
     if (method === "GET" && asgDetail) return jsonOk(await assignments.getAssignmentDetail(ctx, asgDetail.id));
+    if (method === "GET" && match(path, "skill-evidence-equivalencies/skills")) return jsonOk(await skillEvidenceEquivalencies.listEligibleSkillRequirements(ctx));
     if (method === "GET" && match(path, "skill-evidence-equivalencies")) return jsonOk(await skillEvidenceEquivalencies.listSkillEvidenceEquivalencies(ctx));
     if (method === "POST" && match(path, "skill-evidence-equivalencies")) return jsonOk(await skillEvidenceEquivalencies.approveSkillEvidenceEquivalency(ctx, await readBody(req)));
     const revokeEquivalency = match(path, "skill-evidence-equivalencies/:id/revoke");
