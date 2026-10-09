@@ -203,6 +203,7 @@ export default function TaskBookBuilderPage() {
   const [aiReviewText, setAiReviewText] = useState("");
   const [dirty, setDirty] = useState(false);
   const [editorTab, setEditorTab] = useState<"basics" | "evaluation" | "signoff" | "standards">("basics");
+  const [advancedEditing, setAdvancedEditing] = useState(false);
   const [quickEntry, setQuickEntry] = useState("");
   const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [evaluators, setEvaluators] = useState<Array<{ id: string; name: string }>>([]);
@@ -292,7 +293,7 @@ export default function TaskBookBuilderPage() {
     [title, sections],
   );
 
-  async function saveDraft() {
+  async function saveDraft(): Promise<boolean> {
     setBusy(true);
     setError(null);
     try {
@@ -320,8 +321,10 @@ export default function TaskBookBuilderPage() {
       setMessage("Draft saved.");
       setDirty(false);
       await load();
+      return true;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to save.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -331,11 +334,13 @@ export default function TaskBookBuilderPage() {
     setBusy(true);
     setError(null);
     try {
-      await saveDraft();
+      const saved = await saveDraft();
+      if (!saved) return; // Never publish a stale version when draft persistence fails.
       await api(`task-books/${params.id}/publish`, { method: "POST", body: JSON.stringify({ force }) });
       setMessage("Published. Existing assignments stay on the version they were given.");
       setReviewOpen(false);
       await load();
+      setAssignOpen(true); // Continue directly to member assignment after publishing.
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to publish.");
     } finally {
@@ -873,7 +878,13 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                   <p className="mt-2 text-xs text-navy-500">Suggestions update the draft only. Review before saving or publishing. Core editing still works if AI is unavailable.</p>
                 </div>
               ) : null}
-              <div className="flex flex-wrap gap-1">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Button variant="secondary" onClick={() => { setAdvancedEditing((open) => !open); setEditorTab("basics"); }}>
+                  {advancedEditing ? "Hide advanced settings" : "Evaluation, sign-off & advanced settings"}
+                </Button>
+                <span className="text-xs text-navy-500">Start with the skill title, description and instructions.</span>
+              </div>
+              {advancedEditing ? <div className="flex flex-wrap gap-1">
                 {(["basics", "evaluation", "signoff", "standards"] as const).map((tab) => (
                   <button
                     key={tab}
@@ -884,7 +895,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                     {tab === "signoff" ? "Sign-off" : tab[0].toUpperCase() + tab.slice(1)}
                   </button>
                 ))}
-              </div>
+              </div> : null}
               {editorTab === "basics" ? (
                 <>
                   <Field label="Task title">
