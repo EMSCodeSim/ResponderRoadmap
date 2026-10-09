@@ -212,7 +212,7 @@ export async function handleApi(req: Request, path: string[]) {
     const appEvidence = match(path, "app/assignments/:id/training-evidence");
     if (method === "GET" && appEvidence) {
       const detail = await assignments.getAssignmentDetail(ctx, appEvidence.id);
-      if (ctx.membershipId !== detail.membershipId) return jsonError("Only the assigned member may use mobile evidence.", 403);
+      if (ctx.membershipId !== detail.memberId) return jsonError("Only the assigned member may use mobile evidence.", 403);
       return jsonOk({ assignmentId: appEvidence.id, items: detail.relatedEvidence });
     }
     const appAssignment = match(path, "app/assignments/:id");
