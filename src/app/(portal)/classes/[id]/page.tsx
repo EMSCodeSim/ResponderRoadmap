@@ -255,7 +255,7 @@ export default function ClassDetailPage() {
       {detail.sections.some((section) => section.skills.length > 0) && detail.status !== "COMPLETE" ? (
         <Card className="no-print mb-4 p-4">
           <h2 className="text-xl font-bold">Group skill recording</h2>
-          <p className="mt-1 text-sm text-navy-600">Choose one skill and record each person's observed result individually. Never mark a whole roster as passed.</p>
+          <p className="mt-1 text-sm text-navy-600">Choose one skill and record each member&apos;s observed result individually. Never mark a whole roster as passed.</p>
           <label htmlFor="group-skill" className="mt-3 block text-sm font-semibold">Skill to evaluate</label>
           <select id="group-skill" className="mt-1 min-h-12 w-full rounded-md border border-navy-200 bg-white p-3" value={groupSkillId} onChange={(e) => setGroupSkillId(e.target.value)}>
             <option value="">Choose a skill</option>
