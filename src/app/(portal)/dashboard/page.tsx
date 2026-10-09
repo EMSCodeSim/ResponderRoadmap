@@ -155,13 +155,13 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         kicker="Home"
-        title={data.instructor ? "My Training Events" : data.personal ? "My Training" : "Today’s Training Priorities"}
+        title={data.instructor ? "My Training Events" : data.personal ? "My Training" : "Home"}
         description={
           data.instructor
             ? "Teach, take attendance, evaluate skills, and finish the training record."
               : data.personal
               ? "Your next action, pending evaluations, progress, and qualifications."
-              : "Start with the work that needs action today, then check overall team readiness."
+              : "Your next steps and a quick view of department readiness."
         }
         actions={
           data.instructor ? <Link href="/classes"><Button>Create Class</Button></Link> : data.personal ? undefined : (
@@ -180,12 +180,17 @@ export default function DashboardPage() {
       ) : (
         <>
           <OfficerToday data={data} onRefresh={loadDashboard} />
-          <DepartmentSetupGuide data={data} />
           <ActivationChecklist data={data} />
-
-          <TrainingGapsHome />
-          {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
-          <details className="rounded-lg border border-navy-200 bg-white p-4"><summary className="cursor-pointer font-semibold text-navy-900">More department insights</summary><div className="mt-4 space-y-4"><EvaluatorCoverage coverage={data.evaluatorCoverage} /><DepartmentRecentActivity events={data.recentActivity} /></div></details>
+          <DepartmentReadinessSnapshot data={data} />
+          <details className="mb-6 rounded-lg border border-navy-200 bg-white p-4">
+            <summary className="cursor-pointer font-semibold text-navy-900">More department insights and follow-ups</summary>
+            <div className="mt-4 space-y-4">
+              <TrainingGapsHome />
+              {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
+              <EvaluatorCoverage coverage={data.evaluatorCoverage} />
+              <DepartmentRecentActivity events={data.recentActivity} />
+            </div>
+          </details>
         </>
       )}
 
@@ -193,25 +198,26 @@ export default function DashboardPage() {
   );
 }
 
-function DepartmentSetupGuide({ data }: { data: Dashboard }) {
-  const [expanded, setExpanded] = useState(false);
-  const steps = [
-    { title: "Department basics", description: "Confirm department details, stations and shifts.", href: "/department" },
-    { title: "People and permissions", description: "Invite members and authorize instructors and evaluators.", href: "/enrollment" },
-    { title: "Training requirements", description: "Configure task books, credentials and training expectations.", href: "/training-expectations" },
-    { title: "Evaluation workflow", description: "Review who can sign off and when an evaluation escalates.", href: "/department" },
-    { title: "First training activity", description: "Assign training and follow approvals in Inbox.", href: createAssignmentPath() },
-  ];
-  return <Card className="mb-6 p-5">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><div className="kicker">TRAINING OFFICER GUIDE</div><h2 className="mt-1 text-xl font-bold">Set up your department</h2><p className="mt-1 text-sm text-navy-600">Learn each section as you configure your training program.</p></div>
-      <Button variant="secondary" onClick={() => setExpanded(!expanded)}>{expanded ? "Hide guide" : "Start setup"}</Button>
-    </div>
-    {expanded ? <div className="mt-4 grid gap-3 md:grid-cols-2">
-      {steps.map((step, index) => <Link key={step.title} href={step.href} className="rounded-lg border border-navy-200 p-4 hover:border-fire"><strong>{index + 1}. {step.title}</strong><p className="mt-2 text-sm text-navy-600">{step.description}</p><span className="mt-2 inline-block text-sm font-semibold text-fire">Open section →</span></Link>)}
-      <div className="rounded-lg border border-navy-200 p-4"><strong>Where does everything go?</strong><p className="mt-2 text-sm text-navy-600">Home is the overview. Inbox holds your personal action queue. Task Books define work, Evaluations record sign-offs, and Qualifications show readiness.</p></div>
-    </div> : null}
-  </Card>;
+function DepartmentReadinessSnapshot({ data }: { data: Dashboard }) {
+  const readiness = data.departmentReadiness;
+  if (!readiness || readiness.configuredRoleCount === 0) return null;
+  return (
+    <Card className="mb-6 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="kicker">KNOW · Department Readiness</div>
+          <h2 className="display mt-1 text-xl font-bold">Where your department stands</h2>
+          <p className="mt-1 text-sm text-navy-600">Based on department-defined role requirements and approvals, not an automatic competency decision.</p>
+        </div>
+        <Link href="/qualifications" className="text-sm font-semibold text-fire underline">View approved roles →</Link>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="rounded-md bg-navy-50 p-3"><div className="text-2xl font-bold">{readiness.ready}</div><div className="text-sm text-navy-600">Ready</div></div>
+        <div className="rounded-md bg-navy-50 p-3"><div className="text-2xl font-bold">{readiness.attention}</div><div className="text-sm text-navy-600">Needs review</div></div>
+        <div className="rounded-md bg-navy-50 p-3"><div className="text-2xl font-bold">{readiness.notReady}</div><div className="text-sm text-navy-600">Not ready</div></div>
+      </div>
+    </Card>
+  );
 }
 
 function OfficerToday({ data }: { data: Dashboard; onRefresh: () => Promise<void> }) {
@@ -222,7 +228,8 @@ function OfficerToday({ data }: { data: Dashboard; onRefresh: () => Promise<void
     { title: "Credentials", count: today?.certificateTotal ?? 0, href: "/certifications", description: "Expiring or missing credentials" },
     { title: "Due soon", count: today?.dueSoonTotal ?? 0, href: "/assignments", description: "Upcoming assignment deadlines" },
   ];
-  const total = groups.reduce((sum, group) => sum + group.count, 0);
+  const activeGroups = groups.filter((group) => group.count > 0);
+  const total = activeGroups.reduce((sum, group) => sum + group.count, 0);
   return (
     <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
       <Card className="p-5">
@@ -232,12 +239,12 @@ function OfficerToday({ data }: { data: Dashboard; onRefresh: () => Promise<void
             <h2 id="today-priorities-title" className="display mt-1 text-2xl font-bold">
               {total ? `${total} items to follow up` : "Your department is caught up"}
             </h2>
-            <p className="mt-1 text-sm text-navy-600">Home shows the overview. Open Inbox to work through your individual assignments and evaluations.</p>
+            <p className="mt-1 text-sm text-navy-600">Only categories needing action are shown. Use Inbox for work assigned to you.</p>
           </div>
           <Link href="/inbox" className="text-sm font-semibold text-fire underline">Open my Inbox</Link>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {groups.map((group) => (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {activeGroups.map((group) => (
             <Link key={group.title} href={group.href} className="rounded-lg border border-navy-200 p-4 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-bold text-navy-950">{group.title}</h3>
@@ -325,30 +332,25 @@ function TrainingGapsHome() {
 }
 
 function ActivationChecklist({ data }: { data: Dashboard }) {
-  const activeWork = data.summary.activeAssignments ?? data.summary.membersAssigned ?? 0;
-  const items = [
-    { label: "Department ready", done: true, href: "/settings" },
-    { label: "1. Add your people", done: data.summary.activeMembers > 1, href: "/enrollment" },
-    { label: "2. Choose evaluators", done: null, href: "/evaluators" },
-    { label: "3. Add a Task Book", done: data.summary.activeTaskBooks > 0, href: createTaskBookPath() },
-    { label: "4. Assign it to someone", done: activeWork > 0, href: createAssignmentPath() },
-  ];
-  const automaticItems = items.filter((item) => item.done !== null);
-  const completed = automaticItems.filter((item) => item.done).length;
-  if (automaticItems.every((item) => item.done)) return null;
-  return <Card className="mb-6 p-5">
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><div className="kicker">First-use guide</div><h2 className="display mt-1 text-xl font-bold">Get your first member into training</h2><p className="mt-1 text-sm text-navy-600">Follow this path once. After you assign the first Task Book, Roadmap will guide the normal workflow from Home.</p></div>
-      <span className="rounded-full bg-navy-100 px-3 py-1 text-sm font-bold text-navy-700">{completed} of {automaticItems.length} detected</span>
-    </div>
-    <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-      {items.map((item) => <Link key={item.label} href={item.href} className="flex min-h-12 items-center gap-2 rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold hover:border-fire">
-        <span aria-hidden="true" className={item.done ? "text-current" : "text-navy-400"}>{item.done ? "✓" : item.done === null ? "→" : "○"}</span>
-        <span>{item.label}</span>
-      </Link>)}
-    </div>
-    <p className="mt-3 text-xs text-navy-500">Sample content can be copied into your department; the original demo content stays unchanged.</p>
-  </Card>;
+  const hasPeople = data.summary.activeMembers > 1;
+  const hasTaskBook = data.summary.activeTaskBooks > 0;
+  const hasAssignment = (data.summary.activeAssignments ?? data.summary.membersAssigned ?? 0) > 0;
+  const next = !hasPeople
+    ? { title: "Add your first member", detail: "Invite someone so you can assign and track their training.", href: "/enrollment", action: "Add member" }
+    : !hasTaskBook
+      ? { title: "Create your first Task Book", detail: "Choose the qualifications and skills members will work toward.", href: createTaskBookPath(), action: "Create Task Book" }
+      : !hasAssignment
+        ? { title: "Assign your first Task Book", detail: "Give a member a clear starting point.", href: createAssignmentPath(), action: "Assign Task Book" }
+        : null;
+  if (!next) return null;
+  return (
+    <Card className="mb-6 p-5">
+      <div className="kicker">GET STARTED · ONE NEXT STEP</div>
+      <h2 className="display mt-1 text-xl font-bold">{next.title}</h2>
+      <p className="mt-2 text-sm text-navy-600">{next.detail}</p>
+      <Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">{next.action} →</Link>
+    </Card>
+  );
 }
 
 function InstructorHome({ data }: { data: Dashboard }) {
