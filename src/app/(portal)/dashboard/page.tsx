@@ -498,6 +498,7 @@ function MemberHome({ data }: { data: Dashboard }) {
         <p className="mt-1 text-xs text-navy-500">{next.percent}% approved{next.dueDate ? ` · Due ${new Date(next.dueDate).toLocaleDateString()}` : ""}</p>
         <Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 text-sm font-semibold text-white">Continue →</Link>
       </Card> : <Card className="p-5"><div className="kicker">DO NEXT</div><h2 className="display mt-1 text-2xl font-bold">You&apos;re caught up</h2><p className="mt-2 text-sm text-navy-500">Nothing needs your action right now.</p></Card>}
+      <Link href="/capture" className="flex min-h-12 items-center justify-between rounded-lg border border-navy-200 bg-white px-5 py-3 font-semibold text-fire hover:border-fire">+ Quick Add <span aria-hidden="true">→</span></Link>
       <div className="grid gap-3 sm:grid-cols-2">
         <Link href="/my-task-books" className="block rounded-lg border border-navy-200 bg-white p-5 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
           <div className="kicker">MY TRAINING</div>
