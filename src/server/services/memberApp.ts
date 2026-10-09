@@ -396,6 +396,7 @@ export async function submitRequirement(
     evaluatorId?: string;
     checkedStepIds?: string[];
     memberAttested?: boolean;
+    classSkillResultId?: string | null;
   },
 ) {
   const assignment = await loadOwnAssignment(ctx, assignmentId);
@@ -444,6 +445,34 @@ export async function submitRequirement(
     });
     if (blocked) throw new HttpError(409, "Complete the prerequisite requirements before submitting this item.");
   }
+
+  const approvedEquivalencies = input.classSkillResultId
+    ? await prisma.skillEvidenceEquivalency.findMany({
+        where: { departmentId: ctx.departmentId, targetRequirementId: requirement.id, revokedAt: null },
+        select: { sourceRequirementId: true, id: true },
+      })
+    : [];
+  const linkedClassSkill = input.classSkillResultId
+    ? await prisma.trainingClassSkillResult.findFirst({
+        where: {
+          id: input.classSkillResultId,
+          requirementId: { in: [requirement.id, ...approvedEquivalencies.map((link) => link.sourceRequirementId)] },
+          result: "PASS",
+          enrollment: {
+            membershipId: ctx.membershipId,
+            attendance: "PRESENT",
+            class: { departmentId: ctx.departmentId, status: "COMPLETE", instructorApprovedAt: { not: null } },
+          },
+        },
+        include: { enrollment: { include: { class: { select: { title: true } } } } },
+      })
+    : null;
+  if (input.classSkillResultId && !linkedClassSkill) {
+    throw new HttpError(400, "That class result is not eligible for this requirement.");
+  }
+  const linkedEquivalency = linkedClassSkill?.requirementId !== requirement.id
+    ? approvedEquivalencies.find((link) => link.sourceRequirementId === linkedClassSkill?.requirementId)
+    : null;
 
   const submittedRepetition = Math.min(repetitionsRequired, currentRepetitionCount + 1);
   const needsReview = requirement.evaluatorSignOffRequired || requirement.supervisorApprovalRequired;
@@ -547,6 +576,16 @@ export async function submitRequirement(
         completionId: completion.id,
         type: input.evidenceType?.trim() || requirement.evidenceType || "NOTE",
         description: evidenceDescription,
+      },
+    });
+  }
+
+  if (linkedClassSkill) {
+    await prisma.evidence.create({
+      data: {
+        completionId: completion.id,
+        type: "TRAINING_SHEET_REFERENCE",
+        description: `Training Sheet: ${linkedClassSkill.enrollment.class.title} · source result ${linkedClassSkill.id} · ${linkedEquivalency ? `department-approved equivalency ${linkedEquivalency.id}` : "exact skill match"} · PASS (Task Book verification remains separate)`,
       },
     });
   }
