@@ -203,6 +203,7 @@ export default function TaskBookBuilderPage() {
   const [aiReviewText, setAiReviewText] = useState("");
   const [dirty, setDirty] = useState(false);
   const [editorTab, setEditorTab] = useState<"basics" | "evaluation" | "signoff" | "standards">("basics");
+  const [advancedEditing, setAdvancedEditing] = useState(false);
   const [quickEntry, setQuickEntry] = useState("");
   const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [evaluators, setEvaluators] = useState<Array<{ id: string; name: string }>>([]);
@@ -292,7 +293,7 @@ export default function TaskBookBuilderPage() {
     [title, sections],
   );
 
-  async function saveDraft() {
+  async function saveDraft(): Promise<boolean> {
     setBusy(true);
     setError(null);
     try {
@@ -320,8 +321,10 @@ export default function TaskBookBuilderPage() {
       setMessage("Draft saved.");
       setDirty(false);
       await load();
+      return true;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to save.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -331,11 +334,13 @@ export default function TaskBookBuilderPage() {
     setBusy(true);
     setError(null);
     try {
-      await saveDraft();
+      const saved = await saveDraft();
+      if (!saved) return; // Never publish a stale version when draft persistence fails.
       await api(`task-books/${params.id}/publish`, { method: "POST", body: JSON.stringify({ force }) });
       setMessage("Published. Existing assignments stay on the version they were given.");
       setReviewOpen(false);
       await load();
+      setAssignOpen(true); // Continue directly to member assignment after publishing.
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to publish.");
     } finally {
