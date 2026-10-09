@@ -40,6 +40,7 @@ export default function CreateAssignmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [targetMode, setTargetMode] = useState<"MEMBERS" | "GROUP" | "ALL">("MEMBERS");
+  const [memberSearch, setMemberSearch] = useState("");
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -232,13 +233,17 @@ export default function CreateAssignmentPage() {
               </div>
             ) : null}
             {targetMode === "MEMBERS" ? (
-              <div className="mt-4 max-h-72 space-y-2 overflow-auto rounded-md border border-navy-200 p-2">
-                {members.map((member) => (
-                  <label key={member.id} className="flex cursor-pointer items-start gap-3 rounded-md p-2 hover:bg-navy-50">
-                    <input type="checkbox" checked={form.membershipIds.includes(member.id)} onChange={() => toggleMember(member.id)} className="mt-1" />
+              <div className="mt-4">
+                <Input aria-label="Search members" placeholder="Search name, shift, station or rank" value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} />
+                <p className="mt-2 text-xs font-semibold text-navy-600" aria-live="polite">{form.membershipIds.length} selected</p>
+                <div className="mt-2 max-h-72 space-y-2 overflow-auto rounded-md border border-navy-200 p-2">
+                {members.filter((member) => [member.name, member.rank || "", member.station || "", member.shift || ""].some((value) => value.toLowerCase().includes(memberSearch.trim().toLowerCase()))).map((member) => (
+                  <label key={member.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-navy-50">
+                    <input type="checkbox" checked={form.membershipIds.includes(member.id)} onChange={() => toggleMember(member.id)} className="h-5 w-5 shrink-0" />
                     <span><span className="block text-sm font-semibold">{member.name}</span><span className="block text-xs text-navy-500">{[member.rank, member.station, member.shift].filter(Boolean).join(" · ") || "Active member"}</span></span>
                   </label>
                 ))}
+                </div>
               </div>
             ) : null}
           </Card>

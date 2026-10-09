@@ -231,6 +231,7 @@ export default function MyTaskBookDetailPage() {
               <div className="text-xs font-bold uppercase tracking-wide text-navy-400">{index + 1}</div>
               <div className="font-semibold">{item.title}</div>
               <div className="text-sm text-navy-500">{item.locked ? item.lockReason : item.reason}</div>
+              {!item.locked ? <a href={`#requirement-${item.requirementId}`} onClick={() => setOpenId(item.requirementId)} className="mt-2 inline-flex min-h-11 items-center font-semibold text-fire underline">Open this skill →</a> : null}
             </li>
           ))}
         </ol>
@@ -250,7 +251,7 @@ export default function MyTaskBookDetailPage() {
                 const status = req.completion?.status || "NOT_STARTED";
                 const reps = req.completion?.repetitionCount || 0;
                 return (
-                  <li key={req.id} className="rounded-md border border-navy-200">
+                  <li key={req.id} id={`requirement-${req.id}`} className="scroll-mt-4 rounded-md border border-navy-200">
                     <button type="button" className="w-full p-4 text-left" onClick={() => setOpenId(openId === req.id ? null : req.id)}>
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
@@ -328,16 +329,17 @@ export default function MyTaskBookDetailPage() {
                             <Field label="Evidence / comments">
                               <TextArea value={evidence} onChange={(e) => setEvidence(e.target.value)} />
                             </Field>
-                            <Field label="Request evaluator">
-                              <Select value={evaluatorId} onChange={(e) => setEvaluatorId(e.target.value)}>
+                            <details className="rounded-md border border-navy-200 p-3">
+                              <summary className="cursor-pointer text-sm font-semibold text-navy-800">Choose a different evaluator (optional)</summary>
+                              <div className="mt-3"><Select value={evaluatorId} onChange={(e) => setEvaluatorId(e.target.value)}>
                                 <option value="">Assigned evaluator / any available</option>
                                 {data.evaluators.map((item) => (
                                   <option key={item.id} value={item.id}>
                                     {item.name}
                                   </option>
                                 ))}
-                              </Select>
-                            </Field>
+                              </Select></div>
+                            </details>
                             <Button className="min-h-12 w-full" onClick={() => submit(req.id)} disabled={busy}>
                               {req.evaluatorSignOffRequired ? "Request Evaluation" : "Mark complete"}
                             </Button>
