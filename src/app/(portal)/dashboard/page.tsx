@@ -160,7 +160,7 @@ export default function DashboardPage() {
           data.instructor
             ? "Teach, take attendance, evaluate skills, and finish the training record."
               : data.personal
-              ? "Your next action, pending evaluations, progress, and qualifications."
+              ? "Your next training step, Task Books, Assignments, and evaluations waiting for review."
               : "Start with Task Books and Assignments. Review what needs attention below."
         }
         actions={
@@ -498,19 +498,36 @@ function MemberHome({ data }: { data: Dashboard }) {
         <p className="mt-1 text-xs text-navy-500">{next.percent}% approved{next.dueDate ? ` · Due ${new Date(next.dueDate).toLocaleDateString()}` : ""}</p>
         <Link href={next.href} className="mt-4 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 text-sm font-semibold text-white">Continue →</Link>
       </Card> : <Card className="p-5"><div className="kicker">DO NEXT</div><h2 className="display mt-1 text-2xl font-bold">You&apos;re caught up</h2><p className="mt-2 text-sm text-navy-500">Nothing needs your action right now.</p></Card>}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Link href="/my-task-books" className="block rounded-lg border border-navy-200 bg-white p-5 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
+          <div className="kicker">MY TRAINING</div>
+          <h2 className="display mt-1 text-xl font-bold">My Task Books</h2>
+          <p className="mt-2 text-sm text-navy-600">View required skills, submit evidence and check your progress.</p>
+          <span className="mt-4 inline-block text-sm font-bold text-fire">Open Task Books →</span>
+        </Link>
+        <Link href="/my-assignments" className="block rounded-lg border border-navy-200 bg-white p-5 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
+          <div className="kicker">WORK TO COMPLETE</div>
+          <h2 className="display mt-1 text-xl font-bold">My Assignments</h2>
+          <p className="mt-2 text-sm text-navy-600">Find assigned training tasks and what is due next.</p>
+          <span className="mt-4 inline-block text-sm font-bold text-fire">Open Assignments →</span>
+        </Link>
+      </div>
       <Card className="p-5">
-        <h2 className="display text-xl font-bold">WAITING</h2>
+        <h2 className="display text-xl font-bold">Waiting for Evaluation</h2>
         {(work?.waiting ?? []).length ? <ul className="mt-2 divide-y divide-navy-100">{work?.waiting.map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3"><div><Link href={item.href} className="font-semibold text-navy-900 hover:text-fire">{item.title}</Link><p className="text-sm text-navy-500">Submitted · waiting for evaluator</p></div><span className="text-sm text-navy-600">{item.percent}%</span></li>)}</ul> : <p className="mt-2 text-sm text-navy-500">Nothing is waiting on an evaluator.</p>}
       </Card>
       <Card className="p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="display text-xl font-bold">MY PROGRESS</h2><Link href="/my-task-books" className="text-sm font-semibold text-fire underline">View all training →</Link></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="display text-xl font-bold">Other Active Training</h2><Link href="/my-task-books" className="text-sm font-semibold text-fire underline">View all training →</Link></div>
         {[...(work?.needsAction ?? []), ...(work?.inProgress ?? [])].length ? <ul className="mt-2 divide-y divide-navy-100">{[...(work?.needsAction ?? []), ...(work?.inProgress ?? [])].slice(0, 4).map((item) => <li key={item.id}><Link href={item.href} className="flex min-h-12 flex-wrap items-center justify-between gap-3 py-3 hover:text-fire"><span><span className="block font-semibold">{item.title}</span><span className="text-sm text-navy-500">{item.detail}</span></span><span className="w-full max-w-28"><ProgressBar value={item.percent} /></span></Link></li>)}</ul> : <p className="mt-2 text-sm text-navy-500">No active Task Books or assignments.</p>}
         {(work?.completed ?? []).length ? <p className="mt-2 text-sm text-navy-500">{work?.completed.length} completed Task Book{work?.completed.length === 1 ? "" : "s"} · <Link href="/my-task-books" className="font-semibold text-fire underline">See completed work</Link></p> : null}
       </Card>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <details className="rounded-lg border border-navy-200 bg-white p-4">
+        <summary className="cursor-pointer font-semibold text-navy-900">Qualifications and credentials</summary>
+        <div className="mt-4 grid gap-5 lg:grid-cols-2">
         <Card className="p-5"><h2 className="display text-xl font-bold">MY QUALIFICATIONS</h2><p className="mt-1 text-sm text-navy-500">Evaluations provide evidence; your department records authorization.</p>{qualifications.length ? <ul className="mt-3 divide-y divide-navy-100">{qualifications.slice(0, 5).map((item) => <li key={item.id} className="flex flex-wrap justify-between gap-2 py-3"><span className="font-semibold">{item.name}</span><span className="text-sm font-medium text-navy-700">{qualificationStatusLabel(item.status)}{item.authorization?.restriction ? ` · ${item.authorization.restriction}` : ""}</span></li>)}</ul> : <p className="mt-3 text-sm text-navy-500">{qualificationsLoaded ? "No department qualifications are recorded yet." : "Loading qualifications…"}</p>}</Card>
         <Card className="p-5"><div className="flex items-center justify-between gap-2"><h2 className="display text-xl font-bold">CREDENTIALS</h2><Link href="/settings" className="text-sm font-semibold text-fire underline">Manage →</Link></div>{credentials.length ? <ul className="mt-3 divide-y divide-navy-100">{credentials.slice(0, 5).map((item) => <li key={item.id} className="flex flex-wrap justify-between gap-2 py-3"><span className="font-semibold">{item.credentialName}</span><span className="text-sm text-navy-600">{item.doesNotExpire ? "Does not expire" : item.expirationDate ? `Expires ${new Date(item.expirationDate).toLocaleDateString()}` : "Expiration not recorded"}</span></li>)}</ul> : <p className="mt-3 text-sm text-navy-500">{credentialsLoaded ? "No credentials have been shared with the department." : "Loading credentials…"}</p>}</Card>
-      </div>
+        </div>
+      </details>
     </div>
   );
 }
