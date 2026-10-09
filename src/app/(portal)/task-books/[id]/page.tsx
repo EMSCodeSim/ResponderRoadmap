@@ -575,15 +575,17 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
       <PageHeader
         kicker="Task Book builder"
         title={title || "Untitled Task Book"}
-        description="TASK BOOK → Sections → Tasks → Evaluation criteria → Evidence → Sign-off. Publishing freezes this version."
+        description="Add skills, review the requirements, publish the Task Book, then assign members. Advanced settings are available when needed."
         actions={
           <>
-            <Button variant="secondary" onClick={() => setPreview("member")}>
-              Preview as Member
-            </Button>
-            <Button variant="secondary" onClick={() => setPreview("evaluator")}>
-              Preview as Evaluator
-            </Button>
+            <details className="relative inline-block align-middle">
+              <summary className="cursor-pointer rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-navy-800">More tools</summary>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setPreview("member")}>Preview as Member</Button>
+                <Button variant="secondary" onClick={() => setPreview("evaluator")}>Preview as Evaluator</Button>
+                {!draftLocked ? <Button variant="secondary" onClick={reviewBookWithAi} disabled={busy || aiToolBusy}>{aiToolBusy ? "AI working…" : "AI Review"}</Button> : null}
+              </div>
+            </details>
             {draftLocked ? (
               <>
                 <Button variant="secondary" onClick={() => api(`task-books/${params.id}/new-version`, { method: "POST" }).then(load)}>
@@ -599,9 +601,6 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               <>
                 <Button variant="secondary" onClick={saveDraft} disabled={busy}>
                   Save draft
-                </Button>
-                <Button variant="secondary" onClick={reviewBookWithAi} disabled={busy || aiToolBusy}>
-                  {aiToolBusy ? "AI working…" : "AI Review"}
                 </Button>
                 <Button onClick={() => setReviewOpen(true)} disabled={busy}>
                   Review & publish
@@ -638,9 +637,9 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
       </div>
 
       <nav aria-label="Task Book builder steps" className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-navy-200 bg-white p-3 text-sm font-semibold">
-        <a href="#book-details" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">1. Details</a>
-        <a href="#book-requirements" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">2. Requirements</a>
-        {!draftLocked ? <button type="button" onClick={() => setReviewOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">3. Review & publish</button> : <span className="px-3 py-2 text-navy-500">Published version</span>}
+        <a href="#book-requirements" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">1. Add & edit skills</a>
+        {!draftLocked ? <button type="button" onClick={() => setReviewOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">2. Review & publish</button> : <span className="px-3 py-2 text-navy-500">2. Published</span>}
+        {draftLocked && book.status === "ACTIVE" ? <button type="button" onClick={() => setAssignOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">3. Assign members</button> : <span className="rounded-md bg-navy-50 px-3 py-2 text-navy-500">3. Assign members after publishing</span>}
       </nav>
       <div className="grid gap-4 xl:grid-cols-[240px_1fr_340px]">
         <Card id="book-details" className="p-3">
@@ -757,9 +756,12 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               </Field>
               {!draftLocked ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => addRequirement()}>
-                    Add task
+                  <Button onClick={() => addRequirement()}>
+                    + Add skill
                   </Button>
+                  <details className="rounded-md border border-navy-200 px-3 py-2">
+                    <summary className="cursor-pointer text-sm font-semibold">Section options</summary>
+                    <div className="mt-2 flex flex-wrap gap-2">
                   <Button
                     variant="secondary"
                     onClick={() => {
@@ -784,15 +786,17 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                   >
                     Remove section
                   </Button>
+                    </div>
+                  </details>
                 </div>
               ) : null}
               <div className="mt-4">
-                <Field label="Quick entry" hint="Paste titles from a paper Task Book. Press Add titles — details can wait.">
+                <Field label="Add several skills at once" hint="Paste one skill per line from a paper Task Book. You can edit the details afterward.">
                   <TextArea value={quickEntry} disabled={draftLocked} onChange={(e) => setQuickEntry(e.target.value)} placeholder={"Operate apparatus in emergency response\nPerform hydrant connection\nLead patient assessment"} />
                 </Field>
                 {!draftLocked ? (
                   <Button variant="secondary" className="mt-2" onClick={applyQuickEntry} disabled={!quickEntry.trim()}>
-                    Add titles
+                    Add skills
                   </Button>
                 ) : null}
               </div>
