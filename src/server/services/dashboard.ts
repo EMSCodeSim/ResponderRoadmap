@@ -714,7 +714,7 @@ async function getMemberDashboard(ctx: AuthContext) {
     percent: 0,
     status: "RETURNED",
     dueDate: null as Date | null,
-    href: assignmentRecordPath(item.assignmentId),
+    href: `/my-task-books/${item.assignmentId}`,
     detail: `Returned — correction needed · ${item.requirement.section.version.template.title}`,
   }));
   const overdueItems = assignmentRows.filter((row) => row.progress.status === "OVERDUE" || (row.progress.status === "NOT_STARTED" && row.progress.overdue > 0)).map((row) => workItem(row, "Overdue — needs action"));
@@ -726,7 +726,7 @@ async function getMemberDashboard(ctx: AuthContext) {
     doThisNext,
     summary: {
       activeMembers: 1,
-      activeTaskBooks: assignmentRows.filter((row) => row.progress.status !== "COMPLETE").length,
+      activeTaskBooks: assignmentRows.filter((row) => row.progress.status !== "COMPLETE" && row.assignment.version.template.templateKind !== "TRAINING_TASK").length,
       activeAssignments: assignmentRows.filter((row) => row.progress.status !== "COMPLETE").length,
       awaitingSignOff: assignmentRows.reduce((sum, row) => sum + row.progress.pendingApproval, 0),
       awaitingEvaluation: assignmentRows.reduce((sum, row) => sum + row.progress.pendingApproval, 0),

@@ -25,7 +25,9 @@ type Row = {
 function pickNextBook(rows: Row[]) {
   const open = rows.filter((row) => row.status !== "COMPLETE");
   if (!open.length) return null;
-  return [...open].sort((a, b) => b.progress - a.progress)[0];
+  // Show actionable, time-sensitive work first; high percentage does not imply urgency.
+  const rank = (row: Row) => row.status === "OVERDUE" ? 0 : row.status === "AWAITING_SIGN_OFF" ? 2 : 1;
+  return [...open].sort((a, b) => rank(a) - rank(b) || (a.dueDate ? Date.parse(a.dueDate) : Infinity) - (b.dueDate ? Date.parse(b.dueDate) : Infinity) || a.taskBookTitle.localeCompare(b.taskBookTitle))[0];
 }
 
 export default function MyTaskBooksPage() {
@@ -46,7 +48,7 @@ export default function MyTaskBooksPage() {
       <PageHeader kicker="Task Books" title="My Task Books" description="Your assigned full Task Books, verified progress, and the next thing to work on." />
       {next ? (
         <Card className="mb-5 border-fire/30 bg-fire-soft/20 p-5">
-          <div className="kicker text-fire">Continue where you left off</div>
+          <div className="kicker text-fire">Next Task Book to review</div>
           <h2 className="display mt-1 text-xl font-bold text-navy-950">{next.taskBookTitle}</h2>
           <p className="mt-2 text-sm text-navy-600">{next.pendingApproval > 0 ? `${next.pendingApproval} task(s) are waiting for approval. You can continue with other requirements.` : "Open your Task Book to find your next skill and request an evaluation when ready."}</p>
           <Link href={`/my-task-books/${next.id}`} className="mt-3 inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-bold text-white hover:bg-fire-dark">Open Task Book →</Link>
