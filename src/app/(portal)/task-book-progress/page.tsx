@@ -26,7 +26,8 @@ export default function TaskBookProgressPage() {
   const [rows, setRows] = useState<Assignment[] | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("OPEN");
+  const [filter, setFilter] = useState("ALL");
+  const [bookFilter, setBookFilter] = useState("ALL");
 
   useEffect(() => {
     api<Assignment[]>("assignments")
@@ -34,11 +35,14 @@ export default function TaskBookProgressPage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to load progress."));
   }, []);
 
+  const books = useMemo(() => [...new Map((rows ?? []).map((row) => [row.templateId, row.taskBookTitle] as const)).entries()].sort((a, b) => a[1].localeCompare(b[1])), [rows]);
+
   const visible = useMemo(() => (rows ?? []).filter((item) => {
     const term = query.trim().toLowerCase();
     const matches = !term || `${item.memberName} ${item.taskBookTitle}`.toLowerCase().includes(term);
-    return matches && (filter === "ALL" || (filter === "COMPLETE" ? item.status === "COMPLETE" : item.status !== "COMPLETE"));
-  }), [rows, query, filter]);
+    const statusMatches = filter === "ALL" || (filter === "COMPLETE" ? item.status === "COMPLETE" : filter === "REVIEW" ? item.pendingApproval > 0 : filter === "OVERDUE" ? item.status === "OVERDUE" : item.status !== "COMPLETE");
+    return matches && (bookFilter === "ALL" || item.templateId === bookFilter) && statusMatches;
+  }).sort((a, b) => Number(b.status === "OVERDUE") - Number(a.status === "OVERDUE") || b.pendingApproval - a.pendingApproval || a.memberName.localeCompare(b.memberName)), [rows, query, filter, bookFilter]);
 
   const summary = useMemo(() => ({
     assigned: rows?.length ?? 0,
@@ -50,7 +54,7 @@ export default function TaskBookProgressPage() {
   return (
     <div>
       <WorkspaceTabs />
-      <PageHeader kicker="Task Books" title="Department progress" description="Track each member's verified completion, outstanding approvals, and due dates for full Task Books only." />
+      <PageHeader kicker="Task Books" title="Department progress" description="Choose a Task Book, see who needs attention, and open individual requirements or evaluations in one click." />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: "Assigned", count: summary.assigned },
@@ -60,17 +64,24 @@ export default function TaskBookProgressPage() {
         ].map((item) => <Card key={item.label} className="p-4"><p className="text-xs font-semibold text-navy-500">{item.label}</p><p className="display mt-1 text-2xl font-bold text-navy-950">{item.count}</p></Card>)}
       </div>
       <div className="mb-4 flex flex-wrap gap-3">
+        <Select aria-label="Choose Task Book" className="w-full sm:w-64" value={bookFilter} onChange={(event) => setBookFilter(event.target.value)}>
+          <option value="ALL">All Task Books</option>
+          {books.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+        </Select>
         <Input className="min-w-52 flex-1" aria-label="Search member or Task Book" placeholder="Search member or Task Book" value={query} onChange={(event) => setQuery(event.target.value)} />
         <Select aria-label="Filter progress" className="w-full sm:w-48" value={filter} onChange={(event) => setFilter(event.target.value)}>
-          <option value="OPEN">In progress</option>
+          <option value="ALL">All statuses</option>
+          <option value="REVIEW">Awaiting approval</option>
+          <option value="OVERDUE">Overdue</option>
+          <option value="OPEN">In progress / open</option>
           <option value="COMPLETE">Completed</option>
-          <option value="ALL">All</option>
         </Select>
       </div>
       {error ? <p role="alert" className="mb-4 text-sm text-danger">{error}</p> : null}
       {!rows && !error ? <p className="text-navy-500">Loading progress…</p> : null}
       {rows && rows.length === 0 ? <EmptyState title="No Task Books assigned" body="Publish a Task Book, then assign it to members to track their verified progress here." action={<Link href="/task-books" className="text-sm font-semibold text-fire underline">Open Task Book library</Link>} /> : null}
       {rows && rows.length > 0 && visible.length === 0 ? <EmptyState title="No matching assignments" body="Try another member, Task Book, or status." /> : null}
+      {rows && rows.length > 0 ? <p className="mb-3 text-sm text-navy-600">{visible.length} member assignment{visible.length === 1 ? "" : "s"} shown. Statuses come from recorded assignment and approval data; progress percentages alone do not mean a Task Book is completed.</p> : null}
       <div className="grid gap-3">
         {visible.map((row) => (
           <Card key={row.id} className="p-4">
@@ -88,7 +99,7 @@ export default function TaskBookProgressPage() {
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-navy-600">
               {row.pendingApproval > 0 ? <span className="font-semibold text-warn">{row.pendingApproval} awaiting approval</span> : null}
               {row.dueDate ? <span>Due {formatDate(row.dueDate)}</span> : null}
-              <Link className="ml-auto inline-flex min-h-10 items-center font-semibold text-fire underline" href={`/assignments/${row.id}`}>View details</Link>
+              <Link className="ml-auto inline-flex min-h-10 items-center font-semibold text-fire underline" href={`/assignments/${row.id}`}>Open member progress →</Link>
             </div>
           </Card>
         ))}
