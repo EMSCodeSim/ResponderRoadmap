@@ -115,6 +115,7 @@ export default function ClassDetailPage() {
   const [closeOpen, setCloseOpen] = useState(false);
   const [groupSelection, setGroupSelection] = useState<string[]>([]);
   const [groupMessage, setGroupMessage] = useState("");
+  const [groupSkillId, setGroupSkillId] = useState("");
 
   async function load() {
     const row = await api<ClassDetail>(`classes/${params.id}`);
@@ -153,6 +154,20 @@ export default function ClassDetailPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function recordGroupMember(studentId: string, skillId: string, result: "PASS" | "NOT_EVALUATED") {
+    if (!detail || busy || detail.status === "COMPLETE") return;
+    setBusy(true);
+    setError(null);
+    try {
+      setDetail(await api<ClassDetail>(`classes/${detail.id}/roster/${studentId}/skills/${skillId}`, {
+        method: "POST", body: JSON.stringify({ result, notes: "", numericScore: null }),
+      }));
+      setGroupMessage("Individual skill result saved. Required instructor approval and RMS entry remain separate.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to record this skill result.");
+    } finally { setBusy(false); }
   }
 
   async function updateStudent(input: Partial<Pick<Student, "attendance" | "writtenScore" | "ccfScore" | "notes">>) {
@@ -237,6 +252,30 @@ export default function ClassDetailPage() {
       </section>
       {detail.classType === "CPR" ? <><SectionReport title="Adult skills checklist" sections={adultSections} roster={detail.roster} /><SectionReport title="Infant / child skills checklist" sections={pediatricSections} roster={detail.roster} /></> : <SectionReport title="Skills checklist results" sections={detail.sections} roster={detail.roster} />}
 
+      {detail.sections.some((section) => section.skills.length > 0) && detail.status !== "COMPLETE" ? (
+        <Card className="no-print mb-4 p-4">
+          <h2 className="text-xl font-bold">Group skill recording</h2>
+          <p className="mt-1 text-sm text-navy-600">Choose one skill and record each person's observed result individually. Never mark a whole roster as passed.</p>
+          <label htmlFor="group-skill" className="mt-3 block text-sm font-semibold">Skill to evaluate</label>
+          <select id="group-skill" className="mt-1 min-h-12 w-full rounded-md border border-navy-200 bg-white p-3" value={groupSkillId} onChange={(e) => setGroupSkillId(e.target.value)}>
+            <option value="">Choose a skill</option>
+            {detail.sections.flatMap((section) => section.skills).map((skill) => <option key={skill.id} value={skill.id}>{skill.title}</option>)}
+          </select>
+          {groupSkillId ? <div className="mt-3 space-y-2">
+            {detail.roster.map((member) => {
+              const prior = member.results.find((item) => item.requirementId === groupSkillId);
+              return <div key={member.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-navy-200 p-3">
+                <div><div className="font-semibold">{member.name}</div><div className="text-xs text-navy-600">{prior ? resultLabels[prior.result] || prior.result : "Not evaluated"}</div></div>
+                <div className="flex gap-2">
+                  <Button variant="success" disabled={busy || member.attendance !== "PRESENT"} onClick={() => void recordGroupMember(member.id, groupSkillId, "PASS")}>Pass</Button>
+                  <Button variant="secondary" disabled={busy} onClick={() => { setStudentId(member.id); setGroupMessage("Select remediation or failure with notes in the individual evaluator panel below."); }}>Details / other result</Button>
+                </div>
+              </div>;
+            })}
+          </div> : null}
+          {groupMessage ? <p role="status" className="mt-3 text-sm text-navy-700">{groupMessage}</p> : null}
+        </Card>
+      ) : null}
       <div className="no-print grid gap-5 lg:grid-cols-[300px_1fr]">
         <Card className="h-fit p-4">
           <div className="flex items-center justify-between"><h2 className="font-semibold">Class roster</h2><Badge tone={detail.status === "ACTIVE" ? "info" : detail.status === "COMPLETE" ? "current" : "neutral"}>{detail.status}</Badge></div>
