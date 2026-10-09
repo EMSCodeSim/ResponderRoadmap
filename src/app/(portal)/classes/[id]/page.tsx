@@ -113,6 +113,8 @@ export default function ClassDetailPage() {
   const [correctionNotes, setCorrectionNotes] = useState("");
   const [skillScores, setSkillScores] = useState<Record<string, string>>({});
   const [closeOpen, setCloseOpen] = useState(false);
+  const [groupSelection, setGroupSelection] = useState<string[]>([]);
+  const [groupMessage, setGroupMessage] = useState("");
 
   async function load() {
     const row = await api<ClassDetail>(`classes/${params.id}`);
@@ -161,6 +163,28 @@ export default function ClassDetailPage() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to update student.");
     } finally { setBusy(false); }
+  }
+
+  async function markSelectedPresent() {
+    if (!detail || busy || !groupSelection.length || detail.status === "COMPLETE") return;
+    if (!window.confirm(`Confirm attendance for ${groupSelection.length} selected members? This records attendance only, not skill competency.`)) return;
+    setBusy(true);
+    setError(null);
+    setGroupMessage("");
+    let completed = 0;
+    try {
+      for (const id of groupSelection) {
+        await api(`classes/${detail.id}/roster/${id}`, { method: "POST", body: JSON.stringify({ attendance: "PRESENT" }) });
+        completed++;
+      }
+      setGroupSelection([]);
+      setGroupMessage(`Attendance confirmed for ${completed} members. Skill grading and sign-offs remain separate.`);
+    } catch (err) {
+      setError(`Attendance saved for ${completed} of ${groupSelection.length} selected members. ${err instanceof Error ? err.message : "Please retry remaining members."} Refresh the roster before continuing.`);
+    } finally {
+      try { await load(); } catch { setError("Unable to refresh the roster after saving attendance."); }
+      setBusy(false);
+    }
   }
 
   async function updateStatus(status: string) {
@@ -216,12 +240,24 @@ export default function ClassDetailPage() {
       <div className="no-print grid gap-5 lg:grid-cols-[300px_1fr]">
         <Card className="h-fit p-4">
           <div className="flex items-center justify-between"><h2 className="font-semibold">Class roster</h2><Badge tone={detail.status === "ACTIVE" ? "info" : detail.status === "COMPLETE" ? "current" : "neutral"}>{detail.status}</Badge></div>
+          {detail.status !== "COMPLETE" ? <div className="mt-3 rounded-md border border-navy-200 p-3">
+            <p className="text-sm font-semibold">Group attendance</p>
+            <p className="mt-1 text-xs text-navy-600">Select members to confirm attendance. Each member is saved individually; this does not pass skills or approve qualifications.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button variant="secondary" disabled={busy} onClick={() => setGroupSelection(detail.roster.filter((item) => item.attendance === "REGISTERED").map((item) => item.id))}>Select unchecked</Button>
+              <Button variant="secondary" disabled={busy} onClick={() => setGroupSelection([])}>Clear</Button>
+            </div>
+            <Button className="mt-3 min-h-12 w-full" disabled={busy || groupSelection.length === 0} onClick={() => void markSelectedPresent()}>Confirm present ({groupSelection.length})</Button>
+            {groupMessage ? <p role="status" className="mt-2 text-sm text-navy-700">{groupMessage}</p> : null}
+          </div> : null}
           <div className="mt-3 space-y-2">
             {detail.roster.map((item) => (
-              <button key={item.id} onClick={() => setStudentId(item.id)} className={`w-full rounded-md border p-3 text-left ${studentId === item.id ? "border-fire bg-fire-soft" : "border-navy-200 bg-white"}`}>
+              <div key={item.id} className="flex items-center gap-2">
+                {detail.status !== "COMPLETE" ? <input aria-label={`Select ${item.name} for attendance`} type="checkbox" className="h-5 w-5 shrink-0" checked={groupSelection.includes(item.id)} disabled={busy} onChange={(e) => setGroupSelection((current) => e.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /> : null}
+              <button onClick={() => setStudentId(item.id)} className={`min-h-12 w-full rounded-md border p-3 text-left ${studentId === item.id ? "border-fire bg-fire-soft" : "border-navy-200 bg-white"}`}>
                 <div className="flex items-center justify-between gap-2"><span className="font-semibold">{item.name}{item.isGuest ? <span className="ml-2 text-xs font-normal text-navy-500">Guest</span> : null}</span><Badge tone={tone(item.finalResult)}>{resultLabels[item.finalResult] || item.finalResult}</Badge></div>
                 <p className="mt-1 text-xs text-navy-500">{item.attendance} · {item.results.length} results recorded</p>
-              </button>
+              </button></div>
             ))}
           </div>
         </Card>
