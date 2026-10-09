@@ -242,6 +242,24 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "POST" && match(path, "app/certifications")) return jsonOk(await credentials.upsertMyCredential(ctx, await readBody(req)), 201);
     if (method === "GET" && match(path, "app/notification-preferences")) return jsonOk(await mobilePreferences.getNotificationPreferences(ctx));
     if (method === "PATCH" && match(path, "app/notification-preferences")) return jsonOk(await mobilePreferences.updateNotificationPreferences(ctx, await readBody(req)));
+    // Mobile instructors use the same class authorization, grading and audit
+    // services as desktop rather than creating a second record system.
+    if (method === "GET" && match(path, "app/training-sheets")) return jsonOk(await classes.listClasses(ctx, q));
+    if (method === "GET" && match(path, "app/training-sheets/setup")) return jsonOk(await classes.getClassSetup(ctx));
+    if (method === "POST" && match(path, "app/training-sheets")) return jsonOk(await classes.createClass(ctx, await readBody(req)), 201);
+    const appRegistrationManage = match(path, "app/training-sheets/:id/registration");
+    if (method === "POST" && appRegistrationManage) {
+      const body = await readBody(req);
+      return jsonOk(await classes.manageClassRegistration(ctx, appRegistrationManage.id, body.action));
+    }
+    const appRosterMember = match(path, "app/training-sheets/:id/roster/:enrollmentId");
+    if (method === "POST" && appRosterMember) {
+      return jsonOk(await classes.updateEnrollment(ctx, appRosterMember.id, appRosterMember.enrollmentId, await readBody(req)));
+    }
+    const appRosterSkill = match(path, "app/training-sheets/:id/roster/:enrollmentId/skills/:requirementId");
+    if (method === "POST" && appRosterSkill) {
+      return jsonOk(await classes.recordSkillResult(ctx, appRosterSkill.id, appRosterSkill.enrollmentId, appRosterSkill.requirementId, await readBody(req)));
+    }
     if (method === "GET" && match(path, "app/training-sheet-templates")) return jsonOk(await trainingSheetTemplates.listTrainingSheetTemplates(ctx, false));
     if (method === "GET" && match(path, "app/training-sheets/rms-actions")) return jsonOk(await classes.listRmsActionQueue(ctx));
     const appTrainingSheet = match(path, "app/training-sheets/:id");
