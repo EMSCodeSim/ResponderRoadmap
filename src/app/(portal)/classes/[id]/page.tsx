@@ -188,6 +188,10 @@ export default function ClassDetailPage() {
         actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => setCloseOpen(true)} disabled={busy}>Close Training</Button> : null}</>}
       />
       <Flash message={error} tone="danger" />
+      <div className="no-print mb-4 rounded-lg border border-navy-200 bg-white p-4">
+        <h2 className="text-sm font-bold text-navy-900">Training sheet workflow</h2>
+        <p className="mt-2 text-sm text-navy-600">1. Share or print the QR code for member sign-in. 2. Verify attendance and enter required scores or skill evaluations on this page. 3. Finalize the training sheet. 4. Export or print the record, enter it into the department RMS, and record RMS completion separately.</p>
+      </div>
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
 
       <Card className="no-print mb-4 p-4">
