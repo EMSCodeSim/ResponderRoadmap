@@ -18,11 +18,11 @@ const barlow = Barlow_Condensed({
 export const metadata: Metadata = {
   metadataBase: new URL("https://responderroadmap.com"),
   title: {
-    default: "Fire & EMS Task Book Software | Responder Roadmap",
+    default: "Fire Department Qualification & Training Software | Responder Roadmap",
     template: "%s | Responder Roadmap",
   },
   description:
-    "Digital Task Books, Assignments, evaluations, and member progress for Fire & EMS Training Officers. AI drafts the paperwork. Humans approve the work.",
+    "Track Fire & EMS qualifications, competencies, Task Books, evaluations, credentials, and training readiness with human-approved records.",
   keywords: [
     "firefighter task book",
     "digital firefighter task book",
@@ -53,13 +53,13 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://responderroadmap.com/",
     siteName: "ResponderRoadmap",
-    title: "Fire & EMS Task Book Software | Responder Roadmap",
+    title: "Fire Department Qualification & Training Software | Responder Roadmap",
     description:
       "Create Task Books and Assignments, manage evaluations, and see what needs attention — built for Fire & EMS training.",
   },
   twitter: {
     card: "summary",
-    title: "Fire & EMS Task Book Software | Responder Roadmap",
+    title: "Fire Department Qualification & Training Software | Responder Roadmap",
     description:
       "Digital Task Books, Assignments, evaluations, and training progress for Fire & EMS departments.",
   },
@@ -75,7 +75,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     description:
-      "Fire and EMS Task Book software for creating Assignments, documenting evaluations, and tracking member development progress.",
+      "Fire and EMS qualification and competency tracking software for managing department-defined requirements, Task Books, evaluations, credentials, and training readiness alongside existing RMS records.",
     audience: {
       "@type": "Audience",
       audienceType: "Fire departments, EMS agencies, training officers, firefighters, EMTs, and paramedics",

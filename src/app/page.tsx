@@ -5,12 +5,12 @@ import { isDemoAvailable } from "@/server/demo";
 import { LandingPage } from "./landing";
 
 export const metadata: Metadata = {
-  title: { absolute: "Fire & EMS Training Readiness | Responder Roadmap" },
+  title: { absolute: "Fire Department Qualification & Training Software | Responder Roadmap" },
   description:
-    "Fire & EMS training readiness software for Task Books, Assignments, digital training sheets, QR attendance, training hours, certifications, role expectations, training gaps, and RMS-ready exports.",
+    "Track firefighter qualifications, competencies, Task Books, evaluations, credentials, and department readiness. Works alongside your existing RMS.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Fire & EMS Training Readiness | Responder Roadmap",
+    title: "Fire Department Qualification & Training Software | Responder Roadmap",
     description:
       "Know what every member has completed, what they are working on, and what they need next — without replacing your RMS.",
     url: "https://responderroadmap.com/",

@@ -1,3 +1,4 @@
+import { prisma } from "@/server/db";
 import { clearSessionCookie, getRequestSession, requireDepartmentSession, signSession } from "@/server/session";
 import { handleError, jsonError, jsonOk } from "@/server/http";
 import * as auth from "@/server/services/auth";
@@ -101,7 +102,13 @@ export async function handleApi(req: Request, path: string[]) {
       const session = await getRequestSession(req);
       if (!session) return jsonError("Authentication required.", 401);
       const ctx = session.departmentId ? await requireDepartmentSession(session) : null;
-      const features = ctx ? await department.getDepartment(ctx) : null;
+      // Session bootstrap must work for every active role, including members and evaluators.
+      // The department administration endpoint requires department.read and is not
+      // appropriate here; only fetch the feature flags for this authenticated department.
+      const features = ctx ? await prisma.department.findUnique({
+        where: { id: ctx.departmentId },
+        select: { enabledFeaturesJson: true },
+      }) : null;
       const enabled = features ? JSON.parse(features.enabledFeaturesJson || "[]") as string[] : [];
       const nav = ctx ? navItemsForRole(ctx.role) : ["dashboard", "settings"];
       const featureNav: Record<string, string> = { classes: "CLASSES", "skill-mastery": "TRAINING_GAPS", certifications: "CREDENTIALS", reports: "REPORTS" };
