@@ -55,7 +55,7 @@ export default function TaskBooksPage() {
         kicker="Task Book library"
         title="Department Task Books"
         description="Task Books define what the department requires. Assignments record who is expected to complete a Task Book or requirement."
-        actions={<div className="flex flex-wrap gap-2"><Link href="/task-book-progress"><Button variant="secondary">View Member Progress</Button></Link><Link href="/task-books/fast-start"><Button>Create Task Book</Button></Link></div>}
+        actions={<div className="flex flex-wrap gap-2"><Link href="/task-book-progress"><Button variant="secondary">View Member Progress</Button></Link><Link href="/task-books/equivalencies"><Button variant="secondary">Skill Evidence Matches</Button></Link><Link href="/task-books/fast-start"><Button>Create Task Book</Button></Link></div>}
       />
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <Input className="min-w-52 flex-1" aria-label="Search Task Books" placeholder="Search Task Books" value={q} onChange={(event) => setQ(event.target.value)} />

@@ -6,6 +6,7 @@ import * as members from "@/server/services/members";
 import * as taskbooks from "@/server/services/taskbooks";
 import * as taskbookAi from "@/server/services/taskbook-ai";
 import * as assignments from "@/server/services/assignments";
+import * as skillEvidenceEquivalencies from "@/server/services/skill-evidence-equivalencies";
 import * as credentials from "@/server/services/credentials";
 import * as dashboard from "@/server/services/dashboard";
 import * as reports from "@/server/services/reports";
@@ -400,6 +401,11 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && asgPrint) return jsonOk(await assignments.getPrintRecord(ctx, asgPrint.id));
     const asgDetail = match(path, "assignments/:id/detail");
     if (method === "GET" && asgDetail) return jsonOk(await assignments.getAssignmentDetail(ctx, asgDetail.id));
+    if (method === "GET" && match(path, "skill-evidence-equivalencies/skills")) return jsonOk(await skillEvidenceEquivalencies.listEligibleSkillRequirements(ctx));
+    if (method === "GET" && match(path, "skill-evidence-equivalencies")) return jsonOk(await skillEvidenceEquivalencies.listSkillEvidenceEquivalencies(ctx));
+    if (method === "POST" && match(path, "skill-evidence-equivalencies")) return jsonOk(await skillEvidenceEquivalencies.approveSkillEvidenceEquivalency(ctx, await readBody(req)));
+    const revokeEquivalency = match(path, "skill-evidence-equivalencies/:id/revoke");
+    if (method === "POST" && revokeEquivalency) return jsonOk(await skillEvidenceEquivalencies.revokeSkillEvidenceEquivalency(ctx, revokeEquivalency.id));
     const asgSubmit = match(path, "assignments/:id/requirements/:reqId/submit");
     if (method === "POST" && asgSubmit) {
       const body = await readBody(req);

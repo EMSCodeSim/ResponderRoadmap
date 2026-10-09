@@ -507,6 +507,24 @@ model TrainingClassSkillResult {
   @@index([evaluatorId, evaluatedAt])
 }
 
+/// Department-scoped, explicitly approved cross-template evidence matching.
+/// This never signs off a Task Book requirement or changes its completion status.
+model SkillEvidenceEquivalency {
+  id                  String   @id @default(cuid())
+  departmentId        String
+  sourceRequirementId String
+  targetRequirementId String
+  reason              String
+  approvedById        String
+  approvedAt          DateTime @default(now())
+  revokedAt           DateTime?
+  revokedById         String?
+  createdAt           DateTime @default(now())
+
+  @@unique([departmentId, sourceRequirementId, targetRequirementId])
+  @@index([departmentId, targetRequirementId, revokedAt])
+}
+
 /// Short-lived counters for abuse protection. Keys are one-way hashes, never raw IP addresses.
 model RegistrationRateLimit {
   key         String   @id

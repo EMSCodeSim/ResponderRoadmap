@@ -38,7 +38,7 @@ type Detail = {
   isComplete: boolean;
   upNext: Array<{ requirementId: string; title: string; reason: string; locked: boolean; lockReason?: string }>;
   evaluators: Array<{ id: string; name: string; role: string }>;
-  relatedEvidence: Array<{ id: string; requirementId: string; classTitle: string; classDate: string; result: string; evaluatorName: string; evaluatedAt: string; notes: string; verification: string }>;
+  relatedEvidence: Array<{ id: string; requirementId: string; classTitle: string; classDate: string; result: string; evaluatorName: string; evaluatedAt: string; notes: string; verification: string; matchType?: string; sourceRequirementId?: string }>;
   sections: Array<{
     id: string;
     title: string;
@@ -331,6 +331,7 @@ export default function MyTaskBookDetailPage() {
                               {data.relatedEvidence.filter((item) => item.requirementId === req.id).map((item) => (
                                 <li key={item.id} className="rounded-md bg-white p-3 text-sm">
                                   <div className="font-semibold">{item.classTitle}</div>
+                                  {item.matchType === "APPROVED_EQUIVALENCY" ? <p className="mt-1 text-xs font-semibold text-fire">Department-approved equivalent skill</p> : null}
                                   <div className="mt-1 text-xs text-navy-600">Passed · {item.evaluatorName} · {formatDate(item.evaluatedAt)}</div>
                                   {item.notes ? <p className="mt-1 text-xs text-navy-600">{item.notes}</p> : null}
                                   {!req.locked && status !== "APPROVED" && status !== "SUBMITTED" ? (
