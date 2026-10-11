@@ -93,3 +93,4 @@ jobs:
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-roadmap-mobile-contract.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-golden-workflow.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-core-workflow.sh
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-continuous-department-lifecycle.sh
