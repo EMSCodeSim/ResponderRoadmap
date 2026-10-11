@@ -50,12 +50,12 @@ REQ_ID=$(echo "$ASSIGN_DETAIL" | jq -r '.data.sections[0].requirements[0].id')
 echo "$ASSIGN_DETAIL" | jq -e '.data.complete == 0 and .data.progress == 0' >/dev/null
 
 echo 'LIFECYCLE: create class using the SAME published Task Book version'
-CLASS=$(to -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION_ID" --arg other "$OTHER_ID" --arg officer "$TO_ID" '{title:"Continuous Lifecycle QR Practical",classType:"GENERAL",trainingCategory:"COMPANY",creditHours:1,checklistVersionId:$version,startsAt:"2026-10-20T12:00:00.000Z",endsAt:"2026-10-20T13:00:00.000Z",location:"QA Station",membershipIds:[$other],proctorUserIds:[$officer],selfRegistration:true}')")
+CLASS=$(to -X POST "$BASE/api/v1/classes" -d "$(jq -nc --arg version "$VERSION_ID" --arg other "$OTHER_ID" --arg officer "$TO_ID" '{title:"Continuous Lifecycle QR Practical",classType:"GENERAL",trainingCategory:"COMPANY",creditHours:1,checklistVersionId:$version,startsAt:"2026-10-20T12:00:00.000Z",endsAt:"2026-10-20T13:00:00.000Z",location:"QA Station",notes:"Isolated continuous QA field training",membershipIds:[$other],proctorUserIds:[$officer],selfRegistration:true}')")
 CLASS_ID=$(echo "$CLASS" | jq -r '.data.id')
 TOKEN=$(echo "$CLASS" | jq -r '.data.registrationToken')
 [[ ${#TOKEN} -eq 64 ]]
 app -X POST "$BASE/api/v1/app/classes/register/$TOKEN" | jq -e '.data.registered == true' >/dev/null
-expect_status 409 -H "Authorization: Bearer $APP_TOKEN" -H 'Content-Type: application/json' -X POST "$BASE/api/v1/app/classes/register/$TOKEN"
+app -X POST "$BASE/api/v1/app/classes/register/$TOKEN" | jq -e '.data.registered == true and .data.alreadyRegistered == true' >/dev/null
 DETAIL=$(to "$BASE/api/v1/classes/$CLASS_ID")
 E1=$(echo "$DETAIL" | jq -r --arg id "$MEM_ID" '.data.roster[] | select(.membershipId == $id) | .id')
 E2=$(echo "$DETAIL" | jq -r --arg id "$OTHER_ID" '.data.roster[] | select(.membershipId == $id) | .id')
