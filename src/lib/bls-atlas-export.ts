@@ -1,6 +1,4 @@
-/** Prepare AHA Atlas student information without claiming a particular Atlas import schema.
- * AHA Atlas requires the current template from the user's Atlas workflow.
- */
+/** AHA Atlas fields from uploaded Template 2.xls: Course Date, First Name, Last Name, Email, Phone (Optional). */
 type BLSStudent = {
   name: string; email: string; attendance: string; finalResult: string;
   results: Array<{ requirementId: string; result: string }>;
@@ -12,6 +10,7 @@ export type BLSClassForExport = {
 };
 export function blsAtlasEligibility(row: BLSClassForExport, student: BLSStudent) {
   const required = row.sections.flatMap((section) => section.skills.filter((skill) => skill.required));
+  if (row.status !== "COMPLETE") return "Class not finalized";
   if (student.attendance !== "PRESENT") return "Not present";
   if (!student.email.trim()) return "Missing email";
   if (!required.length) return "No published required BLS checklist attached";
@@ -31,7 +30,8 @@ function csv(rows: string[][]) {
   return "\uFEFF" + rows.map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
 export function blsAtlasPreparationCsv(row: BLSClassForExport) {
-  const date = row.startsAt.slice(0, 10);
+  const iso = row.startsAt.slice(0, 10).split("-");
+  const date = iso.length === 3 ? [Number(iso[1]), Number(iso[2]), iso[0]].join("/") : row.startsAt.slice(0, 10);
   const entries = row.roster.map((student) => {
     const words = student.name.trim().split(/\s+/);
     return {
@@ -50,10 +50,10 @@ export function blsAtlasPreparationCsv(row: BLSClassForExport) {
     eligibleCount: eligible.length,
     excludedCount: entries.length - eligible.length,
     roster: csv([
-      ["Class Date", "First Name", "Last Name", "Email"],
-      ...eligible.map((entry) => [date, entry.firstName, entry.lastName, entry.student.email]),
+      ["Course Date", "First Name", "Last Name", "Email", "Phone (Optional)"],
+      ...eligible.map((entry) => [date, entry.firstName, entry.lastName, entry.student.email, ""]),
     ]),
-    review: csv([["Class Date", "First Name", "Last Name", "Email", "Review Status"], ...review]),
+    review: csv([["Course Date", "First Name", "Last Name", "Email", "Review Status"], ...review]),
   };
 }
 export function downloadBlsCsv(name: string, content: string) {
