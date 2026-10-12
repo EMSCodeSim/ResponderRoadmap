@@ -24,6 +24,7 @@ type Student = {
   rank: string | null;
   email: string;
   isGuest: boolean;
+  membershipId: string | null;
   organization: string | null;
   attendance: string;
   writtenScore: number | null;
@@ -33,6 +34,9 @@ type Student = {
   completedAt: string | null;
   results: SkillResult[];
 };
+
+type LinkedAssignment = { id: string; memberId: string; taskBookTitle: string; status: string; progress: number; pendingApproval: number; };
+type TaskBookChoice = { id: string; title: string; status: string; templateKind?: string };
 
 type Skill = {
   id: string;
@@ -117,6 +121,12 @@ export default function ClassDetailPage() {
   const [groupSelection, setGroupSelection] = useState<string[]>([]);
   const [groupMessage, setGroupMessage] = useState("");
   const [groupSkillId, setGroupSkillId] = useState("");
+  const [canAssignBooks, setCanAssignBooks] = useState(false);
+  const [books, setBooks] = useState<TaskBookChoice[]>([]);
+  const [linkedAssignments, setLinkedAssignments] = useState<LinkedAssignment[]>([]);
+  const [assignBookId, setAssignBookId] = useState("");
+  const [assignMemberIds, setAssignMemberIds] = useState<string[]>([]);
+  const [assignMessage, setAssignMessage] = useState("");
   const [showPendingOnly, setShowPendingOnly] = useState(true);
 
   async function load() {
@@ -126,6 +136,9 @@ export default function ClassDetailPage() {
   }
 
   useEffect(() => { load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load class.")); }, [params.id]);
+  useEffect(() => { api<{ role: string }>("auth/me").then((session) => setCanAssignBooks(["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(session.role))).catch(() => {}); }, []);
+  useEffect(() => { api<LinkedAssignment[]>("assignments").then(setLinkedAssignments).catch(() => {}); }, []);
+  useEffect(() => { api<TaskBookChoice[]>("task-books").then((items) => setBooks(items.filter((item) => item.status === "ACTIVE" && item.templateKind !== "TRAINING_TASK"))).catch(() => {}); }, []);
 
   function exportBlsAtlas(kind: "roster" | "review") {
     if (!detail || detail.classType !== "CPR") return;
@@ -190,6 +203,21 @@ export default function ClassDetailPage() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to update student.");
     } finally { setBusy(false); }
+  }
+
+  async function assignBookToRoster() {
+    if (!detail || busy || !assignBookId || !assignMemberIds.length) return;
+    if (!window.confirm(`Assign this Task Book to ${assignMemberIds.length} selected department members? Existing assignments will be skipped. Completion still requires separate individual evidence and approval.`)) return;
+    setBusy(true); setError(null); setAssignMessage("");
+    try {
+      const result = await api<{ created: number; skipped: number }>(`classes/${detail.id}/assign-task-book`, {
+        method: "POST", body: JSON.stringify({ templateId: assignBookId, membershipIds: assignMemberIds }),
+      });
+      setAssignMessage(`Assigned to ${result.created} members; ${result.skipped} already had this Task Book. Class evaluations remain separate until linked and approved.`);
+      setAssignMemberIds([]);
+      api<LinkedAssignment[]>("assignments").then(setLinkedAssignments).catch(() => {});
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to assign Task Book."); }
+    finally { setBusy(false); }
   }
 
   async function markSelectedPresent() {
@@ -265,6 +293,40 @@ export default function ClassDetailPage() {
         {detail.notes ? <div className="mt-3 border-t border-navy-100 pt-3"><div className="kicker">Description / notes</div><p className="mt-1 whitespace-pre-wrap text-sm text-navy-600">{detail.notes}</p></div> : null}
       </Card>
 
+      {canAssignBooks ? <Card className="no-print mb-4 space-y-3 p-4">
+        <h2 className="text-xl font-bold">Connect this class to Task Books</h2>
+        <p className="text-sm text-navy-600">Assign one published Task Book to selected department members on this roster. Attendance and group training are recorded once in the class; each student's skill results, Task Book evidence, and evaluator approvals remain individual. Completed, instructor-approved class PASS results can be linked as evidence on the member's Task Book assignment when the skill matches or an approved equivalency exists. A completed Task Book contributes to qualification readiness but never grants authorization automatically.</p>
+        <Field label="Published Task Book"><Select value={assignBookId} onChange={(event) => setAssignBookId(event.target.value)}>
+          <option value="">Choose Task Book…</option>{books.map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}
+        </Select></Field>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" disabled={busy} onClick={() => setAssignMemberIds(detail.roster.filter((item) => item.membershipId && item.attendance === "PRESENT").map((item) => item.membershipId!))}>Select present members</Button>
+          <Button variant="secondary" disabled={busy} onClick={() => setAssignMemberIds(detail.roster.filter((item) => item.membershipId).map((item) => item.membershipId!))}>Select entire department roster</Button>
+          <Button variant="secondary" disabled={busy} onClick={() => setAssignMemberIds([])}>Clear</Button>
+        </div>
+        <div className="max-h-56 space-y-1 overflow-y-auto">
+          {detail.roster.filter((item) => item.membershipId).map((item) => <label key={item.id} className="flex min-h-11 items-center gap-3 rounded-md border border-navy-200 p-2 text-sm">
+            <input type="checkbox" checked={assignMemberIds.includes(item.membershipId!)} disabled={busy} onChange={(event) => setAssignMemberIds((ids) => event.target.checked ? [...ids, item.membershipId!] : ids.filter((id) => id !== item.membershipId))} />
+            <span>{item.name} <span className="text-navy-500">· {item.attendance}</span></span>
+          </label>)}
+        </div>
+        <Button disabled={busy || !assignBookId || !assignMemberIds.length} onClick={() => void assignBookToRoster()}>{busy ? "Working…" : `Assign Task Book to ${assignMemberIds.length} selected`}</Button>
+        {assignMessage ? <p role="status" className="text-sm text-navy-700">{assignMessage} <Link href="/task-book-progress" className="font-semibold text-fire underline">View progress</Link></p> : null}
+        {linkedAssignments.some((item) => detail.roster.some((student) => student.membershipId === item.memberId)) ? <div className="space-y-2 rounded-md bg-navy-50 p-3">
+          <h3 className="text-sm font-bold">Roster Task Book progress</h3>
+          {detail.roster.filter((item) => item.membershipId).map((item) => {
+            const assignments = linkedAssignments.filter((assignment) => assignment.memberId === item.membershipId);
+            return assignments.length ? <div key={item.id} className="border-b border-navy-200 pb-2 text-sm">
+              <strong>{item.name}</strong>
+              {assignments.map((assignment) => <Link key={assignment.id} href={`/assignments/${assignment.id}`} className="mt-1 flex justify-between gap-2 text-fire underline">
+                <span>{assignment.taskBookTitle}</span><span>{assignment.status.replaceAll("_", " ")} · {assignment.progress}%</span>
+              </Link>)}
+            </div> : null;
+          })}
+          <p className="text-xs text-navy-600">Class PASS results are evidence only after class completion and instructor approval. Task Book requirement sign-offs and qualification authorization are separate.</p>
+        </div> : null}
+        <Link href="/task-books/equivalencies" className="block text-sm font-semibold text-fire underline">Manage department-approved skill evidence matches</Link>
+      </Card> : null}
       <section className="print-page hidden print:block">
         <h1 className="text-2xl font-bold">{detail.title} — Class roster</h1>
         <p className="mt-1 text-sm">{formatDate(detail.startsAt)} · {detail.location || "Location not recorded"} · {detail.checklistTitle} v{detail.checklistVersion}</p>
