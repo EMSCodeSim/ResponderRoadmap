@@ -22,7 +22,7 @@ describe("guided Task Book creation", () => {
   });
   it("accepts supported formats and rejects missing, unsupported, empty, oversized imports", () => {
     expect(fastStartErrors({ source: "pdf" })).toHaveLength(1);
-    expect(fastStartErrors({ source: "pdf", filename: "book.txt", fileSize: 100 })).toHaveLength(1);
+    expect(fastStartErrors({ source: "pdf", filename: "book.doc", fileSize: 100 })).toHaveLength(1);
     expect(fastStartErrors({ source: "pdf", filename: "book.pdf", fileSize: 0 })).toHaveLength(1);
     expect(fastStartErrors({ source: "pdf", filename: "book.PDF", fileSize: MAX_TASK_BOOK_PDF_BYTES + 1 })).toHaveLength(1);
     for (const filename of ["book.PDF", "book.docx", "book.xlsx", "book.csv", "book.txt", "book.md"]) {
