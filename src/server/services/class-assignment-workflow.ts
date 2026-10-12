@@ -33,21 +33,3 @@ export async function assignClassTaskBook(
   return { ...result, selected: selected.length };
 }
 
-/** Group attendance is a single audited event, not a blanket competency pass. */
-export async function confirmClassAttendance(ctx: AuthContext, classId: string, input: { enrollmentIds?: string[] }) {
-  assertPermission(ctx, "classes.write");
-  const klass = await prisma.trainingClass.findFirst({ where: { id: classId, departmentId: ctx.departmentId } });
-  if (!klass) throw new HttpError(404, "Class not found.");
-  if (klass.status === "COMPLETE" || klass.status === "CANCELLED") throw new HttpError(409, "Closed classes cannot be changed.");
-  if (!Array.isArray(input?.enrollmentIds) || input.enrollmentIds.length < 1 || input.enrollmentIds.length > 200 ||
-    input.enrollmentIds.some((id) => typeof id !== "string")) throw new HttpError(400, "Select 1–200 roster entries.");
-  const ids = [...new Set(input.enrollmentIds)];
-  const found = await prisma.trainingClassEnrollment.count({ where: { classId, id: { in: ids } } });
-  if (found !== ids.length) throw new HttpError(400, "Every selected student must be on the class roster.");
-  const updated = await prisma.trainingClassEnrollment.updateMany({
-    where: { classId, id: { in: ids }, attendance: "REGISTERED" },
-    data: { attendance: "PRESENT" },
-  });
-  await writeAudit(ctx, "class.attendance.group_confirmed", "TrainingClass", classId, { selected: ids.length, updated: updated.count });
-  return { updated: updated.count, unchanged: ids.length - updated.count };
-}
