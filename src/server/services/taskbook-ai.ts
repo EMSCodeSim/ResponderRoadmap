@@ -89,7 +89,7 @@ export function decodeTaskBookFile(filename: string, raw: string) {
   if (!mime) throw new HttpError(400, "Supported Task Book formats: PDF, Word (.docx), TXT, Markdown, CSV, and Excel (.xlsx).");
   const trimmed = raw.trim();
   if (!trimmed) throw new HttpError(400, "Choose a Task Book file to import.");
-  const base64 = trimmed.replace(/^data:[^,]+;base64,/i, "").replace(/\\s/g, "");
+  const base64 = trimmed.replace(/^data:[^,]+;base64,/i, "").replace(/\s/g, "");
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length % 4 === 1)
     throw new HttpError(400, "The selected file could not be read. Please choose the original file.");
   const bytes = Buffer.from(base64, "base64");
