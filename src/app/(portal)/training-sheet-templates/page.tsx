@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
+import { blsCprClassPreset } from "@/lib/bls-cpr-class-preset";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
 
 type Template = {
@@ -147,6 +148,23 @@ export default function TrainingSheetTemplatesPage() {
         <Card className="p-5">
           <h2 className="text-lg font-bold text-navy-900">{editingId ? "Edit template" : "Build a template"}</h2>
           <p className="mb-4 mt-1 text-sm text-navy-600">Choose a published checklist to make detailed practical sessions ready to launch.</p>
+          {!editingId && (
+            <div className="mb-4 rounded-lg border border-navy-200 bg-navy-50 p-3">
+              <p className="text-sm font-semibold text-navy-900">BLS CPR — Adult & Infant (2025)</p>
+              <p className="mb-3 text-sm text-navy-700">
+                Preload a BLS Provider training sheet with adult and infant skills checkoff guidance,
+                instructor attestation, individual remediation, QR registration, and Atlas roster preparation instructions.
+                Select your department&apos;s published adult/infant checklist to record step-level results.
+              </p>
+              <Button type="button" onClick={() => {
+                setForm({ ...blsCprClassPreset });
+                setError(null);
+                setMessage("BLS CPR preset loaded. Select a published BLS skills checklist, set the location and instructors, then save.");
+              }}>
+                Use BLS CPR template
+              </Button>
+            </div>
+          )
           <form onSubmit={save} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Template name"><Input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Monthly EMS airway lab" /></Field>
