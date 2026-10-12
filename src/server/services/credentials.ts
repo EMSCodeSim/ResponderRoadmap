@@ -137,6 +137,8 @@ export async function importCredentials(ctx: AuthContext, raw: unknown) {
     throw new HttpError(400, "Select between 1 and 100 certification records.");
   type Row = { membershipId: string; credentialName: string; issuer?: string; credentialNumber?: string; issueDate?: string; expirationDate?: string; doesNotExpire?: boolean };
   const rows = raw as Row[];
+  if (rows.some((row) => !row || typeof row.membershipId !== "string" || typeof row.credentialName !== "string"))
+    throw new HttpError(400, "Each certificate needs a valid member and certification name.");
   const ids = [...new Set(rows.map((row) => row.membershipId))];
   const members = await prisma.departmentMembership.findMany({
     where: { id: { in: ids }, departmentId: ctx.departmentId, status: "ACTIVE" }, select: { id: true },
@@ -144,6 +146,7 @@ export async function importCredentials(ctx: AuthContext, raw: unknown) {
   if (members.length !== ids.length) throw new HttpError(400, "An imported certificate has an invalid or inactive member.");
   const parseDate = (value?: string) => {
     if (!value) return null;
+    if (typeof value !== "string") throw new HttpError(400, "Dates must use YYYY-MM-DD.");
     if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) throw new HttpError(400, "Dates must use YYYY-MM-DD.");
     const date = new Date(value + "T00:00:00.000Z");
     if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value)
