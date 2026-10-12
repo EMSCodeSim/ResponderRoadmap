@@ -164,7 +164,7 @@ export default function TrainingSheetTemplatesPage() {
                 Use BLS CPR template
               </Button>
             </div>
-          )
+          )}
           <form onSubmit={save} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Template name"><Input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Monthly EMS airway lab" /></Field>
