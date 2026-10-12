@@ -116,6 +116,7 @@ export default function ClassDetailPage() {
   const [groupSelection, setGroupSelection] = useState<string[]>([]);
   const [groupMessage, setGroupMessage] = useState("");
   const [groupSkillId, setGroupSkillId] = useState("");
+  const [showPendingOnly, setShowPendingOnly] = useState(true);
 
   async function load() {
     const row = await api<ClassDetail>(`classes/${params.id}`);
@@ -262,7 +263,11 @@ export default function ClassDetailPage() {
             {detail.sections.flatMap((section) => section.skills).map((skill) => <option key={skill.id} value={skill.id}>{skill.title}</option>)}
           </select>
           {groupSkillId ? <div className="mt-3 space-y-2">
-            {detail.roster.map((member) => {
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-navy-50 p-3 text-sm">
+              <span className="font-semibold">{detail.roster.filter((member) => member.results.some((item) => item.requirementId === groupSkillId && item.result !== "NOT_EVALUATED")).length} / {detail.roster.length} recorded individually</span>
+              <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={showPendingOnly} onChange={(event) => setShowPendingOnly(event.target.checked)} /> Show only ungraded members</label>
+            </div>
+            {detail.roster.filter((member) => !showPendingOnly || !member.results.some((item) => item.requirementId === groupSkillId && item.result !== "NOT_EVALUATED")).map((member) => {
               const prior = member.results.find((item) => item.requirementId === groupSkillId);
               return <div key={member.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-navy-200 p-3">
                 <div><div className="font-semibold">{member.name}</div><div className="text-xs text-navy-600">{prior ? resultLabels[prior.result] || prior.result : "Not evaluated"}</div></div>
@@ -273,7 +278,7 @@ export default function ClassDetailPage() {
               </div>;
             })}
           </div> : null}
-          {groupMessage ? <p role="status" className="mt-3 text-sm text-navy-700">{groupMessage}</p> : null}
+          {groupMessage ? <p role="status" aria-live="polite" className="mt-3 text-sm text-navy-700">{groupMessage}</p> : null}
         </Card>
       ) : null}
       <div className="no-print grid gap-5 lg:grid-cols-[300px_1fr]">

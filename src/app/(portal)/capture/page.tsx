@@ -10,7 +10,7 @@ const captureOptions = [
   { href: "/my-task-books", label: "Record a Task Book skill", detail: "Find a required skill, enter evidence and request an authorized sign-off.", roles: ["MEMBER", "INSTRUCTOR", "EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
   { href: "/my-assignments", label: "Record assigned training", detail: "Complete your assigned task or submit it for evaluation.", roles: ["MEMBER", "INSTRUCTOR", "EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
   { href: "/certifications", label: "Add or check certification", detail: "Use the existing credential record and verification workflow.", roles: ["MEMBER", "INSTRUCTOR", "EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
-  { href: "/classes", label: "Record a Training Sheet", detail: "Create a template-based sheet, collect QR attendance, grade and prepare for RMS entry.", roles: ["INSTRUCTOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
+  { href: "/classes?quick=1", label: "Start a Training Sheet", detail: "Open field capture immediately with today’s date and QR sign-in ready.", roles: ["INSTRUCTOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
   { href: "/evaluate", label: "Sign off an evaluation", detail: "Review submitted evidence and record each authorized evaluation.", roles: ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"] },
 ] as const;
 
@@ -33,7 +33,8 @@ export default function CapturePage() {
           ))}
         </div>
       )}
-      <Card className="mt-5 p-4"><p className="text-sm text-navy-700">Information is recorded in the existing training, credential or evaluation workflow—not in a separate unverified Quick Add record. Department RMS entry must still be confirmed independently.</p></Card>
+      <Card className="mt-5 p-4"><p className="text-sm font-semibold text-navy-900">Capture once, reuse approved evidence</p><p className="mt-1 text-sm text-navy-700">For field training, start a sheet, collect the roster with QR, and record each member’s observed result. Approved evidence can be linked to an assigned Task Book without retyping the observation.</p></Card>
+      <Card className="mt-3 p-4"><p className="text-sm text-navy-700">Information is recorded in the existing training, credential or evaluation workflow—not in a separate unverified Quick Add record. Department RMS entry must still be confirmed independently.</p></Card>
     </div>
   );
 }
