@@ -149,12 +149,28 @@ function readJob(token: string) {
   return { responseId: data.responseId, fileId: data.fileId };
 }
 
-export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename?: string; fileData?: string; notes?: string }) {
+export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename?: string; fileData?: string; notes?: string; pages?: Array<{ filename?: string; fileData?: string }> }) {
   assertPermission(ctx, "taskbooks.write");
-  const filename = String(input.filename || "taskbook.pdf").slice(0, 180);
-  const { bytes, mime } = decodeTaskBookFile(filename, String(input.fileData || ""));
-  const isImage = mime.startsWith("image/");
-  const fileId = isImage ? "inline-image" : await uploadTaskBookFile(filename, bytes, mime);
+  const pages = input.pages;
+  if (pages !== undefined && (!Array.isArray(pages) || pages.length < 2 || pages.length > 5))
+    throw new HttpError(400, "Select between 2 and 5 photos in page order.");
+  const validated = pages
+    ? pages.map((page) => {
+        const filename = String(page.filename || "").slice(0, 180);
+        const decoded = decodeTaskBookFile(filename, String(page.fileData || ""));
+        if (!decoded.mime.startsWith("image/")) throw new HttpError(400, "Multi-page scans accept JPEG, PNG, or WebP photos only.");
+        return { filename, ...decoded };
+      })
+    : [];
+  if (validated.reduce((total, page) => total + page.bytes.length, 0) > MAX_IMPORT_BYTES)
+    throw new HttpError(413, "Combined scan photos must be 4 MB or less. Reduce image size or split the scan.");
+  const filename = pages ? "multi-page-scan" : String(input.filename || "taskbook.pdf").slice(0, 180);
+  const decoded = pages ? null : decodeTaskBookFile(filename, String(input.fileData || ""));
+  const isImage = Boolean(pages) || Boolean(decoded?.mime.startsWith("image/"));
+  const fileId = isImage ? "inline-image" : await uploadTaskBookFile(filename, decoded!.bytes, decoded!.mime);
+  const imageContent: OpenAiInputContent[] = validated.length
+    ? validated.map((page) => ({ type: "input_image" as const, image_url: `data:${page.mime};base64,${page.bytes.toString("base64")}`, detail: "high" as const }))
+    : isImage && decoded ? [{ type: "input_image", image_url: `data:${decoded.mime};base64,${decoded.bytes.toString("base64")}`, detail: "high" }] : [];
   let response: Response;
   try {
     response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({
@@ -162,8 +178,8 @@ export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename
       input: [
         { role: "developer", content: [{ type: "input_text", text: developerInstruction }] },
         { role: "user", content: [
-          { type: "input_text", text: `Convert the attached existing Task Book into a ResponderRoadmap editable draft. Preserve every meaningful section and requirement from the source, including tables and checklist rows where readable. For a photograph, transcribe only clearly visible content and preserve printed checklist rows, labels, dates, and pass thresholds. If any handwriting or text is illegible, do not guess. Scanned pages may require visual reading. Do not invent missing requirements, standards, signatures, or citations. If wording is unclear, preserve it conservatively rather than guessing. Keep each imported requirement concise. Keep the result as a draft for Training Officer review. Additional department notes: ${String(input.notes || "None").slice(0, 3000)}` },
-          isImage ? { type: "input_image", image_url: `data:${mime};base64,${bytes.toString("base64")}`, detail: "high" } : { type: "input_file", file_id: fileId },
+          { type: "input_text", text: `Convert the attached existing Task Book into a ResponderRoadmap editable draft. Preserve every meaningful section and requirement from the source, including tables and checklist rows where readable. For multiple photographs, read pages in the provided order, preserve all distinct requirements, and do not merge unrelated rows. For a photograph, transcribe only clearly visible content and preserve printed checklist rows, labels, dates, and pass thresholds. If any handwriting or text is illegible, do not guess. Scanned pages may require visual reading. Do not invent missing requirements, standards, signatures, or citations. If wording is unclear, preserve it conservatively rather than guessing. Keep each imported requirement concise. Keep the result as a draft for Training Officer review. Additional department notes: ${String(input.notes || "None").slice(0, 3000)}` },
+          ...(isImage ? imageContent : [{ type: "input_file" as const, file_id: fileId }]),
         ] },
       ],
       text: { format: { type: "json_schema", name: "responderroadmap_taskbook_draft", strict: true, schema } },
