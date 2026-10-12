@@ -65,6 +65,7 @@ export default function ClassesPage() {
   const [open, setOpen] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
   const quickAddOpened = useRef(false);
+  const templateOpened = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,6 +84,30 @@ export default function ClassesPage() {
     quickAddOpened.current = true;
     openTraining(true);
   }, [setup]);
+
+  useEffect(() => {
+    if (templateOpened.current || !setup || !templates.length) return;
+    const id = new URLSearchParams(window.location.search).get("template");
+    if (!id) return;
+    const template = templates.find((item) => item.id === id);
+    if (!template) return;
+    templateOpened.current = true;
+    quickAddOpened.current = true;
+    openTraining(false);
+    setSelectedTemplateId(id);
+    setForm({
+      ...emptyForm,
+      title: template.defaultTitle || template.name,
+      classType: template.classType,
+      trainingCategory: template.trainingCategory,
+      creditHours: template.creditHours ? String(template.creditHours) : "",
+      checklistVersionId: template.checklistVersionId || "",
+      location: template.location,
+      notes: template.notes,
+      selfRegistration: template.selfRegistration,
+      proctorUserIds: template.proctorUserIds,
+    });
+  }, [setup, templates]);
 
   function toggle(key: "membershipIds" | "proctorUserIds", id: string) {
     const values = form[key];
