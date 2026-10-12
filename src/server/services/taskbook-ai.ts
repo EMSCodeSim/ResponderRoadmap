@@ -73,27 +73,49 @@ export async function generateTaskBookDraft(ctx: AuthContext, prompt: string) {
   return requestDraft([{ role: "developer", content: [{ type: "input_text", text: developerInstruction }] }, { role: "user", content: [{ type: "input_text", text: `Create a practical department Task Book draft from this request:\n\n${request}\n\nUse concise requirements, actionable instructions, objectives, and evaluation steps. This is a draft and must not auto-publish.` }] }]);
 }
 
-function decodePdf(raw: string) {
+const IMPORT_MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  txt: "text/plain",
+  md: "text/markdown",
+  csv: "text/csv",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+const MAX_IMPORT_BYTES = 4 * 1024 * 1024;
+
+export function decodeTaskBookFile(filename: string, raw: string) {
+  const ext = filename.toLowerCase().split(".").pop() || "";
+  const mime = IMPORT_MIME[ext];
+  if (!mime) throw new HttpError(400, "Supported Task Book formats: PDF, Word (.docx), TXT, Markdown, CSV, and Excel (.xlsx).");
   const trimmed = raw.trim();
-  if (!trimmed) throw new HttpError(400, "Choose a PDF Task Book to import.");
-  const match = trimmed.match(/^data:application\/pdf(?:;[^,]*)?;base64,([\s\S]+)$/i);
-  const base64 = (match ? match[1] : trimmed).replace(/\s/g, "");
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) throw new HttpError(400, "The selected file could not be read as a PDF. Please choose the original PDF file and try again.");
+  if (!trimmed) throw new HttpError(400, "Choose a Task Book file to import.");
+  const base64 = trimmed.replace(/^data:[^,]+;base64,/i, "").replace(/\s/g, "");
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length % 4 === 1)
+    throw new HttpError(400, "The selected file could not be read. Please choose the original file.");
   const bytes = Buffer.from(base64, "base64");
-  if (bytes.length < 5 || bytes.subarray(0, 5).toString("ascii") !== "%PDF-") throw new HttpError(400, "The selected file is not a valid PDF.");
-  if (bytes.length > 4 * 1024 * 1024) throw new HttpError(413, "PDF is too large for direct import. Keep the file under 4 MB or split it into smaller parts.");
-  return bytes;
+  if (!bytes.length || bytes.length > MAX_IMPORT_BYTES)
+    throw new HttpError(bytes.length ? 413 : 400, "Task Book file must be nonempty and no larger than 4 MB.");
+  if (ext === "pdf" && bytes.subarray(0, 5).toString("ascii") !== "%PDF-")
+    throw new HttpError(400, "The selected file is not a valid PDF.");
+  if ((ext === "docx" || ext === "xlsx") && bytes.subarray(0, 4).toString("hex") !== "504b0304")
+    throw new HttpError(400, "The selected file is not a valid Office document.");
+  if (["txt", "md", "csv"].includes(ext)) {
+    const text = new TextDecoder("utf-8", { fatal: true });
+    try { text.decode(bytes); } catch { throw new HttpError(400, "Text imports must use UTF-8 encoding."); }
+    if (bytes.includes(0)) throw new HttpError(400, "The selected text file contains binary data.");
+  }
+  return { bytes, mime };
 }
 
-async function uploadPdf(filename: string, bytes: Buffer) {
+async function uploadTaskBookFile(filename: string, bytes: Buffer, mime: string) {
   const form = new FormData();
   form.append("purpose", "user_data");
-  form.append("file", new Blob([Uint8Array.from(bytes)], { type: "application/pdf" }), filename);
+  form.append("file", new Blob([Uint8Array.from(bytes)], { type: mime }), filename);
   let response: Response;
   try { response = await fetch("https://api.openai.com/v1/files", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}` }, body: form }); }
-  catch { throw new HttpError(503, `PDF “${filename}” could not be uploaded for conversion. Please try again.`); }
+  catch { throw new HttpError(503, `File “${filename}” could not be uploaded for conversion. Please try again.`); }
   const payload = await response.json().catch(() => ({})) as { id?: string; error?: { message?: string } };
-  if (!response.ok || !payload.id) throw new HttpError(response.status >= 500 ? 503 : 400, `PDF “${filename}” upload failed: ${payload.error?.message || `HTTP ${response.status}`}`);
+  if (!response.ok || !payload.id) throw new HttpError(response.status >= 500 ? 503 : 400, `File “${filename}” upload failed: ${payload.error?.message || `HTTP ${response.status}`}`);
   return payload.id;
 }
 
@@ -109,23 +131,22 @@ function signJob(responseId: string, fileId: string) {
 
 function readJob(token: string) {
   const [body, signature] = token.split(".");
-  if (!body || !signature) throw new HttpError(400, "Invalid PDF import job.");
+  if (!body || !signature) throw new HttpError(400, "Invalid Task Book file import job.");
   const expected = createHmac("sha256", apiKey()).update(body).digest();
   let supplied: Buffer;
-  try { supplied = Buffer.from(signature, "base64url"); } catch { throw new HttpError(400, "Invalid PDF import job."); }
-  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new HttpError(400, "Invalid PDF import job.");
+  try { supplied = Buffer.from(signature, "base64url"); } catch { throw new HttpError(400, "Invalid Task Book file import job."); }
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new HttpError(400, "Invalid Task Book file import job.");
   let data: { responseId?: string; fileId?: string; createdAt?: number };
-  try { data = JSON.parse(Buffer.from(body, "base64url").toString("utf8")); } catch { throw new HttpError(400, "Invalid PDF import job."); }
-  if (!data.responseId || !data.fileId || !data.createdAt || Date.now() - data.createdAt > 15 * 60 * 1000) throw new HttpError(410, "This PDF import job expired. Please start the import again.");
+  try { data = JSON.parse(Buffer.from(body, "base64url").toString("utf8")); } catch { throw new HttpError(400, "Invalid Task Book file import job."); }
+  if (!data.responseId || !data.fileId || !data.createdAt || Date.now() - data.createdAt > 15 * 60 * 1000) throw new HttpError(410, "This Task Book file import job expired. Please start the import again.");
   return { responseId: data.responseId, fileId: data.fileId };
 }
 
 export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename?: string; fileData?: string; notes?: string }) {
   assertPermission(ctx, "taskbooks.write");
   const filename = String(input.filename || "taskbook.pdf").slice(0, 180);
-  if (!filename.toLowerCase().endsWith(".pdf")) throw new HttpError(400, "Task Book import currently accepts PDF files only.");
-  const bytes = decodePdf(String(input.fileData || ""));
-  const fileId = await uploadPdf(filename, bytes);
+  const { bytes, mime } = decodeTaskBookFile(filename, String(input.fileData || ""));
+  const fileId = await uploadTaskBookFile(filename, bytes, mime);
   let response: Response;
   try {
     response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({
@@ -141,12 +162,12 @@ export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename
     }) });
   } catch {
     await deleteUploadedFile(fileId);
-    throw new HttpError(503, `PDF “${filename}” could not start conversion. Please try again.`);
+    throw new HttpError(503, `File “${filename}” could not start conversion. Please try again.`);
   }
   const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
   if (!response.ok || !payload.id) {
     await deleteUploadedFile(fileId);
-    throw new HttpError(response.status >= 500 ? 503 : 400, `PDF “${filename}” import failed: ${payload.error?.message || `HTTP ${response.status}`}`);
+    throw new HttpError(response.status >= 500 ? 503 : 400, `File “${filename}” import failed: ${payload.error?.message || `HTTP ${response.status}`}`);
   }
   return { _poll: signJob(payload.id, fileId), status: payload.status || "queued" };
 }
@@ -161,11 +182,11 @@ export async function pollPdfTaskBookImport(ctx: AuthContext, token: string) {
   const { responseId, fileId } = readJob(token);
   let response: Response;
   try { response = await fetch(`https://api.openai.com/v1/responses/${encodeURIComponent(responseId)}`, { headers: { Authorization: `Bearer ${apiKey()}` } }); }
-  catch { throw new HttpError(503, "Could not check PDF import progress. Please try again."); }
+  catch { throw new HttpError(503, "Could not check Task Book file import progress. Please try again."); }
   const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
-  if (!response.ok) throw new HttpError(response.status >= 500 ? 503 : 400, `PDF import status failed: ${payload.error?.message || `HTTP ${response.status}`}`);
+  if (!response.ok) throw new HttpError(response.status >= 500 ? 503 : 400, `Task Book file import status failed: ${payload.error?.message || `HTTP ${response.status}`}`);
   if (payload.status === "queued" || payload.status === "in_progress") return { _poll: token, status: payload.status };
   await deleteUploadedFile(fileId);
-  if (payload.status !== "completed") throw new HttpError(502, `PDF import ended with status “${payload.status || "unknown"}”. Please retry the import.`);
-  return parseDraft(payload, "PDF import");
+  if (payload.status !== "completed") throw new HttpError(502, `Task Book file import ended with status “${payload.status || "unknown"}”. Please retry the import.`);
+  return parseDraft(payload, "Task Book file import");
 }
