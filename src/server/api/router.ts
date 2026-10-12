@@ -324,6 +324,11 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await classes.createClass(ctx, body), 201);
     }
+    const classChecklist = match(path, "classes/:id/checklist");
+    if (method === "POST" && classChecklist) {
+      const body = await readBody(req);
+      return jsonOk(await classes.attachClassChecklist(ctx, classChecklist.id, String(body.checklistVersionId || "")));
+    }
     const classRegistration = match(path, "classes/:id/registration");
     if (method === "POST" && classRegistration) {
       const body = await readBody(req);

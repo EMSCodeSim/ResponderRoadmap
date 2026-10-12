@@ -260,6 +260,30 @@ export async function createClass(
   return getClass(ctx, created.id);
 }
 
+/** Attach one published checklist to the entire class roster, including future QR registrants. */
+export async function attachClassChecklist(ctx: AuthContext, classId: string, checklistVersionId: string) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId, true);
+  if (row.status === "COMPLETE" || row.status === "CANCELLED")
+    throw new HttpError(409, "A closed or cancelled class cannot change its checklist.");
+  if (!checklistVersionId?.trim()) throw new HttpError(400, "Select a published skills checklist.");
+  const version = await prisma.taskBookVersion.findFirst({
+    where: { id: checklistVersionId, status: "PUBLISHED", template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } } },
+    include: { sections: { include: { requirements: true } } },
+  });
+  if (!version) throw new HttpError(404, "Published department checklist not found.");
+  if (!version.sections.some((section) => section.requirements.length))
+    throw new HttpError(400, "This checklist has no skills. Publish a checklist with requirements first.");
+  if (row.checklistVersionId === version.id) return getClass(ctx, classId);
+  const existingResults = await prisma.trainingClassSkillResult.count({
+    where: { enrollment: { classId } },
+  });
+  if (existingResults) throw new HttpError(409, "This class already has recorded skill evaluations. Changing the checklist would invalidate those results. Create a new class instead.");
+  await prisma.trainingClass.update({ where: { id: classId }, data: { checklistVersionId: version.id } });
+  await writeAudit(ctx, "class.checklist.attached", "TrainingClass", classId, { checklistVersionId: version.id });
+  return getClass(ctx, classId);
+}
+
 export async function getClass(ctx: AuthContext, classId: string) {
   assertPermission(ctx, "classes.read");
   await canAccessClass(ctx, classId);

@@ -118,6 +118,9 @@ export default function ClassDetailPage() {
   const [groupMessage, setGroupMessage] = useState("");
   const [groupSkillId, setGroupSkillId] = useState("");
   const [showPendingOnly, setShowPendingOnly] = useState(true);
+  const [availableChecklists, setAvailableChecklists] = useState<Array<{ id: string; title: string; version: string; skillCount: number }>>([]);
+  const [chosenChecklistId, setChosenChecklistId] = useState("");
+  const [checklistMessage, setChecklistMessage] = useState("");
 
   async function load() {
     const row = await api<ClassDetail>(`classes/${params.id}`);
@@ -125,7 +128,28 @@ export default function ClassDetailPage() {
     setStudentId((current) => current && row.roster.some((item) => item.id === current) ? current : row.roster[0]?.id || "");
   }
 
-  useEffect(() => { load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load class.")); }, [params.id]);
+  useEffect(() => {
+    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load class."));
+    api<{ checklists: Array<{ id: string; title: string; version: string; skillCount: number }> }>("classes/setup")
+      .then((data) => setAvailableChecklists(data.checklists.filter((item) => item.skillCount > 0)))
+      .catch(() => setAvailableChecklists([]));
+  }, [params.id]);
+
+  async function attachChecklist() {
+    if (!detail || !chosenChecklistId || busy) return;
+    setBusy(true);
+    setError(null);
+    setChecklistMessage("");
+    try {
+      const updated = await api<ClassDetail>(`classes/${detail.id}/checklist`, {
+        method: "POST", body: JSON.stringify({ checklistVersionId: chosenChecklistId }),
+      });
+      setDetail(updated);
+      setChosenChecklistId("");
+      setChecklistMessage("Checklist assigned to the entire roster, including future QR sign-ins. Every present student needs individual skill results.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to attach checklist."); }
+    finally { setBusy(false); }
+  }
 
   function exportBlsAtlas(kind: "roster" | "review") {
     if (!detail || detail.classType !== "CPR") return;
@@ -254,6 +278,27 @@ export default function ClassDetailPage() {
         <h2 className="text-sm font-bold text-navy-900">Training sheet workflow</h2>
         <p className="mt-2 text-sm text-navy-600">1. Share or print the QR code for member sign-in. 2. Verify attendance and enter required scores or skill evaluations on this page. 3. Finalize the training sheet. 4. Export or print the record, enter it into the department RMS, and record RMS completion separately.</p>
       </div>
+      <Card className="no-print mb-4 p-4">
+        <h2 className="font-bold text-navy-900">Class checklist · applies to every student</h2>
+        <p className="mt-1 text-sm text-navy-600">{detail.sections.some((section) => section.skills.length)
+          ? `Assigned: ${detail.checklistTitle} v${detail.checklistVersion}. Each present roster member must have required skills evaluated individually before class closeout.`
+          : "No skills checklist attached. Select one to assign it to every student on the roster, including future QR registrations."}</p>
+        {detail.status !== "COMPLETE" && detail.status !== "CANCELLED" ? (
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <Field label="Add or change class checklist" hint="Published department checklist. Cannot change after skill results are recorded.">
+                <Select value={chosenChecklistId} onChange={(event) => setChosenChecklistId(event.target.value)}>
+                  <option value="">Choose a checklist…</option>
+                  {availableChecklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
+                </Select>
+              </Field>
+            </div>
+            <Button disabled={busy || !chosenChecklistId} onClick={() => void attachChecklist()}>{busy ? "Saving…" : "Apply to entire roster"}</Button>
+          </div>
+        ) : null}
+        {!availableChecklists.length && detail.status !== "COMPLETE" ? <p className="mt-2 text-sm text-navy-500">No published checklist available. Publish a Task Book checklist first.</p> : null}
+        {checklistMessage ? <p role="status" className="mt-2 text-sm text-navy-700">{checklistMessage}</p> : null}
+      </Card>
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
 
       <Card className="no-print mb-4 p-4">
