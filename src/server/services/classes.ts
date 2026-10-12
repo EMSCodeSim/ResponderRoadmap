@@ -336,6 +336,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
       notes: enrollment.notes,
       completedAt: enrollment.completedAt,
       results: enrollment.skillResults.map((result) => ({
+        id: result.id,
         requirementId: result.requirementId,
         result: result.result,
         notes: result.notes,
