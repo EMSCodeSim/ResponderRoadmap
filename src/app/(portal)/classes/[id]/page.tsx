@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { Badge, Button, Card, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
+import { blsAtlasPreparationCsv, downloadBlsCsv } from "@/lib/bls-atlas-export";
 import { ClassRegistrationControls } from "@/components/class-registration-controls";
 
 type SkillResult = {
@@ -126,6 +127,16 @@ export default function ClassDetailPage() {
 
   useEffect(() => { load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load class.")); }, [params.id]);
 
+  function exportBlsAtlas(kind: "roster" | "review") {
+    if (!detail || detail.classType !== "CPR") return;
+    const files = blsAtlasPreparationCsv(detail);
+    if (kind === "roster" && !files.eligibleCount) {
+      setError("No students are eligible for Atlas roster preparation. Confirm attendance, all required BLS skills, final PASS, and student email.");
+      return;
+    }
+    downloadBlsCsv(`bls-${detail.id}-atlas-${kind}.csv`, files[kind]);
+  }
+
   const student = detail?.roster.find((item) => item.id === studentId) || null;
   const results = useMemo(() => new Map(student?.results.map((item) => [item.requirementId, item]) || []), [student]);
 
@@ -225,9 +236,20 @@ export default function ClassDetailPage() {
         kicker={`${detail.classType.replaceAll("_", " ")} · ${detail.checklistVersion ? `${detail.checklistTitle} v${detail.checklistVersion}` : detail.checklistTitle}`}
         title={detail.title}
         description={`${formatDate(detail.startsAt)}${detail.location ? ` · ${detail.location}` : ""} · Proctors: ${detail.proctors.map((item) => item.name).join(", ")}`}
-        actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => setCloseOpen(true)} disabled={busy}>Close Training</Button> : null}</>}
+        actions={<><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.classType === "CPR" ? <><Button variant="secondary" onClick={() => exportBlsAtlas("roster")}>Atlas roster prep CSV</Button><Button variant="secondary" onClick={() => exportBlsAtlas("review")}>BLS eligibility report CSV</Button></> : null}{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => setCloseOpen(true)} disabled={busy}>Close Training</Button> : null}</>}
       />
       <Flash message={error} tone="danger" />
+      {detail.classType === "CPR" ? (
+        <div className="no-print mb-4 rounded-lg border border-navy-200 bg-white p-4 text-sm text-navy-700">
+          <strong>BLS Atlas reporting:</strong> The roster-preparation CSV includes only present students
+          with an email, a final PASS, and passing results for every required published skill.
+          Download the eligibility report to review excluded students and remediation.
+          <strong> This CSV now matches the five column names and order in your uploaded Atlas template.</strong>
+          Atlas acceptance of CSV files has not been verified; if Atlas requires Excel (.xls),
+          open this CSV in Excel and save it using the official Atlas workbook before uploading.
+          Confirm course and student details with your Training Center.
+        </div>
+      ) : null}
       <div className="no-print mb-4 rounded-lg border border-navy-200 bg-white p-4">
         <h2 className="text-sm font-bold text-navy-900">Training sheet workflow</h2>
         <p className="mt-2 text-sm text-navy-600">1. Share or print the QR code for member sign-in. 2. Verify attendance and enter required scores or skill evaluations on this page. 3. Finalize the training sheet. 4. Export or print the record, enter it into the department RMS, and record RMS completion separately.</p>
