@@ -16,7 +16,7 @@ export type FastStartInput = {
 // Keep enough headroom under the platform's 6 MB buffered request limit.
 export const MAX_TASK_BOOK_IMPORT_BYTES = 4 * 1024 * 1024;
 export const MAX_TASK_BOOK_PDF_BYTES = MAX_TASK_BOOK_IMPORT_BYTES; // Backwards compatibility
-export const TASK_BOOK_IMPORT_EXTENSIONS = [".pdf", ".docx", ".txt", ".md", ".csv", ".xlsx"] as const;
+export const TASK_BOOK_IMPORT_EXTENSIONS = [".pdf", ".docx", ".txt", ".md", ".csv", ".xlsx", ".jpg", ".jpeg", ".png", ".webp"] as const;
 export function isSupportedTaskBookFile(filename: string) {
   return TASK_BOOK_IMPORT_EXTENSIONS.some((ext) => filename.toLowerCase().endsWith(ext));
 }
@@ -33,7 +33,7 @@ export function fastStartErrors(input: FastStartInput): string[] {
     if ((input.prompt || "").trim().length < 10) errors.push("Describe the Task Book in at least 10 characters.");
   } else if (input.source === "pdf") {
     if (!input.filename) errors.push("Choose a Task Book file to import.");
-    else if (!isSupportedTaskBookFile(input.filename)) errors.push("Choose a PDF, Word (.docx), text (.txt or .md), CSV, or Excel (.xlsx) file.");
+    else if (!isSupportedTaskBookFile(input.filename)) errors.push("Choose a PDF, Word (.docx), Excel (.xlsx), text, CSV, JPEG, PNG, or WebP file.");
     if (input.fileSize !== undefined && (input.fileSize <= 0 || input.fileSize > MAX_TASK_BOOK_IMPORT_BYTES)) errors.push("File must be nonempty and no larger than 4 MB.");
   } else {
     if ((input.title || "").trim().length < 3) errors.push("Enter a Task Book name of at least 3 characters.");
