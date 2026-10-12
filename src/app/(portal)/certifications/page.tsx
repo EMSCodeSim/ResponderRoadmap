@@ -145,6 +145,7 @@ function CertificationsInner() {
             <Button variant="secondary" onClick={() => { setRequirementsOpen(true); if (!requirementTypeId && data?.types[0]) selectRequirementType(data.types[0].id); }}>
               Gap requirements
             </Button>
+            <Link href="/certifications/import"><Button variant="secondary">Bulk Import</Button></Link>
             <Button onClick={() => setOpen(true)}>Add credential</Button>
           </>
         }
