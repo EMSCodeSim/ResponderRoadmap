@@ -468,7 +468,11 @@ export async function handleApi(req: Request, path: string[]) {
       });
     }
 
-    if (method === "POST" && match(path, "credentials/import")) {\n      const body = await readBody(req);\n      return jsonOk(await credentials.importCredentials(ctx, body.rows));\n    }\n    if (method === "GET" && match(path, "credentials")) return jsonOk(await credentials.listCredentials(ctx, q));
+    if (method === "POST" && match(path, "credentials/import")) {
+      const body = await readBody(req);
+      return jsonOk(await credentials.importCredentials(ctx, body.rows));
+    }
+    if (method === "GET" && match(path, "credentials")) return jsonOk(await credentials.listCredentials(ctx, q));
     if (method === "POST" && match(path, "credentials")) {
       const body = await readBody(req);
       return jsonOk(await credentials.upsertCredential(ctx, body), 201);
