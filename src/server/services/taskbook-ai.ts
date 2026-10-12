@@ -152,8 +152,8 @@ function readJob(token: string) {
 export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename?: string; fileData?: string; notes?: string; pages?: Array<{ filename?: string; fileData?: string }> }) {
   assertPermission(ctx, "taskbooks.write");
   const pages = input.pages;
-  if (pages !== undefined && (!Array.isArray(pages) || pages.length < 2 || pages.length > 5))
-    throw new HttpError(400, "Select between 2 and 5 photos in page order.");
+  if (pages !== undefined && (!Array.isArray(pages) || pages.length < 1 || pages.length > 5))
+    throw new HttpError(400, "Select between 1 and 5 photos in page order.");
   const validated = pages
     ? pages.map((page) => {
         const filename = String(page.filename || "").slice(0, 180);
