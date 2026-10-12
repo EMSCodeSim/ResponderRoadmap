@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { Badge, Button, Card, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
+import { EMS_CE_CATEGORIES, emsCreditSummary } from "@/lib/ems-ce-categories";
 
 type ClassRow = {
   id: string;
@@ -57,6 +58,9 @@ export default function ClassesPage() {
   const [setup, setSetup] = useState<Setup | null>(null);
   const [templates, setTemplates] = useState<TrainingSheetTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [emsCeMode, setEmsCeMode] = useState(false);
+  const [emsCredits, setEmsCredits] = useState<Record<string, number>>({});
+  const [emsObjectives, setEmsObjectives] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
@@ -90,10 +94,16 @@ export default function ClassesPage() {
     setBusy(true);
     setError(null);
     try {
-      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify(form) });
+      const total = Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0);
+      if (emsCeMode && total > 24) throw new Error("EMS credits cannot exceed 24 hours per training sheet.");
+      const payload = emsCeMode
+        ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: total,
+            notes: [`OBJECTIVES\n${emsObjectives.trim()}`, emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
+        : form;
+      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify(payload) });
       window.location.href = `/classes/${created.id}`;
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to create class.");
+      setError(err instanceof Error ? err.message : "Unable to create class.");
       setBusy(false);
     }
   }
@@ -107,6 +117,9 @@ export default function ClassesPage() {
   function openTraining(quick = false) {
     const currentUser = setup?.proctors.find((item) => item.role === "TRAINING_OFFICER" || item.role === "DEPARTMENT_ADMINISTRATOR" || item.role === "INSTRUCTOR" || item.role === "EVALUATOR");
     setQuickMode(quick);
+    setEmsCeMode(false);
+    setEmsCredits({});
+    setEmsObjectives("");
     setSelectedTemplateId("");
     setForm({ ...emptyForm, startsAt: quick ? localDateTimeNow() : "", selfRegistration: quick, proctorUserIds: currentUser ? [currentUser.userId] : [] });
     setOpen(true);
@@ -195,6 +208,32 @@ export default function ClassesPage() {
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
           {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Phone / field mode</div><p className="mt-1 text-sm text-navy-600">Choose a template, confirm the details and optional grading checklist, then create the sheet. QR sign-in starts enabled; department-required fields still apply.</p></div> : null}
+          <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
+            <input type="checkbox" checked={emsCeMode} onChange={(event) => {
+              setEmsCeMode(event.target.checked);
+              if (event.target.checked) setForm((current) => ({ ...current, classType: "EMS", trainingCategory: "EMS", selfRegistration: true }));
+            }} />
+            EMS Continuing Education Training Sheet
+          </label>
+          {emsCeMode ? <section aria-label="EMS continuing education credits" className="space-y-3 rounded-lg border border-navy-200 p-4">
+            <h3 className="text-lg font-bold">EMS credit categories</h3>
+            <p className="text-sm text-navy-600">Assign hours to one or more topics. Only nonzero categories appear on the saved sheet. Credit hours total automatically.</p>
+            {Object.entries(EMS_CE_CATEGORIES).map(([group, topics]) => <details key={group} className="rounded-lg border border-navy-200 p-3" open={group === "Airway"}>
+              <summary className="cursor-pointer font-semibold">{group}</summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {topics.map((topic) => <label key={topic} className="flex items-center justify-between gap-2 text-sm">
+                  <span>{topic}</span>
+                  <input aria-label={`${topic} credit hours`} className="w-20 rounded-md border border-navy-300 p-2 text-right" type="number" min="0" max="24" step="0.25" value={emsCredits[topic] ?? ""}
+                    placeholder="0" onChange={(event) => {
+                      const value = event.target.value === "" ? 0 : Number(event.target.value);
+                      setEmsCredits((current) => ({ ...current, [topic]: Number.isFinite(value) && value >= 0 ? value : 0 }));
+                    }} />
+                </label>)}
+              </div>
+            </details>)}
+            <div className="font-bold">Total EMS CE credit: {Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</div>
+            <Field label="Training objectives"><TextArea rows={4} value={emsObjectives} onChange={(event) => setEmsObjectives(event.target.value)} placeholder="By the end of this class, participants will be able to…" /></Field>
+          </section> : null}
           {templates.length ? <Field label="Start from a training template" hint="Prefills the checklist and sheet details. You can adjust them before creating the class."><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Start with a blank sheet</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field> : null}
           {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> fields marked * are required by your department before this training sheet is created or completed.</div> : null}
           <div className="grid gap-4 md:grid-cols-2">
@@ -219,7 +258,7 @@ export default function ClassesPage() {
               </Select>
             </Field>
             <Field label={`Credit hours${req("HOURS") ? " *" : ""}`} hint="Leave blank to use the time between Starts and Ends.">
-              <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
+              <Input type="number" min="0" max="24" step="0.25" value={emsCeMode ? String(Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0)) : form.creditHours} disabled={emsCeMode} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
             </Field>
             {<Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
               <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}>
