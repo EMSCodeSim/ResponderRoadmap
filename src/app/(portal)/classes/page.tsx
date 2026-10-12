@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { Badge, Button, Card, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
@@ -60,6 +60,7 @@ export default function ClassesPage() {
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
+  const quickAddOpened = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +73,12 @@ export default function ClassesPage() {
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load classes."));
   }, []);
+
+  useEffect(() => {
+    if (!setup || quickAddOpened.current || new URLSearchParams(window.location.search).get("quick") !== "1") return;
+    quickAddOpened.current = true;
+    openTraining(true);
+  }, [setup]);
 
   function toggle(key: "membershipIds" | "proctorUserIds", id: string) {
     const values = form[key];
