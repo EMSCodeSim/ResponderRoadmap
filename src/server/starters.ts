@@ -56,6 +56,88 @@ function section(title: string, description: string, requirements: Array<Omit<St
 
 export const STARTER_TEMPLATES: StarterTemplate[] = [
   {
+    id: "franktown-medic-driver",
+    title: "Franktown Fire Medic Driver — Clearing Sign Off",
+    description: "Department medic-unit driver clearance task book transcribed from Franktown Fire Medic Driver Clearing Sign Off. Includes firefighter sign-offs, EVOC/defensive driving, cone course, supervised driving and night driving hour logs, emergency responses, documentation, hospital route evaluation, and officer clearance.",
+    category: "Driver / Operator",
+    estimatedDurationDays: 0,
+    sections: [
+      section("Prerequisites", "Record completion date and evaluator confirmation for each prerequisite.", [
+        req("Completion of all Firefighter sign-offs", {
+          evidenceType: "SUPERVISOR_OBSERVATION",
+          description: "Record completion date. Original form: Completion of all Firefighter signs off.",
+          instructions: "Evaluator confirms all required firefighter sign-offs are complete before signing.",
+        }),
+        req("Completion of EVOC / Defensive Driving", {
+          evidenceType: "TRAINING_ATTENDANCE",
+          description: "Record completion date for EVOC / Defensive Driving.",
+          instructions: "Attach course completion evidence or record date and evaluator.",
+        }),
+      ], 0),
+      section("Driving", "Complete cone course and maintain dated, supervised driving records.", [
+        req("Successful completion of cone course", {
+          evidenceType: "SKILL_EVALUATION",
+          instructions: "Record completion date and evaluator. Original driving section also includes two blank date lines with no named activity; no additional requirement has been inferred.",
+        }),
+        req("12 hours of supervised drive time", {
+          evidenceType: "SUPERVISOR_OBSERVATION",
+          description: "At least 12 total supervised driving hours. Original form provides six dated log rows.",
+          instructions: "Record each session date, actual hours, and supervising evaluator. Add the logged hours manually; sign off only when the total reaches at least 12 hours. The six rows are recording spaces, not six required drives.",
+          objectives: ["Log supervised driving dates", "Record actual hours per session", "Record supervisor for each session", "Verify summed supervised driving time is at least 12 hours"],
+          evaluationSteps: [
+            { id: "supervised-hours", text: "Supervisor-verified log totals at least 12 hours of supervised drive time" },
+            { id: "supervised-log", text: "Each counted session has a date, hours, and supervisor recorded" },
+          ],
+        }),
+        req("3 hours of night driving", {
+          evidenceType: "SUPERVISOR_OBSERVATION",
+          description: "At least 3 hours of night driving. Original form provides three dated log rows.",
+          instructions: "Record each night session date, actual hours, and supervising evaluator. Add the hours manually and sign off only when the total reaches at least 3 hours. Source does not say whether night hours may also count toward the 12 supervised hours; follow department policy.",
+          objectives: ["Log night-driving dates", "Record actual hours per session", "Record supervisor for each session", "Verify summed night driving is at least 3 hours"],
+          evaluationSteps: [
+            { id: "night-hours", text: "Supervisor-verified night driving log totals at least 3 hours" },
+            { id: "night-log", text: "Each counted night session has a date, hours, and supervisor recorded" },
+          ],
+        }),
+      ], 1),
+      section("Supervised Emergency Responses", "Four supervised emergency responses, each completed with 100% accuracy.", [
+        req("4 supervised emergency responses with 100% accuracy", {
+          evidenceType: "SKILL_EVALUATION",
+          repetitionsRequired: 4,
+          description: "Original form has four dated supervisor sign-off lines; all four emergency responses require 100% accuracy.",
+          instructions: "For each of four separate emergency responses, record date, supervising evaluator, and a documented 100% result. Do not count an unsuccessful attempt toward the four successful responses.",
+          objectives: ["Document four distinct emergency responses", "Record date and supervisor for each", "Confirm 100% accuracy on each response"],
+        }),
+      ], 2),
+      section("Records and Documentation", "Complete required medic-unit records and documentation with at least 95% accuracy.", [
+        req("Complete required records and documentation with 95% accuracy", {
+          evidenceType: "SKILL_EVALUATION",
+          description: "Includes truck checks, maintenance items, etc. Original form provides two dated supervisor sign-off lines.",
+          instructions: "Record dated supervised evaluations and accuracy for required records (truck checks, maintenance items, etc.). Minimum acceptable accuracy: 95%. The two form lines are retained as suggested evaluation entries, not a separately stated two-attempt minimum.",
+          evaluationSteps: [
+            { id: "records", text: "Required records and documentation completed (truck checks, maintenance items, etc.)" },
+            { id: "accuracy", text: "Supervisor confirms accuracy of at least 95%" },
+          ],
+        }),
+      ], 3),
+      section("Area Hospital Routes", "Evaluate knowledge of area hospital locations and primary travel routes.", [
+        req("Hospital locations and primary routes evaluation — 100% accuracy", {
+          evidenceType: "SKILL_EVALUATION",
+          description: "Complete an evaluation of area hospital locations and primary routes of travel with 100% accuracy.",
+          instructions: "Record evaluation date, evaluator, and documented 100% result. The source does not enumerate hospitals or routes; use department-approved evaluation materials.",
+        }),
+      ], 4),
+      section("Final Medic Driver Clearance", "Final authorization is an officer decision, not an automatic consequence of progress reaching 100%.", [
+        req("Cleared to drive medic units — officer signature and date", {
+          evidenceType: "SUPERVISOR_OBSERVATION",
+          description: "Record the final clearance date and officer signature.",
+          instructions: "Officer verifies all prerequisites, supervised hours, emergency responses, documentation and route evaluation. Officer signs and dates clearance. Do not treat completion of this task book alone as automatic driving authorization.",
+          objectives: ["Verify all previous requirements are complete", "Record officer signature", "Record final clearance date"],
+        }),
+      ], 5),
+    ],
+  },
+  {
     id: "probationary-firefighter",
     title: "Probationary Firefighter",
     description:
