@@ -98,7 +98,7 @@ export default function ClassesPage() {
       if (emsCeMode && total > 24) throw new Error("EMS credits cannot exceed 24 hours per training sheet.");
       const payload = emsCeMode
         ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: total,
-            notes: [`OBJECTIVES\\n${emsObjectives.trim()}`, emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\\n\\n") }
+            notes: [`OBJECTIVES\n${emsObjectives.trim()}`, emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
         : form;
       const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify(payload) });
       window.location.href = `/classes/${created.id}`;
