@@ -35,6 +35,7 @@ type Student = {
   results: SkillResult[];
 };
 
+type LinkedAssignment = { id: string; memberId: string; taskBookTitle: string; status: string; progress: number; pendingApproval: number; };
 type TaskBookChoice = { id: string; title: string; status: string; templateKind?: string };
 
 type Skill = {
@@ -121,6 +122,7 @@ export default function ClassDetailPage() {
   const [groupMessage, setGroupMessage] = useState("");
   const [groupSkillId, setGroupSkillId] = useState("");
   const [books, setBooks] = useState<TaskBookChoice[]>([]);
+  const [linkedAssignments, setLinkedAssignments] = useState<LinkedAssignment[]>([]);
   const [assignBookId, setAssignBookId] = useState("");
   const [assignMemberIds, setAssignMemberIds] = useState<string[]>([]);
   const [assignMessage, setAssignMessage] = useState("");
@@ -133,6 +135,7 @@ export default function ClassDetailPage() {
   }
 
   useEffect(() => { load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load class.")); }, [params.id]);
+  useEffect(() => { api<LinkedAssignment[]>("assignments").then(setLinkedAssignments).catch(() => {}); }, []);
   useEffect(() => { api<TaskBookChoice[]>("task-books").then((items) => setBooks(items.filter((item) => item.status === "ACTIVE" && item.templateKind !== "TRAINING_TASK"))).catch(() => {}); }, []);
 
   function exportBlsAtlas(kind: "roster" | "review") {
@@ -210,6 +213,7 @@ export default function ClassDetailPage() {
       });
       setAssignMessage(`Assigned to ${result.created} members; ${result.skipped} already had this Task Book. Class evaluations remain separate until linked and approved.`);
       setAssignMemberIds([]);
+      api<LinkedAssignment[]>("assignments").then(setLinkedAssignments).catch(() => {});
     } catch (err) { setError(err instanceof Error ? err.message : "Unable to assign Task Book."); }
     finally { setBusy(false); }
   }
@@ -306,6 +310,19 @@ export default function ClassDetailPage() {
         </div>
         <Button disabled={busy || !assignBookId || !assignMemberIds.length} onClick={() => void assignBookToRoster()}>{busy ? "Working…" : `Assign Task Book to ${assignMemberIds.length} selected`}</Button>
         {assignMessage ? <p role="status" className="text-sm text-navy-700">{assignMessage} <Link href="/task-book-progress" className="font-semibold text-fire underline">View progress</Link></p> : null}
+        {linkedAssignments.some((item) => detail.roster.some((student) => student.membershipId === item.memberId)) ? <div className="space-y-2 rounded-md bg-navy-50 p-3">
+          <h3 className="text-sm font-bold">Roster Task Book progress</h3>
+          {detail.roster.filter((item) => item.membershipId).map((item) => {
+            const assignments = linkedAssignments.filter((assignment) => assignment.memberId === item.membershipId);
+            return assignments.length ? <div key={item.id} className="border-b border-navy-200 pb-2 text-sm">
+              <strong>{item.name}</strong>
+              {assignments.map((assignment) => <Link key={assignment.id} href={`/assignments/${assignment.id}`} className="mt-1 flex justify-between gap-2 text-fire underline">
+                <span>{assignment.taskBookTitle}</span><span>{assignment.status.replaceAll("_", " ")} · {assignment.progress}%</span>
+              </Link>)}
+            </div> : null;
+          })}
+          <p className="text-xs text-navy-600">Class PASS results are evidence only after class completion and instructor approval. Task Book requirement sign-offs and qualification authorization are separate.</p>
+        </div> : null}
         <Link href="/task-books/equivalencies" className="block text-sm font-semibold text-fire underline">Manage department-approved skill evidence matches</Link>
       </Card>
       <section className="print-page hidden print:block">
