@@ -161,7 +161,7 @@ export default function DashboardPage() {
             ? "Teach, take attendance, evaluate skills, and finish the training record."
               : data.personal
               ? "Your next training step, Task Books, Assignments, and evaluations waiting for review."
-              : "Start with Task Books and Assignments. Review what needs attention below."
+              : "See what needs attention today and review department readiness below."
         }
         actions={
           data.instructor ? <Link href="/classes"><Button>Create Class</Button></Link> : data.personal ? undefined : (
@@ -179,7 +179,6 @@ export default function DashboardPage() {
         <MemberHome data={data} />
       ) : (
         <>
-          <CoreWorkHome data={data} />
           <OfficerToday data={data} onRefresh={loadDashboard} />
           <ActivationChecklist data={data} />
           <DepartmentReadinessSnapshot data={data} />
@@ -196,34 +195,6 @@ export default function DashboardPage() {
       )}
 
     </div>
-  );
-}
-
-function CoreWorkHome({ data }: { data: Dashboard }) {
-  const assignments = data.summary.activeAssignments ?? data.summary.membersAssigned ?? 0;
-  return (
-    <section aria-label="Task Books and Assignments" className="mb-6 grid gap-4 md:grid-cols-2">
-      <Card className="p-5">
-        <div className="kicker">QUALIFICATION PATHS</div>
-        <h2 className="display mt-1 text-2xl font-bold">Task Books</h2>
-        <p className="mt-2 text-sm text-navy-600">Build and manage the skills and requirements members must complete.</p>
-        <p className="mt-3 text-sm font-semibold text-navy-700">{data.summary.activeTaskBooks} active Task Books</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link href="/task-books" className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">Open Task Books →</Link>
-          <Link href={createTaskBookPath()} className="inline-flex min-h-11 items-center rounded-md border border-navy-200 px-4 py-2 text-sm font-semibold text-navy-900">Create New</Link>
-        </div>
-      </Card>
-      <Card className="p-5">
-        <div className="kicker">TRAINING TO COMPLETE</div>
-        <h2 className="display mt-1 text-2xl font-bold">Assignments</h2>
-        <p className="mt-2 text-sm text-navy-600">Give members specific work and follow their progress.</p>
-        <p className="mt-3 text-sm font-semibold text-navy-700">{assignments} active assignments</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link href="/assignments" className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">View Assignments →</Link>
-          <Link href={createAssignmentPath()} className="inline-flex min-h-11 items-center rounded-md border border-navy-200 px-4 py-2 text-sm font-semibold text-navy-900">Assign Training</Link>
-        </div>
-      </Card>
-    </section>
   );
 }
 
