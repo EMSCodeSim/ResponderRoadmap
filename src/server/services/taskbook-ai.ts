@@ -163,7 +163,7 @@ export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename
         { role: "developer", content: [{ type: "input_text", text: developerInstruction }] },
         { role: "user", content: [
           { type: "input_text", text: `Convert the attached existing Task Book into a ResponderRoadmap editable draft. Preserve every meaningful section and requirement from the source, including tables and checklist rows where readable. For a photograph, transcribe only clearly visible content and preserve printed checklist rows, labels, dates, and pass thresholds. If any handwriting or text is illegible, do not guess. Scanned pages may require visual reading. Do not invent missing requirements, standards, signatures, or citations. If wording is unclear, preserve it conservatively rather than guessing. Keep each imported requirement concise. Keep the result as a draft for Training Officer review. Additional department notes: ${String(input.notes || "None").slice(0, 3000)}` },
-          { type: "input_file", file_id: fileId },
+          isImage ? { type: "input_image", image_url: `data:${mime};base64,${bytes.toString("base64")}`, detail: "high" } : { type: "input_file", file_id: fileId },
         ] },
       ],
       text: { format: { type: "json_schema", name: "responderroadmap_taskbook_draft", strict: true, schema } },
@@ -174,7 +174,7 @@ export async function startPdfTaskBookImport(ctx: AuthContext, input: { filename
   }
   const payload = (await response.json().catch(() => ({}))) as OpenAiOutputPayload;
   if (!response.ok || !payload.id) {
-    await deleteUploadedFile(fileId);
+    if (!isImage) await deleteUploadedFile(fileId);
     throw new HttpError(response.status >= 500 ? 503 : 400, `File “${filename}” import failed: ${payload.error?.message || `HTTP ${response.status}`}`);
   }
   return { _poll: signJob(payload.id, fileId), status: payload.status || "queued" };
