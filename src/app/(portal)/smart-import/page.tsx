@@ -41,6 +41,8 @@ export default function SmartImportPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    const requestedClass = new URLSearchParams(window.location.search).get("classId");
+    if (requestedClass) { setDestination("roster"); setClassId(requestedClass); }
     Promise.all([api<ClassRow[]>("classes"), api<Setup>("classes/setup")])
       .then(([items, setup]) => { setClasses(items.filter((item) => ["DRAFT", "ACTIVE"].includes(item.status))); setMembers(setup.members); })
       .catch(() => { /* Task Book importing remains available without class access. */ });
