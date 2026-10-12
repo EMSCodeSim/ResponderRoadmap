@@ -121,6 +121,7 @@ export default function ClassDetailPage() {
   const [groupSelection, setGroupSelection] = useState<string[]>([]);
   const [groupMessage, setGroupMessage] = useState("");
   const [groupSkillId, setGroupSkillId] = useState("");
+  const [canAssignBooks, setCanAssignBooks] = useState(false);
   const [books, setBooks] = useState<TaskBookChoice[]>([]);
   const [linkedAssignments, setLinkedAssignments] = useState<LinkedAssignment[]>([]);
   const [assignBookId, setAssignBookId] = useState("");
@@ -135,6 +136,7 @@ export default function ClassDetailPage() {
   }
 
   useEffect(() => { load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load class.")); }, [params.id]);
+  useEffect(() => { api<{ role: string }>("auth/me").then((session) => setCanAssignBooks(["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(session.role))).catch(() => {}); }, []);
   useEffect(() => { api<LinkedAssignment[]>("assignments").then(setLinkedAssignments).catch(() => {}); }, []);
   useEffect(() => { api<TaskBookChoice[]>("task-books").then((items) => setBooks(items.filter((item) => item.status === "ACTIVE" && item.templateKind !== "TRAINING_TASK"))).catch(() => {}); }, []);
 
@@ -291,7 +293,7 @@ export default function ClassDetailPage() {
         {detail.notes ? <div className="mt-3 border-t border-navy-100 pt-3"><div className="kicker">Description / notes</div><p className="mt-1 whitespace-pre-wrap text-sm text-navy-600">{detail.notes}</p></div> : null}
       </Card>
 
-      <Card className="no-print mb-4 space-y-3 p-4">
+      {canAssignBooks ? <Card className="no-print mb-4 space-y-3 p-4">
         <h2 className="text-xl font-bold">Connect this class to Task Books</h2>
         <p className="text-sm text-navy-600">Assign one published Task Book to selected department members on this roster. Attendance and group training are recorded once in the class; each student's skill results, Task Book evidence, and evaluator approvals remain individual. Completed, instructor-approved class PASS results can be linked as evidence on the member's Task Book assignment when the skill matches or an approved equivalency exists. A completed Task Book contributes to qualification readiness but never grants authorization automatically.</p>
         <Field label="Published Task Book"><Select value={assignBookId} onChange={(event) => setAssignBookId(event.target.value)}>
@@ -324,7 +326,7 @@ export default function ClassDetailPage() {
           <p className="text-xs text-navy-600">Class PASS results are evidence only after class completion and instructor approval. Task Book requirement sign-offs and qualification authorization are separate.</p>
         </div> : null}
         <Link href="/task-books/equivalencies" className="block text-sm font-semibold text-fire underline">Manage department-approved skill evidence matches</Link>
-      </Card>
+      </Card> : null}
       <section className="print-page hidden print:block">
         <h1 className="text-2xl font-bold">{detail.title} — Class roster</h1>
         <p className="mt-1 text-sm">{formatDate(detail.startsAt)} · {detail.location || "Location not recorded"} · {detail.checklistTitle} v{detail.checklistVersion}</p>
