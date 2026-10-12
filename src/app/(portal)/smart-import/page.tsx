@@ -67,8 +67,8 @@ export default function SmartImportPage() {
       setSelectedIds([]);
       return;
     }
-    if (file && ![".pdf", ".docx", ".xlsx", ".csv", ".txt", ".md"].some((ext) => file.name.toLowerCase().endsWith(ext)))
-      throw new Error("Task Books support PDF, DOCX, XLSX, CSV, TXT, and Markdown files.");
+    if (file && ![".pdf", ".docx", ".xlsx", ".csv", ".txt", ".md", ".jpg", ".jpeg", ".png", ".webp"].some((ext) => file.name.toLowerCase().endsWith(ext)))
+      throw new Error("Task Books support PDF, DOCX, XLSX, CSV, TXT, Markdown, JPEG, PNG, and WebP files.");
     const response = file
       ? await api<ImportResponse>("task-books/ai/import-pdf", {
           method: "POST", body: JSON.stringify({ filename: file.name, fileData: await toBase64(file), notes: instructions }),
@@ -124,9 +124,10 @@ export default function SmartImportPage() {
         <Button variant={destination === "taskbook" ? "primary" : "secondary"} onClick={() => { setDestination("taskbook"); setDraft(null); setRosterRows([]); setFile(null); }}>Task Book / checklist</Button>
         <Button variant={destination === "roster" ? "primary" : "secondary"} onClick={() => { setDestination("roster"); setDraft(null); setRosterRows([]); setFile(null); }}>Class roster</Button>
       </div>
-      <Field label="1. Upload a file" hint={destination === "taskbook" ? "PDF, DOCX, XLSX, CSV, TXT, or MD · 4 MB maximum" : "CSV or TXT · 4 MB maximum; paste Excel rows below"}>
-        <Input type="file" accept={destination === "taskbook" ? ".pdf,.docx,.xlsx,.csv,.txt,.md" : ".csv,.txt"} onChange={chooseFile} />
+      <Field label="1. Upload a file" hint={destination === "taskbook" ? "PDF, DOCX, XLSX, CSV, TXT, MD, JPG, PNG, or WebP · 4 MB maximum" : "CSV or TXT · 4 MB maximum; paste Excel rows below"}>
+        <Input type="file" accept={destination === "taskbook" ? ".pdf,.docx,.xlsx,.csv,.txt,.md,.jpg,.jpeg,.png,.webp" : ".csv,.txt"} onChange={chooseFile} />
       </Field>
+      {destination === "taskbook" ? <div className="rounded-lg border border-navy-200 p-3"><label className="block text-sm font-semibold text-navy-800" htmlFor="scan-checklist-photo">Scan a paper checklist with your phone camera</label><p className="my-2 text-xs text-navy-600">Take a clear, well-lit photo of one page. Review every extracted requirement and sign-off before publishing. Photos are processed for AI extraction and are not stored as certification evidence.</p><Input id="scan-checklist-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={chooseFile} />{file && /\\.(jpe?g|png|webp)$/i.test(file.name) ? <p className="mt-2 text-sm text-navy-600">Photo selected: {file.name}</p> : null}</div> : null}
       <p className="text-center text-sm text-navy-500">or paste information</p>
       <Field label={destination === "taskbook" ? "Paste task book or checklist text" : "Paste roster names or CSV rows"}>
         <TextArea rows={6} value={pasted} onChange={(event) => { setPasted(event.target.value); setFile(null); setDraft(null); setRosterRows([]); }} placeholder={destination === "roster" ? "Name,Email\nJane Smith,jane@example.org\nJohn Doe,john@example.org" : "Paste skills, sections, and evaluation requirements here…"} />
