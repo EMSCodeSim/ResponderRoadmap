@@ -244,9 +244,10 @@ export default function ClassDetailPage() {
           <strong>BLS Atlas reporting:</strong> The roster-preparation CSV includes only present students
           with an email, a final PASS, and passing results for every required published skill.
           Download the eligibility report to review excluded students and remediation.
-          <strong> This is not a verified direct Atlas import file.</strong> Copy or map the eligible
-          roster into the current official Student List Template downloaded from your Atlas account
-          before uploading. Confirm course and student details with your Training Center.
+          <strong> This CSV now matches the five column names and order in your uploaded Atlas template.</strong>
+          Atlas acceptance of CSV files has not been verified; if Atlas requires Excel (.xls),
+          open this CSV in Excel and save it using the official Atlas workbook before uploading.
+          Confirm course and student details with your Training Center.
         </div>
       ) : null}
       <div className="no-print mb-4 rounded-lg border border-navy-200 bg-white p-4">
