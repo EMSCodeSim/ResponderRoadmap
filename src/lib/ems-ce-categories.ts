@@ -72,5 +72,5 @@ export const EMS_CE_CATEGORIES: Record<string, readonly string[]> = {
 
 export function emsCreditSummary(credits: Record<string, number>): string {
   const entries = Object.entries(credits).filter(([, hours]) => Number.isFinite(hours) && hours > 0);
-  return entries.length ? 'EMS CE CREDIT BREAKDOWN\\n' + entries.map(([topic, hours]) => `${topic}: ${hours.toFixed(2)} hours`).join('\\n') : '';
+  return entries.length ? 'EMS CE CREDIT BREAKDOWN\n' + entries.map(([topic, hours]) => `${topic}: ${hours.toFixed(2)} hours`).join('\n') : '';
 }
