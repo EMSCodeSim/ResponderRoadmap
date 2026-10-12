@@ -124,6 +124,7 @@ export async function getClassSetup(ctx: AuthContext) {
       id: membership.id,
       userId: membership.userId,
       name: membership.user.name,
+      email: membership.user.email,
       rank: membership.rank,
       role: membership.role,
     })),
@@ -258,6 +259,27 @@ export async function createClass(
     metadata: { actorName: ctx.name, title, rosterCount: memberIds.length },
   });
   return getClass(ctx, created.id);
+}
+
+/** Add reviewed, existing department members to a class; never create identities from a file. */
+export async function importClassRoster(ctx: AuthContext, classId: string, rawIds: unknown) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId, true);
+  if (!["DRAFT", "ACTIVE"].includes(row.status)) throw new HttpError(409, "A closed class cannot accept roster imports.");
+  if (!Array.isArray(rawIds) || rawIds.length === 0 || rawIds.length > 200 || rawIds.some((id) => typeof id !== "string"))
+    throw new HttpError(400, "Select between 1 and 200 existing department members.");
+  const membershipIds = [...new Set(rawIds as string[])];
+  const valid = await prisma.departmentMembership.findMany({
+    where: { id: { in: membershipIds }, departmentId: ctx.departmentId, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (valid.length !== membershipIds.length) throw new HttpError(400, "Roster contains an invalid or inactive department member.");
+  const result = await prisma.trainingClassEnrollment.createMany({
+    data: membershipIds.map((membershipId) => ({ classId, membershipId })),
+    skipDuplicates: true,
+  });
+  await writeAudit(ctx, "class.roster.imported", "TrainingClass", classId, { added: result.count, requested: membershipIds.length });
+  return { added: result.count, alreadyEnrolled: membershipIds.length - result.count, classId };
 }
 
 export async function getClass(ctx: AuthContext, classId: string) {
