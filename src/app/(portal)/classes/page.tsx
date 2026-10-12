@@ -96,6 +96,7 @@ export default function ClassesPage() {
     try {
       const total = Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0);
       if (emsCeMode && total > 24) throw new Error("EMS credits cannot exceed 24 hours per training sheet.");
+      if (form.checklistVersionId && !setup?.checklists.some((item) => item.id === form.checklistVersionId && item.skillCount > 0)) throw new Error("Choose a published checklist with skills.");
       const payload = emsCeMode
         ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: total,
             notes: [`OBJECTIVES\n${emsObjectives.trim()}`, emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
@@ -260,12 +261,13 @@ export default function ClassesPage() {
             <Field label={`Credit hours${req("HOURS") ? " *" : ""}`} hint="Leave blank to use the time between Starts and Ends.">
               <Input type="number" min="0" max="24" step="0.25" value={emsCeMode ? String(Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0)) : form.creditHours} disabled={emsCeMode} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
             </Field>
-            {<Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
+            {<Field label="Checklist for every student" hint="Select a published checklist to give every roster member the same required skills. Each present student must be evaluated before class closeout. Leave blank for attendance-only training.">
               <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}>
                 <option value="">No checklist — attendance/training record only</option>
-                {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
+                {setup?.checklists.filter((item) => item.skillCount > 0).map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
             </Field>}
+            {form.checklistVersionId ? <p className="text-sm font-semibold text-navy-700 md:col-span-2">✓ This checklist will be assigned to every student added now or through the QR roster. Each student is graded separately.</p> : null}
             <Field label={`Location${req("LOCATION") ? " *" : ""}`}><Input required={req("LOCATION")} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
             <Field label="Starts"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
             <Field label={`Ends${req("END_TIME") ? " *" : ""}`}><Input required={req("END_TIME")} type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field>
