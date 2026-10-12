@@ -1,3 +1,4 @@
+import * as classAssignmentWorkflow from "@/server/services/class-assignment-workflow";
 import { prisma } from "@/server/db";
 import { clearSessionCookie, getRequestSession, requireDepartmentSession, signSession } from "@/server/session";
 import { handleError, jsonError, jsonOk } from "@/server/http";
@@ -324,6 +325,9 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await classes.createClass(ctx, body), 201);
     }
+    const classTaskBook = match(path, "classes/:id/assign-task-book");
+    if (method === "POST" && classTaskBook)
+      return jsonOk(await classAssignmentWorkflow.assignClassTaskBook(ctx, classTaskBook.id, await readBody(req)));
     const classRosterImport = match(path, "classes/:id/roster/import");
     if (method === "POST" && classRosterImport) {
       const body = await readBody(req);
