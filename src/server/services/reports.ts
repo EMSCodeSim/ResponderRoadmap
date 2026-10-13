@@ -716,6 +716,7 @@ export async function classTrainingSheetReport(ctx: AuthContext, classId: string
     completedAt: enrollment.completedAt,
     creditHours: enrollment.attendance === "PRESENT" && enrollment.membershipId ? creditHours : 0,
     notes: enrollment.notes,
+    customValues: JSON.parse(enrollment.customValuesJson || "{}"),
   }));
 
   return {
@@ -725,6 +726,7 @@ export async function classTrainingSheetReport(ctx: AuthContext, classId: string
       city: training.department.city,
       state: training.department.state,
     },
+    customFields: JSON.parse(training.customFieldsJson || "[]"),
     training: {
       id: training.id,
       title: training.title,
