@@ -58,6 +58,8 @@ export default function ClassesPage() {
   const [setup, setSetup] = useState<Setup | null>(null);
   const [templates, setTemplates] = useState<TrainingSheetTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [showAdvancedSetup, setShowAdvancedSetup] = useState(false);
+  const [templateCategory, setTemplateCategory] = useState("");
   const [emsCeMode, setEmsCeMode] = useState(false);
   const [emsCredits, setEmsCredits] = useState<Record<string, number>>({});
   const [emsObjectives, setEmsObjectives] = useState("");
@@ -149,6 +151,8 @@ export default function ClassesPage() {
     setEmsCredits({});
     setEmsObjectives("");
     setSelectedTemplateId("");
+    setShowAdvancedSetup(false);
+    setTemplateCategory("");
     setForm({ ...emptyForm, startsAt: quick ? localDateTimeNow() : "", selfRegistration: quick, proctorUserIds: currentUser ? [currentUser.userId] : [] });
     setOpen(true);
   }
@@ -157,6 +161,7 @@ export default function ClassesPage() {
     setSelectedTemplateId(id);
     const template = templates.find((item) => item.id === id);
     if (!template) return;
+    setTemplateCategory(template.trainingCategory);
     setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 
@@ -236,14 +241,14 @@ export default function ClassesPage() {
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
           {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Phone / field mode</div><p className="mt-1 text-sm text-navy-600">Choose a template, confirm the details and optional grading checklist, then create the sheet. QR sign-in starts enabled; department-required fields still apply.</p></div> : null}
-          <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
+          {showAdvancedSetup ? <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
             <input type="checkbox" checked={emsCeMode} onChange={(event) => {
               setEmsCeMode(event.target.checked);
               if (event.target.checked) setForm((current) => ({ ...current, classType: "EMS", trainingCategory: "EMS", selfRegistration: true }));
             }} />
             EMS Continuing Education Training Sheet
-          </label>
-          {emsCeMode ? <section aria-label="EMS continuing education credits" className="space-y-3 rounded-lg border border-navy-200 p-4">
+          </label> : null}
+          {emsCeMode && showAdvancedSetup ? <section aria-label="EMS continuing education credits" className="space-y-3 rounded-lg border border-navy-200 p-4">
             <h3 className="text-lg font-bold">EMS credit categories</h3>
             <p className="text-sm text-navy-600">Assign hours to one or more topics. Only nonzero categories appear on the saved sheet. Credit hours total automatically.</p>
             {Object.entries(EMS_CE_CATEGORIES).map(([group, topics]) => <details key={group} className="rounded-lg border border-navy-200 p-3" open={group === "Airway"}>
@@ -262,11 +267,20 @@ export default function ClassesPage() {
             <div className="font-bold">Total EMS CE credit: {Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</div>
             <Field label="Training objectives"><TextArea rows={4} value={emsObjectives} onChange={(event) => setEmsObjectives(event.target.value)} placeholder="By the end of this class, participants will be able to…" /></Field>
           </section> : null}
-          {templates.length ? <Field label="Start from a training template" hint="Prefills the checklist and sheet details. You can adjust them before creating the class."><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Start with a blank sheet</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field> : null}
+          <section className="rounded-lg border border-navy-200 p-4 space-y-3">
+            <h3 className="font-bold">1. Select training category and template</h3>
+            <Field label="Training category"><Select value={templateCategory} onChange={(event) => { setTemplateCategory(event.target.value); setSelectedTemplateId(""); setForm((current) => ({ ...current, trainingCategory: event.target.value || "COMPANY", checklistVersionId: "" })); }}>
+              <option value="">All training categories</option>
+              <option value="EMS">EMS</option><option value="COMPANY">Fire / company</option><option value="HAZMAT">HazMat</option><option value="DRIVER">Driver Operator</option><option value="FACILITY">Facility</option><option value="OFFICER">Officer</option><option value="OTHER">Other</option>
+            </Select></Field>
+            <Field label="Department training template"><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Blank training sheet</option>{templates.filter((item) => !templateCategory || item.trainingCategory === templateCategory).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+            <p className="text-xs text-navy-600">Templates prefill class details, skills checklist and any custom student results. You can add students now or let them scan the QR code after creation.</p>
+          </section>
+          <button type="button" className="w-full rounded-lg border border-navy-200 p-3 text-left text-sm font-semibold" onClick={() => setShowAdvancedSetup((value) => !value)}>{showAdvancedSetup ? "− Hide" : "+ Show"} advanced setup (codes, hours, proctors and objectives)</button>
           {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> fields marked * are required by your department before this training sheet is created or completed.</div> : null}
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Class title"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Fire Academy Skills Day 4" required /></Field>
-            <Field label="Class type">
+            {showAdvancedSetup ? <Field label="Class type">
               <Select value={form.classType} onChange={(e) => setForm({ ...form, classType: e.target.value })}>
                 <option value="GENERAL">General skills class</option>
                 <option value="FIRE_ACADEMY">Fire academy testing</option>
@@ -294,13 +308,13 @@ export default function ClassesPage() {
                 {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
             </Field>}
-            <Field label={`Location${req("LOCATION") ? " *" : ""}`}><Input required={req("LOCATION")} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
+            {showAdvancedSetup ? <Field label={`Location${req("LOCATION") ? " *" : ""}`}><Input required={req("LOCATION")} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field> : null}
             <Field label="Starts"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
-            <Field label={`Ends${req("END_TIME") ? " *" : ""}`}><Input required={req("END_TIME")} type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field>
+            {showAdvancedSetup || req("END_TIME") ? <Field label={`Ends${req("END_TIME") ? " *" : ""}`}><Input required={req("END_TIME")} type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field> : null}
           </div>
-          <Field label={`Training description / notes${req("DESCRIPTION") ? " *" : ""}`} hint="Use this for topic, objectives, drill description, or information that would normally appear on the paper training sheet.">
+          {showAdvancedSetup || req("DESCRIPTION") ? <Field label={`Training description / notes${req("DESCRIPTION") ? " *" : ""}`} hint="Use this for topic, objectives, drill description, or information that would normally appear on the paper training sheet.">
             <TextArea required={req("DESCRIPTION")} rows={4} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Topic, objectives, skills covered, instructor notes…" />
-          </Field>
+          </Field> : null}
           <label className="flex min-h-12 items-center gap-3 rounded-lg border border-fire/30 bg-fire-soft p-4 text-sm font-semibold">
             <input type="checkbox" checked={form.selfRegistration} onChange={(event) => setForm({ ...form, selfRegistration: event.target.checked })} />
             Allow QR student registration (the class may start with an empty roster)
@@ -316,7 +330,7 @@ export default function ClassesPage() {
                 ))}
               </div>
             </Field>
-            {!quickMode ? <Field label={`Proctors (${form.proctorUserIds.length})`} hint="Evaluators see only classes to which they are assigned.">
+            {!quickMode && showAdvancedSetup ? <Field label={`Proctors (${form.proctorUserIds.length})`} hint="Evaluators see only classes to which they are assigned.">
               <div className="max-h-64 space-y-1 overflow-auto rounded-md border border-navy-200 p-2">
                 {setup?.proctors.map((proctor) => (
                   <label key={proctor.userId} className="flex min-h-11 items-center gap-3 rounded px-2 hover:bg-navy-50">
