@@ -184,6 +184,7 @@ export async function createClass(
     membershipIds?: string[];
     proctorUserIds?: string[];
     selfRegistration?: boolean;
+    trainingSheetTemplateId?: string;
   },
 ) {
   assertPermission(ctx, "classes.write");
@@ -227,6 +228,8 @@ export async function createClass(
   const endsAt = parseDate(input.endsAt, "End date");
   if (endsAt && endsAt < startsAt) throw new HttpError(400, "End date cannot be before the start date.");
 
+  const template = input.trainingSheetTemplateId ? await prisma.trainingSheetTemplate.findFirst({ where: { id: input.trainingSheetTemplateId, departmentId: ctx.departmentId, archived: false } }) : null;
+  if (input.trainingSheetTemplateId && !template) throw new HttpError(404, "Training sheet template not found.");
   const created = await prisma.trainingClass.create({
     data: {
       departmentId: ctx.departmentId,
@@ -241,6 +244,7 @@ export async function createClass(
       notes: input.notes?.trim().slice(0, 4000) || "",
       registrationToken: input.selfRegistration ? randomBytes(32).toString("hex") : null,
       registrationEnabled: input.selfRegistration === true,
+      customFieldsJson: template?.customFieldsJson || "[]",
       createdById: ctx.userId,
       roster: { create: memberIds.map((membershipId) => ({ membershipId })) },
       proctors: { create: proctorIds.map((userId) => ({ userId })) },
@@ -353,6 +357,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
     rmsEnteredAt: row.rmsEnteredAt,
     rmsEnteredById: row.rmsEnteredById,
     notes: row.notes,
+    customFields: JSON.parse(row.customFieldsJson || "[]"),
     registrationEnabled: row.registrationEnabled,
     registrationToken: hasPermission(ctx.role, "classes.write") ? row.registrationToken : null,
     checklistTitle: row.checklistVersion?.template.title || "Attendance-only training",
@@ -384,6 +389,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
       attendance: enrollment.attendance,
       writtenScore: enrollment.writtenScore,
       ccfScore: enrollment.ccfScore,
+      customValues: JSON.parse(enrollment.customValuesJson || "{}"),
       finalResult: enrollment.finalResult,
       notes: enrollment.notes,
       completedAt: enrollment.completedAt,
@@ -671,7 +677,7 @@ export async function updateEnrollment(
   ctx: AuthContext,
   classId: string,
   enrollmentId: string,
-  input: { attendance?: string; writtenScore?: number | null; ccfScore?: number | null; notes?: string },
+  input: { attendance?: string; writtenScore?: number | null; ccfScore?: number | null; notes?: string; customValues?: Record<string, unknown> },
 ) {
   assertPermission(ctx, "classes.proctor");
   await assertApprovedEvaluator(ctx);
@@ -685,6 +691,22 @@ export async function updateEnrollment(
       throw new HttpError(400, `${label} must be between 0 and 100.`);
     }
   }
+  const classRow = await prisma.trainingClass.findUniqueOrThrow({ where: { id: classId }, select: { customFieldsJson: true } });
+  const fields = JSON.parse(classRow.customFieldsJson || "[]") as Array<{ id: string; type: string }>;
+  const values: Record<string, string | number | boolean | null> = {};
+  if (input.customValues !== undefined) {
+    if (!input.customValues || typeof input.customValues !== "object" || Array.isArray(input.customValues)) throw new HttpError(400, "Invalid custom values.");
+    for (const field of fields) {
+      const value = input.customValues[field.id];
+      if (value == null || value === "") { values[field.id] = null; continue; }
+      if (field.type === "NUMBER" || field.type === "PERCENT") {
+        const number = Number(value);
+        if (!Number.isFinite(number) || (field.type === "PERCENT" && (number < 0 || number > 100))) throw new HttpError(400, "Invalid numeric field value.");
+        values[field.id] = number;
+      } else if (field.type === "CHECKBOX") values[field.id] = value === true;
+      else values[field.id] = String(value).slice(0, 500);
+    }
+  }
   await prisma.trainingClassEnrollment.update({
     where: { id: enrollment.id },
     data: {
@@ -692,6 +714,7 @@ export async function updateEnrollment(
       ...(input.writtenScore !== undefined ? { writtenScore: input.writtenScore } : {}),
       ...(input.ccfScore !== undefined ? { ccfScore: input.ccfScore } : {}),
       ...(input.notes !== undefined ? { notes: input.notes.trim().slice(0, 4000) } : {}),
+      ...(input.customValues !== undefined ? { customValuesJson: JSON.stringify(values) } : {}),
     },
   });
   await writeAudit(ctx, "class.enrollment.updated", "TrainingClassEnrollment", enrollment.id, {
