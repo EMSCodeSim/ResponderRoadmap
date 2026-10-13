@@ -22,7 +22,7 @@ describe("Responder AI safety", () => {
   it("lets authorized evaluators open assignment records without granting assignment writes", () => {
     expect(canOpenAssignmentRecord("EVALUATOR")).toBe(true);
     expect(canOpenAssignmentRecord("MEMBER")).toBe(true);
-    expect(canOpenAssignmentRecord("INSTRUCTOR")).toBe(false);
+    expect(canOpenAssignmentRecord("INSTRUCTOR")).toBe(true);
     expect(canOpenAssignmentRecord("TRAINING_OFFICER")).toBe(true);
   });
 });
