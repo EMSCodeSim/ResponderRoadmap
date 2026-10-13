@@ -46,6 +46,7 @@ export default function CreateAssignmentPage() {
     description: "",
     instructions: "",
     objectives: "",
+    checklistItems: [""] as string[],
     evaluationSteps: "",
     repetitionsRequired: "1",
     estimatedMinutes: "",
@@ -134,6 +135,7 @@ export default function CreateAssignmentPage() {
           title: form.title,
           description: form.description,
           instructions: form.instructions,
+          checklistItems: form.checklistItems.map((item) => item.trim()).filter(Boolean),
           objectives: form.objectives.split("\n").map((item) => item.trim()).filter(Boolean),
           evaluationSteps: form.evaluationSteps.split("\n").map((item) => item.trim()).filter(Boolean),
           repetitionsRequired: Number(form.repetitionsRequired) || 1,
@@ -199,6 +201,19 @@ export default function CreateAssignmentPage() {
             <Field label="What to do">
               <TextArea value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} placeholder="Setup, activities, equipment, and completion requirements." />
             </Field>
+            <div className="rounded-md border border-navy-200 p-4">
+              <div className="text-sm font-bold text-navy-900">Required checklist</div>
+              <p className="mt-1 text-xs text-navy-600">Add each requirement separately. Members must complete every item, and evaluators sign off on each one.</p>
+              <div className="mt-3 space-y-2">
+                {form.checklistItems.map((item, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input aria-label={`Checklist item ${index + 1}`} value={item} placeholder={`Requirement ${index + 1}`} onChange={(event) => setForm((current) => ({ ...current, checklistItems: current.checklistItems.map((value, i) => i === index ? event.target.value : value) }))} />
+                    <button type="button" className="rounded-md border border-navy-200 px-3 text-sm" aria-label={`Remove checklist item ${index + 1}`} onClick={() => setForm((current) => ({ ...current, checklistItems: current.checklistItems.filter((_, i) => i !== index) }))}>Remove</button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" disabled={form.checklistItems.length >= 20} className="mt-3 rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold" onClick={() => setForm((current) => ({ ...current, checklistItems: [...current.checklistItems, ""] }))}>+ Add requirement</button>
+            </div>
             <details className="rounded-md border border-navy-200 p-4"><summary className="cursor-pointer text-sm font-semibold text-navy-900">More requirements (optional)</summary>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <Field label="Required activities" hint="One per line">
