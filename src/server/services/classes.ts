@@ -756,6 +756,15 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
   if (requiredFields.has("HOURS") && !(row.creditHours > 0 || (row.startsAt && row.endsAt))) {
     add("HOURS", "Training hours are missing.", "Enter credit hours or both start and end times.");
   }
+  const customFields = JSON.parse(row.customFieldsJson || "[]") as Array<{ id: string; label: string; required: boolean }>;
+  for (const field of customFields.filter((item) => item.required)) {
+    for (const enrollment of row.roster.filter((item) => item.attendance === "PRESENT")) {
+      const values = JSON.parse(enrollment.customValuesJson || "{}") as Record<string, unknown>;
+      if (values[field.id] === undefined || values[field.id] === null || values[field.id] === "") {
+        add("CUSTOM_FIELD", `Required field "${field.label}" is missing for a student.`, "Enter the required student result before finalizing.");
+      }
+    }
+  }
   if (row.roster.length === 0) add("ROSTER", "The roster is empty.", "Add at least one person to the training roster.");
 
   const unresolvedAttendance = row.roster.filter((item) => item.attendance === "REGISTERED");
