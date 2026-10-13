@@ -232,8 +232,24 @@ export default function TrainingSheetTemplatesPage() {
               </Field>
               <Field label="Default location"><Input maxLength={180} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Training tower / Station 2" /></Field>
             </div>
-            <Field label="Training instructions and objectives" hint="These notes are copied into the new training sheet and can be edited before it is created.">
-              <TextArea rows={4} maxLength={4000} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Objectives, equipment, scenarios, and instructor notes…" />
+            <Field label="Training instructions and objectives" hint="Edit one idea at a time. Items remain in order when copied to the training sheet.">
+              <div className="space-y-2 rounded-lg border border-navy-200 p-3">
+                {(form.notes ? form.notes.split("\n") : [""]).map((item, index) => (
+                  <div key={index} className="flex items-start gap-2">
+                    <span className="min-w-6 pt-3 text-sm font-semibold text-navy-500">{index + 1}.</span>
+                    <TextArea rows={2} value={item} onChange={(e) => setForm((current) => {
+                      const lines = current.notes ? current.notes.split("\n") : [""];
+                      lines[index] = e.target.value.replace(/\r?\n/g, " ");
+                      return { ...current, notes: lines.join("\n") };
+                    })} placeholder="One instruction or objective" />
+                    <button type="button" aria-label={`Remove item ${index + 1}`} className="rounded border border-navy-200 px-2 py-2 text-xs" onClick={() => setForm((current) => {
+                      const lines = current.notes ? current.notes.split("\n") : [""];
+                      return { ...current, notes: lines.filter((_, i) => i !== index).join("\n") };
+                    })}>Remove</button>
+                  </div>
+                ))}
+                <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, notes: current.notes ? current.notes + "\n" : "\n" }))}>+ Add item</Button>
+              </div>
             </Field>
             <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm font-semibold">
               <input type="checkbox" checked={form.selfRegistration} onChange={(e) => setForm({ ...form, selfRegistration: e.target.checked })} />
