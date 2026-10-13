@@ -9,6 +9,7 @@ export type TrainingTaskInput = {
   instructions?: string;
   objectives?: string[];
   evaluationSteps?: string[];
+  checklistItems?: string[];
   repetitionsRequired?: number;
   estimatedMinutes?: number | null;
   dueDate?: string | null;
@@ -50,6 +51,7 @@ export async function createTrainingTask(ctx: AuthContext, input: TrainingTaskIn
     .filter(Boolean)
     .slice(0, 12);
 
+  const checklistItems = (input.checklistItems || []).map((item) => String(item).trim()).filter(Boolean).slice(0, 20);
   const supervisorRequired = input.supervisorApprovalRequired === true;
   const book = await taskbooks.createTaskBook(ctx, {
     title,
@@ -62,7 +64,24 @@ export async function createTrainingTask(ctx: AuthContext, input: TrainingTaskIn
         title: "Training Assignment",
         description: "Standalone department training or skill-practice assignment.",
         sortOrder: 0,
-        requirements: [
+        requirements: checklistItems.length ? checklistItems.map((item, index) => ({
+            title: item,
+            description: String(input.description || "").trim(),
+            instructions: String(input.instructions || "").trim(),
+            sortOrder: index,
+            isRequired: true,
+            evaluatorSignOffRequired: true,
+            supervisorApprovalRequired: supervisorRequired,
+            repetitionsRequired: 1,
+            objectives: [],
+            evaluationSteps: [],
+            completionType: "SKILL_DEMONSTRATION",
+            scoringMethod: "PASS_FAIL",
+            evidenceType: "SKILL_EVALUATION",
+            evidenceTypes: ["SKILL_EVALUATION"],
+            remediationRequired: true,
+            approvalPath: supervisorRequired ? ["EVALUATOR", "SUPERVISOR"] : ["EVALUATOR"],
+          })) : [
           {
             title,
             description: String(input.description || "").trim(),
