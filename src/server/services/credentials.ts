@@ -130,6 +130,65 @@ export async function upsertCredential(
   return record;
 }
 
+/** Reviewed bulk import: existing active members only; every imported record requires verification. */
+export async function importCredentials(ctx: AuthContext, raw: unknown) {
+  assertPermission(ctx, "credentials.write");
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 100)
+    throw new HttpError(400, "Select between 1 and 100 certification records.");
+  type Row = { membershipId: string; credentialName: string; issuer?: string; credentialNumber?: string; issueDate?: string; expirationDate?: string; doesNotExpire?: boolean };
+  const rows = raw as Row[];
+  if (rows.some((row) => !row || typeof row.membershipId !== "string" || typeof row.credentialName !== "string"))
+    throw new HttpError(400, "Each certificate needs a valid member and certification name.");
+  const ids = [...new Set(rows.map((row) => row.membershipId))];
+  const members = await prisma.departmentMembership.findMany({
+    where: { id: { in: ids }, departmentId: ctx.departmentId, status: "ACTIVE" }, select: { id: true },
+  });
+  if (members.length !== ids.length) throw new HttpError(400, "An imported certificate has an invalid or inactive member.");
+  const parseDate = (value?: string) => {
+    if (!value) return null;
+    if (typeof value !== "string") throw new HttpError(400, "Dates must use YYYY-MM-DD.");
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) throw new HttpError(400, "Dates must use YYYY-MM-DD.");
+    const date = new Date(value + "T00:00:00.000Z");
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value)
+      throw new HttpError(400, "Invalid certification date.");
+    return date;
+  };
+  const entries = rows.map((row) => {
+    if (!row || typeof row.membershipId !== "string" || typeof row.credentialName !== "string" || !row.credentialName.trim())
+      throw new HttpError(400, "Each certificate needs a member and certification name.");
+    const issueDate = parseDate(row.issueDate);
+    const expirationDate = row.doesNotExpire ? null : parseDate(row.expirationDate);
+    if (issueDate && expirationDate && expirationDate < issueDate) throw new HttpError(400, "Expiration cannot precede issue date.");
+    return {
+      membershipId: row.membershipId, departmentId: ctx.departmentId,
+      credentialName: row.credentialName.trim().slice(0, 180),
+      issuer: String(row.issuer || "").trim().slice(0, 180),
+      credentialNumber: String(row.credentialNumber || "").trim().slice(0, 120) || null,
+      issueDate, expirationDate, doesNotExpire: row.doesNotExpire === true,
+      verificationStatus: "UNVERIFIED", source: "DEPARTMENT",
+      notes: "Imported from reviewed CSV. Verify against the original certificate.",
+    };
+  });
+  const fingerprints = new Set<string>();
+  for (const entry of entries) {
+    const key = [entry.membershipId, entry.credentialName.toLowerCase(), entry.credentialNumber || "", entry.issueDate?.toISOString() || ""].join("|");
+    if (fingerprints.has(key)) throw new HttpError(400, "Duplicate certification rows found. Remove duplicates before importing.");
+    fingerprints.add(key);
+  }
+  const existing = await prisma.credential.findMany({
+    where: { departmentId: ctx.departmentId, membershipId: { in: ids } },
+    select: { membershipId: true, credentialName: true, credentialNumber: true, issueDate: true },
+  });
+  const duplicate = entries.some((entry) => existing.some((item) =>
+    item.membershipId === entry.membershipId && item.credentialName.toLowerCase() === entry.credentialName.toLowerCase() &&
+    (item.credentialNumber || "") === (entry.credentialNumber || "") &&
+    (item.issueDate?.toISOString() || "") === (entry.issueDate?.toISOString() || "")));
+  if (duplicate) throw new HttpError(409, "One or more certifications already exist. Review duplicates before importing.");
+  const result = await prisma.credential.createMany({ data: entries });
+  await writeAudit(ctx, "credential.bulk_imported", "Credential", ctx.departmentId, { count: result.count, verificationStatus: "UNVERIFIED" });
+  return { imported: result.count, verificationStatus: "UNVERIFIED" };
+}
+
 export async function createCredentialType(ctx: AuthContext, input: { name: string; issuerDefault?: string; requiredForAll?: boolean; requiredRanks?: string[]; requiredPositions?: string[] }) {
   assertPermission(ctx, "credentials.write");
   const name = input.name.trim();
