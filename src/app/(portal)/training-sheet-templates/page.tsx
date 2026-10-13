@@ -46,6 +46,8 @@ export default function TrainingSheetTemplatesPage() {
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryFilter, setLibraryFilter] = useState("ALL");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -126,6 +128,13 @@ export default function TrainingSheetTemplatesPage() {
     }
   }
 
+  const visibleTemplates = templates.filter((item) => {
+    const kind = item.checklistVersionId ? "SKILLS" : "ATTENDANCE";
+    const term = librarySearch.trim().toLowerCase();
+    return (libraryFilter === "ALL" || libraryFilter === kind) &&
+      (!term || [item.name, item.defaultTitle, item.notes, item.trainingCategory].some((value) => value.toLowerCase().includes(term)));
+  });
+
   function toggleProctor(id: string) {
     setForm((value) => ({
       ...value,
@@ -139,7 +148,7 @@ export default function TrainingSheetTemplatesPage() {
     <div>
       <PageHeader
         kicker="Training delivery"
-        title="Training sheet templates"
+        title="Training Sheet Library"
         description="Build reusable EMS, fire, and department training sheets once. Select one when creating training to prefill the details, checklist, hours, QR setting, and proctors."
         actions={<Link href="/classes" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Back to training</Link>}
       />
@@ -236,11 +245,20 @@ export default function TrainingSheetTemplatesPage() {
         </Card>
         <div>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-navy-900">Saved templates</h2>
+            <h2 className="text-lg font-bold text-navy-900">Department templates</h2>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived</label>
           </div>
+          <div className="mb-3 space-y-2">
+            <Input aria-label="Search templates" placeholder="Search CPR, SCBA, drill…" value={librarySearch} onChange={(event) => setLibrarySearch(event.target.value)} />
+            <Select aria-label="Filter templates" value={libraryFilter} onChange={(event) => setLibraryFilter(event.target.value)}>
+              <option value="ALL">All templates</option>
+              <option value="ATTENDANCE">Attendance only</option>
+              <option value="SKILLS">Skills checkoff</option>
+            </Select>
+            <p className="text-xs text-navy-500">Pass/fail or scored grading is defined by the linked published checklist.</p>
+          </div>
           <div className="space-y-3">
-            {templates.length === 0 ? <Card className="p-5 text-sm text-navy-500">No templates yet. Create one for a recurring EMS, fire, or department training session.</Card> : templates.map((item) => (
+            {visibleTemplates.length === 0 ? <Card className="p-5 text-sm text-navy-500">No templates yet. Create one for a recurring EMS, fire, or department training session.</Card> : visibleTemplates.map((item) => (
               <Card key={item.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -251,6 +269,7 @@ export default function TrainingSheetTemplatesPage() {
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {!item.archived ? <Link href={`/classes?template=${encodeURIComponent(item.id)}`} className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">Use template</Link> : null}
                   <Button type="button" variant="secondary" onClick={() => edit(item)}>Edit</Button>
                   <Button type="button" variant="secondary" onClick={() => void archive(item)}>{item.archived ? "Restore" : "Archive"}</Button>
                 </div>
