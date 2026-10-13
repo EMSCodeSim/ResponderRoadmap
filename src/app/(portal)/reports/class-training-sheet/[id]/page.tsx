@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api, downloadCsv } from "@/lib/api";
 import { Badge, Button, Card, PageHeader } from "@/components/ui";
-import { formatDate } from "@/lib/dates";
+import { formatDate, formatDateTime } from "@/lib/dates";
 
 type TrainingSheet = {
   generatedAt: string;
@@ -64,6 +64,8 @@ export default function ClassTrainingSheetPage() {
   const exportRows = sheet.rows.map((row) => ({
     training_title: sheet.training.title,
     training_date: sheet.training.date,
+    start_time: formatDateTime(sheet.training.date),
+    end_time: sheet.training.endsAt ? formatDateTime(sheet.training.endsAt) : "",
     category: sheet.training.category,
     instructor: sheet.training.instructor,
     location: sheet.training.location,
@@ -108,6 +110,8 @@ export default function ClassTrainingSheetPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div><div className="kicker">Department</div><div className="font-semibold">{sheet.department.name}</div></div>
           <div><div className="kicker">Date</div><div className="font-semibold">{formatDate(sheet.training.date)}</div></div>
+          <div><div className="kicker">Start time</div><div className="font-semibold">{formatDateTime(sheet.training.date)}</div></div>
+          <div><div className="kicker">End time</div><div className="font-semibold">{sheet.training.endsAt ? formatDateTime(sheet.training.endsAt) : "Not recorded"}</div></div>
           <div><div className="kicker">Instructor</div><div className="font-semibold">{sheet.training.instructor}</div></div>
           <div><div className="kicker">Status</div><Badge tone={sheet.training.status === "COMPLETE" ? "current" : "warn"}>{sheet.training.status}</Badge></div>
           <div><div className="kicker">Category</div><div className="font-semibold">{sheet.training.category.replaceAll("_", " ")}</div></div>
