@@ -262,6 +262,7 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk(await classes.recordSkillResult(ctx, appRosterSkill.id, appRosterSkill.enrollmentId, appRosterSkill.requirementId, await readBody(req)));
     }
     if (method === "GET" && match(path, "app/training-sheet-templates")) return jsonOk(await trainingSheetTemplates.listTrainingSheetTemplates(ctx, false));
+    if (method === "GET" && match(path, "app/training-sheets/my-attention")) return jsonOk(await classes.listInstructorTrainingAttention(ctx));
     if (method === "GET" && match(path, "app/training-sheets/rms-actions")) return jsonOk(await classes.listRmsActionQueue(ctx));
     const appTrainingSheet = match(path, "app/training-sheets/:id");
     if (method === "GET" && appTrainingSheet) return jsonOk(await classes.getClass(ctx, appTrainingSheet.id));
