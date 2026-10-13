@@ -23,7 +23,7 @@ function parse(value: string) {
 function view(row: {
   id: string; name: string; defaultTitle: string; classType: string; trainingCategory: string;
   creditHours: number; checklistVersionId: string | null; location: string; notes: string;
-  requiredFieldsJson: string; selfRegistration: boolean; proctorUserIdsJson: string;
+  requiredFieldsJson: string; customFieldsJson: string; selfRegistration: boolean; proctorUserIdsJson: string;
   archived: boolean; createdAt: Date; updatedAt: Date;
 }) {
   return {
@@ -37,6 +37,7 @@ function view(row: {
     location: row.location,
     notes: row.notes,
     requiredFields: parse(row.requiredFieldsJson),
+    customFields: JSON.parse(row.customFieldsJson || "[]"),
     selfRegistration: row.selfRegistration,
     proctorUserIds: parse(row.proctorUserIdsJson),
     archived: row.archived,
@@ -86,6 +87,13 @@ async function validate(ctx: AuthContext, input: Record<string, unknown>) {
     location: String(input.location || "").trim().slice(0, 180),
     notes: String(input.notes || "").trim().slice(0, 4000),
     requiredFieldsJson: JSON.stringify(strings(input.requiredFields)),
+    customFieldsJson: JSON.stringify((Array.isArray(input.customFields) ? input.customFields : []).slice(0, 20).map((field: unknown, index: number) => {
+      const item = field && typeof field === "object" ? field as Record<string, unknown> : {};
+      const label = String(item.label || "").trim().slice(0, 100);
+      const type = String(item.type || "TEXT").toUpperCase();
+      if (!label || !["TEXT", "NUMBER", "PERCENT", "DATE", "PASS_FAIL", "CHECKBOX"].includes(type)) throw new HttpError(400, `Invalid custom field ${index + 1}.`);
+      return { id: `custom-${index + 1}`, label, type, required: item.required === true };
+    })),
     selfRegistration: input.selfRegistration === true,
     proctorUserIdsJson: JSON.stringify(proctorUserIds),
   };
