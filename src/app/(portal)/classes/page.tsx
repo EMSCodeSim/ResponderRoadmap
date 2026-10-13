@@ -287,8 +287,8 @@ export default function ClassesPage() {
                 <option value="CPR">CPR class</option>
                 <option value="EMS">EMS skills testing</option>
               </Select>
-            </Field>
-            <Field label="Training-hours category">
+            </Field> : null}
+            {showAdvancedSetup ? <Field label="Training-hours category">
               <Select value={form.trainingCategory} onChange={(e) => setForm({ ...form, trainingCategory: e.target.value })}>
                 <option value="COMPANY">Company training</option>
                 <option value="FACILITY">Facility training</option>
@@ -298,10 +298,10 @@ export default function ClassesPage() {
                 <option value="EMS">EMS</option>
                 <option value="OTHER">Other</option>
               </Select>
-            </Field>
-            <Field label={`Credit hours${req("HOURS") ? " *" : ""}`} hint="Leave blank to use the time between Starts and Ends.">
+            </Field> : null}
+            {showAdvancedSetup || req("HOURS") ? <Field label={`Credit hours${req("HOURS") ? " *" : ""}`} hint="Leave blank to use the time between Starts and Ends.">
               <Input type="number" min="0" max="24" step="0.25" value={emsCeMode ? String(Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0)) : form.creditHours} disabled={emsCeMode} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
-            </Field>
+            </Field> : null}
             {<Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
               <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}>
                 <option value="">No checklist — attendance/training record only</option>
