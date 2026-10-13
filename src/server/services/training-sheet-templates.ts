@@ -64,6 +64,10 @@ async function validate(ctx: AuthContext, input: Record<string, unknown>) {
     if (!checklist) throw new HttpError(404, "Published checklist not found.");
   }
 
+  if (classType === "CPR" && !checklistVersionId) {
+    throw new HttpError(400, "A CPR training package must include a published department skills checklist.");
+  }
+
   const proctorUserIds = strings(input.proctorUserIds);
   if (proctorUserIds.length) {
     const valid = await prisma.departmentMembership.count({
