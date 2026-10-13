@@ -29,13 +29,20 @@ export function WorkspaceTabs() {
   // Assignments has its own Library / Progress workspace. Avoid mixing Task Book tabs into it.
   if (pathname === "/assignments" || pathname.startsWith("/assignments/")) return null;
 
-  const tabs = TABS.filter((tab) => allowed.includes(tab.key));
+  const taskBookWorkspace = pathname === "/task-books" || pathname.startsWith("/task-books/") || pathname.startsWith("/task-book-progress");
+  const tabs = taskBookWorkspace
+    ? [
+        { key: "task-books", label: "Library", href: "/task-books" },
+        { key: "assignments", label: "Progress", href: "/task-book-progress" },
+        { key: "task-books", label: "Create Task Book", href: "/task-books/fast-start" },
+      ].filter((tab) => allowed.includes(tab.key))
+    : TABS.filter((tab) => allowed.includes(tab.key));
   if (tabs.length < 2) return null;
 
   return (
     <nav aria-label="Task Books workspace" className="mb-5 flex flex-wrap gap-2 border-b border-navy-200 pb-3">
       {tabs.map((tab) => {
-        const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+        const active = pathname === tab.href || (tab.href !== "/task-books" && pathname.startsWith(`${tab.href}/`));
         return (
           <Link
             key={tab.key}
