@@ -92,7 +92,7 @@ async function validate(ctx: AuthContext, input: Record<string, unknown>) {
       const label = String(item.label || "").trim().slice(0, 100);
       const type = String(item.type || "TEXT").toUpperCase();
       if (!label || !["TEXT", "NUMBER", "PERCENT", "DATE", "PASS_FAIL", "CHECKBOX"].includes(type)) throw new HttpError(400, `Invalid custom field ${index + 1}.`);
-      return { id: `custom-${index + 1}`, label, type, required: item.required === true };
+      return { id: /^[a-zA-Z0-9_-]{1,80}$/.test(String(item.id || "")) ? String(item.id) : `custom-${index + 1}`, label, type, required: item.required === true };
     })),
     selfRegistration: input.selfRegistration === true,
     proctorUserIdsJson: JSON.stringify(proctorUserIds),
