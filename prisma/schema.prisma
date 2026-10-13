@@ -402,6 +402,7 @@ model TrainingSheetTemplate {
   location           String     @default("")
   notes              String     @default("")
   requiredFieldsJson String     @default("[]")
+  customFieldsJson   String     @default("[]")
   selfRegistration   Boolean    @default(false)
   proctorUserIdsJson String     @default("[]")
   archived           Boolean    @default(false)
@@ -439,6 +440,7 @@ model TrainingClass {
   rmsEntryNote           String          @default("")
   registrationToken      String?         @unique
   registrationEnabled    Boolean         @default(false)
+  customFieldsJson       String          @default("[]")
   notes                  String          @default("")
   createdById            String
   createdBy              User            @relation("ClassCreator", fields: [createdById], references: [id])
@@ -474,6 +476,7 @@ model TrainingClassEnrollment {
   guestOrganization String?
   attendance        String                @default("REGISTERED")
   writtenScore      Float?
+  customValuesJson  String                @default("{}")
   ccfScore          Float?
   finalResult       String                @default("PENDING")
   notes             String                @default("")
