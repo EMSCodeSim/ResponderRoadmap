@@ -128,7 +128,7 @@ export default function ClassesPage() {
         ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: total,
             notes: [`OBJECTIVES\n${emsObjectives.trim()}`, emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
         : form;
-      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify(payload) });
+      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify({ ...payload, trainingSheetTemplateId: selectedTemplateId || undefined }) });
       window.location.href = `/classes/${created.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create class.");
