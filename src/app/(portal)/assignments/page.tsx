@@ -2,7 +2,7 @@
 
 import { TrainingLifecycle } from "@/components/TrainingLifecycle";
 
-import { WorkspaceTabs } from "@/components/WorkspaceTabs";
+import { AssignmentWorkspaceTabs } from "@/components/AssignmentWorkspaceTabs";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -36,6 +36,7 @@ type Assignment = {
   memberName: string;
   taskBookTitle: string;
   templateId: string;
+  assignmentKind: "TASK_BOOK" | "TRAINING_TASK";
   progress: number;
   pendingApproval: number;
   dueDate: string | null;
@@ -158,10 +159,10 @@ function AssignmentsInner() {
       api<Array<{ id: string; title: string; status: string }>>("task-books"),
       api<SessionInfo>("auth/me"),
     ]);
-    setRows(assignmentRows);
+    setRows(assignmentRows.filter((row) => row.assignmentKind === "TRAINING_TASK"));
     setQueue(Array.isArray(signOffs) ? signOffs : signOffs.items);
     setMembers(memberPayload.members);
-    setBooks(taskBooks);
+    setBooks(taskBooks.filter((book) => assignmentRows.some((row) => row.assignmentKind === "TRAINING_TASK" && row.templateId === book.id)));
     setSessionRole(session.role);
     setSessionName(session.name || "Authorized reviewer");
   }
@@ -293,11 +294,11 @@ function AssignmentsInner() {
 
   return (
     <div>
-      <WorkspaceTabs />
+      <AssignmentWorkspaceTabs />
       <PageHeader
         kicker="Assignments"
         title="Assignments"
-        description="Assign a Task Book or single requirement to a person or group, set due dates, and track who is expected to complete it. Open submitted work for evaluation."
+        description="Track standalone training assignments, due dates, completion and approval. Task Books have their own separate progress workspace."
         actions={canAssign ? (
           <div className="flex flex-wrap gap-2">
             <Link href="/assignments/new"><Button>Create Assignment</Button></Link>
