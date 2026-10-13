@@ -119,6 +119,9 @@ export default function ClassesPage() {
     setBusy(true);
     setError(null);
     try {
+      if (form.classType === "CPR" && !form.checklistVersionId && !emsCeMode) {
+        throw new Error("Select the department's published CPR skills checklist before creating this class.");
+      }
       const total = Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0);
       if (emsCeMode && total > 24) throw new Error("EMS credits cannot exceed 24 hours per training sheet.");
       const payload = emsCeMode

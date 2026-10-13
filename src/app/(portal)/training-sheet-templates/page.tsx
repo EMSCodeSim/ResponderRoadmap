@@ -91,6 +91,10 @@ export default function TrainingSheetTemplatesPage() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (form.classType === "CPR" && !form.checklistVersionId) {
+      setError("Select a published CPR skills checklist before saving the CPR training package.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -134,6 +138,18 @@ export default function TrainingSheetTemplatesPage() {
     return (libraryFilter === "ALL" || libraryFilter === kind) &&
       (!term || [item.name, item.defaultTitle, item.notes, item.trainingCategory].some((value) => value.toLowerCase().includes(term)));
   });
+
+  function chooseCprStarter() {
+    const matches = (setup?.checklists || []).filter((item) =>
+      /\b(BLS|CPR)\b/i.test(item.title) && /adult|infant|provider/i.test(item.title)
+    );
+    const selected = matches.length === 1 ? matches[0] : null;
+    setForm({ ...blsCprClassPreset, checklistVersionId: selected?.id || "" });
+    setError(null);
+    setMessage(selected
+      ? `CPR starter linked to published checklist: ${selected.title} v${selected.version}. Verify the checklist and proctors before saving.`
+      : "Select your department's published CPR skills checklist before saving this starter. No checklist has been assumed.");
+  }
 
   function toggleProctor(id: string) {
     setForm((value) => ({
@@ -183,11 +199,7 @@ export default function TrainingSheetTemplatesPage() {
                 instructor attestation, individual remediation, QR registration, and Atlas roster preparation instructions.
                 Select your department&apos;s published adult/infant checklist to record step-level results.
               </p>
-              <Button type="button" onClick={() => {
-                setForm({ ...blsCprClassPreset });
-                setError(null);
-                setMessage("BLS CPR preset loaded. Select a published BLS skills checklist, set the location and instructors, then save.");
-              }}>
+              <Button type="button" onClick={chooseCprStarter}>
                 Use BLS CPR template
               </Button>
             </div>
@@ -212,9 +224,9 @@ export default function TrainingSheetTemplatesPage() {
               <Field label="Credit hours" hint="Set 0 to use the class start and end times.">
                 <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: Number(e.target.value) })} />
               </Field>
-              <Field label="Published skills checklist">
+              <Field label="Published skills checklist" hint={form.classType === "CPR" ? "Required for a complete CPR package. Saved with this template so instructors do not select it each time." : "Optional for attendance-only training."}>
                 <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}>
-                  <option value="">Attendance-only / no checklist</option>
+                  <option value="">{form.classType === "CPR" ? "Select CPR checklist (required)" : "Attendance-only / no checklist"}</option>
                   {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
                 </Select>
               </Field>
