@@ -29,6 +29,7 @@ type Student = {
   attendance: string;
   writtenScore: number | null;
   ccfScore: number | null;
+  customValues: Record<string, string | number | boolean | null>;
   finalResult: string;
   notes: string;
   completedAt: string | null;
@@ -48,7 +49,9 @@ type Skill = {
   criticalFailures: unknown[];
 };
 
+type CustomField = { id: string; label: string; type: string; required: boolean };
 type ClassDetail = {
+  customFields: CustomField[];
   id: string;
   title: string;
   classType: string;
@@ -195,7 +198,7 @@ export default function ClassDetailPage() {
     } finally { setBusy(false); }
   }
 
-  async function updateStudent(input: Partial<Pick<Student, "attendance" | "writtenScore" | "ccfScore" | "notes">>) {
+  async function updateStudent(input: Partial<Pick<Student, "attendance" | "writtenScore" | "ccfScore" | "notes" | "customValues">>) {
     if (!student || !detail) return;
     setBusy(true);
     try {
@@ -399,6 +402,27 @@ export default function ClassDetailPage() {
               <Field label="CCF score (%)"><Input type="number" min="0" max="100" value={student.ccfScore ?? ""} disabled={busy || detail.status === "COMPLETE"} onBlur={(event) => updateStudent({ ccfScore: event.target.value === "" ? null : Number(event.target.value) })} onChange={(event) => setDetail({ ...detail, roster: detail.roster.map((item) => item.id === student.id ? { ...item, ccfScore: event.target.value === "" ? null : Number(event.target.value) } : item) })} /></Field>
             </div>
           </Card>
+
+          {detail.customFields?.length ? <Card className="p-4">
+            <h3 className="mb-3 font-semibold">Template-specific student results</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {detail.customFields.map((field) => (
+                <Field key={field.id} label={`${field.label}${field.required ? " (required)" : ""}`}>
+                  {field.type === "PASS_FAIL" || field.type === "CHECKBOX" ? (
+                    <Select value={String(student.customValues?.[field.id] ?? "")} disabled={busy || detail.status === "COMPLETE"} onChange={(event) => {
+                      const value = field.type === "CHECKBOX" ? event.target.value === "true" : event.target.value;
+                      void updateStudent({ customValues: { ...student.customValues, [field.id]: value } });
+                    }}>
+                      <option value="">Not recorded</option>
+                      {field.type === "PASS_FAIL" ? <><option value="PASS">Pass</option><option value="FAIL">Fail</option></> : <><option value="true">Yes</option><option value="false">No</option></>}
+                    </Select>
+                  ) : (
+                    <Input type={field.type === "NUMBER" || field.type === "PERCENT" ? "number" : field.type === "DATE" ? "date" : "text"} min={field.type === "PERCENT" ? "0" : undefined} max={field.type === "PERCENT" ? "100" : undefined} value={String(student.customValues?.[field.id] ?? "")} disabled={busy || detail.status === "COMPLETE"} onChange={(event) => setDetail((current) => current ? { ...current, roster: current.roster.map((item) => item.id === student.id ? { ...item, customValues: { ...item.customValues, [field.id]: event.target.value } } : item) } : current)} onBlur={(event) => void updateStudent({ customValues: { ...student.customValues, [field.id]: event.target.value } })} />
+                  )}
+                </Field>
+              ))}
+            </div>
+          </Card> : null}
 
           {detail.sections.length === 0 ? <Card className="p-5"><h2 className="font-bold">Attendance-only training</h2><p className="mt-1 text-sm text-navy-600">Mark each member Present, Absent, or Excused. When attendance is complete, choose Complete training. Present department members will receive the training credit in Training Hours.</p></Card> : null}
           {detail.sections.map((section) => <Card key={section.id} className="overflow-hidden"><div className="border-b border-navy-100 bg-navy-50 px-4 py-3"><h2 className="font-bold">{section.title}</h2>{section.description ? <p className="text-sm text-navy-500">{section.description}</p> : null}</div><div className="divide-y divide-navy-100">{section.skills.map((skill) => {
