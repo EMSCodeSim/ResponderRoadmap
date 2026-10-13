@@ -329,6 +329,9 @@ export async function handleApi(req: Request, path: string[]) {
     const classTaskBook = match(path, "classes/:id/assign-task-book");
     if (method === "POST" && classTaskBook)
       return jsonOk(await classAssignmentWorkflow.assignClassTaskBook(ctx, classTaskBook.id, await readBody(req)));
+    const manualGuest = match(path, "classes/:id/roster/manual");
+    if (method === "POST" && manualGuest)
+      return jsonOk(await classes.addManualGuestToClass(ctx, manualGuest.id, await readBody(req)), 201);
     const classRosterImport = match(path, "classes/:id/roster/import");
     if (method === "POST" && classRosterImport) {
       const body = await readBody(req);

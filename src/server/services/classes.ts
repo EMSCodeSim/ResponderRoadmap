@@ -282,6 +282,35 @@ export async function importClassRoster(ctx: AuthContext, classId: string, rawId
   return { added: result.count, alreadyEnrolled: membershipIds.length - result.count, classId };
 }
 
+/** Instructor-entered guests never become verified department members. */
+export async function addManualGuestToClass(ctx: AuthContext, classId: string, input: Record<string, unknown>) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId, true);
+  if (!["DRAFT", "ACTIVE"].includes(row.status)) throw new HttpError(409, "Closed training cannot accept students.");
+  const name = String(input.name || "").trim().slice(0, 160);
+  const email = String(input.email || "").trim().toLowerCase().slice(0, 254);
+  const organization = String(input.organization || "").trim().slice(0, 180);
+  if (name.length < 2) throw new HttpError(400, "Enter the student's name.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "Enter a valid student email.");
+  const existing = await prisma.trainingClassEnrollment.findFirst({
+    where: { classId, OR: [{ guestEmail: email }, { membership: { user: { email } } }] },
+    select: { id: true },
+  });
+  if (existing) throw new HttpError(409, "This email is already on the class roster.");
+  const count = await prisma.trainingClassEnrollment.count({ where: { classId } });
+  if (count >= 250) throw new HttpError(409, "Class roster is full.");
+  const member = await prisma.departmentMembership.findFirst({
+    where: { departmentId: ctx.departmentId, status: "ACTIVE", user: { email } },
+    select: { id: true },
+  });
+  const enrolled = await prisma.trainingClassEnrollment.create({
+    data: member ? { classId, membershipId: member.id } : { classId, guestName: name, guestEmail: email, guestOrganization: organization },
+  });
+  await writeAudit(ctx, "class.roster.manual_added", "TrainingClass", classId,
+    { enrollmentId: enrolled.id, existingMember: Boolean(member) });
+  return { added: true, matchedMember: Boolean(member) };
+}
+
 export async function getClass(ctx: AuthContext, classId: string) {
   assertPermission(ctx, "classes.read");
   await canAccessClass(ctx, classId);
