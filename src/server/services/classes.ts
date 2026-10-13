@@ -764,6 +764,28 @@ export async function markClassEnteredIntoRms(ctx: AuthContext, classId: string,
   return getClass(ctx, classId);
 }
 
+/** The creating instructor owns follow-up until RMS entry is confirmed.
+ * This deliberately includes draft, active, closed and approved training sheets.
+ * The existing RMS action queue remains a distinct officer workflow.
+ */
+export async function listInstructorTrainingAttention(ctx: AuthContext) {
+  assertPermission(ctx, "classes.read");
+  const rows = await prisma.trainingClass.findMany({
+    where: {
+      departmentId: ctx.departmentId,
+      createdById: ctx.userId,
+      rmsStatus: { not: "RMS_ENTERED" },
+      status: { not: "CANCELLED" },
+    },
+    orderBy: { startsAt: "desc" },
+    select: {
+      id: true, title: true, status: true, rmsStatus: true,
+      startsAt: true, instructorApprovedAt: true,
+    },
+  });
+  return rows;
+}
+
 export async function listRmsActionQueue(ctx: AuthContext) {
   assertPermission(ctx, "classes.read");
   return prisma.trainingClass.findMany({ where: { departmentId: ctx.departmentId, status: "COMPLETE", rmsStatus: "AWAITING_ENTRY" }, orderBy: { startsAt: "desc" }, select: { id: true, title: true, startsAt: true, trainingCategory: true, creditHours: true, status: true, rmsStatus: true, instructorApprovedAt: true } });
