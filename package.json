@@ -17,7 +17,8 @@
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
     "db:setup": "prisma generate && prisma db push && tsx prisma/seed.ts",
     "db:demo:setup": "tsx scripts/setup-demo-db.ts",
-    "test:core-workflow": "vitest run src/lib/core-workflow.integrity.test.ts src/lib/progress.approval.test.ts src/lib/signoff.approval-regression.test.ts src/lib/evaluation-routing.test.ts src/lib/first-department-approval.test.ts src/lib/dashboard-readiness.test.ts"
+    "test:core-workflow": "vitest run src/lib/core-workflow.integrity.test.ts src/lib/progress.approval.test.ts src/lib/signoff.approval-regression.test.ts src/lib/evaluation-routing.test.ts src/lib/first-department-approval.test.ts src/lib/dashboard-readiness.test.ts",
+    "test:mobile-contract": "node scripts/check-mobile-api-contract.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

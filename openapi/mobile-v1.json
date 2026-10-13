@@ -1,0 +1,453 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Responder Roadmap Mobile Department API",
+    "version": "1.0.0",
+    "description": "Compatibility contract for the department workflows shared by the Flutter app and Responder Roadmap backend. Department state and authorization are authoritative on the server."
+  },
+  "servers": [
+    {
+      "url": "https://responderroadmap.com/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/app-login": {
+      "post": {
+        "operationId": "appLogin",
+        "summary": "Create a mobile bearer session",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Authenticated session and bearer token"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "getCurrentSession",
+        "summary": "Load the current user's department context",
+        "responses": {
+          "200": {
+            "description": "Current session and role"
+          }
+        }
+      }
+    },
+    "/app/assignments": {
+      "get": {
+        "operationId": "listMyAssignments",
+        "summary": "List department assignments for the authenticated member",
+        "responses": {
+          "200": {
+            "description": "Assignments and server-derived states"
+          }
+        }
+      }
+    },
+    "/app/assignments/{id}": {
+      "get": {
+        "operationId": "getMyAssignment",
+        "summary": "Read an assigned task book",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assignment detail and progress"
+          }
+        }
+      }
+    },
+    "/app/assignments/{id}/requirements/{requirementId}/submit": {
+      "post": {
+        "operationId": "submitRequirement",
+        "summary": "Submit a task book requirement for evaluation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          },
+          {
+            "$ref": "#/components/parameters/requirementId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-confirmed submission"
+          }
+        }
+      }
+    },
+    "/app/qualifications": {
+      "get": {
+        "operationId": "getMyQualifications",
+        "summary": "Read personal department qualification readiness",
+        "responses": {
+          "200": {
+            "description": "Server-derived role readiness"
+          }
+        }
+      }
+    },
+    "/app/department-qualifications": {
+      "get": {
+        "operationId": "getDepartmentQualifications",
+        "summary": "Read authorized department qualification lookup",
+        "responses": {
+          "200": {
+            "description": "Department lookup when role permits"
+          },
+          "403": {
+            "description": "Role is not authorized"
+          }
+        }
+      }
+    },
+    "/app/training-sheets/{id}": {
+      "get": {
+        "operationId": "getTrainingSheet",
+        "summary": "Read roster, skill results, and lifecycle state",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Training sheet detail"
+          }
+        }
+      }
+    },
+    "/app/training-sheets/my-attention": {
+      "get": {
+        "operationId": "listInstructorTrainingAttention",
+        "summary": "List instructor closeout actions",
+        "responses": {
+          "200": {
+            "description": "Server-derived instructor attention items"
+          }
+        }
+      }
+    },
+    "/app/training-sheets/rms-actions": {
+      "get": {
+        "operationId": "listRmsActions",
+        "summary": "List approved records awaiting RMS entry",
+        "responses": {
+          "200": {
+            "description": "RMS action queue"
+          }
+        }
+      }
+    },
+    "/app/training-sheets/{id}/approve": {
+      "post": {
+        "operationId": "approveTrainingSheet",
+        "summary": "Validate and approve the completed training sheet",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "COMPLETE training sheet and separate RMS status"
+          },
+          "422": {
+            "description": "Required closeout data is incomplete"
+          }
+        }
+      }
+    },
+    "/app/training-sheets/{id}/rms-entered": {
+      "post": {
+        "operationId": "markTrainingSheetRmsEntered",
+        "summary": "Record RMS entry with server identity and timestamp",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RMS_ENTERED receipt"
+          }
+        }
+      }
+    },
+    "/classes/setup": {
+      "get": {
+        "operationId": "getTrainingSheetSetup",
+        "summary": "Load department setup and template choices",
+        "responses": {
+          "200": {
+            "description": "Setup, templates, and required fields"
+          }
+        }
+      }
+    },
+    "/classes": {
+      "post": {
+        "operationId": "createTrainingSheet",
+        "summary": "Create a department training sheet",
+        "responses": {
+          "201": {
+            "description": "Created training sheet"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listTrainingSheets",
+        "summary": "List department training sheets",
+        "responses": {
+          "200": {
+            "description": "Training sheets and canonical workflow states"
+          }
+        }
+      }
+    },
+    "/classes/{id}": {
+      "get": {
+        "operationId": "getClass",
+        "summary": "Read class and roster",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Class detail"
+          }
+        }
+      }
+    },
+    "/classes/{id}/registration": {
+      "post": {
+        "operationId": "manageTrainingSheetRegistration",
+        "summary": "Open, close, or rotate QR registration",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registration state"
+          }
+        }
+      }
+    },
+    "/classes/{id}/roster/{enrollmentId}": {
+      "post": {
+        "operationId": "updateTrainingSheetRoster",
+        "summary": "Record attendance and template-specific student fields",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          },
+          {
+            "$ref": "#/components/parameters/enrollmentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated roster record"
+          }
+        }
+      }
+    },
+    "/classes/{id}/roster/{enrollmentId}/skills/{requirementId}": {
+      "post": {
+        "operationId": "gradeTrainingSheetSkill",
+        "summary": "Record one student's observed skill result",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          },
+          {
+            "$ref": "#/components/parameters/enrollmentId"
+          },
+          {
+            "$ref": "#/components/parameters/requirementId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved skill result"
+          }
+        }
+      }
+    },
+    "/classes/{id}/close-validation": {
+      "get": {
+        "operationId": "validateClassCloseout",
+        "summary": "Validate required training sheet closeout fields",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Closeout validation"
+          }
+        }
+      }
+    },
+    "/classes/{id}/status": {
+      "post": {
+        "operationId": "updateClassStatus",
+        "summary": "Update class completion state",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated class status"
+          }
+        }
+      }
+    },
+    "/classes/{id}/export": {
+      "get": {
+        "operationId": "exportClass",
+        "summary": "Export the training sheet",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Printable export data"
+          }
+        }
+      }
+    },
+    "/classes/{id}/export.csv": {
+      "get": {
+        "operationId": "exportClassCsv",
+        "summary": "Export class results as CSV",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV export"
+          }
+        }
+      }
+    },
+    "/sign-offs": {
+      "get": {
+        "operationId": "listMySignOffs",
+        "summary": "List sign-offs routed to the authenticated evaluator",
+        "responses": {
+          "200": {
+            "description": "Authorized evaluator queue"
+          }
+        }
+      }
+    },
+    "/sign-offs/{id}": {
+      "post": {
+        "operationId": "reviewSignOff",
+        "summary": "Approve or return a sign-off using server authorization",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recorded review and audit result"
+          }
+        }
+      }
+    },
+    "/training-sheet-templates": {
+      "get": {
+        "operationId": "listTrainingSheetTemplates",
+        "summary": "List department training sheet templates",
+        "responses": {
+          "200": {
+            "description": "Department templates"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "parameters": {
+      "id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "requirementId": {
+        "name": "requirementId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "enrollmentId": {
+        "name": "enrollmentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "x-responder-roadmap-workflow-states": {
+    "trainingSheet": [
+      "DRAFT",
+      "IN_PROGRESS",
+      "COMPLETE"
+    ],
+    "rmsEntry": [
+      "NOT_READY",
+      "AWAITING_ENTRY",
+      "RMS_ENTERED"
+    ],
+    "evaluation": [
+      "NOT_STARTED",
+      "SUBMITTED",
+      "APPROVED",
+      "RETURNED"
+    ],
+    "qualification": [
+      "NOT_STARTED",
+      "IN_TRAINING",
+      "AWAITING_APPROVAL",
+      "APPROVED",
+      "RESTRICTED",
+      "RENEWAL_REQUIRED"
+    ]
+  }
+}

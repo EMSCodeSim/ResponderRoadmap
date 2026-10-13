@@ -33,6 +33,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check out the supported Flutter client
+        uses: actions/checkout@v4
+        with:
+          repository: EMSCodeSim/Roadmap
+          path: Roadmap
+
+      - name: Verify the shared mobile API contract
+        run: node scripts/check-mobile-api-contract.mjs Roadmap
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
