@@ -7,7 +7,9 @@ import { firefighterOneClassPreset } from "@/lib/firefighter-one-class-preset";
 import { blsCprClassPreset } from "@/lib/bls-cpr-class-preset";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
 
+type CustomField = { id: string; label: string; type: string; required: boolean };
 type Template = {
+  customFields: CustomField[];
   id: string;
   name: string;
   defaultTitle: string;
@@ -36,6 +38,7 @@ const blank = {
   checklistVersionId: "",
   location: "",
   notes: "",
+  customFields: [] as CustomField[],
   selfRegistration: false,
   proctorUserIds: [] as string[],
 };
@@ -82,6 +85,7 @@ export default function TrainingSheetTemplatesPage() {
       checklistVersionId: item.checklistVersionId || "",
       location: item.location,
       notes: item.notes,
+      customFields: item.customFields || [],
       selfRegistration: item.selfRegistration,
       proctorUserIds: item.proctorUserIds,
     });
@@ -251,6 +255,21 @@ export default function TrainingSheetTemplatesPage() {
                 <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, notes: current.notes ? current.notes + "\n" : "\n" }))}>+ Add item</Button>
               </div>
             </Field>
+            <div className="rounded-lg border border-navy-200 p-4">
+              <h3 className="font-semibold">Custom student fields</h3>
+              <p className="mt-1 text-xs text-navy-600">Only classes created from this template will collect these fields.</p>
+              {form.customFields.map((field, index) => (
+                <div key={field.id} className="mt-3 grid gap-2 rounded-md border border-navy-100 p-3 sm:grid-cols-2">
+                  <Input aria-label={`Field ${index + 1} label`} value={field.label} placeholder="e.g. CCF or Test score" onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, label: e.target.value } : f) }))} />
+                  <Select aria-label={`Field ${index + 1} type`} value={field.type} onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, type: e.target.value } : f) }))}>
+                    {["TEXT", "NUMBER", "PERCENT", "DATE", "PASS_FAIL", "CHECKBOX"].map((type) => <option key={type} value={type}>{type.replace("_", " ")}</option>)}
+                  </Select>
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, required: e.target.checked } : f) }))} />Required</label>
+                  <button type="button" className="text-sm text-danger" onClick={() => setForm((current) => ({ ...current, customFields: current.customFields.filter((_, i) => i !== index) }))}>Remove field</button>
+                </div>
+              ))}
+              <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `custom-${current.customFields.length + 1}`, label: "", type: "PERCENT", required: false }] }))} disabled={form.customFields.length >= 20}>+ Add custom field</Button>
+            </div>
             <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm font-semibold">
               <input type="checkbox" checked={form.selfRegistration} onChange={(e) => setForm({ ...form, selfRegistration: e.target.checked })} />
               Enable QR self-registration by default
