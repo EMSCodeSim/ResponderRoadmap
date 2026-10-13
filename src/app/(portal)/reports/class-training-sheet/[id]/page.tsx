@@ -9,6 +9,7 @@ import { formatDate, formatDateTime } from "@/lib/dates";
 
 type TrainingSheet = {
   generatedAt: string;
+  customFields: Array<{ id: string; label: string; type: string; required: boolean }>;
   department: { name: string; city: string | null; state: string | null };
   training: {
     id: string;
@@ -45,6 +46,7 @@ type TrainingSheet = {
     completedAt: string | null;
     creditHours: number;
     notes: string;
+    customValues: Record<string, string | number | boolean | null>;
   }>;
 };
 
@@ -77,6 +79,7 @@ export default function ClassTrainingSheetPage() {
     credit_hours: row.creditHours,
     result: row.finalResult,
     notes: row.notes,
+    ...Object.fromEntries((sheet.customFields || []).map((field) => [field.label, row.customValues?.[field.id] ?? ""])),
   }));
 
   return (
@@ -132,7 +135,7 @@ export default function ClassTrainingSheetPage() {
       <Card className="mt-4">
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Member</th><th>Rank</th><th>Station / Shift</th><th>Attendance</th><th>Hours</th><th>Result</th><th>Notes</th></tr></thead>
+            <thead><tr><th>Member</th><th>Rank</th><th>Station / Shift</th><th>Attendance</th><th>Hours</th><th>Result</th>{(sheet.customFields || []).map((field) => <th key={field.id}>{field.label}</th>)}<th>Notes</th></tr></thead>
             <tbody>
               {sheet.rows.map((row) => (
                 <tr key={row.enrollmentId}>
@@ -142,6 +145,7 @@ export default function ClassTrainingSheetPage() {
                   <td>{row.attendance}</td>
                   <td>{row.creditHours || "—"}</td>
                   <td>{row.finalResult}</td>
+                  {(sheet.customFields || []).map((field) => <td key={field.id}>{String(row.customValues?.[field.id] ?? "—")}</td>)}
                   <td>{row.notes || "—"}</td>
                 </tr>
               ))}
