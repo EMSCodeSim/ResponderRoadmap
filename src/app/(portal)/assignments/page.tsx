@@ -169,7 +169,6 @@ function AssignmentsInner() {
 
   useEffect(() => {
     load().catch((err) => setError(err.message)).finally(() => setLoading(false));
-    if (search.get("assign") === "1") setOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -302,7 +301,6 @@ function AssignmentsInner() {
         actions={canAssign ? (
           <div className="flex flex-wrap gap-2">
             <Link href="/assignments/new"><Button>Create Assignment</Button></Link>
-            <Button variant="secondary" onClick={() => setOpen(true)}>Assign Task Book</Button>
           </div>
         ) : undefined}
       />
