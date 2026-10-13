@@ -141,7 +141,7 @@ export default function TrainingSheetTemplatesPage() {
 
   function chooseCprStarter() {
     const matches = (setup?.checklists || []).filter((item) =>
-      /\\b(BLS|CPR)\\b/i.test(item.title) && /adult|infant|provider/i.test(item.title)
+      /\b(BLS|CPR)\b/i.test(item.title) && /adult|infant|provider/i.test(item.title)
     );
     const selected = matches.length === 1 ? matches[0] : null;
     setForm({ ...blsCprClassPreset, checklistVersionId: selected?.id || "" });
