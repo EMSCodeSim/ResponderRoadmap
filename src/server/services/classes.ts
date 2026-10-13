@@ -222,6 +222,7 @@ export async function createClass(
   if (requiredFields.has("LOCATION") && !input.location?.trim()) throw new HttpError(400, "Location is required by your department RMS training-sheet settings.");
   if (requiredFields.has("DESCRIPTION") && !input.notes?.trim()) throw new HttpError(400, "Training description / notes are required by your department RMS training-sheet settings.");
   if (requiredFields.has("HOURS") && !(creditHours > 0 || (input.startsAt && input.endsAt))) throw new HttpError(400, "Credit hours or both start and end times are required by your department RMS training-sheet settings.");
+  if (requiredFields.has("END_TIME") && !input.endsAt) throw new HttpError(400, "End time is required by your department RMS training-sheet settings.");
   const startsAt = parseDate(input.startsAt, "Start date", true)!;
   const endsAt = parseDate(input.endsAt, "End date");
   if (endsAt && endsAt < startsAt) throw new HttpError(400, "End date cannot be before the start date.");
@@ -724,6 +725,7 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
 
   if (requiredFields.has("TITLE") && !row.title.trim()) add("TITLE", "Training title is missing.", "Edit the training title.");
   if (requiredFields.has("DATE") && !row.startsAt) add("DATE", "Training date/time is missing.", "Set the training date and time.");
+  if (requiredFields.has("END_TIME") && !row.endsAt) add("END_TIME", "Training end time is missing.", "Set the training end time.");
   if (requiredFields.has("INSTRUCTOR") && row.proctors.length === 0) add("INSTRUCTOR", "No instructor/proctor is assigned.", "Assign at least one approved instructor or proctor.");
   if (requiredFields.has("CATEGORY") && !row.trainingCategory.trim()) add("CATEGORY", "Training category is missing.", "Choose a training category.");
   if (requiredFields.has("LOCATION") && !row.location.trim()) add("LOCATION", "Training location is missing.", "Enter the training location.");
