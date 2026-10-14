@@ -240,6 +240,97 @@ type SharedCertificationInput = {
   updatedAt?: unknown;
 };
 
+type SharedActivityInput = {
+  id?: unknown;
+  type?: unknown;
+  title?: unknown;
+  category?: unknown;
+  occurredAt?: unknown;
+  hours?: unknown;
+  repetitions?: unknown;
+  detail?: unknown;
+  tags?: unknown;
+  updatedAt?: unknown;
+};
+
+function boundedText(value: unknown, max: number) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+export function parseSharedActivities(raw: unknown) {
+  if (!Array.isArray(raw)) throw new HttpError(400, "activities must be a list.");
+  if (raw.length > 500) throw new HttpError(400, "No more than 500 activities can be shared.");
+  const activities = raw.map((item, index) => {
+    if (!item || typeof item !== "object") throw new HttpError(400, `Activity ${index + 1} is invalid.`);
+    const input = item as SharedActivityInput;
+    const sourceId = boundedText(input.id, 160);
+    const type = boundedText(input.type, 80).toUpperCase();
+    const title = boundedText(input.title, 200);
+    if (!sourceId || !type || !title) throw new HttpError(400, `Activity ${index + 1} requires an id, type, and title.`);
+    const occurredAt = optionalDate(input.occurredAt, "occurredAt");
+    if (!occurredAt) throw new HttpError(400, `Activity ${index + 1} requires occurredAt.`);
+    const updatedAt = optionalDate(input.updatedAt, "updatedAt") ?? occurredAt;
+    const hours = input.hours == null ? null : Number(input.hours);
+    const repetitions = input.repetitions == null ? null : Number(input.repetitions);
+    if (hours != null && (!Number.isFinite(hours) || hours < 0 || hours > 10000)) throw new HttpError(400, `Activity ${index + 1} has invalid hours.`);
+    if (repetitions != null && (!Number.isInteger(repetitions) || repetitions < 0 || repetitions > 100000)) throw new HttpError(400, `Activity ${index + 1} has invalid repetitions.`);
+    return {
+      sourceId,
+      type,
+      title,
+      category: boundedText(input.category, 160),
+      occurredAt,
+      updatedAt,
+      hours,
+      repetitions,
+      detail: boundedText(input.detail, 2000),
+      tags: Array.isArray(input.tags) ? input.tags.map((tag) => boundedText(tag, 80)).filter(Boolean).slice(0, 30) : [],
+    };
+  });
+  if (new Set(activities.map((item) => item.sourceId)).size !== activities.length) {
+    throw new HttpError(400, "Each shared activity must have a unique id.");
+  }
+  return activities;
+}
+
+export async function syncMySharedActivities(ctx: AuthContext, raw: unknown) {
+  await assertActiveMembership(ctx);
+  const activities = parseSharedActivities(raw);
+  await prisma.$transaction(async (tx) => {
+    await tx.activityEvent.deleteMany({
+      where: { departmentId: ctx.departmentId, userId: ctx.userId, type: "APP_SHARED_ACTIVITY" },
+    });
+    if (activities.length) {
+      await tx.activityEvent.createMany({
+        data: activities.map((item) => ({
+          departmentId: ctx.departmentId,
+          userId: ctx.userId,
+          type: "APP_SHARED_ACTIVITY",
+          referenceId: item.sourceId,
+          timestamp: item.occurredAt,
+          metadataJson: JSON.stringify({
+            source: "MOBILE_QUICK_LOG",
+            activityType: item.type,
+            title: item.title,
+            category: item.category,
+            hours: item.hours,
+            repetitions: item.repetitions,
+            detail: item.detail,
+            tags: item.tags,
+            sourceUpdatedAt: item.updatedAt,
+            memberName: ctx.name,
+          }),
+        })),
+      });
+    }
+  });
+  await writeAudit(ctx, "member.activities.sharing_synced", "DepartmentMembership", ctx.membershipId, {
+    sharedSourceIds: activities.map((item) => item.sourceId),
+    shared: activities.length,
+  });
+  return { sharedSourceIds: activities.map((item) => item.sourceId), shared: activities.length, serverTime: new Date() };
+}
+
 function optionalDate(value: unknown, field: string): Date | null {
   if (value == null || value === "") return null;
   if (typeof value !== "string") throw new HttpError(400, `${field} must be a date.`);

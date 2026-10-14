@@ -210,6 +210,10 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await memberApp.syncMySharedCertifications(ctx, body.certifications));
     }
+    if (method === "POST" && match(path, "app/activities/sharing")) {
+      const body = await readBody(req);
+      return jsonOk(await memberApp.syncMySharedActivities(ctx, body.activities));
+    }
     const appEvidence = match(path, "app/assignments/:id/training-evidence");
     if (method === "GET" && appEvidence) {
       const detail = await assignments.getAssignmentDetail(ctx, appEvidence.id);

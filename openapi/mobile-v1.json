@@ -667,6 +667,23 @@
           }
         }
       }
+    },
+    "/app/activities/sharing": {
+      "post": {
+        "operationId": "syncSharedActivities",
+        "summary": "Synchronize member-authorized mobile Quick Log activities",
+        "responses": {
+          "200": {
+            "description": "Server-confirmed shared activity source ids"
+          },
+          "400": {
+            "description": "Invalid activity payload"
+          },
+          "403": {
+            "description": "Active department membership required"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -729,12 +746,5 @@
       "RENEWAL_REQUIRED"
     ]
   },
-  "x-compatibility-exceptions": [
-    {
-      "method": "post",
-      "path": "/app/activities/sharing",
-      "status": "BROKEN",
-      "reason": "Flutter exposes explicit personal activity sharing, but the backend router has no matching endpoint or persistence contract. Do not upload personal activity records until a reviewed server-side sharing workflow exists."
-    }
-  ]
+  "x-compatibility-exceptions": []
 }

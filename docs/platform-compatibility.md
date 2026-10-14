@@ -16,7 +16,7 @@ The backend CI checks the current Flutter `main` client on every backend pull re
 
 The contract includes the mobile API client operations, including the shared `/classes` endpoints used for mobile class creation, QR roster management, attendance, grading, validation, and export, plus `/app/training-sheets` endpoints used for approval and RMS closeout. They invoke shared server services and database records; they are not separate mobile records.
 
-The contract also lists explicit compatibility exceptions. One confirmed exception remains: Flutter exposes an opt-in personal activity sharing call at `/app/activities/sharing`, but the backend has no matching route or persistence contract. The compatibility test reports this as `BROKEN`; personal activity sharing must not be treated as synchronized to the department until a privacy-reviewed backend workflow is implemented.
+The contract covers opt-in personal activity sharing at `/app/activities/sharing`. The backend accepts only records explicitly marked for sharing by the mobile client, replaces only that member’s mobile-shared activity set, records an audit entry, and leaves private local records outside the request.
 
 ## Verification boundaries
 
