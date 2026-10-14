@@ -205,11 +205,11 @@
         }
       },
       "get": {
-        "operationId": "listTrainingSheets",
-        "summary": "List department training sheets",
+        "operationId": "listClasses",
+        "summary": "List classes accessible to the authenticated instructor",
         "responses": {
           "200": {
-            "description": "Training sheets and canonical workflow states"
+            "description": "Department class list"
           }
         }
       }
@@ -387,6 +387,285 @@
             "description": "Department templates"
           }
         }
+      },
+      "post": {
+        "operationId": "createTrainingSheetTemplate",
+        "summary": "Create a department training sheet template",
+        "responses": {
+          "201": {
+            "description": "Created department template"
+          }
+        }
+      }
+    },
+    "/public/classes/{token}": {
+      "get": {
+        "operationId": "previewPublicClassRegistration",
+        "summary": "Read public class registration details",
+        "responses": {
+          "200": {
+            "description": "Public registration preview"
+          }
+        },
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/app/classes/register/{token}": {
+      "post": {
+        "operationId": "registerDepartmentMember",
+        "summary": "Register the authenticated member for a class",
+        "responses": {
+          "200": {
+            "description": "Registration result"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/auth/department-code": {
+      "post": {
+        "operationId": "validateDepartmentCode",
+        "summary": "Validate a department join code",
+        "responses": {
+          "200": {
+            "description": "Department join-code validation"
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/app-register": {
+      "post": {
+        "operationId": "registerAppMember",
+        "summary": "Register a mobile user",
+        "responses": {
+          "200": {
+            "description": "Registration and optional session result"
+          }
+        },
+        "security": []
+      }
+    },
+    "/join": {
+      "post": {
+        "operationId": "joinDepartment",
+        "summary": "Join a department using a validated code",
+        "responses": {
+          "200": {
+            "description": "Membership status"
+          }
+        }
+      }
+    },
+    "/app/skill-mastery": {
+      "get": {
+        "operationId": "getMySkillMastery",
+        "summary": "Read current member skill mastery",
+        "responses": {
+          "200": {
+            "description": "Server-derived skill mastery"
+          }
+        }
+      }
+    },
+    "/app/assignments/{id}/training-evidence": {
+      "get": {
+        "operationId": "getTrainingEvidence",
+        "summary": "Read eligible finalized training evidence for an assigned task book",
+        "responses": {
+          "200": {
+            "description": "Member-scoped training evidence"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      }
+    },
+    "/app/evaluators": {
+      "get": {
+        "operationId": "listEvaluators",
+        "summary": "List evaluators available to the member",
+        "responses": {
+          "200": {
+            "description": "Authorized evaluator choices"
+          }
+        }
+      }
+    },
+    "/app/certifications/sharing": {
+      "get": {
+        "operationId": "getCertificationSharing",
+        "summary": "Read explicit certification sharing state",
+        "responses": {
+          "200": {
+            "description": "Sharing settings and shared certifications"
+          }
+        }
+      },
+      "post": {
+        "operationId": "syncCertificationSharing",
+        "summary": "Synchronize only explicitly shared certifications",
+        "responses": {
+          "200": {
+            "description": "Updated sharing state"
+          }
+        }
+      }
+    },
+    "/app/inbox": {
+      "get": {
+        "operationId": "getInbox",
+        "summary": "Read the member department inbox",
+        "responses": {
+          "200": {
+            "description": "Department notifications"
+          }
+        }
+      }
+    },
+    "/app/inbox/{id}/read": {
+      "post": {
+        "operationId": "markInboxItemRead",
+        "summary": "Mark one department inbox item read",
+        "responses": {
+          "200": {
+            "description": "Read receipt"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      }
+    },
+    "/app/inbox/read-all": {
+      "post": {
+        "operationId": "markAllInboxItemsRead",
+        "summary": "Mark all department inbox items read",
+        "responses": {
+          "200": {
+            "description": "Read receipts"
+          }
+        }
+      }
+    },
+    "/app/push-devices": {
+      "post": {
+        "operationId": "registerPushDevice",
+        "summary": "Register an authenticated user push token",
+        "responses": {
+          "200": {
+            "description": "Registered push device"
+          }
+        }
+      }
+    },
+    "/app/push-devices/unregister": {
+      "post": {
+        "operationId": "unregisterPushDevice",
+        "summary": "Unregister an authenticated user push token",
+        "responses": {
+          "200": {
+            "description": "Unregistered push device"
+          }
+        }
+      }
+    },
+    "/training-sheet-templates/{id}/archive": {
+      "post": {
+        "operationId": "archiveTrainingSheetTemplate",
+        "summary": "Archive a training sheet template",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archived template"
+          }
+        }
+      }
+    },
+    "/department": {
+      "get": {
+        "operationId": "getDepartmentConfiguration",
+        "summary": "Read department training configuration",
+        "responses": {
+          "200": {
+            "description": "Department configuration"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateDepartmentConfiguration",
+        "summary": "Update allowed department configuration",
+        "responses": {
+          "200": {
+            "description": "Updated department configuration"
+          }
+        }
+      }
+    },
+    "/app/certifications": {
+      "get": {
+        "operationId": "getMyCredentials",
+        "summary": "Read authenticated member department credentials",
+        "responses": {
+          "200": {
+            "description": "Department credentials and verification status"
+          }
+        }
+      }
+    },
+    "/task-books": {
+      "get": {
+        "operationId": "listPublishedTaskBooks",
+        "summary": "List published task books",
+        "responses": {
+          "200": {
+            "description": "Published task books"
+          }
+        }
+      }
+    },
+    "/classes/{id}/assign-task-book": {
+      "post": {
+        "operationId": "assignTaskBookToClassRoster",
+        "summary": "Assign a task book to selected class roster members",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assignment result"
+          }
+        }
       }
     }
   },
@@ -449,5 +728,13 @@
       "RESTRICTED",
       "RENEWAL_REQUIRED"
     ]
-  }
+  },
+  "x-compatibility-exceptions": [
+    {
+      "method": "post",
+      "path": "/app/activities/sharing",
+      "status": "BROKEN",
+      "reason": "Flutter exposes explicit personal activity sharing, but the backend router has no matching endpoint or persistence contract. Do not upload personal activity records until a reviewed server-side sharing workflow exists."
+    }
+  ]
 }

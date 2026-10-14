@@ -14,7 +14,9 @@ npm run test:mobile-contract -- /path/to/Roadmap
 
 The backend CI checks the current Flutter `main` client on every backend pull request and main push. Flutter CI checks against the current backend `main` contract on every Flutter pull request and main push. Either change is blocked when an operation in the contract is missing from one of its consumers.
 
-The contract intentionally includes the existing shared `/classes` endpoints used for mobile class creation, QR roster management, attendance, grading, validation, and export, plus `/app/training-sheets` endpoints used for approval and RMS closeout. They invoke shared server services and database records; they are not separate mobile records.
+The contract includes the mobile API client operations, including the shared `/classes` endpoints used for mobile class creation, QR roster management, attendance, grading, validation, and export, plus `/app/training-sheets` endpoints used for approval and RMS closeout. They invoke shared server services and database records; they are not separate mobile records.
+
+The contract also lists explicit compatibility exceptions. One confirmed exception remains: Flutter exposes an opt-in personal activity sharing call at `/app/activities/sharing`, but the backend has no matching route or persistence contract. The compatibility test reports this as `BROKEN`; personal activity sharing must not be treated as synchronized to the department until a privacy-reviewed backend workflow is implemented.
 
 ## Verification boundaries
 

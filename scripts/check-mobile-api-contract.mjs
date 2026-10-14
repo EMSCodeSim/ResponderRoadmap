@@ -38,22 +38,40 @@ for (const match of requestSource.matchAll(requestPattern)) {
 // CSV exports use a direct request to preserve the text/csv response.
 mobileOperations.push({ method: "get", path: "classes/{classId}/export.csv" });
 
-const failures = [];
-let operationCount = 0;
+const declaredOperations = [];
 for (const [openApiPath, methods] of Object.entries(contract.paths)) {
   const expectedPath = normalizeTemplate(openApiPath.slice(1));
-  const backendPath = expectedPath.replace(/\{[^}]+\}/g, (part) => `:${part.slice(1, -1)}`);
   for (const method of Object.keys(methods).filter((key) => ["get", "post", "put", "patch", "delete"].includes(key))) {
-    operationCount += 1;
-    const quotedRoute = `"${backendPath}"`;
-    const routeIndex = router.indexOf(quotedRoute);
-    const routeWindow = routeIndex < 0 ? "" : router.slice(Math.max(0, routeIndex - 220), routeIndex + quotedRoute.length + 260);
-    if (!routeWindow.includes(`method === "${method.toUpperCase()}"`)) {
-      failures.push(`Backend route/method missing: ${method.toUpperCase()} /api/v1/${expectedPath}`);
-    }
-    if (!mobileOperations.some((operation) => operation.method === method && compatiblePath(expectedPath, operation.path))) {
-      failures.push(`Flutter client request missing: ${method.toUpperCase()} /api/v1/${expectedPath}`);
-    }
+    declaredOperations.push({ method, path: expectedPath });
+  }
+}
+
+const failures = [];
+let operationCount = 0;
+for (const { method, path: expectedPath } of declaredOperations) {
+  const backendPath = expectedPath.replace(/\{[^}]+\}/g, (part) => `:${part.slice(1, -1)}`);
+  operationCount += 1;
+  const quotedRoute = `"${backendPath}"`;
+  const routeIndex = router.indexOf(quotedRoute);
+  const routeWindow = routeIndex < 0 ? "" : router.slice(Math.max(0, routeIndex - 220), routeIndex + quotedRoute.length + 260);
+  if (!routeWindow.includes(`method === "${method.toUpperCase()}"`)) {
+    failures.push(`Backend route/method missing: ${method.toUpperCase()} /api/v1/${expectedPath}`);
+  }
+  if (!mobileOperations.some((operation) => operation.method === method && compatiblePath(expectedPath, operation.path))) {
+    failures.push(`Flutter client request missing: ${method.toUpperCase()} /api/v1/${expectedPath}`);
+  }
+}
+
+const exceptions = contract["x-compatibility-exceptions"] ?? [];
+for (const operation of mobileOperations) {
+  const declared = declaredOperations.some((expected) =>
+    expected.method === operation.method && compatiblePath(expected.path, operation.path),
+  );
+  const documented = exceptions.some((exception) =>
+    exception.method === operation.method && compatiblePath(normalizeTemplate(exception.path.slice(1)), operation.path),
+  );
+  if (!declared && !documented) {
+    failures.push(`Flutter client request is missing from the API contract: ${operation.method.toUpperCase()} /api/v1/${operation.path}`);
   }
 }
 
@@ -63,4 +81,7 @@ if (failures.length) {
   process.exitCode = 1;
 } else {
   console.log(`Mobile API contract v${contract.info.version} passed: ${operationCount} backend and Flutter operations verified.`);
+  for (const exception of exceptions) {
+    console.warn(`Known ${exception.status} compatibility exception: ${exception.method.toUpperCase()} ${exception.path} — ${exception.reason}`);
+  }
 }
