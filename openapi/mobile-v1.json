@@ -684,17 +684,6 @@
           }
         }
       }
-    },
-    "/app/work-queue": {
-      "get": {
-        "operationId": "getWorkQueue",
-        "summary": "Read the authenticated user’s canonical ordered work queue",
-        "responses": {
-          "200": {
-            "description": "Role-scoped action items, count, and next action"
-          }
-        }
-      }
     }
   },
   "components": {
@@ -757,5 +746,12 @@
       "RENEWAL_REQUIRED"
     ]
   },
-  "x-compatibility-exceptions": []
+  "x-compatibility-exceptions": [
+    {
+      "method": "get",
+      "path": "/app/work-queue",
+      "status": "staged rollout",
+      "reason": "The backend route is deployed first; remove this exception and declare the operation immediately after the Flutter client reaches main."
+    }
+  ]
 }
