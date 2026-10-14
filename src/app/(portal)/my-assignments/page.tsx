@@ -34,7 +34,7 @@ export default function MyAssignmentsPage() {
       <PageHeader kicker="Assignments" title="My Assignments" description="Complete assigned work and request evaluation when ready. Submitted work is not complete until approved." />
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
       {!rows && !error ? <p className="text-navy-500">Loading assignments…</p> : null}
-      {rows && rows.length === 0 ? <EmptyState title="No single tasks assigned" body="Any one-off tasks assigned by your Training Officer will appear here. Full Task Books are in the Task Books tab." /> : null}
+      {rows && rows.length === 0 ? <EmptyState title="No Assignments" body="Short-term and recurring work assigned by your Training Officer will appear here. Longer qualification goals remain in Task Books." /> : null}
       <div className="grid gap-3">
         {rows?.map((row) => (
           <Link key={row.id} href={`/my-task-books/${row.id}`}>

@@ -61,6 +61,7 @@ type QueueItem = {
   memberName: string;
   memberId: string;
   taskBookTitle: string;
+  assignmentKind: "TASK_BOOK" | "TRAINING_TASK";
   sectionTitle: string;
   requirementTitle: string;
   requirementDescription: string;
@@ -156,11 +157,12 @@ function AssignmentsInner() {
       api<Assignment[]>("assignments"),
       api<{ items: QueueItem[] } | QueueItem[]>("sign-offs?view=needs_me"),
       api<{ members: MemberOption[] }>("members"),
-      api<Array<{ id: string; title: string; status: string }>>("task-books"),
+      api<Array<{ id: string; title: string; status: string }>>("task-books?kind=ASSIGNMENT"),
       api<SessionInfo>("auth/me"),
     ]);
     setRows(assignmentRows.filter((row) => row.assignmentKind === "TRAINING_TASK"));
-    setQueue(Array.isArray(signOffs) ? signOffs : signOffs.items);
+    const reviewItems = Array.isArray(signOffs) ? signOffs : signOffs.items;
+    setQueue(reviewItems.filter((item) => item.assignmentKind === "TRAINING_TASK"));
     setMembers(memberPayload.members);
     setBooks(taskBooks.filter((book) => assignmentRows.some((row) => row.assignmentKind === "TRAINING_TASK" && row.templateId === book.id)));
     setSessionRole(session.role);
@@ -169,7 +171,6 @@ function AssignmentsInner() {
 
   useEffect(() => {
     load().catch((err) => setError(err.message)).finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -338,7 +339,7 @@ function AssignmentsInner() {
 
       {tab === "sign-off" ? (
         queue.length === 0 ? (
-          <EmptyState title="You're caught up" body="No Task Book requirements are waiting for your approval." />
+          <EmptyState title="You're caught up" body="No Assignment requirements are waiting for your approval." />
         ) : (
           <div className="grid gap-4 xl:grid-cols-[1fr_460px]">
             <Card>
@@ -347,7 +348,7 @@ function AssignmentsInner() {
                   <thead>
                     <tr>
                       <th>Member</th>
-                      <th>Task Book</th>
+                      <th>Assignment</th>
                       <th>Requirement</th>
                       <th>Stage</th>
                       <th>Submitted</th>
@@ -474,7 +475,7 @@ function AssignmentsInner() {
                         <span className="text-right font-semibold">{selected.memberName}</span>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <span className="text-navy-500">Task Book</span>
+                        <span className="text-navy-500">Assignment</span>
                         <span className="text-right font-semibold">{selected.taskBookTitle}</span>
                       </div>
                       <div className="flex justify-between gap-4">
@@ -580,8 +581,8 @@ function AssignmentsInner() {
               title={rows.length ? "No matching assignments" : "No assignments yet"}
               body={rows.length
                 ? "Clear or change the status filters to see assignments."
-                : "Assign a published Task Book to a member, rank, station, or shift."}
-              action={!rows.length && canAssign ? <Button onClick={() => setOpen(true)}>Assign Task Book</Button> : undefined}
+                : "Create a short-term or recurring Assignment for a member, rank, station, or shift."}
+              action={!rows.length && canAssign ? <Link href="/assignments/new"><Button>Create Assignment</Button></Link> : undefined}
             />
           ) : (
             <div className="table-wrap">
@@ -589,7 +590,7 @@ function AssignmentsInner() {
                 <thead>
                   <tr>
                     <th>Member</th>
-                    <th>Task Book</th>
+                    <th>Assignment</th>
                     <th>Progress</th>
                     <th>Pending approval</th>
                     <th>Due date</th>
@@ -603,7 +604,7 @@ function AssignmentsInner() {
                     <tr
                       key={row.id}
                       className="clickable"
-                      onClick={() => router.push(`/members/${row.memberId}?tab=task-books`)}
+                      onClick={() => router.push(`/assignments/${row.id}`)}
                     >
                       <td className="font-semibold">{row.memberName}</td>
                       <td>{row.taskBookTitle}</td>

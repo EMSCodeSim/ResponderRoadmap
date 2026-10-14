@@ -43,12 +43,19 @@ function mapRequirement(requirement: Record<string, unknown>) {
   return deserializeRequirement(requirement);
 }
 
-export async function listTaskBooks(ctx: AuthContext, query: { q?: string; category?: string; status?: string } = {}) {
+export function templateKindFilter(kind?: string) {
+  if (kind === "ASSIGNMENT") return "TRAINING_TASK";
+  if (kind === "ALL") return undefined;
+  return { not: "TRAINING_TASK" };
+}
+
+export async function listTaskBooks(ctx: AuthContext, query: { q?: string; category?: string; status?: string; kind?: string } = {}) {
   assertPermission(ctx, "taskbooks.read");
+  const templateKind = templateKindFilter(query.kind);
   const books = await prisma.taskBookTemplate.findMany({
     where: {
       departmentId: ctx.departmentId,
-      templateKind: { not: "TRAINING_TASK" },
+      ...(templateKind ? { templateKind } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.category ? { category: query.category } : {}),
     },
@@ -194,6 +201,7 @@ export async function duplicateTaskBook(ctx: AuthContext, templateId: string) {
     estimatedDurationDays: source.estimatedDurationDays,
     dueDateRule: source.dueDateRule,
     intendedPosition: source.intendedPosition,
+    templateKind: source.templateKind === "TRAINING_TASK" ? "TRAINING_TASK" : "DEPARTMENT",
     sections: working.sections.map((section, sIndex) => ({
       title: section.title,
       description: section.description,

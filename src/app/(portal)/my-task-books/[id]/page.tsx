@@ -24,6 +24,7 @@ type Detail = {
   id: string;
   memberName: string;
   taskBookTitle: string;
+  assignmentKind: "TASK_BOOK" | "TRAINING_TASK";
   version: string;
   description: string;
   progress: number;
@@ -163,13 +164,15 @@ export default function MyTaskBookDetailPage() {
     }
   }
 
-  if (!data) return <p className="text-navy-500">{error || "Loading Task Book…"}</p>;
+  if (!data) return <p className="text-navy-500">{error || "Loading training record…"}</p>;
+  const isAssignment = data.assignmentKind === "TRAINING_TASK";
+  const recordLabel = isAssignment ? "Assignment" : "Task Book";
   const nextTask = data.sections.flatMap((section) => section.requirements).find((req) => req.id === data.upNext[0]?.requirementId);
 
   return (
     <div>
       <PageHeader
-        kicker="My Task Book"
+        kicker={`My ${recordLabel}`}
         title={data.taskBookTitle}
         description={data.description}
         actions={
@@ -192,7 +195,7 @@ export default function MyTaskBookDetailPage() {
       {data.isComplete ? (
         <Card className="mb-6 border-ok p-6">
           <div className="kicker">Complete</div>
-          <h2 className="display text-4xl font-bold">Task Book complete</h2>
+          <h2 className="display text-4xl font-bold">{recordLabel} complete</h2>
           <p className="mt-2 text-navy-600">
             {data.memberName} finished {data.taskBookTitle} version {data.version}. This department record stays in history. Personal Career Road records stay with the member and are not shown to the department unless authorized.
           </p>
@@ -326,7 +329,7 @@ export default function MyTaskBookDetailPage() {
                         {(data.relatedEvidence || []).some((item) => item.requirementId === req.id) ? (
                           <div className="mt-4 rounded-md border border-navy-200 bg-navy-50 p-3">
                             <div className="font-semibold text-navy-900">Matching Training Sheet evidence</div>
-                            <p className="mt-1 text-xs text-navy-600">Only instructor-approved, finalized Training Sheet passes for this exact skill are shown. They do not automatically approve your Task Book.</p>
+                            <p className="mt-1 text-xs text-navy-600">Only instructor-approved, finalized Training Sheet passes for this exact skill are shown. They do not automatically approve this {recordLabel}.</p>
                             <ul className="mt-2 space-y-2">
                               {data.relatedEvidence.filter((item) => item.requirementId === req.id).map((item) => (
                                 <li key={item.id} className="rounded-md bg-white p-3 text-sm">
@@ -382,8 +385,8 @@ export default function MyTaskBookDetailPage() {
         ))}
       </div>
       <div className="mt-4">
-        <Link href="/my-task-books" className="text-sm font-semibold text-navy-600">
-          Back to my Task Books
+        <Link href={isAssignment ? "/my-assignments" : "/my-task-books"} className="text-sm font-semibold text-navy-600">
+          Back to my {isAssignment ? "Assignments" : "Task Books"}
         </Link>
       </div>
     </div>
