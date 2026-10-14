@@ -35,6 +35,19 @@ type WorkItem = {
   detail?: string;
 };
 
+type WorkQueueItem = {
+  id: string;
+  kind: "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
+  priority: "URGENT" | "HIGH" | "NORMAL";
+  title: string;
+  reason: string;
+  owner: string;
+  actionLabel: string;
+  href: string;
+};
+
+type WorkQueue = { items: WorkQueueItem[]; count: number };
+
 type InstructorClass = { id: string; title: string; startsAt: string; endsAt?: string | null; location?: string | null; status: string; rosterCount: number; presentCount: number; completeCount: number; href: string };
 
 type Dashboard = {
@@ -129,11 +142,17 @@ type MemberCredential = { id: string; credentialName: string; expirationDate: st
 
 export default function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
+  const [workQueue, setWorkQueue] = useState<WorkQueue | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setError(null);
-    setData(await api<Dashboard>("dashboard"));
+    const [dashboard, queue] = await Promise.all([
+      api<Dashboard>("dashboard"),
+      api<WorkQueue>("app/work-queue"),
+    ]);
+    setData(dashboard);
+    setWorkQueue(queue);
   }, []);
 
   useEffect(() => {
@@ -173,13 +192,14 @@ export default function DashboardPage() {
         }
       />
 
+      <CanonicalWorkQueue queue={workQueue} />
+
       {data.instructor ? (
         <InstructorHome data={data} />
       ) : data.personal ? (
         <MemberHome data={data} />
       ) : (
         <>
-          <OfficerToday data={data} onRefresh={loadDashboard} />
           <ActivationChecklist data={data} />
           <DepartmentReadinessSnapshot data={data} />
           <details className="mb-6 rounded-lg border border-navy-200 bg-white p-4">
@@ -220,16 +240,8 @@ function DepartmentReadinessSnapshot({ data }: { data: Dashboard }) {
   );
 }
 
-function OfficerToday({ data }: { data: Dashboard; onRefresh: () => Promise<void> }) {
-  const today = data.today;
-  const groups = [
-    { title: "Member approvals", count: today?.joinRequestTotal ?? 0, href: "/enrollment", description: "Membership requests waiting for approval" },
-    { title: "Evaluations", count: today?.signOffTotal ?? 0, href: "/inbox#needs-my-action", description: "Assigned reviews and sign-offs" },
-    { title: "Credentials", count: today?.certificateTotal ?? 0, href: "/certifications", description: "Expiring or missing credentials" },
-    { title: "Due soon", count: today?.dueSoonTotal ?? 0, href: "/assignments", description: "Upcoming assignment deadlines" },
-  ];
-  const activeGroups = groups.filter((group) => group.count > 0);
-  const total = activeGroups.reduce((sum, group) => sum + group.count, 0);
+function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
+  const items = queue?.items ?? [];
   return (
     <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
       <Card className="p-5">
@@ -237,24 +249,25 @@ function OfficerToday({ data }: { data: Dashboard; onRefresh: () => Promise<void
           <div>
             <div className="kicker">DO · Needs Attention</div>
             <h2 id="today-priorities-title" className="display mt-1 text-2xl font-bold">
-              {total ? `${total} items to follow up` : "Your department is caught up"}
+              {items.length ? `${items.length} ${items.length === 1 ? "item" : "items"} to follow up` : "You’re caught up"}
             </h2>
-            <p className="mt-1 text-sm text-navy-600">Only categories needing action are shown. Use Inbox for work assigned to you.</p>
+            <p className="mt-1 text-sm text-navy-600">The same role-aware action list is used by the mobile app and website.</p>
           </div>
-          <Link href="/inbox" className="text-sm font-semibold text-fire underline">Open my Inbox</Link>
+          {items.length ? <Badge tone={items.some((item) => item.priority === "URGENT") ? "danger" : "warn"}>{items.length} open</Badge> : <Badge tone="info">No action needed</Badge>}
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {activeGroups.map((group) => (
-            <Link key={group.title} href={group.href} className="rounded-lg border border-navy-200 p-4 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
+        {items.length ? <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {items.map((item, index) => (
+            <Link key={item.id} href={item.href} className={`rounded-lg border p-4 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire ${index === 0 ? "border-fire bg-red-50/40" : "border-navy-200"}`}>
               <div className="flex items-center justify-between gap-2">
-                <h3 className="font-bold text-navy-950">{group.title}</h3>
-                <span className="rounded-full bg-navy-100 px-2.5 py-1 text-sm font-bold">{group.count}</span>
+                <h3 className="font-bold text-navy-950">{item.title}</h3>
+                <Badge tone={item.priority === "URGENT" ? "danger" : item.priority === "HIGH" ? "warn" : "neutral"}>{item.priority.toLowerCase()}</Badge>
               </div>
-              <p className="mt-2 text-sm text-navy-600">{group.description}</p>
-              <span className="mt-3 inline-block text-sm font-semibold text-fire">View details →</span>
+              <p className="mt-2 text-sm text-navy-600">{item.reason}</p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-navy-500">Owner: {item.owner}</p>
+              <span className="mt-3 inline-block text-sm font-semibold text-fire">{item.actionLabel} →</span>
             </Link>
           ))}
-        </div>
+        </div> : <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">No assignments, evaluations, Training Sheets, or RMS entries currently require your action.</div>}
       </Card>
     </section>
   );

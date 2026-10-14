@@ -18,6 +18,8 @@ The contract includes the mobile API client operations, including the shared `/c
 
 The contract covers opt-in personal activity sharing at `/app/activities/sharing`. The backend accepts only records explicitly marked for sharing by the mobile client, replaces only that member’s mobile-shared activity set, records an audit entry, and leaves private local records outside the request.
 
+The role-aware `/app/work-queue` endpoint is the single source of truth for Needs Attention on the website and mobile department dashboard. It combines assignments requiring correction or nearing a deadline, evaluator sign-offs, incomplete Training Sheets, and approved training awaiting RMS entry. Each item includes its owner, reason, next action, priority, and destination so clients do not recreate workflow rules independently.
+
 ## Verification boundaries
 
 - CI database checks use disposable PostgreSQL and isolated demo schemas. They do not target production department records.

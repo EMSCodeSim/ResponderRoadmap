@@ -684,6 +684,17 @@
           }
         }
       }
+    },
+    "/app/work-queue": {
+      "get": {
+        "operationId": "getWorkQueue",
+        "summary": "Read the authenticated user’s canonical ordered work queue",
+        "responses": {
+          "200": {
+            "description": "Role-scoped action items, count, and next action"
+          }
+        }
+      }
     }
   },
   "components": {

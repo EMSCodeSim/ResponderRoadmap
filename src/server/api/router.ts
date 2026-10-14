@@ -20,6 +20,7 @@ import * as trainingExpectations from "@/server/services/training-expectations";
 import * as trainingSheetTemplates from "@/server/services/training-sheet-templates";
 import * as mobilePreferences from "@/server/services/mobile-preferences";
 import * as qualifications from "@/server/services/qualifications";
+import * as workQueue from "@/server/services/work-queue";
 import { activityText } from "@/lib/activity";
 import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
@@ -163,6 +164,9 @@ export async function handleApi(req: Request, path: string[]) {
     // the user's private, device-local Career Road data.
     if (method === "GET" && match(path, "app/assignments")) {
       return jsonOk(await memberApp.listMyAssignments(ctx));
+    }
+    if (method === "GET" && match(path, "app/work-queue")) {
+      return jsonOk(await workQueue.getWorkQueue(ctx));
     }
     if (method === "GET" && match(path, "app/skill-mastery")) {
       return jsonOk(await memberApp.listMySkillMastery(ctx));
