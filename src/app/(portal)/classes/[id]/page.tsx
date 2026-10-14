@@ -124,13 +124,13 @@ export default function ClassDetailPage() {
   const [groupSelection, setGroupSelection] = useState<string[]>([]);
   const [groupMessage, setGroupMessage] = useState("");
   const [groupSkillId, setGroupSkillId] = useState("");
+  const [groupDrafts, setGroupDrafts] = useState<Record<string, { result: "PASS" | "FAIL" | ""; notes: string }>>({});
   const [canAssignBooks, setCanAssignBooks] = useState(false);
   const [books, setBooks] = useState<TaskBookChoice[]>([]);
   const [linkedAssignments, setLinkedAssignments] = useState<LinkedAssignment[]>([]);
   const [assignBookId, setAssignBookId] = useState("");
   const [assignMemberIds, setAssignMemberIds] = useState<string[]>([]);
   const [assignMessage, setAssignMessage] = useState("");
-  const [showPendingOnly, setShowPendingOnly] = useState(true);
 
   async function load() {
     const row = await api<ClassDetail>(`classes/${params.id}`);
@@ -184,15 +184,27 @@ export default function ClassDetailPage() {
     }
   }
 
-  async function recordGroupMember(studentId: string, skillId: string, result: "PASS" | "NOT_EVALUATED") {
-    if (!detail || busy || detail.status === "COMPLETE") return;
+  async function submitGroupResults() {
+    if (!detail || busy || detail.status === "COMPLETE" || !groupSkillId) return;
+    const staged = Object.entries(groupDrafts)
+      .filter(([, value]) => value.result)
+      .map(([enrollmentId, value]) => ({ enrollmentId, result: value.result, notes: value.notes.trim() }));
+    if (!staged.length) {
+      setGroupMessage("Select an individual Pass or Fail result for at least one present student.");
+      return;
+    }
+    if (staged.some((item) => item.result === "FAIL" && !item.notes)) {
+      setGroupMessage("Add correction notes for every failed skill before submitting.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      setDetail(await api<ClassDetail>(`classes/${detail.id}/roster/${studentId}/skills/${skillId}`, {
-        method: "POST", body: JSON.stringify({ result, notes: "", numericScore: null }),
+      setDetail(await api<ClassDetail>(`classes/${detail.id}/skills/batch`, {
+        method: "POST", body: JSON.stringify({ requirementId: groupSkillId, results: staged }),
       }));
-      setGroupMessage("Individual skill result saved. Required instructor approval and RMS entry remain separate.");
+      setGroupDrafts({});
+      setGroupMessage(`${staged.length} individual result(s) saved together. Instructor approval and RMS entry remain separate.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to record this skill result.");
     } finally { setBusy(false); }
@@ -343,27 +355,31 @@ export default function ClassDetailPage() {
       {detail.sections.some((section) => section.skills.length > 0) && detail.status !== "COMPLETE" ? (
         <Card className="no-print mb-4 p-4">
           <h2 className="text-xl font-bold">Group skill recording</h2>
-          <p className="mt-1 text-sm text-navy-600">Choose one skill and record each member&apos;s observed result individually. Never mark a whole roster as passed.</p>
+          <p className="mt-1 text-sm text-navy-600">Choose one skill, record each present member&apos;s observed result, then save the selected results together. Each result is still recorded individually.</p>
           <label htmlFor="group-skill" className="mt-3 block text-sm font-semibold">Skill to evaluate</label>
-          <select id="group-skill" className="mt-1 min-h-12 w-full rounded-md border border-navy-200 bg-white p-3" value={groupSkillId} onChange={(e) => setGroupSkillId(e.target.value)}>
+          <select id="group-skill" className="mt-1 min-h-12 w-full rounded-md border border-navy-200 bg-white p-3" value={groupSkillId} onChange={(e) => { setGroupSkillId(e.target.value); setGroupDrafts({}); setGroupMessage(""); }}>
             <option value="">Choose a skill</option>
             {detail.sections.flatMap((section) => section.skills).map((skill) => <option key={skill.id} value={skill.id}>{skill.title}</option>)}
           </select>
           {groupSkillId ? <div className="mt-3 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-navy-50 p-3 text-sm">
-              <span className="font-semibold">{detail.roster.filter((member) => member.results.some((item) => item.requirementId === groupSkillId && item.result !== "NOT_EVALUATED")).length} / {detail.roster.length} recorded individually</span>
-              <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={showPendingOnly} onChange={(event) => setShowPendingOnly(event.target.checked)} /> Show only ungraded members</label>
+              <span className="font-semibold">{detail.roster.filter((member) => member.attendance === "PRESENT" && member.results.some((item) => item.requirementId === groupSkillId && item.result !== "NOT_EVALUATED")).length} / {detail.roster.filter((member) => member.attendance === "PRESENT").length} present students already recorded</span>
+              <span>{Object.values(groupDrafts).filter((item) => item.result).length} staged to save</span>
             </div>
-            {detail.roster.filter((member) => !showPendingOnly || !member.results.some((item) => item.requirementId === groupSkillId && item.result !== "NOT_EVALUATED")).map((member) => {
+            {detail.roster.filter((member) => member.attendance === "PRESENT").map((member) => {
               const prior = member.results.find((item) => item.requirementId === groupSkillId);
+              const draft = groupDrafts[member.id] || { result: "" as const, notes: "" };
               return <div key={member.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-navy-200 p-3">
-                <div><div className="font-semibold">{member.name}</div><div className="text-xs text-navy-600">{prior ? resultLabels[prior.result] || prior.result : "Not evaluated"}</div></div>
-                <div className="flex gap-2">
-                  <Button variant="success" disabled={busy || member.attendance !== "PRESENT"} onClick={() => void recordGroupMember(member.id, groupSkillId, "PASS")}>Pass</Button>
-                  <Button variant="secondary" disabled={busy} onClick={() => { setStudentId(member.id); setGroupMessage("Select remediation or failure with notes in the individual evaluator panel below."); }}>Details / other result</Button>
+                <div className="min-w-40"><div className="font-semibold">{member.name}</div><div className="text-xs text-navy-600">Saved: {prior ? resultLabels[prior.result] || prior.result : "Not evaluated"}</div></div>
+                <div className="grid min-w-48 flex-1 gap-2 sm:max-w-md sm:grid-cols-2">
+                  <Select aria-label={`${member.name} result`} value={draft.result} disabled={busy} onChange={(event) => setGroupDrafts((current) => ({ ...current, [member.id]: { ...draft, result: event.target.value as "PASS" | "FAIL" | "" } }))}>
+                    <option value="">Choose result</option><option value="PASS">Pass</option><option value="FAIL">Fail</option>
+                  </Select>
+                  {draft.result === "FAIL" ? <Input aria-label={`${member.name} correction notes`} placeholder="What must be corrected?" value={draft.notes} disabled={busy} onChange={(event) => setGroupDrafts((current) => ({ ...current, [member.id]: { ...draft, notes: event.target.value } }))} /> : null}
                 </div>
               </div>;
             })}
+            <Button disabled={busy || !Object.values(groupDrafts).some((item) => item.result)} onClick={() => void submitGroupResults()}>{busy ? "Saving…" : `Save ${Object.values(groupDrafts).filter((item) => item.result).length} results together`}</Button>
           </div> : null}
           {groupMessage ? <p role="status" aria-live="polite" className="mt-3 text-sm text-navy-700">{groupMessage}</p> : null}
         </Card>

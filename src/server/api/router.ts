@@ -269,6 +269,10 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "POST" && appRosterSkill) {
       return jsonOk(await classes.recordSkillResult(ctx, appRosterSkill.id, appRosterSkill.enrollmentId, appRosterSkill.requirementId, await readBody(req)));
     }
+    const appClassSkillsBatch = match(path, "app/training-sheets/:id/skills/batch");
+    if (method === "POST" && appClassSkillsBatch) {
+      return jsonOk(await classes.recordSkillResultsBatch(ctx, appClassSkillsBatch.id, await readBody(req)));
+    }
     if (method === "GET" && match(path, "app/training-sheet-templates")) return jsonOk(await trainingSheetTemplates.listTrainingSheetTemplates(ctx, false));
     if (method === "GET" && match(path, "app/training-sheets/my-attention")) return jsonOk(await classes.listInstructorTrainingAttention(ctx));
     if (method === "GET" && match(path, "app/training-sheets/rms-actions")) return jsonOk(await classes.listRmsActionQueue(ctx));
@@ -368,6 +372,10 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "POST" && classSkill) {
       const body = await readBody(req);
       return jsonOk(await classes.recordSkillResult(ctx, classSkill.id, classSkill.enrollmentId, classSkill.requirementId, body));
+    }
+    const classSkillsBatch = match(path, "classes/:id/skills/batch");
+    if (method === "POST" && classSkillsBatch) {
+      return jsonOk(await classes.recordSkillResultsBatch(ctx, classSkillsBatch.id, await readBody(req)));
     }
     const classCsvExport = match(path, "classes/:id/export.csv");
     if (method === "GET" && classCsvExport) {

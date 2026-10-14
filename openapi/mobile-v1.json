@@ -126,6 +126,22 @@
         }
       }
     },
+    "/app/training-sheets/{id}/skills/batch": {
+      "post": {
+        "operationId": "recordTrainingSheetSkillResultsBatch",
+        "summary": "Submit multiple individually observed skill results together",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated training sheet with each submitted student and skill result"
+          }
+        }
+      }
+    },
     "/app/training-sheets/my-attention": {
       "get": {
         "operationId": "listInstructorTrainingAttention",
