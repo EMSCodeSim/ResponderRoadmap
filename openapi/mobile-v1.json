@@ -746,5 +746,12 @@
       "RENEWAL_REQUIRED"
     ]
   },
-  "x-compatibility-exceptions": []
+  "x-compatibility-exceptions": [
+    {
+      "method": "get",
+      "path": "/app/work-queue",
+      "status": "staged rollout",
+      "reason": "The backend route is deployed first; remove this exception and declare the operation immediately after the Flutter client reaches main."
+    }
+  ]
 }
