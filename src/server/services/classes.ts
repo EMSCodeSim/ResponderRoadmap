@@ -673,6 +673,77 @@ export async function recordSkillResult(
   return getClass(ctx, classId);
 }
 
+/** Record individually selected results for one skill in a single class-roster submission. */
+export async function recordSkillResultsBatch(
+  ctx: AuthContext,
+  classId: string,
+  input: { requirementId?: string; results?: Array<{ enrollmentId?: string; requirementId?: string; result?: string; notes?: string }> },
+) {
+  assertPermission(ctx, "classes.proctor");
+  await assertApprovedEvaluator(ctx);
+  const classRow = await canAccessClass(ctx, classId, true);
+  if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED") {
+    throw new HttpError(409, "This class is closed for check-off.");
+  }
+  if (!classRow.checklistVersionId) throw new HttpError(400, "This training record does not use a skills checklist.");
+  const results = Array.isArray(input.results) ? input.results : [];
+  if (results.length < 1 || results.length > 200) throw new HttpError(400, "Submit between 1 and 200 individual results.");
+  const rows = results.map((item) => {
+    const enrollmentId = String(item.enrollmentId || "");
+    const requirementId = String(item.requirementId || input.requirementId || "");
+    const result = String(item.result || "").trim().toUpperCase();
+    const notes = String(item.notes || "").trim().slice(0, 4000);
+    if (!enrollmentId || !requirementId) throw new HttpError(400, "Each result needs a student and skill.");
+    if (!["PASS", "FAIL", "NEEDS_REMEDIATION"].includes(result)) throw new HttpError(400, "Choose a valid observed result for each selected skill.");
+    if ((result === "FAIL" || result === "NEEDS_REMEDIATION") && !notes) throw new HttpError(400, "Add correction notes for each failed or remediation result.");
+    return { enrollmentId, requirementId, result, notes };
+  });
+  const resultKeys = rows.map((item) => `${item.enrollmentId}:${item.requirementId}`);
+  if (new Set(resultKeys).size !== resultKeys.length) throw new HttpError(400, "A student and skill can appear only once in this submission.");
+  const enrollmentIds = [...new Set(rows.map((item) => item.enrollmentId))];
+  const requirementIds = [...new Set(rows.map((item) => item.requirementId))];
+  const requirements = await prisma.taskBookRequirement.findMany({
+    where: { id: { in: requirementIds }, section: { versionId: classRow.checklistVersionId } },
+    select: { id: true },
+  });
+  if (requirements.length !== requirementIds.length) throw new HttpError(404, "One or more skills are not part of this class checklist.");
+  const enrollments = await prisma.trainingClassEnrollment.findMany({
+    where: { id: { in: enrollmentIds }, classId },
+    select: { id: true, attendance: true },
+  });
+  if (enrollments.length !== enrollmentIds.length) throw new HttpError(404, "One or more students are not on this class roster.");
+  if (enrollments.some((item) => item.attendance !== "PRESENT")) {
+    throw new HttpError(400, "Confirm each selected student as present before recording skill results.");
+  }
+  await prisma.$transaction(rows.map((item) => prisma.trainingClassSkillResult.upsert({
+    where: { enrollmentId_requirementId: { enrollmentId: item.enrollmentId, requirementId: item.requirementId } },
+    create: {
+      enrollmentId: item.enrollmentId,
+      requirementId: item.requirementId,
+      result: item.result,
+      notes: item.notes,
+      evaluatorId: ctx.userId,
+    },
+    update: {
+      result: item.result,
+      notes: item.notes,
+      numericScore: null,
+      stepResultsJson: "[]",
+      evaluatorId: ctx.userId,
+      evaluatedAt: new Date(),
+    },
+  })));
+  await Promise.all([...new Set(enrollmentIds)].map((id) => recalculateEnrollment(id)));
+  await writeAudit(ctx, "class.skill_result.batch_recorded", "TrainingClass", classId, {
+    resultCount: rows.length,
+    passedCount: rows.filter((item) => item.result === "PASS").length,
+    failedCount: rows.filter((item) => item.result === "FAIL").length,
+    remediationCount: rows.filter((item) => item.result === "NEEDS_REMEDIATION").length,
+    results: rows.map(({ enrollmentId, requirementId, result }) => ({ enrollmentId, requirementId, result })),
+  });
+  return getClass(ctx, classId);
+}
+
 export async function updateEnrollment(
   ctx: AuthContext,
   classId: string,
