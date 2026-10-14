@@ -98,7 +98,7 @@ export default function AssignmentRecordPage() {
 
   return <div>
     <PageHeader
-      kicker={data.assignmentKind === "TRAINING_TASK" ? "Single assignment record" : "Task Book record"}
+      kicker={data.assignmentKind === "TRAINING_TASK" ? "Assignment record" : "Task Book record"}
       title={data.taskBookTitle}
       description={`${data.memberName} · Version ${data.version}`}
       actions={<>

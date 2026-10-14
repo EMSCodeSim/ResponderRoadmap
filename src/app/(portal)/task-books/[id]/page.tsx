@@ -91,6 +91,7 @@ type Book = {
   description: string;
   category: string;
   status: string;
+  templateKind?: string;
   intendedPosition?: string;
   estimatedDurationDays?: number | null;
   workingVersion: {
@@ -573,14 +574,18 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
     }
   }
 
-  if (!book) return <p className="text-navy-500">Loading Task Book…</p>;
+  if (!book) return <p className="text-navy-500">Loading record…</p>;
+  const isAssignment = book.templateKind === "TRAINING_TASK";
+  const recordLabel = isAssignment ? "Assignment" : "Task Book";
 
   return (
     <div>
       <PageHeader
-        kicker="Task Book builder"
-        title={title || "Untitled Task Book"}
-        description="Add skills, review the requirements, publish the Task Book, then assign members. Advanced settings are available when needed."
+        kicker={`${recordLabel} builder`}
+        title={title || `Untitled ${recordLabel}`}
+        description={isAssignment
+          ? "Build short-term or recurring work with the same requirements, evidence, evaluation, and approval workflow used by Task Books."
+          : "Add skills, review the requirements, publish the Task Book, then assign members. Advanced settings are available when needed."}
         actions={
           <>
             <details className="relative inline-block align-middle">
@@ -624,7 +629,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
         <Card className="mb-4 border-fire/30 bg-fire-soft/40 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="kicker text-fire">AI Task Book Review</div>
+              <div className="kicker text-fire">AI {recordLabel} Review</div>
               <h2 className="display mt-1 text-2xl font-bold text-navy-900">Review suggestions</h2>
             </div>
             <Button variant="ghost" onClick={() => setAiReviewText("")}>Close</Button>
@@ -641,14 +646,14 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
         ))}
       </div>
 
-      <nav aria-label="Task Book builder steps" className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-navy-200 bg-white p-3 text-sm font-semibold">
+      <nav aria-label={`${recordLabel} builder steps`} className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-navy-200 bg-white p-3 text-sm font-semibold">
         <a href="#book-requirements" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">1. Add & edit skills</a>
         {!draftLocked ? <button type="button" onClick={() => setReviewOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">2. Review & publish</button> : <span className="px-3 py-2 text-navy-500">2. Published</span>}
         {draftLocked && book.status === "ACTIVE" ? <button type="button" onClick={() => setAssignOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">3. Assign members</button> : <span className="rounded-md bg-navy-50 px-3 py-2 text-navy-500">3. Assign members after publishing</span>}
       </nav>
       <div className="grid gap-4 xl:grid-cols-[240px_1fr_340px]">
         <Card id="book-details" className="p-3">
-          <Field label="Task Book name">
+          <Field label={`${recordLabel} name`}>
             <Input value={title} onChange={(e) => { setTitle(e.target.value); markDirty(); }} disabled={draftLocked} />
           </Field>
           <div className="mt-3">
@@ -661,7 +666,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
             </Field>
           </div>
           <details className="mt-3 rounded-md border border-navy-200 p-3">
-            <summary className="cursor-pointer text-sm font-semibold text-navy-700">More Task Book details</summary>
+            <summary className="cursor-pointer text-sm font-semibold text-navy-700">More {recordLabel} details</summary>
             <div className="mt-3">
             <Field label="Intended position">
               <Input value={intendedPosition} onChange={(e) => { setIntendedPosition(e.target.value); markDirty(); }} disabled={draftLocked} />
@@ -1317,7 +1322,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
         ))}
       </Modal>
 
-      <Modal open={reviewOpen} title="Task Book review" onClose={() => setReviewOpen(false)} wide>
+      <Modal open={reviewOpen} title={`${recordLabel} review`} onClose={() => setReviewOpen(false)} wide>
         <p className="text-sm text-navy-500">
           {review.sectionCount} sections · {review.requirementCount} requirements
         </p>
@@ -1346,7 +1351,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
         </div>
       </Modal>
 
-      <Modal open={assignOpen} title="Assign Task Book" onClose={() => setAssignOpen(false)} wide>
+      <Modal open={assignOpen} title={`Assign ${recordLabel}`} onClose={() => setAssignOpen(false)} wide>
         <div className="grid max-h-64 gap-1 overflow-auto md:grid-cols-2">
           {members.map((member) => (
             <label key={member.id} className="flex items-center gap-2 text-sm">
@@ -1385,10 +1390,10 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
       </Modal>
 
       <div className="mt-4">
-        <Link href="/task-books" className="text-sm font-semibold text-navy-600" onClick={(event) => {
+        <Link href={isAssignment ? "/assignment-library" : "/task-books"} className="text-sm font-semibold text-navy-600" onClick={(event) => {
           if (dirty && !confirm("Leave without saving this draft?")) event.preventDefault();
         }}>
-          Back to library
+          Back to {isAssignment ? "Assignment Library" : "Task Book Library"}
         </Link>
       </div>
     </div>

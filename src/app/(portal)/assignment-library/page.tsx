@@ -23,8 +23,8 @@ export default function AssignmentLibraryPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api<Book[]>("task-books")
-      .then((rows) => setBooks(rows.filter((book) => book.templateKind === "TRAINING_TASK")))
+    api<Book[]>("task-books?kind=ASSIGNMENT")
+      .then(setBooks)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to load Assignment library."));
   }, []);
 
@@ -39,7 +39,7 @@ export default function AssignmentLibraryPage() {
       <PageHeader
         kicker="Assignment library"
         title="Assignments"
-        description="Create and reuse one-off training and skill assignments. The Library defines the work; Progress shows what happened after it was assigned."
+        description="Create and reuse short-term or recurring work. Assignments use the same requirements, evidence, evaluation, return, and approval workflow as Task Books."
         actions={<Link href="/assignments/new"><Button>Create Assignment</Button></Link>}
       />
       <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -49,7 +49,7 @@ export default function AssignmentLibraryPage() {
       {error ? <p role="alert" className="mb-4 text-sm text-danger">{error}</p> : null}
       {!books && !error ? <p className="text-navy-500">Loading library…</p> : null}
       {books && books.length === 0 ? (
-        <EmptyState title="Create your first Assignment" body="Build a reusable one-off drill, training activity, or skill evaluation, then assign it to members as needed." action={<Link href="/assignments/new"><Button>Create Assignment</Button></Link>} />
+        <EmptyState title="Create your first Assignment" body="Build a reusable drill, routine assignment, training activity, or skill evaluation, then assign it whenever needed." action={<Link href="/assignments/new"><Button>Create Assignment</Button></Link>} />
       ) : books && visible.length === 0 ? (
         <EmptyState title="No matching Assignments" body="Try another search." action={<Button variant="secondary" onClick={() => setQ("")}>Clear search</Button>} />
       ) : (
@@ -67,7 +67,7 @@ export default function AssignmentLibraryPage() {
               </div>
               <div className="mt-5 flex flex-wrap gap-2 border-t border-navy-100 pt-4">
                 <Link href={`/task-books/${book.id}`}><Button variant="secondary">Open / edit</Button></Link>
-                {book.status === "ACTIVE" ? <Link href={`/task-books/${book.id}`}><Button>Assign</Button></Link> : null}
+                {book.status === "ACTIVE" ? <Link href={`/task-books/${book.id}`}><Button>Assign Again</Button></Link> : null}
               </div>
             </Card>
           ))}

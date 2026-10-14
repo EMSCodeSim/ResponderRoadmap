@@ -44,6 +44,7 @@ type RecordPayload = {
   memberName: string;
   memberId: string;
   taskBookTitle: string;
+  assignmentKind: "TASK_BOOK" | "TRAINING_TASK";
   version: string | number;
   assignedDate: string;
   dueDate: string | null;
@@ -98,6 +99,7 @@ export default function PrintRecordPage() {
   if (!data) return <p className="p-8 text-navy-500">Loading official training record…</p>;
 
   const completed = data.status === "COMPLETE";
+  const recordLabel = data.assignmentKind === "TRAINING_TASK" ? "Assignment" : "Task Book";
 
   return (
     <div className="mx-auto max-w-4xl bg-white p-8 text-navy-900 print:max-w-none print:p-0">
@@ -108,7 +110,7 @@ export default function PrintRecordPage() {
       </div>
 
       <header className="border-b-2 border-navy-900 pb-4">
-        <div className="text-xs font-bold uppercase tracking-[0.16em] text-navy-500">Official task book record</div>
+        <div className="text-xs font-bold uppercase tracking-[0.16em] text-navy-500">Official {recordLabel.toLowerCase()} record</div>
         <h1 className="display mt-1 text-4xl font-bold">{data.department.name || "Department"}</h1>
         <p className="text-sm text-navy-600">{[data.department.city, data.department.state].filter(Boolean).join(", ")}</p>
         <p className="mt-2 text-xs text-navy-500">
@@ -118,7 +120,7 @@ export default function PrintRecordPage() {
 
       <section className="mt-6 grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
         <div><div className="kicker">Member</div><div className="font-semibold">{data.memberName}</div></div>
-        <div><div className="kicker">Task Book</div><div className="font-semibold">{data.taskBookTitle}</div></div>
+        <div><div className="kicker">{recordLabel}</div><div className="font-semibold">{data.taskBookTitle}</div></div>
         <div><div className="kicker">Issued Version</div><div className="font-semibold">{data.version}</div><div className="text-xs text-navy-500">{data.issuedVersionId}</div></div>
         <div><div className="kicker">Status</div><div className="font-semibold">{human(data.status)}</div></div>
         <div><div className="kicker">Assigned</div><div>{formatDate(data.assignedDate)}</div></div>
@@ -132,7 +134,7 @@ export default function PrintRecordPage() {
         <div className="font-semibold">{completed ? "Completion status: FINAL" : "Completion status: NOT FINAL"}</div>
         <p className="mt-1 text-navy-600">
           {completed
-            ? "All required items are approved according to the issued task-book version."
+            ? `All required items are approved according to the issued ${recordLabel.toLowerCase()} version.`
             : "This record is in progress. Submitted, returned, or partially approved items do not count as final completion."}
         </p>
       </section>
@@ -248,7 +250,7 @@ export default function PrintRecordPage() {
       <footer className="mt-8 border-t border-navy-200 pt-3 text-xs text-navy-500">
         Assignment record created {formatDateTime(data.recordCreatedAt)} · Last server update {formatDateTime(data.recordUpdatedAt)}
         <br />
-        Assignment ID {params.id} · Issued Task Book version ID {data.issuedVersionId}. Sign-off and attempt event IDs are included above for audit traceability.
+        Assignment ID {params.id} · Issued {recordLabel} version ID {data.issuedVersionId}. Sign-off and attempt event IDs are included above for audit traceability.
       </footer>
     </div>
   );

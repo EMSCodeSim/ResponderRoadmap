@@ -2,9 +2,9 @@ import { prisma } from "@/server/db";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, canOpenAssignmentRecord, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress, requirementIsComplete } from "@/lib/progress";
-import { computeUpNext, deserializeRequirement, evaluationPasses, nextApprovalLevel } from "@/lib/taskbook";
+import { computeUpNext, copyRequirementData, deserializeRequirement, evaluationPasses, nextApprovalLevel } from "@/lib/taskbook";
 import { reviewerSeparationConflict, reviewStageForRequirement } from "@/lib/signoff";
-import { parseJsonArray, type SignOffResult } from "@/lib/constants";
+import { bumpVersion, parseJsonArray, type SignOffResult } from "@/lib/constants";
 import type { Role } from "@/lib/constants";
 import { assignmentRecordPath } from "@/lib/routes";
 import { notifyUser } from "@/server/services/inbox";
@@ -140,6 +140,10 @@ export async function listAssignments(ctx: AuthContext) {
 
 const REVIEWER_ROLES = ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"];
 
+export function shouldStartNewAssignmentCycle(templateKind: string, existingForVersion: number) {
+  return templateKind === "TRAINING_TASK" && existingForVersion > 0;
+}
+
 async function validateReviewer(ctx: AuthContext, userId: string | null | undefined, label: string) {
   if (!userId) return null;
   const membership = await prisma.departmentMembership.findFirst({
@@ -189,9 +193,12 @@ export async function createAssignments(
   }
   if (!versionId) throw new HttpError(400, "Select a Task Book to assign.");
 
-  const version = await prisma.taskBookVersion.findFirst({
+  let version = await prisma.taskBookVersion.findFirst({
     where: { id: versionId, template: { departmentId: ctx.departmentId } },
-    include: { template: true },
+    include: {
+      template: true,
+      sections: { orderBy: { sortOrder: "asc" }, include: { requirements: { orderBy: { sortOrder: "asc" } } } },
+    },
   });
   if (!version) throw new HttpError(404, "Task Book version not found.");
   if (version.status !== "PUBLISHED") {
@@ -235,6 +242,93 @@ export async function createAssignments(
     include: { user: true },
   });
   if (members.length === 0) throw new HttpError(400, "No matching members to assign.");
+
+  const existingForVersion = await prisma.taskBookAssignment.count({
+    where: { versionId: version.id, membershipId: { in: members.map((member) => member.id) } },
+  });
+  if (shouldStartNewAssignmentCycle(version.template.templateKind, existingForVersion)) {
+    const latest = await prisma.taskBookVersion.findFirst({
+      where: { templateId: version.templateId },
+      orderBy: { createdAt: "desc" },
+      select: { version: true, status: true },
+    });
+    if (latest?.status === "DRAFT") {
+      throw new HttpError(409, "Publish the pending Assignment changes before assigning it again.");
+    }
+    const nextVersion = bumpVersion(latest?.version || version.version);
+    const source = version;
+    const createdVersion = await prisma.$transaction(async (tx) => {
+      await tx.taskBookVersion.updateMany({
+        where: { templateId: source.templateId, status: "PUBLISHED" },
+        data: { status: "SUPERSEDED" },
+      });
+      const created = await tx.taskBookVersion.create({
+        data: {
+          templateId: source.templateId,
+          version: nextVersion,
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+          publishedById: ctx.userId,
+          changelog: "New assignment cycle",
+          sections: {
+            create: source.sections.map((section) => ({
+              title: section.title,
+              description: section.description,
+              sortOrder: section.sortOrder,
+              requirements: {
+                create: section.requirements.map((requirement) =>
+                  copyRequirementData(requirement as unknown as Record<string, unknown>),
+                ),
+              },
+            })),
+          },
+        },
+        include: {
+          sections: { orderBy: { sortOrder: "asc" }, include: { requirements: { orderBy: { sortOrder: "asc" } } } },
+        },
+      });
+      const requirementIds = new Map<string, string>();
+      source.sections.forEach((section, sectionIndex) => {
+        section.requirements.forEach((requirement, requirementIndex) => {
+          const replacement = created.sections[sectionIndex]?.requirements[requirementIndex];
+          if (replacement) requirementIds.set(requirement.id, replacement.id);
+        });
+      });
+      for (let sectionIndex = 0; sectionIndex < source.sections.length; sectionIndex += 1) {
+        const sourceSection = source.sections[sectionIndex];
+        const createdSection = created.sections[sectionIndex];
+        for (let requirementIndex = 0; requirementIndex < sourceSection.requirements.length; requirementIndex += 1) {
+          const sourceRequirement = sourceSection.requirements[requirementIndex];
+          const createdRequirement = createdSection?.requirements[requirementIndex];
+          if (!createdRequirement) continue;
+          const prerequisites = parseJsonArray(sourceRequirement.prerequisitesJson)
+            .map((id) => requirementIds.get(id))
+            .filter((id): id is string => Boolean(id));
+          if (prerequisites.length) {
+            await tx.taskBookRequirement.update({
+              where: { id: createdRequirement.id },
+              data: { prerequisitesJson: JSON.stringify(prerequisites) },
+            });
+          }
+        }
+      }
+      return created;
+    });
+    const refreshedVersion = await prisma.taskBookVersion.findFirst({
+      where: { id: createdVersion.id },
+      include: {
+        template: true,
+        sections: { orderBy: { sortOrder: "asc" }, include: { requirements: { orderBy: { sortOrder: "asc" } } } },
+      },
+    });
+    if (!refreshedVersion) throw new HttpError(500, "Unable to prepare the next assignment cycle.");
+    version = refreshedVersion;
+    await writeAudit(ctx, "assignment.cycle_created", "TaskBookVersion", version.id, {
+      templateId: version.templateId,
+      version: version.version,
+      previousVersionId: source.id,
+    });
+  }
 
   const dueDate = input.dueDate ? new Date(input.dueDate) : null;
   if (dueDate && Number.isNaN(dueDate.getTime())) {
@@ -438,6 +532,7 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
       memberName: item.membership.user.name,
       memberId: item.membershipId,
       taskBookTitle: item.requirement.section.version.template.title,
+      assignmentKind: item.requirement.section.version.template.templateKind === "TRAINING_TASK" ? "TRAINING_TASK" : "TASK_BOOK",
       templateId: item.requirement.section.version.template.id,
       version: item.requirement.section.version.version,
       sectionTitle: item.requirement.section.title,
@@ -1202,7 +1297,7 @@ export async function getPrintRecord(ctx: AuthContext, assignmentId: string) {
 
   return {
     recordGeneratedAt: new Date(),
-    recordType: "OFFICIAL_TASK_BOOK_RECORD",
+    recordType: detail.assignmentKind === "TRAINING_TASK" ? "OFFICIAL_ASSIGNMENT_RECORD" : "OFFICIAL_TASK_BOOK_RECORD",
     department: {
       name: department?.name,
       city: department?.city,
