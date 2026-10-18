@@ -16,6 +16,7 @@ type SkillResult = {
   numericScore: number | null;
   evaluatorName: string;
   evaluatedAt: string;
+  updatedAt: string;
 };
 
 type Student = {
@@ -188,7 +189,14 @@ export default function ClassDetailPage() {
     if (!detail || busy || detail.status === "COMPLETE" || !groupSkillId) return;
     const staged = Object.entries(groupDrafts)
       .filter(([, value]) => value.result)
-      .map(([enrollmentId, value]) => ({ enrollmentId, result: value.result, notes: value.notes.trim() }));
+      .map(([enrollmentId, value]) => ({
+        enrollmentId,
+        result: value.result,
+        notes: value.notes.trim(),
+        expectedUpdatedAt: detail.roster
+          .find((member) => member.id === enrollmentId)
+          ?.results.find((entry) => entry.requirementId === groupSkillId)?.updatedAt ?? null,
+      }));
     if (!staged.length) {
       setGroupMessage("Select an individual Pass or Fail result for at least one present student.");
       return;
