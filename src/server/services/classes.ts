@@ -402,6 +402,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
         stepResults: parseJsonArray(result.stepResultsJson),
         evaluatorName: result.evaluator.name,
         evaluatedAt: result.evaluatedAt,
+        updatedAt: result.updatedAt,
       })),
     })),
   };
@@ -696,12 +697,7 @@ export async function recordSkillResultsBatch(
     if (!enrollmentId || !requirementId) throw new HttpError(400, "Each result needs a student and skill.");
     if (!["PASS", "FAIL", "NEEDS_REMEDIATION"].includes(result)) throw new HttpError(400, "Choose a valid observed result for each selected skill.");
     if ((result === "FAIL" || result === "NEEDS_REMEDIATION") && !notes) throw new HttpError(400, "Add correction notes for each failed or remediation result.");
-    const expectedUpdatedAt = item.expectedUpdatedAt;
-    if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null &&
-        (!Number.isFinite(Date.parse(expectedUpdatedAt)) || new Date(expectedUpdatedAt).toISOString() !== expectedUpdatedAt)) {
-      throw new HttpError(400, "Invalid expectedUpdatedAt revision timestamp.");
-    }
-    return { enrollmentId, requirementId, result, notes, expectedUpdatedAt };
+    return { enrollmentId, requirementId, result, notes };
   });
   const resultKeys = rows.map((item) => `${item.enrollmentId}:${item.requirementId}`);
   if (new Set(resultKeys).size !== resultKeys.length) throw new HttpError(400, "A student and skill can appear only once in this submission.");
@@ -720,44 +716,24 @@ export async function recordSkillResultsBatch(
   if (enrollments.some((item) => item.attendance !== "PRESENT")) {
     throw new HttpError(400, "Confirm each selected student as present before recording skill results.");
   }
-  // When a client supplies an observed revision, enforce it atomically in the
-  // same transaction as the other students. One conflict rejects the entire batch.
-  // Legacy callers without a revision remain compatible during migration.
-  await prisma.$transaction(async (tx) => {
-    for (const item of rows) {
-      const where = { enrollmentId_requirementId: { enrollmentId: item.enrollmentId, requirementId: item.requirementId } };
-      const update = {
-        result: item.result, notes: item.notes, numericScore: null,
-        stepResultsJson: "[]", evaluatorId: ctx.userId, evaluatedAt: new Date(),
-      };
-      if (item.expectedUpdatedAt !== undefined) {
-        const existing = await tx.trainingClassSkillResult.findUnique({
-          where, select: { id: true, updatedAt: true },
-        });
-        if (item.expectedUpdatedAt === null) {
-          if (existing) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
-          await tx.trainingClassSkillResult.create({
-            data: { enrollmentId: item.enrollmentId, requirementId: item.requirementId,
-              result: item.result, notes: item.notes, evaluatorId: ctx.userId },
-          });
-        } else {
-          if (!existing) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
-          const changed = await tx.trainingClassSkillResult.updateMany({
-            where: { id: existing.id, updatedAt: new Date(item.expectedUpdatedAt) },
-            data: update,
-          });
-          if (changed.count !== 1) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
-        }
-      } else {
-        await tx.trainingClassSkillResult.upsert({
-          where,
-          create: { enrollmentId: item.enrollmentId, requirementId: item.requirementId,
-            result: item.result, notes: item.notes, evaluatorId: ctx.userId },
-          update,
-        });
-      }
-    }
-  });
+  await prisma.$transaction(rows.map((item) => prisma.trainingClassSkillResult.upsert({
+    where: { enrollmentId_requirementId: { enrollmentId: item.enrollmentId, requirementId: item.requirementId } },
+    create: {
+      enrollmentId: item.enrollmentId,
+      requirementId: item.requirementId,
+      result: item.result,
+      notes: item.notes,
+      evaluatorId: ctx.userId,
+    },
+    update: {
+      result: item.result,
+      notes: item.notes,
+      numericScore: null,
+      stepResultsJson: "[]",
+      evaluatorId: ctx.userId,
+      evaluatedAt: new Date(),
+    },
+  })));
   await Promise.all([...new Set(enrollmentIds)].map((id) => recalculateEnrollment(id)));
   await writeAudit(ctx, "class.skill_result.batch_recorded", "TrainingClass", classId, {
     resultCount: rows.length,
