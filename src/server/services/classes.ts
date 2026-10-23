@@ -620,7 +620,7 @@ export async function recordSkillResult(
   classId: string,
   enrollmentId: string,
   requirementId: string,
-  input: { result?: string; notes?: string; stepResults?: unknown[]; numericScore?: number | null },
+  input: { result?: string; notes?: string; stepResults?: unknown[]; numericScore?: number | null; expectedUpdatedAt?: string | null },
 ) {
   assertPermission(ctx, "classes.proctor");
   await assertApprovedEvaluator(ctx);
@@ -643,26 +643,48 @@ export async function recordSkillResult(
   if (input.numericScore != null && (!Number.isFinite(input.numericScore) || input.numericScore < 0 || input.numericScore > 100)) {
     throw new HttpError(400, "Skill score must be between 0 and 100.");
   }
-  const recorded = await prisma.trainingClassSkillResult.upsert({
-    where: { enrollmentId_requirementId: { enrollmentId, requirementId } },
-    create: {
-      enrollmentId,
-      requirementId,
-      result,
-      notes: input.notes?.trim().slice(0, 4000) || "",
-      numericScore: input.numericScore ?? null,
-      stepResultsJson: JSON.stringify(Array.isArray(input.stepResults) ? input.stepResults : []),
-      evaluatorId: ctx.userId,
-    },
-    update: {
-      result,
-      notes: input.notes?.trim().slice(0, 4000) || "",
-      numericScore: input.numericScore ?? null,
-      stepResultsJson: JSON.stringify(Array.isArray(input.stepResults) ? input.stepResults : []),
-      evaluatorId: ctx.userId,
-      evaluatedAt: new Date(),
-    },
+  const where = { enrollmentId_requirementId: { enrollmentId, requirementId } };
+  const recordedData = {
+    result,
+    notes: input.notes?.trim().slice(0, 4000) || "",
+    numericScore: input.numericScore ?? null,
+    stepResultsJson: JSON.stringify(Array.isArray(input.stepResults) ? input.stepResults : []),
+    evaluatorId: ctx.userId,
+    evaluatedAt: new Date(),
+  };
+  const expectedUpdatedAt = input.expectedUpdatedAt;
+  if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null &&
+      (!Number.isFinite(Date.parse(expectedUpdatedAt)) || new Date(expectedUpdatedAt).toISOString() !== expectedUpdatedAt)) {
+    throw new HttpError(400, "Invalid expectedUpdatedAt revision timestamp.");
+  }
+  const existing = await prisma.trainingClassSkillResult.findUnique({
+    where,
+    select: { id: true, updatedAt: true },
   });
+  let recorded;
+  if (expectedUpdatedAt == null) {
+    if (existing) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+    try {
+      recorded = await prisma.trainingClassSkillResult.create({
+        data: { enrollmentId, requirementId, ...recordedData },
+      });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+        throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+      }
+      throw error;
+    }
+  } else {
+    if (!existing || existing.updatedAt.toISOString() !== expectedUpdatedAt) {
+      throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+    }
+    const changed = await prisma.trainingClassSkillResult.updateMany({
+      where: { id: existing.id, updatedAt: new Date(expectedUpdatedAt) },
+      data: recordedData,
+    });
+    if (changed.count !== 1) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+    recorded = await prisma.trainingClassSkillResult.findUniqueOrThrow({ where: { id: existing.id } });
+  }
   await recalculateEnrollment(enrollment.id);
   await writeAudit(ctx, "class.skill_result.recorded", "TrainingClassSkillResult", recorded.id, {
     classId,
