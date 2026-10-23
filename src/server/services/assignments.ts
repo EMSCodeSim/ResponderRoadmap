@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 13708)
-Total output lines: 1323
-
 import { prisma } from "@/server/db";
 import { writeActivity, writeAudit, HttpError } from "@/server/http";
 import { assertPermission, canOpenAssignmentRecord, type AuthContext } from "@/server/permissions";
@@ -585,7 +582,170 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
       supervisorName: item.assignment.supervisor?.name ?? null,
       assignedEvaluatorName: item.assignment.evaluator?.name ?? null,
       result: latestSigned?.result ?? latestAttempt?.result ?? item.status,
-      signedAt: latestSigned?.signedAt ?? latestAttempt?.signedAt ?? item.completedAt…1708 tokens truncated…valLevel(path, [...currentCycleSignOffs, { result: "APPROVED", approvalLevel: level }]);
+      signedAt: latestSigned?.signedAt ?? latestAttempt?.signedAt ?? item.completedAt,
+      signedByName: latestSigned?.evaluator.name ?? latestAttempt?.evaluator.name ?? null,
+      numericScore: latestAttempt?.numericScore ?? null,
+      dueDate: null as string | null,
+      history: item.signOffs.map((sign) => ({
+        id: sign.id,
+        result: sign.result,
+        notes: sign.notes,
+        signedAt: sign.signedAt,
+        evaluatorName: sign.evaluator.name,
+        approvalLevel: sign.approvalLevel || "EVALUATOR",
+      })),
+      attempts: item.attempts.map((attempt) => ({
+        id: attempt.id,
+        result: attempt.result,
+        comments: attempt.comments,
+        signedAt: attempt.signedAt,
+        repetitionIndex: attempt.repetitionIndex,
+        evaluatorName: attempt.evaluator.name,
+        stepResults: JSON.parse(attempt.stepResultsJson || "[]"),
+        criticalFailures: JSON.parse(attempt.criticalFailuresJson || "[]"),
+        numericScore: attempt.numericScore,
+      })),
+    };
+  });
+
+  const items = mapped
+    .filter((item) => evaluationAppearsInView(view, item.buckets as EvaluationWorkspaceView[]))
+    .sort((a, b) => {
+      if (view === "completed") {
+        const aTime = a.signedAt ? new Date(a.signedAt).getTime() : 0;
+        const bTime = b.signedAt ? new Date(b.signedAt).getTime() : 0;
+        return bTime - aTime;
+      }
+      if (view === "follow_up") return b.waitingHours - a.waitingHours;
+      return (a.submittedAt ? new Date(a.submittedAt).getTime() : 0) - (b.submittedAt ? new Date(b.submittedAt).getTime() : 0);
+    });
+
+  return {
+    view,
+    items,
+    counts: {
+      needsMe: counts.needs_me,
+      waiting: counts.waiting,
+      followUp: counts.follow_up,
+      completed: counts.completed,
+    },
+  };
+}
+
+export async function reviewSignOff(
+  ctx: AuthContext,
+  completionId: string,
+  input: {
+    result: SignOffResult | string;
+    notes?: string;
+    stepResults?: Array<{ id: string; rating: string }>;
+    criticalFailuresTriggered?: string[];
+    numericScore?: number | null;
+    approvalLevel?: string;
+    sameReviewerOverride?: boolean;
+    overrideReason?: string;
+  },
+) {
+  assertPermission(ctx, "signoff.review");
+  await assertApprovedEvaluator(ctx);
+  const completion = await prisma.requirementCompletion.findFirst({
+    where: { id: completionId, assignment: { departmentId: ctx.departmentId } },
+    include: {
+      assignment: true,
+      membership: { include: { user: true } },
+      requirement: { include: { section: { include: { version: { include: { template: true } } } } } },
+      signOffs: { orderBy: { signedAt: "asc" } },
+      attempts: true,
+    },
+  });
+  if (!completion) throw new HttpError(404, "Submission not found.");
+  if (completion.status !== "SUBMITTED") {
+    throw new HttpError(409, "This submission is no longer waiting for review. Refresh the queue before acting.");
+  }
+  if (input.numericScore != null && (!Number.isFinite(input.numericScore) || input.numericScore < 0 || input.numericScore > 100)) {
+    throw new HttpError(400, "Skill score must be between 0 and 100.");
+  }
+
+  const parsed = deserializeRequirement(completion.requirement as unknown as Record<string, unknown>);
+  const path = parsed.approvalPath;
+  const verdict = evaluationPasses({
+    result: input.result,
+    criticalFailuresTriggered: input.criticalFailuresTriggered,
+  });
+  if (verdict.result === "RETURNED" && !input.notes?.trim()) {
+    throw new HttpError(400, "Explain what the member must correct before returning this submission.");
+  }
+  // A returned submission starts a new approval cycle. Prior approvals remain in
+  // history, but must never satisfy the current cycle.
+  const currentCycleSignOffs = completion.signOffs.filter(
+    (signOff) => !completion.submittedAt || signOff.signedAt >= completion.submittedAt,
+  );
+  const expectedLevel = nextApprovalLevel(path, currentCycleSignOffs) || "EVALUATOR";
+  if (input.approvalLevel && input.approvalLevel !== expectedLevel) {
+    throw new HttpError(409, `The next required approval is ${expectedLevel.replaceAll("_", " ").toLowerCase()}. Refresh before acting.`);
+  }
+  const level = expectedLevel;
+  if (!roleCanSignLevel(ctx.role, level)) {
+    throw new HttpError(403, `Your role cannot sign the ${level.replaceAll("_", " ").toLowerCase()} level.`);
+  }
+  // Backend authorization must match workspace canAct rules. Training Officers may
+  // complete evaluator-stage work only when they are the assigned reviewer (or a
+  // configured supervisor stage). Follow-up / escalation never grants approval power.
+  const logicalStage = reviewStageForRequirement({
+    evaluatorSignOffRequired: completion.requirement.evaluatorSignOffRequired,
+    supervisorApprovalRequired: completion.requirement.supervisorApprovalRequired,
+    signOffs: completion.signOffs,
+    submittedAt: completion.submittedAt,
+  });
+  const assignedReviewerId = resolveAssignedReviewerId({
+    reviewStage: logicalStage,
+    requestedEvaluatorId: completion.requestedEvaluatorId,
+    assignmentEvaluatorId: completion.assignment.evaluatorId,
+    supervisorId: completion.assignment.supervisorId,
+  });
+  if (!evaluationIsActionableForViewer({
+    role: ctx.role,
+    userId: ctx.userId,
+    status: completion.status,
+    reviewStage: logicalStage,
+    assignedReviewerId,
+  })) {
+    throw new HttpError(
+      403,
+      logicalStage === "SUPERVISOR"
+        ? "This approval stage belongs to the assigned supervisor or training leadership required by the approval path."
+        : "Only the assigned or authorized evaluator for this stage can record the approval. Follow-up is not an approval stage.",
+    );
+  }
+  const sameReviewerConflict = reviewerSeparationConflict({
+    signOffs: completion.signOffs,
+    reviewerId: ctx.userId,
+    approvalLevel: level,
+    submittedAt: completion.submittedAt,
+  });
+  const overrideReason = input.overrideReason?.trim().slice(0, 500) || "";
+  const separationOverride = verdict.passed && sameReviewerConflict && input.sameReviewerOverride === true;
+  if (verdict.passed && sameReviewerConflict) {
+    if (ctx.role !== "DEPARTMENT_ADMINISTRATOR") {
+      throw new HttpError(409, "A different reviewer must complete the next approval stage.");
+    }
+    if (!separationOverride || !overrideReason) {
+      throw new HttpError(400, "Enter a reason to use the administrator same-reviewer override.");
+    }
+  }
+  const recordedNotes = [
+    input.notes?.trim(),
+    separationOverride ? `Administrator same-reviewer override: ${overrideReason}` : "",
+  ].filter(Boolean).join("\n\n");
+
+  const nextRepIndex = completion.attempts.length + 1;
+  let nextStatus = completion.status;
+  let repetitionCount = completion.repetitionCount;
+  let completedAt = completion.completedAt;
+  if (!verdict.passed) {
+    nextStatus = verdict.result === "NOT_EVALUATED" ? "SUBMITTED" : "RETURNED";
+  } else {
+    const remaining = nextApprovalLevel(path, [...currentCycleSignOffs, { result: "APPROVED", approvalLevel: level }]);
     if (remaining) {
       nextStatus = "SUBMITTED";
     } else {
