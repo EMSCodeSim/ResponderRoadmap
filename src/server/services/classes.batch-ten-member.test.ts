@@ -70,6 +70,26 @@ describe("ten-member Training Sheet atomic grading", () => {
     expect([...fixture.records.values()].every((record) => record.result === "PASS")).toBe(true);
   });
 
+  it("preserves mixed outcomes for each individual member", async () => {
+    const outcomes = ["PASS", "PASS", "FAIL", "PASS", "NEEDS_REMEDIATION", "PASS", "FAIL", "PASS", "PASS", "NEEDS_REMEDIATION"];
+    const mixed = {
+      requirementId: "skill-1",
+      results: students.map((enrollmentId, index) => ({
+        enrollmentId,
+        result: outcomes[index],
+        notes: outcomes[index] === "PASS" ? "" : `Member ${index + 1} requires follow-up`,
+        expectedUpdatedAt: null,
+      })),
+    };
+
+    await recordSkillResultsBatch(ctx, "class-1", mixed);
+
+    expect(fixture.records.size).toBe(10);
+    for (const [index, enrollmentId] of students.entries()) {
+      expect(fixture.records.get(`${enrollmentId}:skill-1`)?.result).toBe(outcomes[index]);
+    }
+  });
+
   it("rejects one stale member and rolls back the other nine", async () => {
     await recordSkillResultsBatch(ctx, "class-1", payload(null));
     fixture.records.set("member-6:skill-1", { id: "member-6:skill-1", result: "FAIL", notes: "Re-evaluated", updatedAt: new Date("2026-10-19T12:00:00.000Z") });
