@@ -402,6 +402,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
         stepResults: parseJsonArray(result.stepResultsJson),
         evaluatorName: result.evaluator.name,
         evaluatedAt: result.evaluatedAt,
+        updatedAt: result.updatedAt,
       })),
     })),
   };
@@ -749,11 +750,15 @@ export async function recordSkillResultsBatch(
           if (changed.count !== 1) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
         }
       } else {
-        await tx.trainingClassSkillResult.upsert({
-          where,
-          create: { enrollmentId: item.enrollmentId, requirementId: item.requirementId,
+        // Older clients cannot provide a revision. Permit first-time grading,
+        // but never allow an unversioned batch to replace recorded evidence.
+        const existing = await tx.trainingClassSkillResult.findUnique({
+          where, select: { id: true },
+        });
+        if (existing) throw new HttpError(409, "This skill already has an evaluation. Refresh and resubmit with its revision.");
+        await tx.trainingClassSkillResult.create({
+          data: { enrollmentId: item.enrollmentId, requirementId: item.requirementId,
             result: item.result, notes: item.notes, evaluatorId: ctx.userId },
-          update,
         });
       }
     }
