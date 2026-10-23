@@ -16,6 +16,7 @@ import {
   evaluationIsActionableForViewer,
   evaluationIsFollowUpOnly,
   isEvaluationOverdue,
+  evaluationTemplateKindFilter,
   normalizeEvaluationView,
   resolveAssignedReviewerId,
   resolveEvaluationEscalationHours,
@@ -414,7 +415,7 @@ function roleCanSignLevel(role: Role, level: string) {
   return false;
 }
 
-export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string } = {}) {
+export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string; kind?: string } = {}) {
   assertPermission(ctx, "signoff.review");
   await assertApprovedEvaluator(ctx);
   const view = normalizeEvaluationView(filter.view);
@@ -423,9 +424,11 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
     select: { evaluationEscalationHours: true },
   });
   const escalationHours = resolveEvaluationEscalationHours(department?.evaluationEscalationHours);
+  const templateKind = evaluationTemplateKindFilter(filter.kind);
   const completions = await prisma.requirementCompletion.findMany({
     where: {
       assignment: { departmentId: ctx.departmentId },
+      ...(templateKind ? { requirement: { section: { version: { template: { templateKind } } } } } : {}),
       OR: [
         { status: { in: ["SUBMITTED", "RETURNED", "APPROVED"] } },
         { signOffs: { some: { evaluatorId: ctx.userId } } },

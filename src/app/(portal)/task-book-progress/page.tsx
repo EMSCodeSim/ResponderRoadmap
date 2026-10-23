@@ -6,7 +6,7 @@ import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/dates";
 import { assignmentStatusLabel } from "@/lib/progress";
-import { Badge, Card, EmptyState, Input, PageHeader, ProgressBar, Select, assignmentTone } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Input, PageHeader, ProgressBar, Select, assignmentTone } from "@/components/ui";
 
 type Assignment = {
   id: string;
@@ -28,10 +28,14 @@ export default function TaskBookProgressPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [bookFilter, setBookFilter] = useState("ALL");
+  const [canReview, setCanReview] = useState(false);
 
   useEffect(() => {
-    api<Assignment[]>("assignments")
-      .then((items) => setRows(items.filter((item) => item.assignmentKind === "TASK_BOOK")))
+    Promise.all([api<Assignment[]>("assignments"), api<{ nav: string[] }>("auth/me")])
+      .then(([items, session]) => {
+        setRows(items.filter((item) => item.assignmentKind === "TASK_BOOK"));
+        setCanReview(session.nav.includes("evaluate"));
+      })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Unable to load progress."));
   }, []);
 
@@ -54,7 +58,7 @@ export default function TaskBookProgressPage() {
   return (
     <div>
       <WorkspaceTabs />
-      <PageHeader kicker="Task Books" title="Department progress" description="Choose a Task Book, see who needs attention, and open individual requirements or evaluations in one click." />
+      <PageHeader kicker="Task Books" title="Department progress" description="Choose a Task Book, see who needs attention, and open individual requirements or evaluations in one click." actions={canReview ? <Link href="/evaluate?kind=TASK_BOOK"><Button>Review submitted skills{summary.pending > 0 ? ` (${summary.pending})` : ""}</Button></Link> : undefined} />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: "Assigned", count: summary.assigned },
