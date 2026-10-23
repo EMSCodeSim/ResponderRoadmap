@@ -173,13 +173,19 @@ export default function ClassDetailPage() {
           result,
           notes,
           numericScore: (skillScores[skill.id] ?? "").trim() === "" ? null : Number(skillScores[skill.id]),
+          expectedUpdatedAt: results.get(skill.id)?.updatedAt ?? null,
         }),
       });
       setDetail(updated);
       setCorrection(null);
       setCorrectionNotes("");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to record result.");
+      if (err instanceof ApiError && err.status === 409) {
+        setError("This evaluation changed after you opened it. The latest record has been reloaded; review it before submitting again.");
+        await load();
+      } else {
+        setError(err instanceof ApiError ? err.message : "Unable to record result.");
+      }
     } finally {
       setBusy(false);
     }
