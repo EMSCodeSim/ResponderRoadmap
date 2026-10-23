@@ -90,6 +90,7 @@ function resultLabel(result: string | null | undefined) {
 function EvaluateInner() {
   const search = useSearchParams();
   const view = normalizeEvaluationView(search.get("view"));
+  const taskBookOnly = search.get("kind") === "TASK_BOOK";
   const focus = search.get("focus");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [searchText, setSearchText] = useState("");
@@ -116,7 +117,8 @@ function EvaluateInner() {
   const showActions = !!selected && selected.status === "SUBMITTED" && !!selected.canAct && !selected.readOnly && (view === "needs_me" || view === "follow_up");
 
   async function load() {
-    const payload = await api<SignOffQueueResponse | QueueItem[]>(`sign-offs?view=${view}`);
+    const kindQuery = taskBookOnly ? "&kind=TASK_BOOK" : "";
+    const payload = await api<SignOffQueueResponse | QueueItem[]>(`sign-offs?view=${view}${kindQuery}`);
     const rows = Array.isArray(payload) ? payload : payload.items;
     const nextCounts = Array.isArray(payload)
       ? { needsMe: view === "needs_me" ? rows.length : 0, waiting: 0, followUp: 0, completed: 0 }
@@ -129,7 +131,7 @@ function EvaluateInner() {
   useEffect(() => {
     load().catch((err) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, focus]);
+  }, [view, focus, taskBookOnly]);
 
   useEffect(() => {
     if (!selected) return;
@@ -226,15 +228,20 @@ function EvaluateInner() {
   return (
     <div>
       <PageHeader
-        kicker="Evaluate"
-        title="Evaluations"
-        description="Choose a submitted skill, review the evidence and criteria, then sign or return it."
+        kicker={taskBookOnly ? "Task Books" : "Evaluate"}
+        title={taskBookOnly ? "Task Book review queue" : "Evaluations"}
+        description={taskBookOnly ? "Review submitted requirements for department Task Books. Every member remains an individual approval decision." : "Choose a submitted skill, review the evidence and criteria, then sign or return it."}
       />
+      {taskBookOnly ? <div className="mb-4"><Link href="/task-book-progress" className="text-sm font-semibold text-fire underline">Back to Task Book progress</Link><span className="mx-2 text-navy-400">·</span><Link href="/evaluate" className="text-sm font-semibold text-fire underline">View all evaluations</Link></div> : null}
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((tab) => {
           const count = counts[tab.countKey];
           const active = view === tab.view;
-          const href = tab.view === "needs_me" ? "/evaluate" : `/evaluate?view=${tab.view}`;
+          const params = new URLSearchParams();
+          if (tab.view !== "needs_me") params.set("view", tab.view);
+          if (taskBookOnly) params.set("kind", "TASK_BOOK");
+          const query = params.toString();
+          const href = query ? `/evaluate?${query}` : "/evaluate";
           return (
             <Link
               key={tab.view}
