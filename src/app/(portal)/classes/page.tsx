@@ -153,7 +153,7 @@ export default function ClassesPage() {
     setSelectedTemplateId("");
     setShowAdvancedSetup(false);
     setTemplateCategory("");
-    setForm({ ...emptyForm, startsAt: quick ? localDateTimeNow() : "", selfRegistration: quick, proctorUserIds: currentUser ? [currentUser.userId] : [] });
+    setForm({ ...emptyForm, startsAt: localDateTimeNow(), selfRegistration: false, proctorUserIds: currentUser ? [currentUser.userId] : [] });
     setOpen(true);
   }
 
@@ -162,7 +162,7 @@ export default function ClassesPage() {
     const template = templates.find((item) => item.id === id);
     if (!template) return;
     setTemplateCategory(template.trainingCategory);
-    setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
+    setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 
   const visibleRows = useMemo(() => rows.filter((row) => {
@@ -240,7 +240,7 @@ export default function ClassesPage() {
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
-          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Phone / field mode</div><p className="mt-1 text-sm text-navy-600">Choose a template, confirm the details and optional grading checklist, then create the sheet. QR sign-in starts enabled; department-required fields still apply.</p></div> : null}
+          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Add → Training Sheet</div><p className="mt-1 text-sm text-navy-600">Choose a template, title, date and optional checklist. Add a roster or enable QR sign-in. Record skills during class; finish times, narrative and RMS documentation afterward.</p></div> : null}
           {showAdvancedSetup ? <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
             <input type="checkbox" checked={emsCeMode} onChange={(event) => {
               setEmsCeMode(event.target.checked);
@@ -268,12 +268,12 @@ export default function ClassesPage() {
             <Field label="Training objectives"><TextArea rows={4} value={emsObjectives} onChange={(event) => setEmsObjectives(event.target.value)} placeholder="By the end of this class, participants will be able to…" /></Field>
           </section> : null}
           <section className="rounded-lg border border-navy-200 p-4 space-y-3">
-            <h3 className="font-bold">1. Select training category and template</h3>
+            <h3 className="font-bold">1. Choose Fire, EMS, HazMat or another template</h3>
             <Field label="Training category"><Select value={templateCategory} onChange={(event) => { setTemplateCategory(event.target.value); setSelectedTemplateId(""); setForm((current) => ({ ...current, trainingCategory: event.target.value || "COMPANY", checklistVersionId: "" })); }}>
-              <option value="">All training categories</option>
+              <option value="">Choose a training category</option>
               <option value="EMS">EMS</option><option value="COMPANY">Fire / company</option><option value="HAZMAT">HazMat</option><option value="DRIVER">Driver Operator</option><option value="FACILITY">Facility</option><option value="OFFICER">Officer</option><option value="OTHER">Other</option>
             </Select></Field>
-            <Field label="Department training template"><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Blank training sheet</option>{templates.filter((item) => !templateCategory || item.trainingCategory === templateCategory).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+            <Field label="Department training template"><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Blank sheet (use selected category)</option>{templates.filter((item) => !templateCategory || item.trainingCategory === templateCategory).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
             <p className="text-xs text-navy-600">Templates prefill class details, skills checklist and any custom student results. You can add students now or let them scan the QR code after creation.</p>
           </section>
           <button type="button" className="w-full rounded-lg border border-navy-200 p-3 text-left text-sm font-semibold" onClick={() => setShowAdvancedSetup((value) => !value)}>{showAdvancedSetup ? "− Hide" : "+ Show"} advanced setup (codes, hours, proctors and objectives)</button>
@@ -309,15 +309,16 @@ export default function ClassesPage() {
               </Select>
             </Field>}
             {showAdvancedSetup ? <Field label={`Location${req("LOCATION") ? " *" : ""}`}><Input required={req("LOCATION")} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field> : null}
-            <Field label="Starts"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
+            <Field label="Training date and start time"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
             {showAdvancedSetup || req("END_TIME") ? <Field label={`Ends${req("END_TIME") ? " *" : ""}`}><Input required={req("END_TIME")} type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field> : null}
           </div>
           {showAdvancedSetup || req("DESCRIPTION") ? <Field label={`Training description / notes${req("DESCRIPTION") ? " *" : ""}`} hint="Use this for topic, objectives, drill description, or information that would normally appear on the paper training sheet.">
             <TextArea required={req("DESCRIPTION")} rows={4} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Topic, objectives, skills covered, instructor notes…" />
           </Field> : null}
+          <h3 className="font-bold">2. Add participants</h3>
           <label className="flex min-h-12 items-center gap-3 rounded-lg border border-fire/30 bg-fire-soft p-4 text-sm font-semibold">
             <input type="checkbox" checked={form.selfRegistration} onChange={(event) => setForm({ ...form, selfRegistration: event.target.checked })} />
-            Allow QR student registration (the class may start with an empty roster)
+            Enable QR sign-in (print or display QR from the sheet after creation)
           </label>
           <div className={`grid gap-5 ${quickMode ? "" : "md:grid-cols-2"}`}>
             <Field label={`Roster (${form.membershipIds.length})`} hint={form.selfRegistration ? "Optional: pre-add department members." : "Select students or enable QR registration."}>
@@ -341,6 +342,7 @@ export default function ClassesPage() {
               </div>
             </Field> : null}
           </div>
+          <p className="text-sm text-navy-600">After creation: teach, take attendance and evaluate skills. Finish documentation and explicitly mark Entered into RMS to clear Needs Attention.</p>
           <Button type="submit" className={quickMode ? "w-full min-h-12" : undefined} disabled={busy}>{busy ? "Creating…" : "Create training sheet"}</Button>
         </form>
       </Modal>
