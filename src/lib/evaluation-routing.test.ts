@@ -5,6 +5,7 @@ import {
   describeEvaluationOwnership,
   evaluationIsActionableForViewer,
   evaluationIsFollowUpOnly,
+  evaluationTemplateKindFilter,
   isEvaluationOverdue,
   normalizeEvaluationView,
   resolveEvaluationEscalationHours,
@@ -342,5 +343,15 @@ describe("evaluation workspace views", () => {
       hasViewerSignOff: false,
       now,
     })).toEqual(["needs_me"]);
+  });
+});
+
+describe("evaluation workflow filter", () => {
+  it("keeps Task Books separate from standalone training assignments", () => {
+    expect(evaluationTemplateKindFilter("TASK_BOOK")).toEqual({ not: "TRAINING_TASK" });
+    expect(evaluationTemplateKindFilter(" task_book ")).toEqual({ not: "TRAINING_TASK" });
+    expect(evaluationTemplateKindFilter("TRAINING_TASK")).toBe("TRAINING_TASK");
+    expect(evaluationTemplateKindFilter(undefined)).toBeUndefined();
+    expect(evaluationTemplateKindFilter("unknown")).toBeUndefined();
   });
 });
