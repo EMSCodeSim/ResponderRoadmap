@@ -167,7 +167,7 @@ export default function ClassesPage() {
 
   const visibleRows = useMemo(() => rows.filter((row) => {
     const matchesSearch = [row.title, row.location, row.trainingCategory, row.classType].some((value) => value.toLowerCase().includes(search.trim().toLowerCase()));
-    const matchesStatus = sheetFilter === "all" || (sheetFilter === "approved" && Boolean(row.instructorApprovedAt)) || (sheetFilter === "complete" && row.status === "COMPLETE") || (sheetFilter === "pending" && row.status !== "COMPLETE") || (sheetFilter === "rms-entered" && row.rmsStatus === "RMS_ENTERED") || (sheetFilter === "rms-needed" && row.rmsStatus === "ACTIONS_NEEDED");
+    const matchesStatus = sheetFilter === "all" || (sheetFilter === "approved" && Boolean(row.instructorApprovedAt)) || (sheetFilter === "complete" && row.status === "COMPLETE") || (sheetFilter === "pending" && row.status !== "COMPLETE") || (sheetFilter === "rms-entered" && row.rmsStatus === "RMS_ENTERED") || (sheetFilter === "rms-needed" && row.rmsStatus !== "RMS_ENTERED" && row.status !== "CANCELLED");
     return matchesSearch && matchesStatus;
   }).sort((a, b) => sort === "oldest" ? new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime() : new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime()), [rows, search, sort, sheetFilter]);
 
