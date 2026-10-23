@@ -2,6 +2,16 @@ export const DEFAULT_EVALUATION_ESCALATION_HOURS = 7 * 24;
 
 export type EvaluationWorkspaceView = "needs_me" | "waiting" | "follow_up" | "completed";
 
+export type EvaluationTemplateKindFilter = "TRAINING_TASK" | { not: "TRAINING_TASK" } | undefined;
+
+/** Keep the evaluator queue scoped to the selected workflow when requested. */
+export function evaluationTemplateKindFilter(kind?: string | null): EvaluationTemplateKindFilter {
+  const value = kind?.trim().toUpperCase();
+  if (value === "TASK_BOOK") return { not: "TRAINING_TASK" };
+  if (value === "TRAINING_TASK") return "TRAINING_TASK";
+  return undefined;
+}
+
 export type EvaluationOwnership = {
   nextAction: string;
   owner: string;
