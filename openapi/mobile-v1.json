@@ -164,6 +164,19 @@
         }
       }
     },
+    "/app/training-sheets/{id}/documentation": {
+      "patch": {
+        "operationId": "updateTrainingSheetDocumentation",
+        "summary": "Save actual training times, narrative and RMS documentation before instructor approval",
+        "parameters": [
+          { "$ref": "#/components/parameters/id" }
+        ],
+        "responses": {
+          "200": { "description": "Updated draft or active Training Sheet" },
+          "409": { "description": "Closed Training Sheet cannot be modified" }
+        }
+      }
+    },
     "/app/training-sheets/{id}/approve": {
       "post": {
         "operationId": "approveTrainingSheet",
