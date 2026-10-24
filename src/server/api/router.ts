@@ -278,6 +278,8 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && match(path, "app/training-sheets/rms-actions")) return jsonOk(await classes.listRmsActionQueue(ctx));
     const appTrainingSheet = match(path, "app/training-sheets/:id");
     if (method === "GET" && appTrainingSheet) return jsonOk(await classes.getClass(ctx, appTrainingSheet.id));
+    const appTrainingDocumentation = match(path, "app/training-sheets/:id/documentation");
+    if (method === "PATCH" && appTrainingDocumentation) return jsonOk(await classes.updateClassDocumentation(ctx, appTrainingDocumentation.id, await readBody(req)));
     const appTrainingApprove = match(path, "app/training-sheets/:id/approve");
     if (method === "POST" && appTrainingApprove) return jsonOk(await classes.approveTrainingSheet(ctx, appTrainingApprove.id));
     const appTrainingRms = match(path, "app/training-sheets/:id/rms-entered");
@@ -358,6 +360,12 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && classCloseValidation) {
       return jsonOk(await classes.validateClassClosure(ctx, classCloseValidation.id));
     }
+    const classDocumentation = match(path, "classes/:id/documentation");
+    if (method === "PATCH" && classDocumentation) return jsonOk(await classes.updateClassDocumentation(ctx, classDocumentation.id, await readBody(req)));
+    const classApprove = match(path, "classes/:id/approve");
+    if (method === "POST" && classApprove) return jsonOk(await classes.approveTrainingSheet(ctx, classApprove.id));
+    const classRmsEntered = match(path, "classes/:id/rms-entered");
+    if (method === "POST" && classRmsEntered) return jsonOk(await classes.markClassEnteredIntoRms(ctx, classRmsEntered.id, await readBody(req)));
     const classStatus = match(path, "classes/:id/status");
     if (method === "POST" && classStatus) {
       const body = await readBody(req);

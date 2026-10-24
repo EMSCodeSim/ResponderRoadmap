@@ -190,8 +190,6 @@ export async function createClass(
   assertPermission(ctx, "classes.write");
   const title = input.title?.trim().slice(0, 180) || "";
   if (!title) throw new HttpError(400, "Class title is required.");
-  const department = await prisma.department.findUniqueOrThrow({ where: { id: ctx.departmentId }, select: { trainingSheetRequiredFieldsJson: true } });
-  const requiredFields = new Set(parseJsonArray(department.trainingSheetRequiredFieldsJson).map((item) => String(item).toUpperCase()));
   const classType = input.classType?.trim().toUpperCase() || "GENERAL";
   if (!CLASS_TYPE_VALUES.has(classType)) throw new HttpError(400, "Invalid class type.");
   const trainingCategory = input.trainingCategory?.trim().toUpperCase() || "COMPANY";
@@ -220,10 +218,8 @@ export async function createClass(
   });
   if (validMembers.length !== memberIds.length) throw new HttpError(400, "One or more roster members are invalid.");
   if (validProctors.length !== proctorIds.length) throw new HttpError(400, "One or more proctors are invalid.");
-  if (requiredFields.has("LOCATION") && !input.location?.trim()) throw new HttpError(400, "Location is required by your department RMS training-sheet settings.");
-  if (requiredFields.has("DESCRIPTION") && !input.notes?.trim()) throw new HttpError(400, "Training description / notes are required by your department RMS training-sheet settings.");
-  if (requiredFields.has("HOURS") && !(creditHours > 0 || (input.startsAt && input.endsAt))) throw new HttpError(400, "Credit hours or both start and end times are required by your department RMS training-sheet settings.");
-  if (requiredFields.has("END_TIME") && !input.endsAt) throw new HttpError(400, "End time is required by your department RMS training-sheet settings.");
+  // Department RMS fields are verified at instructor closeout, not at class creation.
+  // Instructors must be able to start a training sheet before teaching has finished.
   const startsAt = parseDate(input.startsAt, "Start date", true)!;
   const endsAt = parseDate(input.endsAt, "End date");
   if (endsAt && endsAt < startsAt) throw new HttpError(400, "End date cannot be before the start date.");
@@ -402,6 +398,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
         stepResults: parseJsonArray(result.stepResultsJson),
         evaluatorName: result.evaluator.name,
         evaluatedAt: result.evaluatedAt,
+        updatedAt: result.updatedAt,
       })),
     })),
   };
@@ -677,7 +674,7 @@ export async function recordSkillResult(
 export async function recordSkillResultsBatch(
   ctx: AuthContext,
   classId: string,
-  input: { requirementId?: string; results?: Array<{ enrollmentId?: string; requirementId?: string; result?: string; notes?: string }> },
+  input: { requirementId?: string; results?: Array<{ enrollmentId?: string; requirementId?: string; result?: string; notes?: string; expectedUpdatedAt?: string | null }> },
 ) {
   assertPermission(ctx, "classes.proctor");
   await assertApprovedEvaluator(ctx);
@@ -696,7 +693,12 @@ export async function recordSkillResultsBatch(
     if (!enrollmentId || !requirementId) throw new HttpError(400, "Each result needs a student and skill.");
     if (!["PASS", "FAIL", "NEEDS_REMEDIATION"].includes(result)) throw new HttpError(400, "Choose a valid observed result for each selected skill.");
     if ((result === "FAIL" || result === "NEEDS_REMEDIATION") && !notes) throw new HttpError(400, "Add correction notes for each failed or remediation result.");
-    return { enrollmentId, requirementId, result, notes };
+    const expectedUpdatedAt = item.expectedUpdatedAt;
+    if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null &&
+        (!Number.isFinite(Date.parse(expectedUpdatedAt)) || new Date(expectedUpdatedAt).toISOString() !== expectedUpdatedAt)) {
+      throw new HttpError(400, "Invalid expectedUpdatedAt revision timestamp.");
+    }
+    return { enrollmentId, requirementId, result, notes, expectedUpdatedAt };
   });
   const resultKeys = rows.map((item) => `${item.enrollmentId}:${item.requirementId}`);
   if (new Set(resultKeys).size !== resultKeys.length) throw new HttpError(400, "A student and skill can appear only once in this submission.");
@@ -715,24 +717,48 @@ export async function recordSkillResultsBatch(
   if (enrollments.some((item) => item.attendance !== "PRESENT")) {
     throw new HttpError(400, "Confirm each selected student as present before recording skill results.");
   }
-  await prisma.$transaction(rows.map((item) => prisma.trainingClassSkillResult.upsert({
-    where: { enrollmentId_requirementId: { enrollmentId: item.enrollmentId, requirementId: item.requirementId } },
-    create: {
-      enrollmentId: item.enrollmentId,
-      requirementId: item.requirementId,
-      result: item.result,
-      notes: item.notes,
-      evaluatorId: ctx.userId,
-    },
-    update: {
-      result: item.result,
-      notes: item.notes,
-      numericScore: null,
-      stepResultsJson: "[]",
-      evaluatorId: ctx.userId,
-      evaluatedAt: new Date(),
-    },
-  })));
+  // When a client supplies an observed revision, enforce it atomically in the
+  // same transaction as the other students. One conflict rejects the entire batch.
+  // Legacy callers without a revision remain compatible during migration.
+  await prisma.$transaction(async (tx) => {
+    for (const item of rows) {
+      const where = { enrollmentId_requirementId: { enrollmentId: item.enrollmentId, requirementId: item.requirementId } };
+      const update = {
+        result: item.result, notes: item.notes, numericScore: null,
+        stepResultsJson: "[]", evaluatorId: ctx.userId, evaluatedAt: new Date(),
+      };
+      if (item.expectedUpdatedAt !== undefined) {
+        const existing = await tx.trainingClassSkillResult.findUnique({
+          where, select: { id: true, updatedAt: true },
+        });
+        if (item.expectedUpdatedAt === null) {
+          if (existing) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+          await tx.trainingClassSkillResult.create({
+            data: { enrollmentId: item.enrollmentId, requirementId: item.requirementId,
+              result: item.result, notes: item.notes, evaluatorId: ctx.userId },
+          });
+        } else {
+          if (!existing) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+          const changed = await tx.trainingClassSkillResult.updateMany({
+            where: { id: existing.id, updatedAt: new Date(item.expectedUpdatedAt) },
+            data: update,
+          });
+          if (changed.count !== 1) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+        }
+      } else {
+        // Older clients cannot provide a revision. Permit first-time grading,
+        // but never allow an unversioned batch to replace recorded evidence.
+        const existing = await tx.trainingClassSkillResult.findUnique({
+          where, select: { id: true },
+        });
+        if (existing) throw new HttpError(409, "This skill already has an evaluation. Refresh and resubmit with its revision.");
+        await tx.trainingClassSkillResult.create({
+          data: { enrollmentId: item.enrollmentId, requirementId: item.requirementId,
+            result: item.result, notes: item.notes, evaluatorId: ctx.userId },
+        });
+      }
+    }
+  });
   await Promise.all([...new Set(enrollmentIds)].map((id) => recalculateEnrollment(id)));
   await writeAudit(ctx, "class.skill_result.batch_recorded", "TrainingClass", classId, {
     resultCount: rows.length,
@@ -857,6 +883,42 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
   return { canClose: missing.length === 0, missing };
 }
 
+/**
+ * Save the final instructor narrative, actual times and RMS-ready metadata.
+ * Department-required fields are checked by validateClassClosure at approval,
+ * not when the instructor starts the sheet.
+ */
+export async function updateClassDocumentation(
+  ctx: AuthContext,
+  classId: string,
+  input: { startsAt?: string; endsAt?: string | null; notes?: string; location?: string; creditHours?: number },
+) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId, true);
+  if (row.status === "COMPLETE" || row.status === "CANCELLED" || row.rmsStatus !== "NOT_READY") {
+    throw new HttpError(409, "This Training Sheet is already closed. Use the authorized correction process.");
+  }
+  const startsAt = input.startsAt === undefined ? row.startsAt : parseDate(input.startsAt, "Training start time", true)!;
+  const endsAt = input.endsAt === undefined ? row.endsAt : parseDate(input.endsAt, "Training end time");
+  if (endsAt && endsAt < startsAt) throw new HttpError(400, "Training end time cannot be before the start time.");
+  const creditHours = input.creditHours === undefined ? row.creditHours : Number(input.creditHours);
+  if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) {
+    throw new HttpError(400, "Credit hours must be between 0 and 24.");
+  }
+  await prisma.trainingClass.update({
+    where: { id: classId },
+    data: {
+      startsAt, endsAt, creditHours,
+      ...(input.location === undefined ? {} : { location: String(input.location).trim().slice(0, 180) }),
+      ...(input.notes === undefined ? {} : { notes: String(input.notes).trim().slice(0, 4000) }),
+    },
+  });
+  await writeAudit(ctx, "training_sheet.documentation.updated", "TrainingClass", classId, {
+    hasEndTime: Boolean(endsAt), hasNarrative: Boolean(input.notes === undefined ? row.notes : input.notes?.trim()),
+  });
+  return getClass(ctx, classId);
+}
+
 export async function updateClassStatus(ctx: AuthContext, classId: string, statusInput: unknown) {
   assertPermission(ctx, "classes.write");
   await canAccessClass(ctx, classId);
@@ -907,7 +969,7 @@ export async function listInstructorTrainingAttention(ctx: AuthContext) {
   const rows = await prisma.trainingClass.findMany({
     where: {
       departmentId: ctx.departmentId,
-      createdById: ctx.userId,
+      OR: [{ createdById: ctx.userId }, { proctors: { some: { userId: ctx.userId } } }],
       rmsStatus: { not: "RMS_ENTERED" },
       status: { not: "CANCELLED" },
     },

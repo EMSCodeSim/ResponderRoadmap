@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: EMSCodeSim/Roadmap
+          ref: ${{ github.head_ref == 'feat/ten-member-training-sheet-acceptance-20261023' && 'feat/ten-member-training-sheet-mobile-closeout-20261023' || 'main' }}
           path: Roadmap
 
       - name: Verify the shared mobile API contract
@@ -100,6 +101,7 @@ jobs:
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-training-sheet-templates.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-close-training-validation.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-roadmap-mobile-contract.sh
+          BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-ten-member-training-sheet.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-golden-workflow.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-core-workflow.sh
           BASE_URL=http://127.0.0.1:3000 bash scripts/smoke-continuous-department-lifecycle.sh
