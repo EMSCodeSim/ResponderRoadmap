@@ -16,6 +16,7 @@ type SkillResult = {
   numericScore: number | null;
   evaluatorName: string;
   evaluatedAt: string;
+  updatedAt: string;
 };
 
 type Student = {
@@ -61,6 +62,11 @@ type ClassDetail = {
   endsAt: string | null;
   location: string;
   status: string;
+  rmsStatus: string;
+  instructorApprovedAt: string | null;
+  rmsReference: string | null;
+  rmsEntryNote: string;
+  rmsEnteredAt: string | null;
   notes: string;
   registrationToken: string | null;
   registrationEnabled: boolean;
@@ -120,7 +126,15 @@ export default function ClassDetailPage() {
   const [correction, setCorrection] = useState<{ skill: Skill; result: string } | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState("");
   const [skillScores, setSkillScores] = useState<Record<string, string>>({});
-  const [closeOpen, setCloseOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false;
+  const [docStart, setDocStart] = useState("");
+  const [docEnd, setDocEnd] = useState("");
+  const [docNotes, setDocNotes] = useState("");
+  const [docLocation, setDocLocation] = useState("");
+  const [docHours, setDocHours] = useState("");
+  const [rmsOpen, setRmsOpen] = useState(false);
+  const [rmsReference, setRmsReference] = useState("");
+  const [rmsNote, setRmsNote] = useState("");
   const [groupSelection, setGroupSelection] = useState<string[]>([]);
   const [groupMessage, setGroupMessage] = useState("");
   const [groupSkillId, setGroupSkillId] = useState("");
@@ -188,7 +202,14 @@ export default function ClassDetailPage() {
     if (!detail || busy || detail.status === "COMPLETE" || !groupSkillId) return;
     const staged = Object.entries(groupDrafts)
       .filter(([, value]) => value.result)
-      .map(([enrollmentId, value]) => ({ enrollmentId, result: value.result, notes: value.notes.trim() }));
+      .map(([enrollmentId, value]) => ({
+        enrollmentId,
+        result: value.result,
+        notes: value.notes.trim(),
+        expectedUpdatedAt: detail.roster
+          .find((member) => member.id === enrollmentId)
+          ?.results.find((entry) => entry.requirementId === groupSkillId)?.updatedAt ?? null,
+      }));
     if (!staged.length) {
       setGroupMessage("Select an individual Pass or Fail result for at least one present student.");
       return;
@@ -268,6 +289,76 @@ export default function ClassDetailPage() {
     } finally { setBusy(false); }
   }
 
+  function dateTimeLocal(value: string | null) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+
+  function openDocumentation() {
+    if (!detail) return;
+    setDocStart(dateTimeLocal(detail.startsAt));
+    setDocEnd(dateTimeLocal(detail.endsAt));
+    setDocNotes(detail.notes);
+    setDocLocation(detail.location);
+    setDocHours(detail.creditHours > 0 ? String(detail.creditHours) : "");
+    setCloseOpen(true);
+  }
+
+  async function saveDocumentation(approve = false) {
+    if (!detail || busy) return;
+    if (!docStart || (docEnd && new Date(docEnd) < new Date(docStart))) {
+      setError("Enter a valid start time and an end time after the start.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await api<ClassDetail>(`classes/${detail.id}/documentation`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          startsAt: new Date(docStart).toISOString(),
+          endsAt: docEnd ? new Date(docEnd).toISOString() : null,
+          notes: docNotes,
+          location: docLocation,
+          creditHours: docHours ? Number(docHours) : 0,
+        }),
+      });
+      if (approve) {
+        setDetail(await api<ClassDetail>(`classes/${saved.id}/approve`, { method: "POST", body: "{}" }));
+      } else {
+        setDetail(saved);
+      }
+      setCloseOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save training documentation.");
+    } finally { setBusy(false); }
+  }
+
+  async function approveExisting() {
+    if (!detail || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setDetail(await api<ClassDetail>(`classes/${detail.id}/approve`, { method: "POST", body: "{}" }));
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to approve this Training Sheet."); }
+    finally { setBusy(false); }
+  }
+
+  async function confirmRmsEntry() {
+    if (!detail || busy || detail.rmsStatus !== "AWAITING_ENTRY") return;
+    setBusy(true);
+    setError(null);
+    try {
+      setDetail(await api<ClassDetail>(`classes/${detail.id}/rms-entered`, {
+        method: "POST", body: JSON.stringify({ reference: rmsReference.trim(), note: rmsNote.trim() }),
+      }));
+      setRmsOpen(false);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to record RMS entry."); }
+    finally { setBusy(false); }
+  }
+
   if (!detail) return <p className="text-navy-500">{error || "Loading class…"}</p>;
   const adultSections = detail.sections.filter((section) => !/(infant|child|pediatric)/i.test(section.title));
   const pediatricSections = detail.sections.filter((section) => /(infant|child|pediatric)/i.test(section.title));
@@ -279,7 +370,7 @@ export default function ClassDetailPage() {
         kicker={`${detail.classType.replaceAll("_", " ")} · ${detail.checklistVersion ? `${detail.checklistTitle} v${detail.checklistVersion}` : detail.checklistTitle}`}
         title={detail.title}
         description={`${formatDate(detail.startsAt)}${detail.location ? ` · ${detail.location}` : ""} · Proctors: ${detail.proctors.map((item) => item.name).join(", ")}`}
-        actions={<><Link href={`/smart-import?classId=${encodeURIComponent(detail.id)}`}><Button variant="secondary">Import roster</Button></Link><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.classType === "CPR" ? <><Button variant="secondary" onClick={() => exportBlsAtlas("roster")}>Atlas roster prep CSV</Button><Button variant="secondary" onClick={() => exportBlsAtlas("review")}>BLS eligibility report CSV</Button></> : null}{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{detail.status === "ACTIVE" ? <Button variant="success" onClick={() => setCloseOpen(true)} disabled={busy}>Close Training</Button> : null}</>}
+        actions={<><Link href={`/smart-import?classId=${encodeURIComponent(detail.id)}`}><Button variant="secondary">Import roster</Button></Link><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.classType === "CPR" ? <><Button variant="secondary" onClick={() => exportBlsAtlas("roster")}>Atlas roster prep CSV</Button><Button variant="secondary" onClick={() => exportBlsAtlas("review")}>BLS eligibility report CSV</Button></> : null}{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{["DRAFT", "ACTIVE"].includes(detail.status) ? <Button variant="success" onClick={openDocumentation} disabled={busy}>Finish Documentation</Button> : null}{detail.status === "COMPLETE" && detail.rmsStatus === "NOT_READY" ? <Button variant="success" onClick={approveExisting} disabled={busy}>Approve Training Sheet</Button> : null}{detail.rmsStatus === "AWAITING_ENTRY" ? <Button variant="success" onClick={() => { setRmsReference(detail.rmsReference || ""); setRmsNote(detail.rmsEntryNote || ""); setRmsOpen(true); }} disabled={busy}>Mark Entered into RMS</Button> : null}</>}
       />
       <Flash message={error} tone="danger" />
       {detail.classType === "CPR" ? (
@@ -295,7 +386,8 @@ export default function ClassDetailPage() {
       ) : null}
       <div className="no-print mb-4 rounded-lg border border-navy-200 bg-white p-4">
         <h2 className="text-sm font-bold text-navy-900">Training sheet workflow</h2>
-        <p className="mt-2 text-sm text-navy-600">1. Share or print the QR code for member sign-in. 2. Verify attendance and enter required scores or skill evaluations on this page. 3. Finalize the training sheet. 4. Export or print the record, enter it into the department RMS, and record RMS completion separately.</p>
+        <p className="mt-2 text-sm text-navy-600">1. Share or print QR sign-in. 2. Confirm attendance and evaluate each member. 3. Finish documentation and approve the Training Sheet. 4. Enter the export into your department RMS, then explicitly mark Entered into RMS. This sheet stays in Needs Attention until then.</p>
+        <div className="mt-2 text-sm font-semibold text-navy-900">RMS: {detail.rmsStatus === "RMS_ENTERED" ? "Entered" : detail.rmsStatus === "AWAITING_ENTRY" ? "Awaiting entry — still needs attention" : "Not yet entered — still needs attention"}</div>
       </div>
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
 
@@ -448,17 +540,31 @@ export default function ClassDetailPage() {
         </div> : null}
       </div>
 
-      <Modal open={closeOpen} title="Close training" onClose={() => setCloseOpen(false)}>
-        <p className="text-sm text-navy-600">Verify the training record before finalizing it. Closing training locks roster results and turns off QR registration.</p>
-        <div className="mt-4 space-y-3 rounded-md border border-navy-200 p-4 text-sm">
-          <div className="flex justify-between gap-3"><span>Roster</span><strong>{detail.roster.length} people</strong></div>
-          <div className="flex justify-between gap-3"><span>Attendance confirmed</span><strong>{detail.roster.filter((item) => item.attendance !== "REGISTERED").length} / {detail.roster.length}</strong></div>
-          <div className="flex justify-between gap-3"><span>Present</span><strong>{detail.roster.filter((item) => item.attendance === "PRESENT").length}</strong></div>
-          <div className="flex justify-between gap-3"><span>Skills / results documented</span><strong>{detail.roster.filter((item) => item.attendance !== "PRESENT" || detail.sections.every((section) => section.skills.filter((skill) => skill.required).every((skill) => item.results.some((result) => result.requirementId === skill.id && result.result !== "NOT_EVALUATED")))).length} / {detail.roster.length}</strong></div>
-          <div className="flex justify-between gap-3"><span>Training record</span><strong>{detail.trainingCategory.replaceAll("_", " ")} · {detail.creditHours > 0 ? `${detail.creditHours} hr` : "scheduled duration"}</strong></div>
+      <Modal open={closeOpen} title="Finish Training Sheet documentation" onClose={() => setCloseOpen(false)}>
+        <p className="mb-4 text-sm text-navy-600">Finish the administrative record after teaching. Saving a draft does not close training or remove it from Needs Attention. Approval locks grading and moves the sheet to Awaiting RMS Entry.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Actual start time"><Input type="datetime-local" required value={docStart} onChange={(event) => setDocStart(event.target.value)} /></Field>
+          <Field label="Actual end time"><Input type="datetime-local" value={docEnd} onChange={(event) => setDocEnd(event.target.value)} /></Field>
+          <Field label="Location"><Input value={docLocation} onChange={(event) => setDocLocation(event.target.value)} /></Field>
+          <Field label="Credit hours (optional if times provided)"><Input type="number" min="0" max="24" step="0.25" value={docHours} onChange={(event) => setDocHours(event.target.value)} /></Field>
         </div>
-        <p className="mt-4 text-sm text-navy-600">After closing, use Training sheet / RMS export for the department record.</p>
-        <div className="mt-5 flex flex-wrap gap-2"><Button variant="success" disabled={busy} onClick={() => updateStatus("COMPLETE")}>{busy ? "Closing…" : "Finalize & Close Training"}</Button><Button variant="secondary" disabled={busy} onClick={() => setCloseOpen(false)}>Keep editing</Button></div>
+        <div className="mt-3"><Field label="Training narrative and department RMS codes" hint="Include the codes required by your department template. These notes appear in the RMS export."><TextArea rows={5} value={docNotes} onChange={(event) => setDocNotes(event.target.value)} /></Field></div>
+        <div className="mt-4 rounded-md border border-navy-200 p-3 text-sm">
+          <div>Roster: <strong>{detail.roster.length}</strong></div>
+          <div>Attendance confirmed: <strong>{detail.roster.filter((item) => item.attendance !== "REGISTERED").length}/{detail.roster.length}</strong></div>
+          <div>Required skills and department fields are checked on approval.</div>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button disabled={busy} onClick={() => saveDocumentation(false)}>{busy ? "Saving…" : "Save documentation"}</Button>
+          <Button variant="success" disabled={busy || !docEnd} onClick={() => saveDocumentation(true)}>Approve &amp; close training</Button>
+          <Button variant="secondary" disabled={busy} onClick={() => setCloseOpen(false)}>Keep editing</Button>
+        </div>
+      </Modal>
+      <Modal open={rmsOpen} title="Confirm entry into department RMS" onClose={() => setRmsOpen(false)}>
+        <p className="mb-4 text-sm text-navy-600">Only confirm after the official training record has actually been entered into your department RMS. This clears the Training Sheet from Needs Attention.</p>
+        <Field label="RMS record/reference (optional)"><Input value={rmsReference} onChange={(event) => setRmsReference(event.target.value)} /></Field>
+        <div className="mt-3"><Field label="RMS entry note (optional)"><TextArea rows={3} value={rmsNote} onChange={(event) => setRmsNote(event.target.value)} /></Field></div>
+        <div className="mt-5 flex gap-2"><Button variant="success" disabled={busy} onClick={confirmRmsEntry}>Confirm Entered into RMS</Button><Button variant="secondary" disabled={busy} onClick={() => setRmsOpen(false)}>Cancel</Button></div>
       </Modal>
       <Modal open={Boolean(correction)} title={correction?.result === "FAIL" ? "Record failed skill" : "Record remediation needed"} onClose={() => setCorrection(null)}>
         <Field label="What must the student correct?" hint="This explanation stays with the result and appears for the training captain."><TextArea rows={5} value={correctionNotes} onChange={(event) => setCorrectionNotes(event.target.value)} /></Field>

@@ -153,7 +153,7 @@ export default function ClassesPage() {
     setSelectedTemplateId("");
     setShowAdvancedSetup(false);
     setTemplateCategory("");
-    setForm({ ...emptyForm, startsAt: localDateTimeNow(), selfRegistration: false, proctorUserIds: currentUser ? [currentUser.userId] : [] });
+    setForm({ ...emptyForm, startsAt: localDateTimeNow(), selfRegistration: true, proctorUserIds: currentUser ? [currentUser.userId] : [] });
     setOpen(true);
   }
 
@@ -162,7 +162,7 @@ export default function ClassesPage() {
     const template = templates.find((item) => item.id === id);
     if (!template) return;
     setTemplateCategory(template.trainingCategory);
-    setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: template.selfRegistration, proctorUserIds: template.proctorUserIds }));
+    setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 
   const visibleRows = useMemo(() => rows.filter((row) => {
@@ -171,8 +171,6 @@ export default function ClassesPage() {
     return matchesSearch && matchesStatus;
   }).sort((a, b) => sort === "oldest" ? new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime() : new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime()), [rows, search, sort, sheetFilter]);
 
-  const required = new Set(setup?.requiredFields || []);
-  const req = (field: string) => required.has(field);
 
   return (
     <div>
@@ -240,7 +238,7 @@ export default function ClassesPage() {
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
-          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Add → Training Sheet</div><p className="mt-1 text-sm text-navy-600">Choose a template, title, date and optional checklist. Add a roster or enable QR sign-in. Record skills during class; finish times, narrative and RMS documentation afterward.</p></div> : null}
+          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Add → Training Sheet</div><p className="mt-1 text-sm text-navy-600">Choose a template, title, date and optional checklist. Add a roster or enable QR sign-in. Finish times, narrative and RMS documentation after teaching.</p></div> : null}
           {showAdvancedSetup ? <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
             <input type="checkbox" checked={emsCeMode} onChange={(event) => {
               setEmsCeMode(event.target.checked);
@@ -277,7 +275,7 @@ export default function ClassesPage() {
             <p className="text-xs text-navy-600">Templates prefill class details, skills checklist and any custom student results. You can add students now or let them scan the QR code after creation.</p>
           </section>
           <button type="button" className="w-full rounded-lg border border-navy-200 p-3 text-left text-sm font-semibold" onClick={() => setShowAdvancedSetup((value) => !value)}>{showAdvancedSetup ? "− Hide" : "+ Show"} advanced setup (codes, hours, proctors and objectives)</button>
-          {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> fields marked * are required by your department before this training sheet is created or completed.</div> : null}
+          {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> department-required RMS fields are validated when the instructor finishes the training sheet, not before teaching.</div> : null}
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Class title"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Fire Academy Skills Day 4" required /></Field>
             {showAdvancedSetup ? <Field label="Class type">
@@ -299,7 +297,7 @@ export default function ClassesPage() {
                 <option value="OTHER">Other</option>
               </Select>
             </Field> : null}
-            {showAdvancedSetup || req("HOURS") ? <Field label={`Credit hours${req("HOURS") ? " *" : ""}`} hint="Leave blank to use the time between Starts and Ends.">
+            {showAdvancedSetup ? <Field label="Credit hours" hint="Leave blank to use the time between Starts and Ends.">
               <Input type="number" min="0" max="24" step="0.25" value={emsCeMode ? String(Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0)) : form.creditHours} disabled={emsCeMode} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
             </Field> : null}
             {<Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
@@ -308,12 +306,12 @@ export default function ClassesPage() {
                 {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
             </Field>}
-            {showAdvancedSetup ? <Field label={`Location${req("LOCATION") ? " *" : ""}`}><Input required={req("LOCATION")} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field> : null}
+            {showAdvancedSetup ? <Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field> : null}
             <Field label="Training date and start time"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
-            {showAdvancedSetup || req("END_TIME") ? <Field label={`Ends${req("END_TIME") ? " *" : ""}`}><Input required={req("END_TIME")} type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field> : null}
+            {showAdvancedSetup ? <Field label="Ends (finish after teaching)"><Input type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field> : null}
           </div>
-          {showAdvancedSetup || req("DESCRIPTION") ? <Field label={`Training description / notes${req("DESCRIPTION") ? " *" : ""}`} hint="Use this for topic, objectives, drill description, or information that would normally appear on the paper training sheet.">
-            <TextArea required={req("DESCRIPTION")} rows={4} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Topic, objectives, skills covered, instructor notes…" />
+          {showAdvancedSetup ? <Field label="Optional preparation notes" hint="Use this for topic, objectives, drill description, or information that would normally appear on the paper training sheet.">
+            <TextArea rows={4} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Topic, objectives, skills covered, instructor notes…" />
           </Field> : null}
           <h3 className="font-bold">2. Add participants</h3>
           <label className="flex min-h-12 items-center gap-3 rounded-lg border border-fire/30 bg-fire-soft p-4 text-sm font-semibold">
