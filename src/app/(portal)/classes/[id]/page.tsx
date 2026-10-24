@@ -126,7 +126,7 @@ export default function ClassDetailPage() {
   const [correction, setCorrection] = useState<{ skill: Skill; result: string } | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState("");
   const [skillScores, setSkillScores] = useState<Record<string, string>>({});
-  const [closeOpen, setCloseOpen] = useState(false;
+  const [closeOpen, setCloseOpen] = useState(false);
   const [docStart, setDocStart] = useState("");
   const [docEnd, setDocEnd] = useState("");
   const [docNotes, setDocNotes] = useState("");
