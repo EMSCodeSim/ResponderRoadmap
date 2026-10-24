@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: EMSCodeSim/Roadmap
+          ref: ${{ github.head_ref == 'feat/ten-member-training-sheet-acceptance-20261023' && 'feat/ten-member-training-sheet-mobile-closeout-20261023' || 'main' }}
           path: Roadmap
 
       - name: Verify the shared mobile API contract
