@@ -969,7 +969,7 @@ export async function listInstructorTrainingAttention(ctx: AuthContext) {
   const rows = await prisma.trainingClass.findMany({
     where: {
       departmentId: ctx.departmentId,
-      createdById: ctx.userId,
+      OR: [{ createdById: ctx.userId }, { proctors: { some: { userId: ctx.userId } } }],
       rmsStatus: { not: "RMS_ENTERED" },
       status: { not: "CANCELLED" },
     },
