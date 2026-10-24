@@ -2,6 +2,14 @@
 
 **Scope:** paired backend PR #181 and Flutter PR #126. **Do not test against a real department or live production records.** Use an isolated department, dedicated test accounts and a non-production backend running the matching integration branch.
 
+For physical iPhone staging, compile the Flutter app with the explicit API override (replace the placeholder with the **verified** isolated backend URL; never use real department credentials):
+
+```bash
+flutter run --release --dart-define=ROADMAP_API_BASE_URL=https://STAGING-HOST.example/api/v1
+```
+
+Do not infer a staging URL from a production domain; verify the branch deployment and database isolation first. A signed iOS staging build requires the normal Apple signing/provisioning setup.
+
 ## Automated gates
 
 - [x] Web/backend CI: 168 automated tests, 52-operation shared API contract, and production build passed on run 40049099026.
