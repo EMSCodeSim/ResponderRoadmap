@@ -42,9 +42,6 @@ export function SeoProductPage({
             <Link href="/demo" className="inline-flex min-h-11 items-center rounded-md bg-fire px-5 text-sm font-bold hover:bg-fire-dark">See the Department Demo</Link>
             <Link href="/register" className="inline-flex min-h-11 items-center rounded-md border border-white/20 px-5 text-sm font-semibold hover:bg-white/10">Start Live Test</Link>
           </div>
-          <div className="mt-5">
-            <Link href="/pricing" className="mt-2 inline-flex text-sm font-semibold text-[#FDA4AF] underline underline-offset-4">See pricing</Link>
-          </div>
         </section>
 
         <section className="border-y border-white/10 bg-navy-900/60">

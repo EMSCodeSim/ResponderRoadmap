@@ -36,22 +36,20 @@ expect_page "$BASE/demo"
 expect_page "$BASE/login"
 expect_page "$BASE/pricing"
 expect_page "$BASE/department-interest"
-expect_page "$BASE/department-interest?plan=station"
 
 HOME=$(curl -fsS "$BASE/")
 echo "$HOME" | grep -q 'Know whether your people are actually ready.' || { echo 'Homepage missing readiness hero headline'; exit 1; }
 echo "$HOME" | grep -q 'Readiness you can explain' || { echo 'Homepage missing readiness proof section'; exit 1; }
 echo "$HOME" | grep -q 'See the 3-Minute Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
 ok 'homepage Training Officer positioning without embedded pricing'
-PRICING=$(curl -fsS "$BASE/pricing")
-echo "$PRICING" | grep -q 'training readiness without enterprise software pricing.' || { echo 'Pricing page missing current headline'; exit 1; }
-echo "$PRICING" | grep -q 'Start Station' || { echo 'Pricing page missing Station CTA'; exit 1; }
-echo "$PRICING" | grep -q 'How do you count members?' || { echo 'Pricing page missing member-count FAQ'; exit 1; }
-ok 'public pricing page'
-STATION=$(curl -fsS "$BASE/department-interest?plan=station")
-echo "$STATION" | grep -q '\$299' || { echo 'Station interest missing $299'; exit 1; }
-echo "$STATION" | grep -q 'Start Station' || { echo 'Station interest missing Start Station'; exit 1; }
-ok 'Station interest path'
+TESTING=$(curl -fsS "$BASE/pricing")
+echo "$TESTING" | grep -qi 'Responder Roadmap is in department testing' || { echo 'Department testing notice missing'; exit 1; }
+if echo "$TESTING" | grep -Eq '\$[0-9]'; then echo 'Public pricing amount found on department testing page'; exit 1; fi
+ok 'public pricing hidden during department testing'
+INTEREST=$(curl -fsS "$BASE/department-interest")
+echo "$INTEREST" | grep -q 'Request department testing' || { echo 'Department test access form missing'; exit 1; }
+if echo "$INTEREST" | grep -Eq '\$[0-9]|Station|Founding Department'; then echo 'Plan pricing found in department testing form'; exit 1; fi
+ok 'department testing interest path without prices'
 DEMO=$(curl -fsS "$BASE/demo")
 echo "$DEMO" | grep -q 'Welcome to the Responder Roadmap Department Demo' || { echo 'Demo missing start screen'; exit 1; }
 ok 'guided department demo start screen'
