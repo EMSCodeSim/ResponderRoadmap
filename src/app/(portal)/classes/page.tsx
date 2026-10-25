@@ -26,7 +26,9 @@ type ClassRow = {
   proctors: string[];
 };
 
-type TrainingSheetTemplate = { id: string; name: string; defaultTitle: string; classType: string; trainingCategory: string; creditHours: number; checklistVersionId: string | null; location: string; notes: string; selfRegistration: boolean; proctorUserIds: string[]; };
+type CEAllocation = { category: string; hours: number };
+type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null };
+type TrainingSheetTemplate = { id: string; name: string; defaultTitle: string; classType: string; trainingCategory: string; topic: string; creditHours: number; checklistVersionId: string | null; location: string; notes: string; selfRegistration: boolean; proctorUserIds: string[]; ceCredits: CEAllocation[]; gradingConfig: GradingConfig; };
 
 type Setup = {
   checklists: Array<{ id: string; title: string; version: string; skillCount: number }>;
@@ -97,6 +99,9 @@ export default function ClassesPage() {
     quickAddOpened.current = true;
     openTraining(false);
     setSelectedTemplateId(id);
+    setTemplateCategory(template.topic || "OTHER");
+    setEmsCeMode((template.ceCredits || []).length > 0);
+    setEmsCredits(Object.fromEntries((template.ceCredits || []).map((item) => [item.category, item.hours])));
     setForm({
       ...emptyForm,
       title: template.defaultTitle || template.name,
@@ -126,11 +131,14 @@ export default function ClassesPage() {
       }
       const total = Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0);
       if (emsCeMode && total > 24) throw new Error("EMS credits cannot exceed 24 hours per training sheet.");
+      const ceCredits = emsCeMode
+        ? Object.entries(emsCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours }))
+        : undefined;
       const payload = emsCeMode
-        ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: total,
+        ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: total, ceCredits,
             notes: [`OBJECTIVES\n${emsObjectives.trim()}`, emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
         : form;
-      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify({ ...payload, trainingSheetTemplateId: selectedTemplateId || undefined }) });
+      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify({ ...payload, ceCredits, trainingSheetTemplateId: selectedTemplateId || undefined }) });
       window.location.href = `/classes/${created.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create class.");
@@ -161,7 +169,10 @@ export default function ClassesPage() {
     setSelectedTemplateId(id);
     const template = templates.find((item) => item.id === id);
     if (!template) return;
-    setTemplateCategory(template.trainingCategory);
+    setTemplateCategory(template.topic || "OTHER");
+    const allocations = template.ceCredits || [];
+    setEmsCeMode(allocations.length > 0);
+    setEmsCredits(Object.fromEntries(allocations.map((item) => [item.category, item.hours])));
     setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 
@@ -249,29 +260,30 @@ export default function ClassesPage() {
           {emsCeMode && showAdvancedSetup ? <section aria-label="EMS continuing education credits" className="space-y-3 rounded-lg border border-navy-200 p-4">
             <h3 className="text-lg font-bold">EMS credit categories</h3>
             <p className="text-sm text-navy-600">Assign hours to one or more topics. Only nonzero categories appear on the saved sheet. Credit hours total automatically.</p>
-            {Object.entries(EMS_CE_CATEGORIES).map(([group, topics]) => <details key={group} className="rounded-lg border border-navy-200 p-3" open={group === "Airway"}>
-              <summary className="cursor-pointer font-semibold">{group}</summary>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {topics.map((topic) => <label key={topic} className="flex items-center justify-between gap-2 text-sm">
-                  <span>{topic}</span>
-                  <input aria-label={`${topic} credit hours`} className="w-20 rounded-md border border-navy-300 p-2 text-right" type="number" min="0" max="24" step="0.25" value={emsCredits[topic] ?? ""}
-                    placeholder="0" onChange={(event) => {
-                      const value = event.target.value === "" ? 0 : Number(event.target.value);
-                      setEmsCredits((current) => ({ ...current, [topic]: Number.isFinite(value) && value >= 0 ? value : 0 }));
-                    }} />
-                </label>)}
-              </div>
-            </details>)}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {Object.keys(EMS_CE_CATEGORIES).map((category) => <Field key={category} label={category}>
+                <Input aria-label={`${category} credit hours`} type="number" min="0" max="24" step="0.25" value={emsCredits[category] ?? ""} placeholder="0" onChange={(event) => {
+                  const value = event.target.value === "" ? 0 : Number(event.target.value);
+                  setEmsCredits((current) => ({ ...current, [category]: Number.isFinite(value) && value >= 0 ? value : 0 }));
+                }} />
+              </Field>)}
+            </div>
             <div className="font-bold">Total EMS CE credit: {Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</div>
             <Field label="Training objectives"><TextArea rows={4} value={emsObjectives} onChange={(event) => setEmsObjectives(event.target.value)} placeholder="By the end of this class, participants will be able to…" /></Field>
           </section> : null}
           <section className="rounded-lg border border-navy-200 p-4 space-y-3">
             <h3 className="font-bold">1. Choose Fire, EMS, HazMat or another template</h3>
-            <Field label="Training category"><Select value={templateCategory} onChange={(event) => { setTemplateCategory(event.target.value); setSelectedTemplateId(""); setForm((current) => ({ ...current, trainingCategory: event.target.value || "COMPANY", checklistVersionId: "" })); }}>
-              <option value="">Choose a training category</option>
-              <option value="EMS">EMS</option><option value="COMPANY">Fire / company</option><option value="HAZMAT">HazMat</option><option value="DRIVER">Driver Operator</option><option value="FACILITY">Facility</option><option value="OFFICER">Officer</option><option value="OTHER">Other</option>
+            <Field label="Topic"><Select value={templateCategory} onChange={(event) => {
+              const topic = event.target.value;
+              const category = ({ EMS: "EMS", FIRE: "COMPANY", HAZMAT: "HAZMAT", DRIVER: "DRIVER", CPR: "EMS", OFFICER: "OFFICER", FACILITY: "FACILITY", OTHER: "OTHER" } as Record<string, string>)[topic] || "COMPANY";
+              setTemplateCategory(topic); setSelectedTemplateId("");
+              setForm((current) => ({ ...current, trainingCategory: category, checklistVersionId: "" }));
+              setEmsCeMode(false); setEmsCredits({});
+            }}>
+              <option value="">Choose a topic</option>
+              <option value="EMS">EMS</option><option value="FIRE">Fire</option><option value="HAZMAT">HazMat</option><option value="DRIVER">Driver Operator</option><option value="CPR">CPR</option><option value="OFFICER">Officer</option><option value="FACILITY">Facility</option><option value="OTHER">Other</option>
             </Select></Field>
-            <Field label="Department training template"><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Blank sheet (use selected category)</option>{templates.filter((item) => !templateCategory || item.trainingCategory === templateCategory).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+            <Field label="Department training template"><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Blank sheet</option>{templates.filter((item) => !templateCategory || (item.topic || "OTHER") === templateCategory).sort((a, b) => a.name.localeCompare(b.name)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
             <p className="text-xs text-navy-600">Templates prefill class details, skills checklist and any custom student results. You can add students now or let them scan the QR code after creation.</p>
           </section>
           <button type="button" className="w-full rounded-lg border border-navy-200 p-3 text-left text-sm font-semibold" onClick={() => setShowAdvancedSetup((value) => !value)}>{showAdvancedSetup ? "− Hide" : "+ Show"} advanced setup (codes, hours, proctors and objectives)</button>
