@@ -31,6 +31,7 @@ type Template = {
   selfRegistration: boolean;
   proctorUserIds: string[];
   archived: boolean;
+  updatedAt?: string;
 };
 
 type Setup = {
@@ -67,6 +68,7 @@ export default function TrainingSheetTemplatesPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [builderStep, setBuilderStep] = useState(1);
 
   async function load() {
     const query = showArchived ? "?archived=all" : "";
@@ -85,6 +87,7 @@ export default function TrainingSheetTemplatesPage() {
   function reset() {
     setEditingId(null);
     setForm(blank);
+    setBuilderStep(1);
   }
 
   function edit(item: Template) {
@@ -106,6 +109,7 @@ export default function TrainingSheetTemplatesPage() {
       proctorUserIds: item.proctorUserIds,
     });
     setMessage(null);
+    setBuilderStep(1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -183,6 +187,34 @@ export default function TrainingSheetTemplatesPage() {
       : "Select your department's published CPR skills checklist before saving this starter. No checklist has been assumed.");
   }
 
+  function duplicate(item: Template) {
+    setEditingId(null);
+    setForm({
+      name: item.name + " copy", defaultTitle: item.defaultTitle, classType: item.classType,
+      trainingCategory: item.trainingCategory, topic: item.topic || "OTHER",
+      gradingConfig: item.gradingConfig || blank.gradingConfig, ceCredits: item.ceCredits || [],
+      creditHours: item.creditHours, checklistVersionId: item.checklistVersionId || "",
+      location: item.location, notes: item.notes, customFields: item.customFields || [],
+      selfRegistration: item.selfRegistration, proctorUserIds: item.proctorUserIds,
+    });
+    setBuilderStep(1);
+    setError(null);
+    setMessage("Template copied. Give the copy a unique name, review it, then save.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const selectedChecklist = setup?.checklists.find((item) => item.id === form.checklistVersionId);
+  const allocatedHours = form.ceCredits.reduce((sum, item) => sum + item.hours, 0);
+  const validationWarnings = [
+    !form.name.trim() ? "Add a template name." : "",
+    !form.defaultTitle.trim() ? "Add a default Training Sheet title." : "",
+    form.classType === "CPR" && !form.checklistVersionId ? "CPR templates require a published checklist." : "",
+    form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null ? "Set the written test passing score." : "",
+    form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null ? "Set the CCF passing score." : "",
+    form.customFields.some((field) => /^(written test|test score|ccf)$/i.test(field.label.trim())) ? "A custom field duplicates the built-in written test or CCF score." : "",
+    form.checklistVersionId && !selectedChecklist ? "The selected checklist is no longer published." : "",
+    form.proctorUserIds.length === 0 ? "No default proctor is selected; the instructor must choose one when creating a sheet." : "",
+  ].filter(Boolean);
   function toggleProctor(id: string) {
     setForm((value) => ({
       ...value,
