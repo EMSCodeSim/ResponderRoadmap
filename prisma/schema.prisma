@@ -398,6 +398,10 @@ model TrainingSheetTemplate {
   classType          String     @default("GENERAL")
   trainingCategory   String     @default("COMPANY")
   creditHours        Float      @default(0)
+  /// EMS, FIRE, HAZMAT, DRIVER, CPR, OFFICER, FACILITY, OTHER
+  topic              String     @default("OTHER")
+  /// Category-to-hour allocations for EMS CE templates.
+  ceCreditsJson      String     @default("[]")
   checklistVersionId String?
   location           String     @default("")
   notes              String     @default("")
@@ -425,6 +429,8 @@ model TrainingClass {
   trainingCategory       String          @default("COMPANY")
   /// Credit awarded to each PRESENT department member when the class is COMPLETE.
   creditHours            Float           @default(0)
+  /// Per-category EMS CE hours retained with the training record.
+  ceCreditsJson          String          @default("[]")
   checklistVersionId     String
   checklistVersion       TaskBookVersion @relation(fields: [checklistVersionId], references: [id])
   startsAt               DateTime
