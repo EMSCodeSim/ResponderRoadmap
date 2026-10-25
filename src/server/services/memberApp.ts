@@ -55,29 +55,31 @@ async function loadOwnAssignment(ctx: AuthContext, assignmentId: string) {
       departmentId: ctx.departmentId,
       membershipId: ctx.membershipId,
     },
-    include: {
-      evaluator: true,
-      supervisor: true,
-      version: {
-        include: {
-          template: true,
-          sections: {
-            orderBy: { sortOrder: "asc" },
-            include: { requirements: { orderBy: { sortOrder: "asc" } } },
-          },
-        },
-      },
-      completions: {
-        include: {
-          evidence: true,
-          signOffs: { include: { evaluator: true }, orderBy: { signedAt: "asc" } },
-        },
-      },
-    },
+    include: ownAssignmentInclude,
   });
   if (!assignment) throw new HttpError(404, "Assigned Task Book not found.");
   return assignment;
 }
+
+const ownAssignmentInclude = {
+  evaluator: true,
+  supervisor: true,
+  version: {
+    include: {
+      template: true,
+      sections: {
+        orderBy: { sortOrder: "asc" as const },
+        include: { requirements: { orderBy: { sortOrder: "asc" as const } } },
+      },
+    },
+  },
+  completions: {
+    include: {
+      evidence: true,
+      signOffs: { include: { evaluator: true }, orderBy: { signedAt: "asc" as const } },
+    },
+  },
+};
 
 function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssignment>>) {
   const requirements = assignment.version.sections.flatMap((section) => section.requirements);
@@ -201,19 +203,15 @@ function serializeAssignment(assignment: Awaited<ReturnType<typeof loadOwnAssign
 
 export async function listMyAssignments(ctx: AuthContext) {
   await assertActiveMembership(ctx);
-  const rows = await prisma.taskBookAssignment.findMany({
+  const assignments = await prisma.taskBookAssignment.findMany({
     where: {
       departmentId: ctx.departmentId,
       membershipId: ctx.membershipId,
     },
-    select: { id: true },
+    include: ownAssignmentInclude,
     orderBy: { assignedDate: "desc" },
   });
-  const assignments = [];
-  for (const row of rows) {
-    assignments.push(serializeAssignment(await loadOwnAssignment(ctx, row.id)));
-  }
-  return assignments;
+  return assignments.map(serializeAssignment);
 }
 
 export async function getMyAssignment(ctx: AuthContext, assignmentId: string) {
