@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/server/db";
 import { normalizeGuestRegistration } from "@/lib/class-registration";
 import { canViewClassRecord, classListScope } from "@/lib/class-access";
+import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
