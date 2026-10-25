@@ -439,6 +439,17 @@ export default function ClassDetailPage() {
       </div>
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
 
+      {["DRAFT", "ACTIVE"].includes(detail.status) ? <Card className="no-print mb-4 p-4">
+        <details><summary className="cursor-pointer text-lg font-bold">Add students to roster</summary>
+          <p className="mt-2 text-sm text-navy-600">Choose department members or manually add a student from another organization.</p>
+          {rosterMessage ? <p className="mt-2 rounded-md bg-green-50 p-2 text-sm font-semibold text-green-900">{rosterMessage}</p> : null}
+          <div className="mt-4 grid gap-5 lg:grid-cols-2">
+            <div><h3 className="font-semibold">Department roster</h3><div className="mt-2 max-h-56 space-y-1 overflow-auto rounded-md border border-navy-200 p-2">{availableMembers.filter((member) => !detail.roster.some((student) => student.membershipId === member.id)).map((member) => <label key={member.id} className="flex min-h-10 items-center gap-2 rounded px-2 hover:bg-navy-50"><input type="checkbox" checked={addMemberIds.includes(member.id)} onChange={() => setAddMemberIds((current) => current.includes(member.id) ? current.filter((id) => id !== member.id) : [...current, member.id])} /><span>{member.name}{member.rank ? " · " + member.rank : ""}</span></label>)}</div><Button className="mt-3" variant="secondary" disabled={busy || !addMemberIds.length} onClick={() => void addDepartmentRosterMembers()}>Add selected members</Button></div>
+            <div><h3 className="font-semibold">Manual student</h3><div className="mt-2 space-y-3"><Field label="Student name"><Input value={guestName} onChange={(event) => setGuestName(event.target.value)} /></Field><Field label="Email"><Input type="email" value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} /></Field><Field label="Organization (optional)"><Input value={guestOrganization} onChange={(event) => setGuestOrganization(event.target.value)} /></Field><Button variant="secondary" disabled={busy || guestName.trim().length < 2 || !guestEmail.includes("@")} onClick={() => void addManualStudent()}>Add student</Button></div></div>
+          </div>
+        </details>
+      </Card> : null}
+
       <Card className="no-print mb-4 p-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <div><div className="kicker">Training category</div><div className="font-semibold">{detail.trainingCategory.replaceAll("_", " ")}</div></div>
@@ -596,7 +607,8 @@ export default function ClassDetailPage() {
           <Field label="Location"><Input value={docLocation} onChange={(event) => setDocLocation(event.target.value)} /></Field>
           <Field label="Credit hours (optional if times provided)"><Input type="number" min="0" max="24" step="0.25" value={docHours} onChange={(event) => setDocHours(event.target.value)} /></Field>
         </div>
-        <div className="mt-3"><Field label="Training narrative and department RMS codes" hint="Include the codes required by your department template. These notes appear in the RMS export."><TextArea rows={5} value={docNotes} onChange={(event) => setDocNotes(event.target.value)} /></Field></div>
+        {detail.trainingCategory === "EMS" ? <section className="mt-4 rounded-lg border border-navy-200 p-4"><h3 className="font-bold">EMS CE categories</h3><p className="mt-1 text-sm text-navy-600">Confirm the credit earned in each category. Example: 0.5 Medical and 0.5 Airway.</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{Object.keys(EMS_CE_CATEGORIES).map((category) => <Field key={category} label={category}><Input type="number" min="0" max="24" step="0.25" value={docCeCredits[category] ?? ""} placeholder="0" onChange={(event) => { const hours = event.target.value === "" ? 0 : Number(event.target.value); setDocCeCredits((current) => ({ ...current, [category]: Number.isFinite(hours) && hours >= 0 ? hours : 0 })); }} /></Field>)}</div><p className="mt-3 font-semibold">Total CE credit: {Object.values(docCeCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</p></section> : null}
+        <div className="mt-3"><Field label={detail.trainingCategory === "EMS" ? "Class objectives and training narrative" : "Training narrative and department RMS codes"} hint="Include objectives, subjects covered, and any department RMS codes. These notes appear in the RMS export."><TextArea rows={5} value={docNotes} onChange={(event) => setDocNotes(event.target.value)} /></Field></div>
         <div className="mt-4 rounded-md border border-navy-200 p-3 text-sm">
           <div>Roster: <strong>{detail.roster.length}</strong></div>
           <div>Attendance confirmed: <strong>{detail.roster.filter((item) => item.attendance !== "REGISTERED").length}/{detail.roster.length}</strong></div>
