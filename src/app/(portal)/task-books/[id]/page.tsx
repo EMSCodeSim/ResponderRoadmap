@@ -922,6 +922,15 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                   <Field label="Detailed instructions">
                     <TextArea value={currentReq.instructions} disabled={draftLocked} onChange={(e) => updateReq({ instructions: e.target.value })} />
                   </Field>
+                  <Field label="Learning resource URL" hint="Optional. Add a YouTube video or other web resource for this task.">
+                    <Input
+                      type="url"
+                      value={currentReq.referenceUrl}
+                      disabled={draftLocked}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      onChange={(e) => updateReq({ referenceUrl: e.target.value })}
+                    />
+                  </Field>
                   <Field label="Objectives" hint="What the member must demonstrate. Spaces and new objectives are kept as you type.">
                     <div className="space-y-2">
                       {(currentReq.objectives.length ? currentReq.objectives : [""]).map((item, index) => (
