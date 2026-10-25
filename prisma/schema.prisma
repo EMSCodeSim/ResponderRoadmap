@@ -400,6 +400,8 @@ model TrainingSheetTemplate {
   creditHours        Float      @default(0)
   /// EMS, FIRE, HAZMAT, DRIVER, CPR, OFFICER, FACILITY, OTHER
   topic              String     @default("OTHER")
+  /// Written-test and CCF grade collection defaults.
+  gradingConfigJson  String     @default("{}")
   /// Category-to-hour allocations for EMS CE templates.
   ceCreditsJson      String     @default("[]")
   checklistVersionId String?
@@ -431,6 +433,8 @@ model TrainingClass {
   creditHours            Float           @default(0)
   /// Per-category EMS CE hours retained with the training record.
   ceCreditsJson          String          @default("[]")
+  /// Template grading options copied at creation time.
+  gradingConfigJson      String          @default("{}")
   checklistVersionId     String
   checklistVersion       TaskBookVersion @relation(fields: [checklistVersionId], references: [id])
   startsAt               DateTime
