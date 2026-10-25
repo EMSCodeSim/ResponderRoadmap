@@ -128,7 +128,6 @@ function RegisterContent() {
               <p className="mt-1">Members use their department invitation or join code. Creating a new organization does not grant access to any existing department.</p>
               <div className="mt-3 flex flex-wrap gap-4">
                 <Link href="/join" className="font-semibold text-fire">Enter join code</Link>
-                <Link href="/pricing" className="font-semibold text-fire">See pricing</Link>
                 <Link href="/login" className="font-semibold text-fire">Sign in</Link>
               </div>
             </div>

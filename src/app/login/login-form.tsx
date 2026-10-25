@@ -114,9 +114,9 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
               Have a pilot invitation? Use the invitation link sent by your department, then sign in here.
             </p>
             <p className="mt-2">
-              Starting a department test? Create an account, or review{" "}
-              <Link href="/pricing" className="font-semibold text-fire">
-                pricing
+              Starting a department test?{" "}
+              <Link href="/department-interest?source=department-test" className="font-semibold text-fire">
+                Request department test access
               </Link>
               .
             </p>

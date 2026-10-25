@@ -1,22 +1,14 @@
 import type { Metadata } from "next";
 import { DepartmentInterestForm } from "./interest-form";
-import { interestCopy, planFromQuery } from "@/lib/pricing";
 
-type Search = { plan?: string; source?: string };
+type Search = { source?: string };
 
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams: Promise<Search>;
-}): Promise<Metadata> {
-  const params = await searchParams;
-  const copy = interestCopy(planFromQuery(params.plan));
-  return {
-    title: copy.formTitle,
-    description: copy.intro,
-    alternates: { canonical: "/department-interest" },
-  };
-}
+export const metadata: Metadata = {
+  title: "Department test access",
+  description: "Request access to the Responder Roadmap department test.",
+  robots: { index: false, follow: false },
+  alternates: { canonical: "/department-interest" },
+};
 
 export default async function DepartmentInterestPage({
   searchParams,
@@ -24,10 +16,5 @@ export default async function DepartmentInterestPage({
   searchParams: Promise<Search>;
 }) {
   const params = await searchParams;
-  return (
-    <DepartmentInterestForm
-      plan={planFromQuery(params.plan)}
-      source={params.source || "department-interest"}
-    />
-  );
+  return <DepartmentInterestForm source={params.source || "department-testing"} />;
 }

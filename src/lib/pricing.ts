@@ -168,8 +168,8 @@ export function publicPlan(id: PlanId) {
 /** Cap used for activation. Legacy and unknown paid plans stay uncapped. */
 export function activeMemberCapForPlan(plan: string | null | undefined): number | null {
   const id = String(plan || "").trim().toUpperCase();
-  // Live-test departments are intentionally uncapped. Pricing stays public,
-  // but plan levels do not interrupt department testing or enrollment.
+  // Live-test departments remain uncapped; saved plan definitions are kept
+  // for future use without displaying public pricing during testing.
   if (id === "FREE") return null;
   if (id === "STATION") return 25;
   if (id === "FOUNDING") return 75;
@@ -178,8 +178,8 @@ export function activeMemberCapForPlan(plan: string | null | undefined): number 
 
 export function planCapacityMessage(plan: string | null | undefined) {
   const cap = activeMemberCapForPlan(plan);
-  if (cap === 5) return "The free plan includes five active members. Station is $299/year for up to 25.";
-  if (cap === 25) return "The Station plan includes 25 active members. Founding is $500/year for up to 75.";
-  if (cap === 75) return "The Founding plan includes 75 active members. Contact us for 76 or more.";
+  if (cap === 5) return "This department's current plan includes five active members. Contact support for help.";
+  if (cap === 25) return "This department's current plan includes 25 active members. Contact support to discuss capacity.";
+  if (cap === 75) return "This department's current plan includes 75 active members. Contact support to discuss capacity.";
   return "This department does not have an active-member cap.";
 }

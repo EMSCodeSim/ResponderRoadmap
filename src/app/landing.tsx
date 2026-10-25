@@ -78,7 +78,6 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <nav aria-label="Main navigation" className="hidden items-center gap-7 text-[13px] font-medium text-white/60 md:flex">
             <Link href={demoHref} className="hover:text-white">Demo</Link>
             <a href="#product" className="hover:text-white">Product</a>
-            <Link href="/pricing" className="hover:text-white">Pricing</Link>
             <Link href="/login" className="hover:text-white">Sign in</Link>
           </nav>
           <div className="flex items-center gap-3">
@@ -91,7 +90,6 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         <nav aria-label="Page sections" className="flex items-center justify-between border-t border-white/[0.06] px-5 py-2 text-[13px] font-medium text-white/55 md:hidden sm:px-8">
           <Link href={demoHref} className="hover:text-white">Demo</Link>
           <a href="#product" className="hover:text-white">Product</a>
-          <Link href="/pricing" className="hover:text-white">Pricing</Link>
         </nav>
       </header>
 
@@ -274,7 +272,6 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             <Link href="/login" className="hover:text-white">Sign in</Link>
             <Link href={demoHref} className="hover:text-white">Demo</Link>
-            <Link href="/pricing" className="hover:text-white">Pricing</Link>
             <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="hover:text-white">iPhone app</a>
             <Link href="/department-interest" className="hover:text-white">Contact</Link>
           </div>

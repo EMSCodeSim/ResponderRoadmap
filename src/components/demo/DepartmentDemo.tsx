@@ -86,8 +86,7 @@ export function DepartmentDemo({ liveDemoHref }: { liveDemoHref: string }) {
           <Link href="/" aria-label="Responder Roadmap home"><BrandLockup size={36} subtitle="3-minute department demo" /></Link>
           <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
             <Link href="/" className="text-white/65 hover:text-white">Homepage</Link>
-            <Link href="/pricing" className="text-white/65 hover:text-white">Pricing</Link>
-            <TrackedLink href="/register" event="signup_clicked" className="rounded-lg bg-[#E11D48] px-4 py-2.5 hover:bg-[#BE123C]">Start Free</TrackedLink>
+            <TrackedLink href="/register" event="signup_clicked" className="rounded-lg bg-[#E11D48] px-4 py-2.5 hover:bg-[#BE123C]">Start Department Test</TrackedLink>
           </div>
         </div>
       </header>
@@ -222,7 +221,6 @@ function Complete({ liveDemoHref, onExplore }: { liveDemoHref: string; onExplore
       </div>
       <div className="mt-5 flex flex-wrap justify-center gap-4 text-sm">
         <Link href="/" className="text-white/65 underline underline-offset-4 hover:text-white">Return to Homepage</Link>
-        <Link href="/pricing" className="text-white/65 underline underline-offset-4 hover:text-white">See pricing</Link>
         <Link href={liveDemoHref} className="text-white/65 underline underline-offset-4 hover:text-white">Open the live workspace</Link>
       </div>
     </main>
