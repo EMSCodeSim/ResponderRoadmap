@@ -32,7 +32,18 @@ export async function getWorkQueue(ctx: AuthContext) {
   const now = new Date();
   const dueSoonAt = new Date(now.getTime() + 14 * 86_400_000);
   const items: WorkQueueItem[] = [];
-  const myAssignments = await memberApp.listMyAssignments(ctx);
+  const canReview = reviewRoles.has(ctx.role);
+  const canSeeTraining = instructorRoles.has(ctx.role);
+  const [myAssignments, reviewQueue, instructorData] = await Promise.all([
+    memberApp.listMyAssignments(ctx),
+    canReview ? assignments.listSignOffQueue(ctx, { view: "needs_me" }) : Promise.resolve(null),
+    canSeeTraining
+      ? Promise.all([
+          classes.listInstructorTrainingAttention(ctx),
+          classes.listRmsActionQueue(ctx),
+        ] as const)
+      : Promise.resolve(null),
+  ]);
 
   for (const assignment of myAssignments) {
     const returned = assignment.sections.flatMap((section) => section.requirements)
@@ -55,9 +66,8 @@ export async function getWorkQueue(ctx: AuthContext) {
     });
   }
 
-  if (reviewRoles.has(ctx.role)) {
-    const queue = await assignments.listSignOffQueue(ctx, { view: "needs_me" });
-    for (const review of queue.items) {
+  if (reviewQueue) {
+    for (const review of reviewQueue.items) {
       items.push({
         id: `evaluation:${review.id}`,
         kind: "EVALUATION",
@@ -73,11 +83,8 @@ export async function getWorkQueue(ctx: AuthContext) {
     }
   }
 
-  if (instructorRoles.has(ctx.role)) {
-    const [training, rms] = await Promise.all([
-      classes.listInstructorTrainingAttention(ctx),
-      classes.listRmsActionQueue(ctx),
-    ]);
+  if (instructorData) {
+    const [training, rms] = instructorData;
     for (const item of training) {
       const complete = item.status === "COMPLETE";
       items.push({
