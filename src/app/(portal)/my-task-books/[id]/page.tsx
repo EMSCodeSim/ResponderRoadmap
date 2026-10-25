@@ -50,6 +50,7 @@ type Detail = {
       title: string;
       description: string;
       instructions: string;
+      referenceUrl?: string | null;
       objectives: string[];
       isRequired: boolean;
       repetitionsRequired: number;
@@ -71,6 +72,16 @@ type Detail = {
     }>;
   }>;
 };
+
+function safeHttpUrl(value?: string | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 function statusTone(status: string, locked: boolean, overdue: boolean) {
   if (locked) return "neutral" as const;
@@ -257,6 +268,7 @@ export default function MyTaskBookDetailPage() {
               {section.requirements.map((req) => {
                 const status = req.completion?.status || "NOT_STARTED";
                 const reps = req.completion?.repetitionCount || 0;
+                const learningResourceUrl = safeHttpUrl(req.referenceUrl);
                 return (
                   <li key={req.id} id={`requirement-${req.id}`} className="scroll-mt-4 rounded-md border border-navy-200">
                     <button type="button" className="w-full p-4 text-left" onClick={() => { setOpenId(openId === req.id ? null : req.id); setClassSkillResultId(""); }}>
@@ -280,6 +292,14 @@ export default function MyTaskBookDetailPage() {
                           <div className="mt-2">
                             <div className="kicker">What counts as completion</div>
                             <p className="text-sm">{req.instructions}</p>
+                          </div>
+                        ) : null}
+                        {learningResourceUrl ? (
+                          <div className="mt-3 rounded-md bg-navy-50 p-3">
+                            <div className="kicker">Learning resource</div>
+                            <a href={learningResourceUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-10 items-center font-semibold text-fire underline">
+                              Open learning resource ↗
+                            </a>
                           </div>
                         ) : null}
                         {req.objectives.length ? (
