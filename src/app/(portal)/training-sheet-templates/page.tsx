@@ -32,6 +32,7 @@ type Template = {
   proctorUserIds: string[];
   archived: boolean;
   updatedAt?: string;
+  revision?: number;
 };
 
 type Setup = {
@@ -268,6 +269,7 @@ export default function TrainingSheetTemplatesPage() {
               </Button>
             </div>
           )}
+          {!editingId ? <div className="mb-4 rounded-lg border border-navy-200 p-3"><p className="text-sm font-semibold text-navy-900">More starter templates</p><div className="mt-2 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => setForm({ ...blank, name: "EMS Continuing Education", defaultTitle: "Monthly EMS Continuing Education", topic: "EMS", classType: "EMS", trainingCategory: "EMS", selfRegistration: true })}>EMS CE</Button><Button type="button" variant="secondary" onClick={() => setForm({ ...blank, name: "HazMat Refresher", defaultTitle: "HazMat Operations Refresher", topic: "HAZMAT", trainingCategory: "HAZMAT", selfRegistration: true })}>HazMat</Button><Button type="button" variant="secondary" onClick={() => setForm({ ...blank, name: "Driver Operator Training", defaultTitle: "Driver Operator Practical Training", topic: "DRIVER", trainingCategory: "DRIVER" })}>Driver</Button><Button type="button" variant="secondary" onClick={() => setForm({ ...blank, name: "Officer Development", defaultTitle: "Officer Development Training", topic: "OFFICER", trainingCategory: "OFFICER" })}>Officer</Button></div></div> : null}
           <div className="mb-4 grid grid-cols-4 gap-1" aria-label="Template builder progress">
             {["Topic & title", "Checklist", "Grades & CE", "Review"].map((label, index) => <button key={label} type="button" onClick={() => setBuilderStep(index + 1)} className={"min-h-12 rounded-md px-2 py-2 text-xs font-semibold " + (builderStep === index + 1 ? "bg-fire text-white" : "bg-navy-50 text-navy-700")}>{index + 1}. {label}</button>)}
           </div>
@@ -439,18 +441,19 @@ export default function TrainingSheetTemplatesPage() {
               <Card key={item.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-navy-900">{item.name}</h3>{item.archived ? <Badge tone="neutral">Archived</Badge> : null}</div>
+                    <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-navy-900">{item.name}</h3><Badge tone="neutral">v{item.revision || 1}</Badge>{item.archived ? <Badge tone="neutral">Archived</Badge> : null}{item.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance</Badge>}{item.gradingConfig?.writtenTestEnabled ? <Badge tone="current">Test</Badge> : null}{item.gradingConfig?.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{item.ceCredits?.length ? <Badge tone="current">CE</Badge> : null}{item.selfRegistration ? <Badge tone="current">QR</Badge> : null}</div>
                     <p className="mt-1 text-sm text-navy-600">{item.defaultTitle || item.name}</p>
                     <p className="mt-2 text-xs text-navy-500">{TOPIC_LABELS[item.topic] || "Other"} · {item.creditHours ? item.creditHours + " hr" : "uses class duration"} · {item.selfRegistration ? "QR enabled" : "QR off"}</p>
                     {item.ceCredits?.length ? <p className="mt-1 text-xs text-navy-600">CE: {item.ceCredits.map((credit) => `${credit.category} ${credit.hours} hr`).join(" · ")}</p> : null}
                     {item.checklistVersionId ? <p className="mt-1 text-xs text-navy-600">Checklist attached</p> : null}
                     {item.gradingConfig?.writtenTestEnabled ? <p className="mt-1 text-xs text-navy-600">Written test score{item.gradingConfig.writtenTestPassPercent != null ? ` · pass ${item.gradingConfig.writtenTestPassPercent}%` : ""}</p> : null}
-                    {item.notes ? <p className="mt-2 line-clamp-3 text-sm text-navy-700">{item.notes}</p> : null}
+                    {item.notes ? <p className="mt-2 line-clamp-3 text-sm text-navy-700">{item.notes}</p> : null}{item.updatedAt ? <p className="mt-2 text-xs text-navy-500">Updated {new Date(item.updatedAt).toLocaleDateString()}</p> : null}
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {!item.archived ? <Link href={`/classes?template=${encodeURIComponent(item.id)}`} className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">Use template</Link> : null}
                   <Button type="button" variant="secondary" onClick={() => edit(item)}>Edit</Button>
+                   <Button type="button" variant="secondary" onClick={() => duplicate(item)}>Duplicate</Button>
                   <Button type="button" variant="secondary" onClick={() => void archive(item)}>{item.archived ? "Restore" : "Archive"}</Button>
                 </div>
               </Card>
