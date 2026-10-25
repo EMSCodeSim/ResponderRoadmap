@@ -170,6 +170,7 @@ export default function TrainingSheetTemplatesPage() {
     );
     const selected = matches.length === 1 ? matches[0] : null;
     setForm({
+      ...blank,
       ...blsCprClassPreset,
       topic: "EMS",
       trainingCategory: "EMS",
@@ -214,7 +215,7 @@ export default function TrainingSheetTemplatesPage() {
                 to record individual step-level pass/fail results.
               </p>
               <Button type="button" onClick={() => {
-                setForm({ ...firefighterOneClassPreset, topic: "FIRE" });
+                setForm({ ...blank, ...firefighterOneClassPreset, topic: "FIRE", gradingConfig: blank.gradingConfig, ceCredits: [] });
                 setError(null);
                 setMessage("Firefighter I preset loaded. Review the checklist, location, and approved proctors, then save.");
               }}>
