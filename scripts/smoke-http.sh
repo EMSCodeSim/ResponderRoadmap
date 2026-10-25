@@ -44,8 +44,9 @@ echo "$HOME" | grep -q 'See the 3-Minute Demo' || { echo 'Homepage missing demo 
 ok 'homepage Training Officer positioning without embedded pricing'
 for PAGE in "$BASE/" "$BASE/demo" "$BASE/login" "$BASE/register" "$BASE/department-interest" "$BASE/pricing"; do
   HTML=$(curl -fsS "$PAGE")
-  if echo "$HTML" | grep -Eq '\$[0-9]|See pricing|>Pricing<'; then
-    echo "Public pricing content found at $PAGE"
+  MATCH=$(echo "$HTML" | grep -oE '\$[0-9][^<]{0,60}|See pricing|href="/pricing"' | head -n 1 || true)
+  if [[ -n "$MATCH" ]]; then
+    echo "Public pricing content found at $PAGE: $MATCH"
     exit 1
   fi
 done
