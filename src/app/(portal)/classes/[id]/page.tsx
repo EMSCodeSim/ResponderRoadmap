@@ -434,7 +434,7 @@ export default function ClassDetailPage() {
       ) : null}
       <div className="no-print mb-4 rounded-lg border border-navy-200 bg-white p-4">
         <h2 className="text-sm font-bold text-navy-900">Training sheet workflow</h2>
-        <p className="mt-2 text-sm text-navy-600">1. Share or print QR sign-in. 2. Confirm attendance and evaluate each member. 3. Finish documentation and approve the Training Sheet. 4. Enter the export into your department RMS, then explicitly mark Entered into RMS. This sheet stays in Needs Attention until then.</p>
+        <p className="mt-2 text-sm text-navy-600">1. Display or print the QR code and start training. 2. Confirm the roster, attendance, and skill results. 3. Enter the finish time, objectives, and CE categories, then approve the Training Sheet. 4. Enter the export into your department RMS and mark Entered into RMS. This sheet stays in Needs Attention until then.</p>
         <div className="mt-2 text-sm font-semibold text-navy-900">RMS: {detail.rmsStatus === "RMS_ENTERED" ? "Entered" : detail.rmsStatus === "AWAITING_ENTRY" ? "Awaiting entry — still needs attention" : "Not yet entered — still needs attention"}</div>
       </div>
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
