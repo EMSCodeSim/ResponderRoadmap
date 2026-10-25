@@ -42,6 +42,14 @@ echo "$HOME" | grep -q 'Know whether your people are actually ready.' || { echo 
 echo "$HOME" | grep -q 'Readiness you can explain' || { echo 'Homepage missing readiness proof section'; exit 1; }
 echo "$HOME" | grep -q 'See the 3-Minute Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
 ok 'homepage Training Officer positioning without embedded pricing'
+for PAGE in "$BASE/" "$BASE/demo" "$BASE/login" "$BASE/register" "$BASE/department-interest" "$BASE/pricing"; do
+  HTML=$(curl -fsS "$PAGE")
+  if echo "$HTML" | grep -Eq '\$[0-9]|See pricing|>Pricing<'; then
+    echo "Public pricing content found at $PAGE"
+    exit 1
+  fi
+done
+ok 'no public price amounts or pricing navigation across marketing pages'
 TESTING=$(curl -fsS "$BASE/pricing")
 echo "$TESTING" | grep -qi 'Responder Roadmap is in department testing' || { echo 'Department testing notice missing'; exit 1; }
 if echo "$TESTING" | grep -Eq '\$[0-9]'; then echo 'Public pricing amount found on department testing page'; exit 1; fi
