@@ -2,9 +2,56 @@ import { prisma } from "@/server/db";
 import { HttpError, writeAudit } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { approvedEvaluatorWhere } from "@/server/services/evaluators";
+import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 
 const CLASS_TYPES = new Set(["GENERAL", "FIRE_ACADEMY", "CPR", "EMS"]);
 const CATEGORIES = new Set(["COMPANY", "FACILITY", "HAZMAT", "DRIVER", "OFFICER", "EMS", "OTHER"]);
+const TOPICS = new Set(["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"]);
+const EMS_CE_GROUPS = new Set(Object.keys(EMS_CE_CATEGORIES));
+
+function legacyTopic(trainingCategory: string) {
+  if (trainingCategory === "COMPANY") return "FIRE";
+  return TOPICS.has(trainingCategory) ? trainingCategory : "OTHER";
+}
+
+function normalizeCeCredits(value: unknown) {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new HttpError(400, "EMS CE credits must be a list of categories and hours.");
+  const totals = new Map<string, number>();
+  for (const entry of value) {
+    const item = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
+    const category = String(item.category || "").trim();
+    const hours = Number(item.hours ?? 0);
+    if (!EMS_CE_GROUPS.has(category)) throw new HttpError(400, "Choose a valid EMS CE category.");
+    if (!Number.isFinite(hours) || hours < 0 || hours > 24) throw new HttpError(400, "Each CE category must be between 0 and 24 hours.");
+    if (hours > 0) totals.set(category, (totals.get(category) || 0) + hours);
+  }
+  const result = [...totals].map(([category, hours]) => ({ category, hours: Math.round(hours * 100) / 100 }));
+  if (result.reduce((sum, item) => sum + item.hours, 0) > 24) throw new HttpError(400, "EMS CE credits cannot exceed 24 hours per training sheet.");
+  return result;
+}
+
+function parseCeCredits(value: string) {
+  try { return normalizeCeCredits(JSON.parse(value || "[]")); } catch { return []; }
+}
+
+function normalizeGradingConfig(value: unknown) {
+  const item = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const writtenTestEnabled = item.writtenTestEnabled === true;
+  const ccfEnabled = item.ccfEnabled === true;
+  const score = (raw: unknown) => {
+    if (raw == null || raw === "") return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || n > 100) throw new HttpError(400, "Grade pass marks must be between 0 and 100.");
+    return n;
+  };
+  return {
+    writtenTestEnabled,
+    writtenTestPassPercent: writtenTestEnabled ? score(item.writtenTestPassPercent) : null,
+    ccfEnabled,
+    ccfPassPercent: ccfEnabled ? score(item.ccfPassPercent) : null,
+  };
+}
 
 function strings(value: unknown) {
   if (!Array.isArray(value)) return [];
@@ -22,16 +69,22 @@ function parse(value: string) {
 
 function view(row: {
   id: string; name: string; defaultTitle: string; classType: string; trainingCategory: string;
+  topic: string; ceCreditsJson: string; gradingConfigJson?: string;
   creditHours: number; checklistVersionId: string | null; location: string; notes: string;
   requiredFieldsJson: string; customFieldsJson: string; selfRegistration: boolean; proctorUserIdsJson: string;
-  archived: boolean; createdAt: Date; updatedAt: Date;
+  archived: boolean; revision: number; createdAt: Date; updatedAt: Date;
 }) {
+  let gradingConfig = {};
+  try { gradingConfig = JSON.parse(row.gradingConfigJson || "{}"); } catch {}
   return {
     id: row.id,
     name: row.name,
     defaultTitle: row.defaultTitle,
     classType: row.classType,
     trainingCategory: row.trainingCategory,
+    topic: TOPICS.has(row.topic) && row.topic !== "OTHER" ? row.topic : legacyTopic(row.trainingCategory),
+    gradingConfig,
+    ceCredits: parseCeCredits(row.ceCreditsJson),
     creditHours: row.creditHours,
     checklistVersionId: row.checklistVersionId,
     location: row.location,
@@ -41,6 +94,7 @@ function view(row: {
     selfRegistration: row.selfRegistration,
     proctorUserIds: parse(row.proctorUserIdsJson),
     archived: row.archived,
+    revision: row.revision,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -51,9 +105,14 @@ async function validate(ctx: AuthContext, input: Record<string, unknown>) {
   if (!name) throw new HttpError(400, "Template name is required.");
   const classType = String(input.classType || "GENERAL").trim().toUpperCase();
   const trainingCategory = String(input.trainingCategory || "COMPANY").trim().toUpperCase();
+  const topic = String(input.topic || legacyTopic(trainingCategory)).trim().toUpperCase();
   if (!CLASS_TYPES.has(classType)) throw new HttpError(400, "Invalid class type.");
   if (!CATEGORIES.has(trainingCategory)) throw new HttpError(400, "Invalid training category.");
-  const creditHours = Number(input.creditHours ?? 0);
+  if (!TOPICS.has(topic)) throw new HttpError(400, "Invalid template topic.");
+  const ceCredits = normalizeCeCredits(input.ceCredits);
+  if (ceCredits.length && topic !== "EMS") throw new HttpError(400, "EMS CE allocations can only be saved on EMS templates.");
+  const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
+  const creditHours = allocatedHours > 0 ? allocatedHours : Number(input.creditHours ?? 0);
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
 
   const checklistVersionId = input.checklistVersionId ? String(input.checklistVersionId) : null;
@@ -82,6 +141,9 @@ async function validate(ctx: AuthContext, input: Record<string, unknown>) {
     defaultTitle: String(input.defaultTitle || "").trim().slice(0, 180),
     classType,
     trainingCategory,
+    topic,
+    gradingConfigJson: JSON.stringify(normalizeGradingConfig(input.gradingConfig)),
+    ceCreditsJson: JSON.stringify(ceCredits),
     creditHours,
     checklistVersionId,
     location: String(input.location || "").trim().slice(0, 180),
@@ -125,7 +187,7 @@ export async function updateTrainingSheetTemplate(ctx: AuthContext, id: string, 
   const data = await validate(ctx, { ...view(existing), ...input });
   const row = await prisma.trainingSheetTemplate.update({
     where: { id },
-    data: { ...data, archived: input.archived === undefined ? existing.archived : input.archived === true },
+    data: { ...data, archived: input.archived === undefined ? existing.archived : input.archived === true, revision: { increment: 1 } },
   });
   await writeAudit(ctx, "TRAINING_SHEET_TEMPLATE_UPDATED", "TrainingSheetTemplate", row.id, { name: row.name, archived: row.archived });
   return view(row);

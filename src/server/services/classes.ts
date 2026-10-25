@@ -10,6 +10,33 @@ const RESULT_VALUES = new Set(["NOT_EVALUATED", "PASS", "NEEDS_REMEDIATION", "FA
 const ATTENDANCE_VALUES = new Set(["REGISTERED", "PRESENT", "ABSENT", "EXCUSED"]);
 const CLASS_STATUS_VALUES = new Set(["DRAFT", "ACTIVE", "COMPLETE", "CANCELLED"]);
 const CLASS_TYPE_VALUES = new Set(["GENERAL", "FIRE_ACADEMY", "CPR", "EMS"]);
+const EMS_CE_GROUPS = new Set(Object.keys(EMS_CE_CATEGORIES));
+
+function normalizeCeCredits(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const totals = new Map<string, number>();
+  for (const entry of value) {
+    const item = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
+    const category = String(item.category || "").trim();
+    const hours = Number(item.hours ?? 0);
+    if (!EMS_CE_GROUPS.has(category)) throw new HttpError(400, "Choose a valid EMS CE category.");
+    if (!Number.isFinite(hours) || hours < 0 || hours > 24) throw new HttpError(400, "Each CE category must be between 0 and 24 hours.");
+    if (hours > 0) totals.set(category, (totals.get(category) || 0) + hours);
+  }
+  const allocations = [...totals].map(([category, hours]) => ({ category, hours: Math.round(hours * 100) / 100 }));
+  if (allocations.reduce((sum, item) => sum + item.hours, 0) > 24) throw new HttpError(400, "EMS CE credits cannot exceed 24 hours per training sheet.");
+  return allocations;
+}
+
+function parseJsonObject(value: string | null | undefined): Record<string, unknown> {
+  try { const parsed = JSON.parse(value || "{}"); return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {}; } catch { return {}; }
+}
+
+function ceCreditNote(allocations: Array<{category: string;hours: number}>) {
+  return allocations.length
+    ? "EMS CE CREDIT BREAKDOWN\n" + allocations.map((item) => `${item.category}: ${item.hours.toFixed(2)} hours`).join("\n")
+    : "";
+}
 const TRAINING_CATEGORY_VALUES = new Set(["COMPANY", "FACILITY", "HAZMAT", "DRIVER", "OFFICER", "EMS", "OTHER"]);
 
 function parseDate(value: unknown, field: string, required = false) {
@@ -185,6 +212,7 @@ export async function createClass(
     proctorUserIds?: string[];
     selfRegistration?: boolean;
     trainingSheetTemplateId?: string;
+    ceCredits?: Array<{ category: string; hours: number }>;
   },
 ) {
   assertPermission(ctx, "classes.write");
@@ -194,8 +222,8 @@ export async function createClass(
   if (!CLASS_TYPE_VALUES.has(classType)) throw new HttpError(400, "Invalid class type.");
   const trainingCategory = input.trainingCategory?.trim().toUpperCase() || "COMPANY";
   if (!TRAINING_CATEGORY_VALUES.has(trainingCategory)) throw new HttpError(400, "Invalid training category.");
-  const creditHours = Number(input.creditHours ?? 0);
-  if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
+  const requestedCreditHours = Number(input.creditHours ?? 0);
+  if (!Number.isFinite(requestedCreditHours) || requestedCreditHours < 0 || requestedCreditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
   const selectedVersion = input.checklistVersionId
     ? await prisma.taskBookVersion.findFirst({
         where: { id: input.checklistVersionId, status: "PUBLISHED", template: { departmentId: ctx.departmentId } },
@@ -226,6 +254,19 @@ export async function createClass(
 
   const template = input.trainingSheetTemplateId ? await prisma.trainingSheetTemplate.findFirst({ where: { id: input.trainingSheetTemplateId, departmentId: ctx.departmentId, archived: false } }) : null;
   if (input.trainingSheetTemplateId && !template) throw new HttpError(404, "Training sheet template not found.");
+  const ceCredits = input.ceCredits === undefined
+    ? normalizeCeCredits(JSON.parse(template?.ceCreditsJson || "[]"))
+    : normalizeCeCredits(input.ceCredits);
+  if (ceCredits.length && trainingCategory !== "EMS") throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
+  const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
+  const creditHours = allocatedHours > 0 ? allocatedHours : requestedCreditHours || template?.creditHours || 0;
+  if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
+  const gradingConfig = parseJsonObject(template?.gradingConfigJson);
+  const suppliedNotes = input.notes?.trim().slice(0, 3600) || "";
+  const creditNote = ceCreditNote(ceCredits);
+  const notes = creditNote && !suppliedNotes.includes("EMS CE CREDIT BREAKDOWN")
+    ? [suppliedNotes, creditNote].filter(Boolean).join("\n\n").slice(0, 4000)
+    : suppliedNotes;
   const created = await prisma.trainingClass.create({
     data: {
       departmentId: ctx.departmentId,
@@ -233,11 +274,15 @@ export async function createClass(
       classType,
       trainingCategory,
       creditHours,
+      ceCreditsJson: JSON.stringify(ceCredits),
+      gradingConfigJson: JSON.stringify(gradingConfig),
+      templateName: template?.name || "",
+      templateRevision: template?.revision || null,
       checklistVersionId: version.id,
       startsAt,
       endsAt,
       location: input.location?.trim().slice(0, 180) || "",
-      notes: input.notes?.trim().slice(0, 4000) || "",
+      notes,
       registrationToken: input.selfRegistration ? randomBytes(32).toString("hex") : null,
       registrationEnabled: input.selfRegistration === true,
       customFieldsJson: template?.customFieldsJson || "[]",
@@ -253,6 +298,7 @@ export async function createClass(
     checklistVersionId: version.id,
     trainingCategory,
     creditHours,
+    ceCredits,
   });
   await writeActivity(ctx.departmentId, "CLASS_CREATED", {
     userId: ctx.userId,
@@ -341,6 +387,10 @@ export async function getClass(ctx: AuthContext, classId: string) {
     classType: row.classType,
     trainingCategory: row.trainingCategory,
     creditHours: row.creditHours,
+    ceCredits: normalizeCeCredits(JSON.parse(row.ceCreditsJson || "[]")),
+    gradingConfig: parseJsonObject(row.gradingConfigJson),
+    templateName: row.templateName,
+    templateRevision: row.templateRevision,
     startsAt: row.startsAt,
     endsAt: row.endsAt,
     location: row.location,
@@ -841,6 +891,7 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
 
   const requiredFields = new Set(parseJsonArray(row.department.trainingSheetRequiredFieldsJson).map((item) => String(item).toUpperCase()));
   const missing: Array<{ code: string; message: string; action: string }> = [];
+  const gradingConfig = parseJsonObject(row.gradingConfigJson);
   const add = (code: string, message: string, action: string) => missing.push({ code, message, action });
 
   if (requiredFields.has("TITLE") && !row.title.trim()) add("TITLE", "Training title is missing.", "Edit the training title.");
@@ -867,6 +918,17 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
   const unresolvedAttendance = row.roster.filter((item) => item.attendance === "REGISTERED");
   if (unresolvedAttendance.length) {
     add("ATTENDANCE", `${unresolvedAttendance.length} roster member${unresolvedAttendance.length === 1 ? "" : "s"} still need attendance confirmed.`, "Mark each roster member Present, Absent, or Excused.");
+  }
+
+  for (const enrollment of row.roster.filter((item) => item.attendance === "PRESENT")) {
+    if (gradingConfig.writtenTestEnabled === true) {
+      if (enrollment.writtenScore == null) add("WRITTEN_TEST", "A written test score is missing for a present student.", "Record the written test score before closing.");
+      else if (gradingConfig.writtenTestPassPercent != null && enrollment.writtenScore < Number(gradingConfig.writtenTestPassPercent)) add("WRITTEN_TEST", "A written test score is below the template pass mark.", "Review the result and complete remediation or record a passing score.");
+    }
+    if (gradingConfig.ccfEnabled === true) {
+      if (enrollment.ccfScore == null) add("CCF_SCORE", "A CCF score is missing for a present student.", "Record the CCF score before closing.");
+      else if (gradingConfig.ccfPassPercent != null && enrollment.ccfScore < Number(gradingConfig.ccfPassPercent)) add("CCF_SCORE", "A CCF score is below the template pass mark.", "Review the result and complete remediation or record a passing score.");
+    }
   }
 
   const requiredIds = row.checklistVersion?.sections.flatMap((section) =>

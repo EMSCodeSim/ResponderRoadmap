@@ -52,6 +52,10 @@ type Skill = {
 
 type CustomField = { id: string; label: string; type: string; required: boolean };
 type ClassDetail = {
+  ceCredits: Array<{ category: string; hours: number }>;
+  gradingConfig: { writtenTestEnabled?: boolean; writtenTestPassPercent?: number | null; ccfEnabled?: boolean; ccfPassPercent?: number | null };
+  templateName?: string;
+  templateRevision?: number | null;
   customFields: CustomField[];
   id: string;
   title: string;
@@ -362,6 +366,9 @@ export default function ClassDetailPage() {
   if (!detail) return <p className="text-navy-500">{error || "Loading class…"}</p>;
   const adultSections = detail.sections.filter((section) => !/(infant|child|pediatric)/i.test(section.title));
   const pediatricSections = detail.sections.filter((section) => /(infant|child|pediatric)/i.test(section.title));
+  const hasGradingConfig = Object.keys(detail.gradingConfig || {}).length > 0;
+  const showWrittenScore = hasGradingConfig ? detail.gradingConfig.writtenTestEnabled === true : true;
+  const showCcfScore = hasGradingConfig ? detail.gradingConfig.ccfEnabled === true : true;
 
   return (
     <div>
@@ -373,6 +380,7 @@ export default function ClassDetailPage() {
         actions={<><Link href={`/smart-import?classId=${encodeURIComponent(detail.id)}`}><Button variant="secondary">Import roster</Button></Link><Link href={`/reports/class-training-sheet/${detail.id}`}><Button variant="secondary">Training sheet / RMS export</Button></Link><Button variant="secondary" onClick={() => window.print()}>Print results</Button>{detail.classType === "CPR" ? <><Button variant="secondary" onClick={() => exportBlsAtlas("roster")}>Atlas roster prep CSV</Button><Button variant="secondary" onClick={() => exportBlsAtlas("review")}>BLS eligibility report CSV</Button></> : null}{detail.status === "DRAFT" ? <Button onClick={() => updateStatus("ACTIVE")} disabled={busy}>Start training</Button> : null}{["DRAFT", "ACTIVE"].includes(detail.status) ? <Button variant="success" onClick={openDocumentation} disabled={busy}>Finish Documentation</Button> : null}{detail.status === "COMPLETE" && detail.rmsStatus === "NOT_READY" ? <Button variant="success" onClick={approveExisting} disabled={busy}>Approve Training Sheet</Button> : null}{detail.rmsStatus === "AWAITING_ENTRY" ? <Button variant="success" onClick={() => { setRmsReference(detail.rmsReference || ""); setRmsNote(detail.rmsEntryNote || ""); setRmsOpen(true); }} disabled={busy}>Mark Entered into RMS</Button> : null}</>}
       />
       <Flash message={error} tone="danger" />
+      {(detail.ceCredits?.length || hasGradingConfig) ? <Card className="no-print mb-4 p-4"><h2 className="font-bold">Template requirements{detail.templateName ? ` · ${detail.templateName} v${detail.templateRevision || 1}` : ""}</h2>{detail.ceCredits?.length ? <p className="mt-1 text-sm text-navy-700"><strong>EMS CE allocation:</strong> {detail.ceCredits.map((item) => `${item.hours} hr ${item.category}`).join(" · ")}</p> : null}{hasGradingConfig ? <p className="mt-1 text-sm text-navy-700"><strong>Required grades:</strong> {[showWrittenScore ? `Written test${detail.gradingConfig.writtenTestPassPercent != null ? ` ≥${detail.gradingConfig.writtenTestPassPercent}%` : ""}` : "", showCcfScore ? `CCF${detail.gradingConfig.ccfPassPercent != null ? ` ≥${detail.gradingConfig.ccfPassPercent}%` : ""}` : ""].filter(Boolean).join(" · ") || "No score fields required"}</p> : null}</Card> : null}
       {detail.classType === "CPR" ? (
         <div className="no-print mb-4 rounded-lg border border-navy-200 bg-white p-4 text-sm text-navy-700">
           <strong>BLS Atlas reporting:</strong> The roster-preparation CSV includes only present students
@@ -506,8 +514,8 @@ export default function ClassDetailPage() {
             <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">{student.name}</h2><p className="text-sm text-navy-500">{student.email}{student.isGuest ? " · Guest registration" : ""}{student.organization ? ` · ${student.organization}` : ""}</p></div><Badge tone={tone(student.finalResult)}>{resultLabels[student.finalResult] || student.finalResult}</Badge></div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <Field label="Attendance"><Select value={student.attendance} disabled={busy || detail.status === "COMPLETE"} onChange={(event) => updateStudent({ attendance: event.target.value })}><option>REGISTERED</option><option>PRESENT</option><option>ABSENT</option><option>EXCUSED</option></Select></Field>
-              <Field label="Written test score (%)"><Input type="number" min="0" max="100" value={student.writtenScore ?? ""} disabled={busy || detail.status === "COMPLETE"} onBlur={(event) => updateStudent({ writtenScore: event.target.value === "" ? null : Number(event.target.value) })} onChange={(event) => setDetail({ ...detail, roster: detail.roster.map((item) => item.id === student.id ? { ...item, writtenScore: event.target.value === "" ? null : Number(event.target.value) } : item) })} /></Field>
-              <Field label="CCF score (%)"><Input type="number" min="0" max="100" value={student.ccfScore ?? ""} disabled={busy || detail.status === "COMPLETE"} onBlur={(event) => updateStudent({ ccfScore: event.target.value === "" ? null : Number(event.target.value) })} onChange={(event) => setDetail({ ...detail, roster: detail.roster.map((item) => item.id === student.id ? { ...item, ccfScore: event.target.value === "" ? null : Number(event.target.value) } : item) })} /></Field>
+              {showWrittenScore ? <Field label={`Written test score (%)${detail.gradingConfig?.writtenTestPassPercent != null ? ` · pass ≥${detail.gradingConfig.writtenTestPassPercent}%` : ""}`}><Input type="number" min="0" max="100" value={student.writtenScore ?? ""} disabled={busy || detail.status === "COMPLETE"} onBlur={(event) => updateStudent({ writtenScore: event.target.value === "" ? null : Number(event.target.value) })} onChange={(event) => setDetail({ ...detail, roster: detail.roster.map((item) => item.id === student.id ? { ...item, writtenScore: event.target.value === "" ? null : Number(event.target.value) } : item) })} /></Field> : null}
+              {showCcfScore ? <Field label={`CCF score (%)${detail.gradingConfig?.ccfPassPercent != null ? ` · pass ≥${detail.gradingConfig.ccfPassPercent}%` : ""}`}><Input type="number" min="0" max="100" value={student.ccfScore ?? ""} disabled={busy || detail.status === "COMPLETE"} onBlur={(event) => updateStudent({ ccfScore: event.target.value === "" ? null : Number(event.target.value) })} onChange={(event) => setDetail({ ...detail, roster: detail.roster.map((item) => item.id === student.id ? { ...item, ccfScore: event.target.value === "" ? null : Number(event.target.value) } : item) })} /></Field> : null}
             </div>
           </Card>
 
