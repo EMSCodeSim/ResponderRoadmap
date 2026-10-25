@@ -72,7 +72,7 @@ function view(row: {
   topic: string; ceCreditsJson: string; gradingConfigJson?: string;
   creditHours: number; checklistVersionId: string | null; location: string; notes: string;
   requiredFieldsJson: string; customFieldsJson: string; selfRegistration: boolean; proctorUserIdsJson: string;
-  archived: boolean; createdAt: Date; updatedAt: Date;
+  archived: boolean; revision: number; createdAt: Date; updatedAt: Date;
 }) {
   let gradingConfig = {};
   try { gradingConfig = JSON.parse(row.gradingConfigJson || "{}"); } catch {}
@@ -94,6 +94,7 @@ function view(row: {
     selfRegistration: row.selfRegistration,
     proctorUserIds: parse(row.proctorUserIdsJson),
     archived: row.archived,
+    revision: row.revision,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -186,7 +187,7 @@ export async function updateTrainingSheetTemplate(ctx: AuthContext, id: string, 
   const data = await validate(ctx, { ...view(existing), ...input });
   const row = await prisma.trainingSheetTemplate.update({
     where: { id },
-    data: { ...data, archived: input.archived === undefined ? existing.archived : input.archived === true },
+    data: { ...data, archived: input.archived === undefined ? existing.archived : input.archived === true, revision: { increment: 1 } },
   });
   await writeAudit(ctx, "TRAINING_SHEET_TEMPLATE_UPDATED", "TrainingSheetTemplate", row.id, { name: row.name, archived: row.archived });
   return view(row);
