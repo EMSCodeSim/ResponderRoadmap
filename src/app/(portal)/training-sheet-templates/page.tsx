@@ -268,8 +268,13 @@ export default function TrainingSheetTemplatesPage() {
               </Button>
             </div>
           )}
+          <div className="mb-4 grid grid-cols-4 gap-1" aria-label="Template builder progress">
+            {["Topic & title", "Checklist", "Grades & CE", "Review"].map((label, index) => <button key={label} type="button" onClick={() => setBuilderStep(index + 1)} className={"min-h-12 rounded-md px-2 py-2 text-xs font-semibold " + (builderStep === index + 1 ? "bg-fire text-white" : "bg-navy-50 text-navy-700")}>{index + 1}. {label}</button>)}
+          </div>
           <form onSubmit={save} className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className={builderStep === 1 ? "space-y-4" : "hidden"}>
+              <h3 className="font-bold text-navy-900">Topic and title</h3>
+              <div className="grid gap-4 md:grid-cols-2">
               <Field label="Template name"><Input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Monthly EMS airway lab" /></Field>
               <Field label="Default training sheet title"><Input maxLength={180} value={form.defaultTitle} onChange={(e) => setForm({ ...form, defaultTitle: e.target.value })} placeholder="EMS airway management refresher" /></Field>
               <Field label="Template topic">
@@ -297,14 +302,17 @@ export default function TrainingSheetTemplatesPage() {
               <Field label="Credit hours" hint="Set 0 to use the class start and end times.">
                 <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: Number(e.target.value) })} />
               </Field>
-              <Field label="Published skills checklist" hint={form.classType === "CPR" ? "Required for a complete CPR package. Saved with this template so instructors do not select it each time." : "Optional for attendance-only training."}>
-                <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}>
-                  <option value="">{form.classType === "CPR" ? "Select CPR checklist (required)" : "Attendance-only / no checklist"}</option>
-                  {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
-                </Select>
-              </Field>
               <Field label="Default location"><Input maxLength={180} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Training tower / Station 2" /></Field>
+              </div>
             </div>
+            <section className={builderStep === 2 ? "space-y-4" : "hidden"}>
+              <h3 className="font-bold text-navy-900">Checklist</h3>
+              <p className="text-sm text-navy-600">Use attendance only, attach a published checklist, or open the checklist builder to create, copy, or import one.</p>
+              <Field label="Published skills checklist" hint={form.classType === "CPR" ? "Required for CPR templates." : "Optional for attendance-only training."}><Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}><option value="">Attendance only / no checklist</option>{setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}</Select></Field>
+              {selectedChecklist ? <div className="rounded-lg bg-navy-50 p-4 text-sm"><strong>{selectedChecklist.title} v{selectedChecklist.version}</strong><p className="mt-1 text-navy-600">{selectedChecklist.skillCount} skills. This exact published checklist version stays attached to the Training Sheet.</p></div> : null}
+              <div className="rounded-lg border border-dashed border-navy-300 p-4"><h4 className="font-semibold">Need a different checklist?</h4><p className="mt-1 text-sm text-navy-600">Create one manually, copy an existing checklist, or import a CSV. Publish it, then return and select it here.</p><Link href="/task-books?tab=create&kind=training-checklist&returnTo=/training-sheet-templates" className="mt-3 inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900">Create, copy, or import checklist</Link></div>
+            </section>
+            <div className={builderStep === 3 ? "space-y-4" : "hidden"}>
             {form.topic === "EMS" ? (
               <section className="rounded-lg border border-navy-200 p-4">
                 <h3 className="font-semibold">EMS CE category hours</h3>
@@ -372,6 +380,17 @@ export default function TrainingSheetTemplatesPage() {
               ))}
               <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `custom-${Date.now()}-${current.customFields.length}`, label: "", type: "PERCENT", required: false }] }))} disabled={form.customFields.length >= 20}>+ Add custom field</Button>
             </div>
+            </div>
+            <div className={builderStep === 4 ? "space-y-4" : "hidden"}>
+              <h3 className="font-bold text-navy-900">Review template</h3>
+              <div className="rounded-xl border border-navy-200 bg-navy-50 p-5">
+                <div className="flex flex-wrap gap-2"><Badge tone="neutral">{TOPIC_LABELS[form.topic] || "Other"}</Badge>{form.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance only</Badge>}{form.gradingConfig.writtenTestEnabled ? <Badge tone="current">Written test</Badge> : null}{form.gradingConfig.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{form.ceCredits.length ? <Badge tone="current">EMS CE</Badge> : null}</div>
+                <h4 className="mt-3 text-xl font-bold">{form.name || "Untitled template"}</h4><p className="mt-1 text-navy-700">{form.defaultTitle || "No default Training Sheet title"}</p>
+                <p className="mt-3 text-sm"><strong>Checklist:</strong> {selectedChecklist ? selectedChecklist.title + " v" + selectedChecklist.version + " · " + selectedChecklist.skillCount + " skills" : "Attendance only"}</p>
+                <p className="mt-1 text-sm"><strong>Credit:</strong> {form.creditHours ? form.creditHours + " hours" : "Calculated from class duration"}</p>
+                {form.ceCredits.length ? <p className="mt-1 text-sm"><strong>EMS CE:</strong> {form.ceCredits.map((item) => item.hours + " hr " + item.category).join(" · ")}</p> : null}
+              </div>
+              {validationWarnings.length ? <div className="rounded-lg border border-amber-300 bg-amber-50 p-4"><h4 className="font-semibold text-amber-900">Review before saving</h4><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">{validationWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-900">Template is ready to save.</div>}
             <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm font-semibold">
               <input type="checkbox" checked={form.selfRegistration} onChange={(e) => setForm({ ...form, selfRegistration: e.target.checked })} />
               Enable QR self-registration by default
@@ -386,9 +405,10 @@ export default function TrainingSheetTemplatesPage() {
                 ))}
               </div>
             </Field>
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={busy}>{busy ? "Saving…" : editingId ? "Save changes" : "Save template"}</Button>
-              {editingId ? <Button type="button" variant="secondary" onClick={reset}>Cancel edit</Button> : null}
+            </div>
+            <div className="flex flex-wrap justify-between gap-2 border-t border-navy-100 pt-4">
+              <div>{builderStep > 1 ? <Button type="button" variant="secondary" onClick={() => setBuilderStep((step) => step - 1)}>Back</Button> : editingId ? <Button type="button" variant="secondary" onClick={reset}>Cancel edit</Button> : null}</div>
+              <div className="flex gap-2">{builderStep < 4 ? <Button type="button" onClick={() => setBuilderStep((step) => step + 1)}>Continue</Button> : <Button type="submit" disabled={busy || validationWarnings.some((warning) => /require|no longer published/i.test(warning))}>{busy ? "Saving…" : editingId ? "Save changes" : "Save template"}</Button>}{editingId && builderStep > 1 ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
             </div>
           </form>
         </Card>
