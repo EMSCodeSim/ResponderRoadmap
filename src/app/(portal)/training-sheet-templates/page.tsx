@@ -258,37 +258,6 @@ export default function TrainingSheetTemplatesPage() {
         {pageView === "BUILDER" ? <Card className="p-5">
           <h2 className="text-lg font-bold text-navy-900">{editingId ? "Edit template" : "Build a template"}</h2>
           <p className="mb-4 mt-1 text-sm text-navy-600">Choose a published checklist to make detailed practical sessions ready to launch.</p>
-          {!editingId && (
-            <div className="mb-4 rounded-lg border border-navy-200 bg-navy-50 p-3">
-              <p className="text-sm font-semibold text-navy-900">Firefighter I — Colorado DFPC</p>
-              <p className="mb-3 text-sm text-navy-700">
-                Preload all 32 JPR entries (including three live-fire variants) from the supplied
-                NFPA 1010:2024 skill-sheet index. Select your published skills checklist separately
-                to record individual step-level pass/fail results.
-              </p>
-              <Button type="button" onClick={() => {
-                setForm({ ...blank, ...firefighterOneClassPreset, topic: "FIRE", gradingConfig: blank.gradingConfig, ceCredits: [] });
-                setError(null);
-                setMessage("Firefighter I preset loaded. Review the checklist, location, and approved proctors, then save.");
-              }}>
-                Use Firefighter I template
-              </Button>
-            </div>
-          )}
-          {!editingId && (
-            <div className="mb-4 rounded-lg border border-navy-200 bg-navy-50 p-3">
-              <p className="text-sm font-semibold text-navy-900">BLS CPR — Adult & Infant (2025)</p>
-              <p className="mb-3 text-sm text-navy-700">
-                Preload a BLS Provider training sheet with adult and infant skills checkoff guidance,
-                instructor attestation, individual remediation, QR registration, and Atlas roster preparation instructions.
-                Select your department&apos;s published adult/infant checklist to record step-level results.
-              </p>
-              <Button type="button" onClick={chooseCprStarter}>
-                Use BLS CPR template
-              </Button>
-            </div>
-          )}
-          {!editingId ? <div className="mb-4 rounded-lg border border-navy-200 p-3"><p className="text-sm font-semibold text-navy-900">More starter templates</p><div className="mt-2 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => setForm({ ...blank, name: "EMS Continuing Education", defaultTitle: "Monthly EMS Continuing Education", topic: "EMS", classType: "EMS", trainingCategory: "EMS", selfRegistration: true })}>EMS CE</Button><Button type="button" variant="secondary" onClick={() => setForm({ ...blank, name: "HazMat Refresher", defaultTitle: "HazMat Operations Refresher", topic: "HAZMAT", trainingCategory: "HAZMAT", selfRegistration: true })}>HazMat</Button><Button type="button" variant="secondary" onClick={() => setForm({ ...blank, name: "Driver Operator Training", defaultTitle: "Driver Operator Practical Training", topic: "DRIVER", trainingCategory: "DRIVER" })}>Driver</Button><Button type="button" variant="secondary" onClick={() => setForm({ ...blank, name: "Officer Development", defaultTitle: "Officer Development Training", topic: "OFFICER", trainingCategory: "OFFICER" })}>Officer</Button></div></div> : null}
           <div className="mb-4 grid grid-cols-4 gap-1" aria-label="Template builder progress">
             {["Topic & title", "Checklist", "Grades & CE", "Review"].map((label, index) => <button key={label} type="button" onClick={() => setBuilderStep(index + 1)} className={"min-h-12 rounded-md px-2 py-2 text-xs font-semibold " + (builderStep === index + 1 ? "bg-fire text-white" : "bg-navy-50 text-navy-700")}>{index + 1}. {label}</button>)}
           </div>
@@ -434,6 +403,18 @@ export default function TrainingSheetTemplatesPage() {
           </form>
         </Card> : null}
         {pageView === "LIBRARY" ? <div>
+          <Card className="mb-5 p-4">
+            <h2 className="font-bold text-navy-900">Starter templates</h2>
+            <p className="mt-1 text-sm text-navy-600">Choose a starter to open it in the builder. It will not be saved until you review and save it.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, ...firefighterOneClassPreset, topic: "FIRE", gradingConfig: blank.gradingConfig, ceCredits: [] }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>Firefighter I</Button>
+              <Button type="button" variant="secondary" onClick={() => { chooseCprStarter(); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>BLS CPR</Button>
+              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "EMS Continuing Education", defaultTitle: "Monthly EMS Continuing Education", topic: "EMS", classType: "EMS", trainingCategory: "EMS", selfRegistration: true }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>EMS CE</Button>
+              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "HazMat Refresher", defaultTitle: "HazMat Operations Refresher", topic: "HAZMAT", trainingCategory: "HAZMAT", selfRegistration: true }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>HazMat</Button>
+              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "Driver Operator Training", defaultTitle: "Driver Operator Practical Training", topic: "DRIVER", trainingCategory: "DRIVER" }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>Driver</Button>
+              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "Officer Development", defaultTitle: "Officer Development Training", topic: "OFFICER", trainingCategory: "OFFICER" }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>Officer</Button>
+            </div>
+          </Card>
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-navy-900">Department templates</h2>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived</label>
