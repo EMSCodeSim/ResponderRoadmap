@@ -242,18 +242,26 @@ function DepartmentReadinessSnapshot({ data }: { data: Dashboard }) {
 
 function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
   const items = queue?.items ?? [];
+  const priorityRank: Record<WorkQueueItem["priority"], number> = { URGENT: 0, HIGH: 1, NORMAL: 2 };
   const categories: Array<{ kind: WorkQueueItem["kind"]; title: string }> = [
-    { kind: "ASSIGNMENT", title: "Assignments & follow-up" },
-    { kind: "EVALUATION", title: "Evaluations to review" },
-    { kind: "TRAINING_SHEET", title: "Training Sheets" },
-    { kind: "RMS_ENTRY", title: "RMS entry" },
+    { kind: "EVALUATION", title: "Review now" },
+    { kind: "ASSIGNMENT", title: "Follow up" },
+    { kind: "TRAINING_SHEET", title: "Training Sheets to complete" },
+    { kind: "RMS_ENTRY", title: "Enter in RMS" },
   ];
   const groupedItems = categories
     .map((category) => ({
       ...category,
-      items: items.filter((item) => item.kind === category.kind),
+      items: items
+        .filter((item) => item.kind === category.kind)
+        .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]),
     }))
-    .filter((category) => category.items.length > 0);
+    .filter((category) => category.items.length > 0)
+    .sort((a, b) => {
+      const aPriority = Math.min(...a.items.map((item) => priorityRank[item.priority]));
+      const bPriority = Math.min(...b.items.map((item) => priorityRank[item.priority]));
+      return aPriority - bPriority;
+    });
 
   return (
     <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
@@ -262,9 +270,9 @@ function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
           <div>
             <div className="kicker">DO · Needs Attention</div>
             <h2 id="today-priorities-title" className="display mt-1 text-2xl font-bold">
-              {items.length ? `${items.length} ${items.length === 1 ? "item" : "items"} to follow up` : "You’re caught up"}
+              {items.length ? `${items.length} ${items.length === 1 ? "item" : "items"} need action` : "You’re caught up"}
             </h2>
-            <p className="mt-1 text-sm text-navy-600">The same role-aware action list is used by the mobile app and website.</p>
+            <p className="mt-1 text-sm text-navy-600">Grouped by the next action needed. Urgent work appears first.</p>
           </div>
           {items.length ? <Badge tone={items.some((item) => item.priority === "URGENT") ? "danger" : "warn"}>{items.length} open</Badge> : <Badge tone="info">No action needed</Badge>}
         </div>
@@ -278,15 +286,17 @@ function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {category.items.map((item) => (
-                    <Link key={item.id} href={item.href} className={`rounded-lg border p-4 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire ${item.priority === "URGENT" ? "border-fire bg-red-50/40" : "border-navy-200"}`}>
-                      <div className="flex items-center justify-between gap-2">
+                    <article key={item.id} className={`rounded-lg border p-4 ${item.priority === "URGENT" ? "border-fire bg-red-50/40" : "border-navy-200"}`}>
+                      <div className="flex items-start justify-between gap-2">
                         <h4 className="font-bold text-navy-950">{item.title}</h4>
                         <Badge tone={item.priority === "URGENT" ? "danger" : item.priority === "HIGH" ? "warn" : "neutral"}>{item.priority.toLowerCase()}</Badge>
                       </div>
                       <p className="mt-2 text-sm text-navy-600">{item.reason}</p>
                       <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-navy-500">Owner: {item.owner}</p>
-                      <span className="mt-3 inline-block text-sm font-semibold text-fire">{item.actionLabel} →</span>
-                    </Link>
+                      <Link href={item.href} className="mt-3 inline-flex min-h-10 items-center rounded-md bg-fire px-3 py-2 text-sm font-semibold text-white hover:bg-fire/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fire">
+                        {item.actionLabel} →
+                      </Link>
+                    </article>
                   ))}
                 </div>
               </section>
