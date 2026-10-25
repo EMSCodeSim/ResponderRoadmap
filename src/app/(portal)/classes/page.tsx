@@ -64,7 +64,6 @@ export default function ClassesPage() {
   const [templateCategory, setTemplateCategory] = useState("");
   const [emsCeMode, setEmsCeMode] = useState(false);
   const [emsCredits, setEmsCredits] = useState<Record<string, number>>({});
-  const [emsObjectives, setEmsObjectives] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [open, setOpen] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
