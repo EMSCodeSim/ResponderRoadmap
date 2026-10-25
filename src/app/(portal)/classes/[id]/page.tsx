@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { Badge, Button, Card, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
+import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { blsAtlasPreparationCsv, downloadBlsCsv } from "@/lib/bls-atlas-export";
 import { ClassRegistrationControls } from "@/components/class-registration-controls";
 
@@ -136,6 +137,13 @@ export default function ClassDetailPage() {
   const [docNotes, setDocNotes] = useState("");
   const [docLocation, setDocLocation] = useState("");
   const [docHours, setDocHours] = useState("");
+  const [docCeCredits, setDocCeCredits] = useState<Record<string, number>>({});
+  const [availableMembers, setAvailableMembers] = useState<Array<{ id: string; name: string; rank: string | null }>>([]);
+  const [addMemberIds, setAddMemberIds] = useState<string[]>([]);
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestOrganization, setGuestOrganization] = useState("");
+  const [rosterMessage, setRosterMessage] = useState("");
   const [rmsOpen, setRmsOpen] = useState(false);
   const [rmsReference, setRmsReference] = useState("");
   const [rmsNote, setRmsNote] = useState("");
@@ -160,6 +168,7 @@ export default function ClassDetailPage() {
   useEffect(() => { api<{ role: string }>("auth/me").then((session) => setCanAssignBooks(["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(session.role))).catch(() => {}); }, []);
   useEffect(() => { api<LinkedAssignment[]>("assignments").then(setLinkedAssignments).catch(() => {}); }, []);
   useEffect(() => { api<TaskBookChoice[]>("task-books").then((items) => setBooks(items.filter((item) => item.status === "ACTIVE" && item.templateKind !== "TRAINING_TASK"))).catch(() => {}); }, []);
+  useEffect(() => { api<{ members: Array<{ id: string; name: string; rank: string | null }> }>("classes/setup").then((value) => setAvailableMembers(value.members)).catch(() => {}); }, []);
 
   function exportBlsAtlas(kind: "roster" | "review") {
     if (!detail || detail.classType !== "CPR") return;
@@ -260,6 +269,31 @@ export default function ClassDetailPage() {
     finally { setBusy(false); }
   }
 
+
+  async function addDepartmentRosterMembers() {
+    if (!detail || !addMemberIds.length) return;
+    setBusy(true); setError(null); setRosterMessage("");
+    try {
+      const result = await api<{ added: number; alreadyEnrolled: number }>(`classes/${detail.id}/roster/import`, { method: "POST", body: JSON.stringify({ membershipIds: addMemberIds }) });
+      setAddMemberIds([]);
+      await load();
+      setRosterMessage(`${result.added} department member(s) added${result.alreadyEnrolled ? `; ${result.alreadyEnrolled} already enrolled` : ""}.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to add department members."); }
+    finally { setBusy(false); }
+  }
+
+  async function addManualStudent() {
+    if (!detail) return;
+    setBusy(true); setError(null); setRosterMessage("");
+    try {
+      await api(`classes/${detail.id}/roster/manual`, { method: "POST", body: JSON.stringify({ name: guestName, email: guestEmail, organization: guestOrganization }) });
+      setGuestName(""); setGuestEmail(""); setGuestOrganization("");
+      await load();
+      setRosterMessage("Student added to the class roster.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to add this student."); }
+    finally { setBusy(false); }
+  }
+
   async function markSelectedPresent() {
     if (!detail || busy || !groupSelection.length || detail.status === "COMPLETE") return;
     if (!window.confirm(`Confirm attendance for ${groupSelection.length} selected members? This records attendance only, not skill competency.`)) return;
@@ -307,6 +341,7 @@ export default function ClassDetailPage() {
     setDocNotes(detail.notes);
     setDocLocation(detail.location);
     setDocHours(detail.creditHours > 0 ? String(detail.creditHours) : "");
+    setDocCeCredits(Object.fromEntries((detail.ceCredits || []).map((item) => [item.category, item.hours])));
     setCloseOpen(true);
   }
 
@@ -314,6 +349,10 @@ export default function ClassDetailPage() {
     if (!detail || busy) return;
     if (!docStart || (docEnd && new Date(docEnd) < new Date(docStart))) {
       setError("Enter a valid start time and an end time after the start.");
+      return;
+    }
+    if (approve && detail.trainingCategory === "EMS" && !docNotes.trim()) {
+      setError("Enter the class objectives and training narrative before approving this EMS Training Sheet.");
       return;
     }
     setBusy(true);
@@ -327,6 +366,7 @@ export default function ClassDetailPage() {
           notes: docNotes,
           location: docLocation,
           creditHours: docHours ? Number(docHours) : 0,
+          ceCredits: detail.trainingCategory === "EMS" ? Object.entries(docCeCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours })) : undefined,
         }),
       });
       if (approve) {
