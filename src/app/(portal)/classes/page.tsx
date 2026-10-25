@@ -156,7 +156,6 @@ export default function ClassesPage() {
     setQuickMode(quick);
     setEmsCeMode(false);
     setEmsCredits({});
-    setEmsObjectives("");
     setSelectedTemplateId("");
     setShowAdvancedSetup(false);
     setTemplateCategory("");
