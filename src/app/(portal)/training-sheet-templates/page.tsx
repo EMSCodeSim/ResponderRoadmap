@@ -116,7 +116,18 @@ export default function TrainingSheetTemplatesPage() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (!form.name.trim() || !form.defaultTitle.trim()) {
+      setBuilderStep(1);
+      setError("Add a template name and default Training Sheet title before saving.");
+      return;
+    }
+    if ((form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null) || (form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null)) {
+      setBuilderStep(3);
+      setError("Set a passing score for each enabled grade before saving.");
+      return;
+    }
     if (form.classType === "CPR" && !form.checklistVersionId) {
+      setBuilderStep(2);
       setError("Select a published CPR skills checklist before saving the CPR training package.");
       return;
     }
