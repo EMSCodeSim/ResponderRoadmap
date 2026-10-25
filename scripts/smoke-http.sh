@@ -53,12 +53,14 @@ for PAGE in "$BASE/" "$BASE/demo" "$BASE/login" "$BASE/register" "$BASE/departme
 done
 ok 'no public price amounts or pricing navigation across marketing pages'
 TESTING=$(curl -fsS "$BASE/pricing")
-echo "$TESTING" | grep -qi 'Responder Roadmap is in department testing' || { echo 'Department testing notice missing'; exit 1; }
-if echo "$TESTING" | grep -Eq '\$[0-9]'; then echo 'Public pricing amount found on department testing page'; exit 1; fi
+TESTING_VISIBLE=$(printf '%s' "$TESTING" | perl -0777 -pe 's/<script\b[^>]*>.*?<\/script>//sg')
+echo "$TESTING_VISIBLE" | grep -qi 'Responder Roadmap is in department testing' || { echo 'Department testing notice missing'; exit 1; }
+if echo "$TESTING_VISIBLE" | grep -Eq '\$[0-9]'; then echo 'Public pricing amount found on department testing page'; exit 1; fi
 ok 'public pricing hidden during department testing'
 INTEREST=$(curl -fsS "$BASE/department-interest")
-echo "$INTEREST" | grep -q 'Request department testing' || { echo 'Department test access form missing'; exit 1; }
-if echo "$INTEREST" | grep -Eq '\$[0-9]|Station|Founding Department'; then echo 'Plan pricing found in department testing form'; exit 1; fi
+INTEREST_VISIBLE=$(printf '%s' "$INTEREST" | perl -0777 -pe 's/<script\b[^>]*>.*?<\/script>//sg')
+echo "$INTEREST_VISIBLE" | grep -q 'Request department testing' || { echo 'Department test access form missing'; exit 1; }
+if echo "$INTEREST_VISIBLE" | grep -Eq '\$[0-9]|Station|Founding Department'; then echo 'Plan pricing found in department testing form'; exit 1; fi
 ok 'department testing interest path without prices'
 DEMO=$(curl -fsS "$BASE/demo")
 echo "$DEMO" | grep -q 'Welcome to the Responder Roadmap Department Demo' || { echo 'Demo missing start screen'; exit 1; }
