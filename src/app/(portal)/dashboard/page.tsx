@@ -242,6 +242,19 @@ function DepartmentReadinessSnapshot({ data }: { data: Dashboard }) {
 
 function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
   const items = queue?.items ?? [];
+  const categories: Array<{ kind: WorkQueueItem["kind"]; title: string }> = [
+    { kind: "ASSIGNMENT", title: "Assignments & follow-up" },
+    { kind: "EVALUATION", title: "Evaluations to review" },
+    { kind: "TRAINING_SHEET", title: "Training Sheets" },
+    { kind: "RMS_ENTRY", title: "RMS entry" },
+  ];
+  const groupedItems = categories
+    .map((category) => ({
+      ...category,
+      items: items.filter((item) => item.kind === category.kind),
+    }))
+    .filter((category) => category.items.length > 0);
+
   return (
     <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
       <Card className="p-5">
@@ -255,19 +268,31 @@ function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
           </div>
           {items.length ? <Badge tone={items.some((item) => item.priority === "URGENT") ? "danger" : "warn"}>{items.length} open</Badge> : <Badge tone="info">No action needed</Badge>}
         </div>
-        {items.length ? <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {items.map((item, index) => (
-            <Link key={item.id} href={item.href} className={`rounded-lg border p-4 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire ${index === 0 ? "border-fire bg-red-50/40" : "border-navy-200"}`}>
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-bold text-navy-950">{item.title}</h3>
-                <Badge tone={item.priority === "URGENT" ? "danger" : item.priority === "HIGH" ? "warn" : "neutral"}>{item.priority.toLowerCase()}</Badge>
-              </div>
-              <p className="mt-2 text-sm text-navy-600">{item.reason}</p>
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-navy-500">Owner: {item.owner}</p>
-              <span className="mt-3 inline-block text-sm font-semibold text-fire">{item.actionLabel} →</span>
-            </Link>
-          ))}
-        </div> : <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">No assignments, evaluations, Training Sheets, or RMS entries currently require your action.</div>}
+        {items.length ? (
+          <div className="mt-5 space-y-5">
+            {groupedItems.map((category) => (
+              <section key={category.kind} aria-label={category.title}>
+                <div className="mb-2 flex items-center gap-2">
+                  <h3 className="font-bold text-navy-900">{category.title}</h3>
+                  <Badge tone="neutral">{category.items.length}</Badge>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {category.items.map((item) => (
+                    <Link key={item.id} href={item.href} className={`rounded-lg border p-4 hover:border-fire focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire ${item.priority === "URGENT" ? "border-fire bg-red-50/40" : "border-navy-200"}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-bold text-navy-950">{item.title}</h4>
+                        <Badge tone={item.priority === "URGENT" ? "danger" : item.priority === "HIGH" ? "warn" : "neutral"}>{item.priority.toLowerCase()}</Badge>
+                      </div>
+                      <p className="mt-2 text-sm text-navy-600">{item.reason}</p>
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-navy-500">Owner: {item.owner}</p>
+                      <span className="mt-3 inline-block text-sm font-semibold text-fire">{item.actionLabel} →</span>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">No assignments, evaluations, Training Sheets, or RMS entries currently require your action.</div>}
       </Card>
     </section>
   );
