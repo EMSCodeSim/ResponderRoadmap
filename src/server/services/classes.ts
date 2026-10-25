@@ -954,7 +954,7 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
 export async function updateClassDocumentation(
   ctx: AuthContext,
   classId: string,
-  input: { startsAt?: string; endsAt?: string | null; notes?: string; location?: string; creditHours?: number },
+  input: { startsAt?: string; endsAt?: string | null; notes?: string; location?: string; creditHours?: number; ceCredits?: unknown },
 ) {
   assertPermission(ctx, "classes.write");
   const row = await canAccessClass(ctx, classId, true);
@@ -964,14 +964,17 @@ export async function updateClassDocumentation(
   const startsAt = input.startsAt === undefined ? row.startsAt : parseDate(input.startsAt, "Training start time", true)!;
   const endsAt = input.endsAt === undefined ? row.endsAt : parseDate(input.endsAt, "Training end time");
   if (endsAt && endsAt < startsAt) throw new HttpError(400, "Training end time cannot be before the start time.");
-  const creditHours = input.creditHours === undefined ? row.creditHours : Number(input.creditHours);
+  const ceCredits = input.ceCredits === undefined ? normalizeCeCredits(JSON.parse(row.ceCreditsJson || "[]")) : normalizeCeCredits(input.ceCredits);
+  if (ceCredits.length && row.trainingCategory !== "EMS") throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
+  const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
+  const creditHours = allocatedHours > 0 ? allocatedHours : input.creditHours === undefined ? row.creditHours : Number(input.creditHours);
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) {
     throw new HttpError(400, "Credit hours must be between 0 and 24.");
   }
   await prisma.trainingClass.update({
     where: { id: classId },
     data: {
-      startsAt, endsAt, creditHours,
+      startsAt, endsAt, creditHours, ceCreditsJson: JSON.stringify(ceCredits),
       ...(input.location === undefined ? {} : { location: String(input.location).trim().slice(0, 180) }),
       ...(input.notes === undefined ? {} : { notes: String(input.notes).trim().slice(0, 4000) }),
     },
