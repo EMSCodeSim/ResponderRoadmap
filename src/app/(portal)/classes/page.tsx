@@ -104,7 +104,7 @@ export default function ClassesPage() {
     setEmsCredits(Object.fromEntries((template.ceCredits || []).map((item) => [item.category, item.hours])));
     setForm({
       ...emptyForm,
-      title: template.defaultTitle || template.name,
+      title: (template.ceCredits || []).length ? "" : template.defaultTitle || template.name,
       classType: template.classType,
       trainingCategory: template.trainingCategory,
       creditHours: template.creditHours ? String(template.creditHours) : "",
@@ -136,7 +136,7 @@ export default function ClassesPage() {
         : undefined;
       const payload = emsCeMode
         ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: total, ceCredits,
-            notes: [`OBJECTIVES\n${emsObjectives.trim()}`, emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
+            notes: [emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
         : form;
       const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify({ ...payload, ceCredits, trainingSheetTemplateId: selectedTemplateId || undefined }) });
       window.location.href = `/classes/${created.id}`;
@@ -173,7 +173,7 @@ export default function ClassesPage() {
     const allocations = template.ceCredits || [];
     setEmsCeMode(allocations.length > 0);
     setEmsCredits(Object.fromEntries(allocations.map((item) => [item.category, item.hours])));
-    setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
+    setForm((current) => ({ ...current, title: allocations.length ? "" : template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 
   const visibleRows = useMemo(() => rows.filter((row) => {
@@ -269,7 +269,6 @@ export default function ClassesPage() {
               </Field>)}
             </div>
             <div className="font-bold">Total EMS CE credit: {Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</div>
-            <Field label="Training objectives"><TextArea rows={4} value={emsObjectives} onChange={(event) => setEmsObjectives(event.target.value)} placeholder="By the end of this class, participants will be able to…" /></Field>
           </section> : null}
           <section className="rounded-lg border border-navy-200 p-4 space-y-3">
             <h3 className="font-bold">1. Choose Fire, EMS, HazMat or another template</h3>
@@ -318,7 +317,7 @@ export default function ClassesPage() {
                 {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
             </Field>}
-            {showAdvancedSetup ? <Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field> : null}
+            {showAdvancedSetup || emsCeMode ? <Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} required={emsCeMode} placeholder="Station, classroom, or training site" /></Field> : null}
             <Field label="Training date and start time"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
             {showAdvancedSetup ? <Field label="Ends (finish after teaching)"><Input type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field> : null}
           </div>
@@ -353,7 +352,7 @@ export default function ClassesPage() {
             </Field> : null}
           </div>
           <p className="text-sm text-navy-600">After creation: teach, take attendance and evaluate skills. Finish documentation and explicitly mark Entered into RMS to clear Needs Attention.</p>
-          <Button type="submit" className={quickMode ? "w-full min-h-12" : undefined} disabled={busy}>{busy ? "Creating…" : "Create training sheet"}</Button>
+          <Button type="submit" className={quickMode ? "w-full min-h-12" : undefined} disabled={busy}>{busy ? "Creating…" : form.selfRegistration ? "Create & show QR code" : "Create training sheet"}</Button>
         </form>
       </Modal>
     </div>
