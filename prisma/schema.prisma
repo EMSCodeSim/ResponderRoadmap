@@ -412,6 +412,7 @@ model TrainingSheetTemplate {
   selfRegistration   Boolean    @default(false)
   proctorUserIdsJson String     @default("[]")
   archived           Boolean    @default(false)
+  revision           Int        @default(1)
   createdById        String
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
@@ -435,6 +436,8 @@ model TrainingClass {
   ceCreditsJson          String          @default("[]")
   /// Template grading options copied at creation time.
   gradingConfigJson      String          @default("{}")
+  templateName           String          @default("")
+  templateRevision       Int?
   checklistVersionId     String
   checklistVersion       TaskBookVersion @relation(fields: [checklistVersionId], references: [id])
   startsAt               DateTime
