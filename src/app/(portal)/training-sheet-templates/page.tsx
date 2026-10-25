@@ -70,6 +70,7 @@ export default function TrainingSheetTemplatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [builderStep, setBuilderStep] = useState(1);
+  const [pageView, setPageView] = useState<"LIBRARY" | "BUILDER">("LIBRARY");
 
   async function load() {
     const query = showArchived ? "?archived=all" : "";
@@ -89,6 +90,7 @@ export default function TrainingSheetTemplatesPage() {
     setEditingId(null);
     setForm(blank);
     setBuilderStep(1);
+    setPageView("LIBRARY");
   }
 
   function edit(item: Template) {
@@ -111,6 +113,7 @@ export default function TrainingSheetTemplatesPage() {
     });
     setMessage(null);
     setBuilderStep(1);
+    setPageView("BUILDER");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -210,6 +213,7 @@ export default function TrainingSheetTemplatesPage() {
       selfRegistration: item.selfRegistration, proctorUserIds: item.proctorUserIds,
     });
     setBuilderStep(1);
+    setPageView("BUILDER");
     setError(null);
     setMessage("Template copied. Give the copy a unique name, review it, then save.");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -246,8 +250,12 @@ export default function TrainingSheetTemplatesPage() {
       />
       <Flash message={error} tone="danger" />
       <Flash message={message} tone="current" />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-        <Card className="p-5">
+      <div className="mb-5 grid gap-3 sm:grid-cols-2">
+        <button type="button" onClick={() => setPageView("LIBRARY")} className={"min-h-16 rounded-xl border px-5 py-4 text-left font-bold " + (pageView === "LIBRARY" ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-900")}><span className="block">Template Library</span><span className={"mt-1 block text-sm font-normal " + (pageView === "LIBRARY" ? "text-white/80" : "text-navy-500")}>Find, use, duplicate, or edit saved templates</span></button>
+        <button type="button" onClick={() => { setEditingId(null); setForm(blank); setBuilderStep(1); setPageView("BUILDER"); setError(null); setMessage(null); }} className={"min-h-16 rounded-xl border px-5 py-4 text-left font-bold " + (pageView === "BUILDER" ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-900")}><span className="block">Create Template</span><span className={"mt-1 block text-sm font-normal " + (pageView === "BUILDER" ? "text-white/80" : "text-navy-500")}>Open the guided template builder</span></button>
+      </div>
+      <div>
+        {pageView === "BUILDER" ? <Card className="p-5">
           <h2 className="text-lg font-bold text-navy-900">{editingId ? "Edit template" : "Build a template"}</h2>
           <p className="mb-4 mt-1 text-sm text-navy-600">Choose a published checklist to make detailed practical sessions ready to launch.</p>
           {!editingId && (
@@ -424,8 +432,8 @@ export default function TrainingSheetTemplatesPage() {
               <div className="flex gap-2">{builderStep < 4 ? <Button type="button" onClick={() => setBuilderStep((step) => step + 1)}>Continue</Button> : <Button type="submit" disabled={busy || validationWarnings.some((warning) => /require|no longer published/i.test(warning))}>{busy ? "Saving…" : editingId ? "Save changes" : "Save template"}</Button>}{editingId && builderStep > 1 ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
             </div>
           </form>
-        </Card>
-        <div>
+        </Card> : null}
+        {pageView === "LIBRARY" ? <div>
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-navy-900">Department templates</h2>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived</label>
@@ -473,7 +481,7 @@ export default function TrainingSheetTemplatesPage() {
               </section>
             ))}
           </div>
-        </div>
+        </div> : null}
       </div>
     </div>
   );
