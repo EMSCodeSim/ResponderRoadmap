@@ -317,6 +317,7 @@ export async function syncMySharedActivities(ctx: AuthContext, raw: unknown) {
             tags: item.tags,
             sourceUpdatedAt: item.updatedAt,
             memberName: ctx.name,
+            membershipId: ctx.membershipId,
           }),
         })),
       });
