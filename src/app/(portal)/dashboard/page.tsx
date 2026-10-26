@@ -266,27 +266,29 @@ function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
   return (
     <section id="needs-attention" className="mb-6 scroll-mt-6" aria-labelledby="today-priorities-title">
       <Card className="p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="kicker">DO · Needs Attention</div>
-            <h2 id="today-priorities-title" className="display mt-1 text-2xl font-bold">
+            <h2 id="today-priorities-title" className="display mt-1 text-xl font-bold">
               {items.length ? `${items.length} ${items.length === 1 ? "item" : "items"} need action` : "You’re caught up"}
             </h2>
-            <p className="mt-1 text-sm text-navy-600">Grouped by the next action needed. Urgent work appears first.</p>
           </div>
           {items.length ? <Badge tone={items.some((item) => item.priority === "URGENT") ? "danger" : "warn"}>{items.length} open</Badge> : <Badge tone="info">No action needed</Badge>}
         </div>
         {items.length ? (
-          <div className="mt-5 space-y-5">
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
             {groupedItems.map((category) => (
-              <section key={category.kind} aria-label={category.title}>
-                <div className="mb-2 flex items-center gap-2">
-                  <h3 className="font-bold text-navy-900">{category.title}</h3>
-                  <Badge tone="neutral">{category.items.length}</Badge>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+              <details key={category.kind} className="group rounded-lg border border-navy-200 bg-white open:shadow-sm md:col-span-2">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3 hover:bg-navy-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fire [&::-webkit-details-marker]:hidden">
+                  <span className="font-bold text-navy-950">{category.title}</span>
+                  <span className="flex items-center gap-3">
+                    <Badge tone={category.items.some((item) => item.priority === "URGENT") ? "danger" : "neutral"}>{category.items.length}</Badge>
+                    <span aria-hidden="true" className="text-lg font-bold text-navy-400 transition-transform group-open:rotate-180">⌄</span>
+                  </span>
+                </summary>
+                <div className="grid gap-3 border-t border-navy-100 p-3 sm:grid-cols-2">
                   {category.items.map((item) => (
-                    <article key={item.id} className={`rounded-lg border p-4 ${item.priority === "URGENT" ? "border-fire bg-red-50/40" : "border-navy-200"}`}>
+                    <article key={item.id} className={`rounded-lg border p-3 ${item.priority === "URGENT" ? "border-fire bg-red-50/40" : "border-navy-200"}`}>
                       <div className="flex items-start justify-between gap-2">
                         <h4 className="font-bold text-navy-950">{item.title}</h4>
                         <Badge tone={item.priority === "URGENT" ? "danger" : item.priority === "HIGH" ? "warn" : "neutral"}>{item.priority.toLowerCase()}</Badge>
@@ -299,7 +301,7 @@ function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
                     </article>
                   ))}
                 </div>
-              </section>
+              </details>
             ))}
           </div>
         ) : <div className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">No assignments, evaluations, Training Sheets, or RMS entries currently require your action.</div>}
