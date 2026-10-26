@@ -922,7 +922,15 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                   <Field label="Detailed instructions">
                     <TextArea value={currentReq.instructions} disabled={draftLocked} onChange={(e) => updateReq({ instructions: e.target.value })} />
                   </Field>
-                  <Field label="Learning resource URL" hint="Optional. Add a YouTube video or other web resource for this task.">
+                  <Field label="Reference title" hint="Optional. Name the webpage, policy, or video members should use.">
+                    <Input
+                      value={currentReq.referenceDocument}
+                      disabled={draftLocked}
+                      placeholder="Example: Master stream setup video"
+                      onChange={(e) => updateReq({ referenceDocument: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Reference URL" hint="Optional. Add a YouTube video or other web resource for this task.">
                     <Input
                       type="url"
                       value={currentReq.referenceUrl}
@@ -1207,9 +1215,6 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                       Add standards reference
                     </Button>
                   ) : null}
-                  <Field label="Reference document (legacy text)">
-                    <Input value={currentReq.referenceDocument} disabled={draftLocked} onChange={(e) => updateReq({ referenceDocument: e.target.value })} />
-                  </Field>
                 </>
               ) : null}
               {!draftLocked ? (
