@@ -45,6 +45,8 @@ export default function CreateAssignmentPage() {
     title: "",
     description: "",
     instructions: "",
+    referenceTitle: "",
+    referenceUrl: "",
     objectives: "",
     checklistItems: [""] as string[],
     evaluationSteps: "",
@@ -135,6 +137,8 @@ export default function CreateAssignmentPage() {
           title: form.title,
           description: form.description,
           instructions: form.instructions,
+          referenceDocument: form.referenceTitle,
+          referenceUrl: form.referenceUrl,
           checklistItems: form.checklistItems.map((item) => item.trim()).filter(Boolean),
           objectives: form.objectives.split("\n").map((item) => item.trim()).filter(Boolean),
           evaluationSteps: form.evaluationSteps.split("\n").map((item) => item.trim()).filter(Boolean),
@@ -175,7 +179,7 @@ export default function CreateAssignmentPage() {
       <PageHeader
         kicker="Assignments"
         title="Create Assignment"
-        description="Describe the work, choose who receives it, then assign. Additional requirements are optional."
+        description="Build one focused page of work using the same instructions, references, checklist, evidence, and approval flow as a Task Book."
       />
       <Flash tone="danger" message={error} />
       <div className="mb-4"><Flash tone="current" message={message} /></div>
@@ -190,7 +194,7 @@ export default function CreateAssignmentPage() {
       ) : null}
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="p-5">
-          <div className="kicker">1 · What should they do?</div>
+          <div className="kicker">1 · Build the Assignment page</div>
           <div className="mt-4 grid gap-4">
             <Field label="Assignment title" required>
               <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="First-due residential fire drill" />
@@ -201,6 +205,18 @@ export default function CreateAssignmentPage() {
             <Field label="What to do">
               <TextArea value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} placeholder="Setup, activities, equipment, and completion requirements." />
             </Field>
+            <div className="rounded-md border border-navy-200 p-4">
+              <div className="text-sm font-bold text-navy-900">Web or video reference (optional)</div>
+              <p className="mt-1 text-xs text-navy-600">Add a webpage, department resource, or video members should review while completing this Assignment.</p>
+              <div className="mt-3 grid gap-3">
+                <Field label="Reference title">
+                  <Input value={form.referenceTitle} onChange={(e) => setForm({ ...form, referenceTitle: e.target.value })} placeholder="Example: Master stream setup video" />
+                </Field>
+                <Field label="Reference URL" hint="Use a complete https:// link, including YouTube or Vimeo.">
+                  <Input type="url" value={form.referenceUrl} onChange={(e) => setForm({ ...form, referenceUrl: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." />
+                </Field>
+              </div>
+            </div>
             <div className="rounded-md border border-navy-200 p-4">
               <div className="text-sm font-bold text-navy-900">Required checklist</div>
               <p className="mt-1 text-xs text-navy-600">Add each requirement separately. Members must complete every item, and evaluators sign off on each one.</p>
