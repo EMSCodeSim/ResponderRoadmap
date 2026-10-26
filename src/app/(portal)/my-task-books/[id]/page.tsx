@@ -50,6 +50,7 @@ type Detail = {
       title: string;
       description: string;
       instructions: string;
+      referenceDocument?: string | null;
       referenceUrl?: string | null;
       objectives: string[];
       isRequired: boolean;
@@ -296,9 +297,9 @@ export default function MyTaskBookDetailPage() {
                         ) : null}
                         {learningResourceUrl ? (
                           <div className="mt-3 rounded-md bg-navy-50 p-3">
-                            <div className="kicker">Learning resource</div>
+                            <div className="kicker">{req.referenceDocument || "Learning resource"}</div>
                             <a href={learningResourceUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-10 items-center font-semibold text-fire underline">
-                              Open learning resource ↗
+                              {/(youtube\.com|youtu\.be|vimeo\.com)/i.test(learningResourceUrl) ? "Watch reference video ↗" : "Open web reference ↗"}
                             </a>
                           </div>
                         ) : null}
