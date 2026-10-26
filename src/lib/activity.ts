@@ -4,6 +4,8 @@ export function activityText(type: string, metadata: Record<string, unknown>, ac
   const title = String(metadata.title || metadata.taskBook || "");
   const requirement = String(metadata.requirement || "");
   const credential = String(metadata.credential || "");
+  const category = String(metadata.category || "");
+  const hours = Number(metadata.hours);
   switch (type) {
     case "REQUIREMENT_COMPLETED":
       return `${member || actor} completed ${requirement || "a requirement"}`;
@@ -45,6 +47,12 @@ export function activityText(type: string, metadata: Record<string, unknown>, ac
       return `${String(metadata.memberName || member || "A member")} registered for ${title || "a class"}`;
     case "CLASS_GUEST_REGISTERED":
       return `A guest registered for ${title || "a class"}`;
+    case "APP_SHARED_ACTIVITY": {
+      const duration = Number.isFinite(hours) && hours > 0
+        ? ` · ${hours.toLocaleString(undefined, { maximumFractionDigits: 2 })} hr${hours === 1 ? "" : "s"}`
+        : "";
+      return `${member || actor} shared ${title || category || "a Quick Log entry"}${category && category !== title ? ` (${category})` : ""}${duration}`;
+    }
     default:
       return `${actor} recorded ${type.toLowerCase().replaceAll("_", " ")}`;
   }
