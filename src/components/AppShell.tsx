@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, ShieldCheck, TrendingUp, Users, X, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, Menu, Settings, ShieldCheck, TrendingUp, Users, X, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -31,7 +31,6 @@ const NAV_ICONS: Record<PortalNavIcon, LucideIcon> = {
   assignment: ClipboardList,
   events: CalendarCheck,
   people: Users,
-  evaluation: ListChecks,
   qualification: ShieldCheck,
   insights: TrendingUp,
   reports: ClipboardList,
