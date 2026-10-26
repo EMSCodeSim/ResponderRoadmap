@@ -7,6 +7,8 @@ export type TrainingTaskInput = {
   title?: string;
   description?: string;
   instructions?: string;
+  referenceDocument?: string;
+  referenceUrl?: string;
   objectives?: string[];
   evaluationSteps?: string[];
   checklistItems?: string[];
@@ -52,6 +54,13 @@ export async function createTrainingTask(ctx: AuthContext, input: TrainingTaskIn
     .slice(0, 12);
 
   const checklistItems = (input.checklistItems || []).map((item) => String(item).trim()).filter(Boolean).slice(0, 20);
+  const referenceDocument = String(input.referenceDocument || "").trim().slice(0, 240);
+  const referenceUrl = String(input.referenceUrl || "").trim();
+  if (referenceUrl) {
+    let parsed: URL;
+    try { parsed = new URL(referenceUrl); } catch { throw new HttpError(400, "Enter a valid web or video reference URL."); }
+    if (!new Set(["http:", "https:"]).has(parsed.protocol)) throw new HttpError(400, "Reference URL must use http or https.");
+  }
   const supervisorRequired = input.supervisorApprovalRequired === true;
   const book = await taskbooks.createTaskBook(ctx, {
     title,
@@ -68,6 +77,8 @@ export async function createTrainingTask(ctx: AuthContext, input: TrainingTaskIn
             title: item,
             description: String(input.description || "").trim(),
             instructions: String(input.instructions || "").trim(),
+            referenceDocument,
+            referenceUrl: referenceUrl || null,
             sortOrder: index,
             isRequired: true,
             evaluatorSignOffRequired: true,
@@ -86,6 +97,8 @@ export async function createTrainingTask(ctx: AuthContext, input: TrainingTaskIn
             title,
             description: String(input.description || "").trim(),
             instructions: String(input.instructions || "").trim(),
+            referenceDocument,
+            referenceUrl: referenceUrl || null,
             sortOrder: 0,
             isRequired: true,
             evaluatorSignOffRequired: true,
