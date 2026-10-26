@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, CalendarCheck, ClipboardList, Inbox as InboxIcon, LayoutDashboard, ListChecks, Menu, Settings, ShieldCheck, TrendingUp, Users, X, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarCheck, ClipboardList, LayoutDashboard, ListChecks, Menu, Settings, ShieldCheck, TrendingUp, Users, X, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
@@ -49,16 +49,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [open, setOpen] = useState(false);
   const [demoSwitching, setDemoSwitching] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [platformAdmin, setPlatformAdmin] = useState(false);
 
   useEffect(() => {
     api<Session>("auth/me")
       .then((value) => {
         setSession(value);
-        api<{ unreadCount: number }>("inbox")
-          .then((inbox) => setUnreadCount(inbox.unreadCount))
-          .catch(() => setUnreadCount(0));
         api<{ platformAdmin: boolean }>("platform-access")
           .then((access) => setPlatformAdmin(access.platformAdmin))
           .catch(() => setPlatformAdmin(false));
@@ -66,14 +62,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .catch(() => router.push("/login"));
   }, [router]);
 
-  const { nav, inboxVisible, settingsVisible } = useMemo(() => {
+  const { nav, settingsVisible } = useMemo(() => {
     return getPortalNavigation(session?.role ?? null, session?.nav ?? ["dashboard", "settings"], session?.enabledFeatures);
   }, [session]);
 
   const isDemo = session?.departmentId === DEMO_DEPARTMENT_ID;
   const demoWalk = demoWalkForRole(session?.role);
   const settingsActive = ADMIN_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-  const inboxActive = pathname === "/inbox" || pathname.startsWith("/inbox/");
 
   async function switchDemoPerspective(walk: DemoWalkKey) {
     if (!isDemo || walk === demoWalk) return;
@@ -134,7 +129,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="border-t border-white/10 p-4">
-          {inboxVisible ? <Link href="/inbox" onClick={() => setOpen(false)} aria-current={inboxActive ? "page" : undefined} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", inboxActive ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><InboxIcon size={18} className="shrink-0" /><span className="min-w-0 flex-1"><span className="block">Inbox</span><span className={cx("mt-0.5 block text-[11px] font-medium leading-4", inboxActive ? "text-white/75" : "text-white/45")}>Notifications and items sent to you</span></span>{unreadCount > 0 ? <span aria-label={`${unreadCount} unread`} className={cx("min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-bold text-white", inboxActive ? "bg-white/20" : "bg-fire")}>{unreadCount > 99 ? "99+" : unreadCount}</span> : null}</Link> : null}
           {platformAdmin ? <Link href="/platform-admin" onClick={() => setOpen(false)} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", pathname.startsWith("/platform-admin") || pathname.startsWith("/interest-list") ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><LayoutDashboard size={18} />Master Admin</Link> : null}
           {settingsVisible ? <Link href="/settings" onClick={() => setOpen(false)} aria-current={settingsActive ? "page" : undefined} className={cx("mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold", settingsActive ? "bg-fire text-white" : "text-white/75 hover:bg-white/10 hover:text-white")}><Settings size={18} />{session?.role === "TRAINING_OFFICER" || session?.role === "DEPARTMENT_ADMINISTRATOR" ? "Admin" : session?.role === "MEMBER" ? "My Profile" : "Settings"}</Link> : null}
           {session?.role === "MEMBER" ? <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="mb-1 flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold text-white/75 hover:bg-white/10 hover:text-white"><BookOpen size={18} />Download iPhone App</a> : null}
