@@ -1,6 +1,6 @@
 import type { Role } from "@/lib/constants";
 
-export type PortalNavIcon = "home" | "book" | "assignment" | "events" | "people" | "evaluation" | "qualification" | "insights" | "reports";
+export type PortalNavIcon = "home" | "book" | "assignment" | "events" | "people" | "qualification" | "insights" | "reports";
 export type PortalNavItem = { href: string; label: string; description: string; icon: PortalNavIcon; section: string; paths: string[] };
 export type PortalNavigation = { nav: PortalNavItem[]; inboxVisible: boolean; settingsVisible: boolean };
 
@@ -31,7 +31,7 @@ export function getPortalNavigation(role: Role | null, permissions: string[], en
     settingsVisible,
   };
   if (role === "EVALUATOR") return {
-    nav: [home, make("/evaluate", "Evaluations", "Review and sign off skills", "evaluation", "evaluate", "EVALUATE")].filter((item): item is PortalNavItem => !!item && (item === home ? allowed.has("dashboard") : true)),
+    nav: allowed.has("dashboard") ? [home] : [],
     inboxVisible,
     settingsVisible,
   };
@@ -43,7 +43,6 @@ export function getPortalNavigation(role: Role | null, permissions: string[], en
       make("/assignment-library", "Assignments", "Give members specific work to complete", "assignment", "training-assignments", "CORE WORK", ASSIGNMENT_PATHS),
       make("/classes", "Training Sheets", "Classes, drills, QR rosters, and attendance", "events", "classes", "ASSIGN & TRAIN"),
       make("/members", "People", "Members, roles, shifts, and evaluators", "people", "members", "PEOPLE & READINESS", ["/members", "/enrollment", "/evaluators"]),
-      make("/evaluate", "Evaluations", "Review and sign off submitted skills", "evaluation", "evaluate", "PEOPLE & READINESS"),
       featureOn("QUALIFICATIONS") ? make("/qualifications", "Approved Roles", "Department-authorized roles and what is missing", "qualification", "members", "PEOPLE & READINESS") : null,
       make("/skill-mastery", "Training Needs", "What to train next and why", "insights", "skill-mastery", "IMPROVE & REPORT"),
       make("/reports", "Reports", "Training gaps, hours, and RMS-ready records", "reports", "reports", "IMPROVE & REPORT"),
