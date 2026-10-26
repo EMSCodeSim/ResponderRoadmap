@@ -8,7 +8,7 @@ describe("role-based portal navigation", () => {
     const { nav, inboxVisible, settingsVisible } = getPortalNavigation("TRAINING_OFFICER", officerPermissions);
     expect(nav.map(({ label, section }) => [label, section])).toEqual([
       ["Home", "HOME"], ["Task Books", "CORE WORK"], ["Assignments", "CORE WORK"], ["Training Sheets", "ASSIGN & TRAIN"],
-      ["People", "PEOPLE & READINESS"], ["Evaluations", "PEOPLE & READINESS"], ["Approved Roles", "PEOPLE & READINESS"],
+      ["People", "PEOPLE & READINESS"], ["Approved Roles", "PEOPLE & READINESS"],
       ["Training Needs", "IMPROVE & REPORT"], ["Reports", "IMPROVE & REPORT"],
     ]);
     expect(nav.every((item) => item.description.length > 8)).toBe(true);
@@ -26,7 +26,7 @@ describe("role-based portal navigation", () => {
 
   it("keeps Instructor and Evaluator workspaces role-specific", () => {
     expect(getPortalNavigation("INSTRUCTOR", ["dashboard", "classes", "inbox", "settings"]).nav.map(({ label }) => label)).toEqual(["Home", "My Training Sheets"]);
-    expect(getPortalNavigation("EVALUATOR", ["dashboard", "evaluate", "inbox", "settings"]).nav.map(({ label }) => label)).toEqual(["Home", "Evaluations"]);
+    expect(getPortalNavigation("EVALUATOR", ["dashboard", "evaluate", "inbox", "settings"]).nav.map(({ label }) => label)).toEqual(["Home"]);
   });
 
   it("highlights nested records in their existing navigation destination", () => {
