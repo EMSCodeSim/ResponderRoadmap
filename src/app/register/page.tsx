@@ -6,12 +6,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { BrandMark } from "@/components/brand";
 import { Button, Field, Flash, Input, Select } from "@/components/ui";
+import { isOpenAccountCreationAvailable, OPEN_ACCOUNT_CREATION_END_LABEL } from "@/lib/account-access";
 
 function RegisterContent() {
   const router = useRouter();
   const search = useSearchParams();
   const invitationToken = search.get("invite") || "";
   const joinCode = search.get("code")?.trim().toUpperCase() || "";
+  const openAccountCreation = isOpenAccountCreationAvailable();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -110,18 +112,26 @@ function RegisterContent() {
               </Button>
             </form>
           </>
+        ) : !openAccountCreation ? (
+          <div>
+            <div className="kicker">Account access</div>
+            <h1 className="display mt-1 text-4xl font-bold">Request an account</h1>
+            <p className="mt-3 text-sm leading-6 text-navy-500">Open account creation has ended. Send an account request and you will be contacted about access.</p>
+            <Link href="/department-interest?source=account-request" className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-fire px-4 text-sm font-semibold text-white hover:bg-fire-dark">Send account request</Link>
+            <Link href="/login" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">Return to log in</Link>
+          </div>
         ) : (
           <>
-            <div className="kicker">Start a live department test</div>
-            <h1 className="display mt-1 text-4xl font-bold">Create your training organization</h1>
-            <p className="mt-3 text-sm text-navy-500">For a Training Captain, Chief, Training Officer, administrator, or instructor testing ResponderRoadmap with a real department workflow. No credit card is required.</p>
+            <div className="kicker">Free account creation</div>
+            <h1 className="display mt-1 text-4xl font-bold">Create your department account</h1>
+            <p className="mt-3 text-sm text-navy-500">Create a department account free through {OPEN_ACCOUNT_CREATION_END_LABEL}. No credit card is required.</p>
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <Flash message={error} tone="danger" />
               <Field label="Organization or department name"><Input value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} minLength={2} maxLength={180} required placeholder="Your fire department or training company" /></Field>
               <Field label="Your full name"><Input value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" /></Field>
               <Field label="Work email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></Field>
               <Field label="Password" hint="At least 8 characters."><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required autoComplete="new-password" /></Field>
-              <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating…" : "Create department test"}</Button>
+              <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating…" : "Create free account"}</Button>
             </form>
             <div className="mt-5 border-t border-navy-200 pt-5 text-sm text-navy-600">
               <p className="font-semibold">Joining an existing department?</p>
