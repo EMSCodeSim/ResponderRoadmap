@@ -23,6 +23,17 @@ import {
   type EvaluationWorkspaceView,
 } from "@/lib/evaluation-routing";
 
+function calendarDateInTimezone(date: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 const assignmentInclude = {
   membership: { include: { user: true } },
   assignedBy: true,
@@ -931,11 +942,18 @@ export async function submitRequirement(
     const previousPerformanceSignOff = [...existing.signOffs]
       .reverse()
       .find((signOff) => signOff.result === "APPROVED");
-    if (
-      previousPerformanceSignOff &&
-      previousPerformanceSignOff.signedAt.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
-    ) {
-      throw new HttpError(400, "Each required performance must be signed on a different calendar day.");
+    if (previousPerformanceSignOff) {
+      const department = await prisma.department.findUnique({
+        where: { id: ctx.departmentId },
+        select: { timezone: true },
+      });
+      const timezone = department?.timezone || "UTC";
+      if (
+        calendarDateInTimezone(previousPerformanceSignOff.signedAt, timezone) ===
+        calendarDateInTimezone(new Date(), timezone)
+      ) {
+        throw new HttpError(400, "Each required performance must be signed on a different calendar day.");
+      }
     }
   }
 
