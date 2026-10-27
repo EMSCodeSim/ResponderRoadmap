@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import { isDemoAvailable } from "@/server/demo";
+import { isOpenAccountCreationAvailable } from "@/lib/account-access";
 import LoginForm from "./login-form";
 
-export default async function LoginPage() {
-  const demoAvailable = await isDemoAvailable();
+export default function LoginPage() {
   return (
     <Suspense>
-      <LoginForm demoAvailable={demoAvailable} />
+      <LoginForm accountCreationOpen={isOpenAccountCreationAvailable()} />
     </Suspense>
   );
 }
