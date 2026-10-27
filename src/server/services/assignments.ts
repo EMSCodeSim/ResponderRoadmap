@@ -455,7 +455,7 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
   const mapped = completions.map((item) => {
     const parsed = deserializeRequirement(item.requirement as unknown as Record<string, unknown>);
     const logicalStage = reviewStageForRequirement({
-      evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+      evaluatorSignOffRequired: parsed.evaluatorSignOffRequired,
       supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
       signOffs: item.signOffs,
       submittedAt: item.submittedAt,
@@ -927,6 +927,19 @@ export async function submitRequirement(
     throw new HttpError(400, "Complete the required prior tasks before submitting this one.");
   }
 
+  if (repetitionsRequired > 1 && currentRepetitionCount > 0 && existing) {
+    const previousApprovedSignOffs = existing.signOffs.filter(
+      (signOff) => signOff.repetitionIndex === currentRepetitionCount && signOff.result === "APPROVED",
+    );
+    const previousPerformanceSignOff = previousApprovedSignOffs[previousApprovedSignOffs.length - 1];
+    if (
+      previousPerformanceSignOff &&
+      previousPerformanceSignOff.signedAt.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
+    ) {
+      throw new HttpError(400, "Each required performance must be signed on a different calendar day.");
+    }
+  }
+
   if (parsed.maxAttempts) {
     const attempts = existing?.attempts.length ?? 0;
     const maxAttempts = Number(parsed.maxAttempts);
@@ -967,7 +980,7 @@ export async function submitRequirement(
   }
 
   const submittedRepetition = Math.min(repetitionsRequired, currentRepetitionCount + 1);
-  const needsReview = requirement.evaluatorSignOffRequired || requirement.supervisorApprovalRequired;
+  const needsReview = parsed.evaluatorSignOffRequired || requirement.supervisorApprovalRequired;
   const storedRepetitionCount = needsReview ? currentRepetitionCount : submittedRepetition;
   const nextStatus = needsReview ? "SUBMITTED" : "APPROVED";
   const now = new Date();
