@@ -41,7 +41,7 @@ export default function LoginForm({ accountCreationOpen }: { accountCreationOpen
   const accountLabel = accountCreationOpen ? "Create free account" : "Request an account";
 
   return (
-    <main className="min-h-screen bg-[#0B1220] text-white lg:grid lg:grid-cols-[1.08fr_.92fr]">
+    <main className="min-h-screen bg-white text-navy-900 lg:grid lg:grid-cols-[1.08fr_.92fr]">
       <section className="relative hidden min-h-screen overflow-hidden border-r border-white/10 lg:block">
         <Image
           src="/showcase/dashboard-phone-artwork.png"
@@ -61,15 +61,15 @@ export default function LoginForm({ accountCreationOpen }: { accountCreationOpen
         </div>
       </section>
 
-      <section className="flex min-h-screen items-center justify-center px-6 py-10 sm:px-10">
+      <section className="flex min-h-screen items-center justify-center bg-white px-6 py-10 sm:px-10">
         <div className="w-full max-w-md">
           <Link href="/" className="mb-10 inline-block lg:hidden">
             <BrandLockup size={42} subtitle="Fire & EMS Qualification Tracking" />
           </Link>
 
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">Department access</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-navy-400">Department access</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">Log in</h1>
-          <p className="mt-3 text-sm leading-6 text-white/60">Use the email and password connected to your Responder Roadmap account.</p>
+          <p className="mt-3 text-sm leading-6 text-navy-500">Use the email and password connected to your Responder Roadmap account.</p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-5">
             <Flash message={error} tone="danger" />
@@ -84,15 +84,15 @@ export default function LoginForm({ accountCreationOpen }: { accountCreationOpen
             </Button>
           </form>
 
-          <div className="mt-8 border-t border-white/10 pt-6">
-            <p className="text-sm text-white/60">
+          <div className="mt-8 border-t border-navy-200 pt-6">
+            <p className="text-sm text-navy-500">
               {accountCreationOpen
                 ? `New to Responder Roadmap? Account creation is free through ${OPEN_ACCOUNT_CREATION_END_LABEL}.`
                 : "New departments now begin with an account request."}
             </p>
             <Link
               href={accountHref}
-              className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-white/15 px-4 text-sm font-semibold text-white transition hover:bg-white/5"
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 px-4 text-sm font-semibold text-navy-800 transition hover:bg-navy-50"
             >
               {accountLabel}
             </Link>
