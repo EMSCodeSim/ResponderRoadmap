@@ -43,7 +43,6 @@ export default function AssignmentLibraryPage() {
       />
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <Input className="min-w-52 flex-1" aria-label="Search Assignment library" placeholder="Search Assignment library" value={q} onChange={(event) => setQ(event.target.value)} />
-        <Link href="/assignments"><Button variant="secondary">View Progress</Button></Link>
       </div>
       {error ? <p role="alert" className="mb-4 text-sm text-danger">{error}</p> : null}
       {!books && !error ? <p className="text-navy-500">Loading library…</p> : null}
