@@ -292,7 +292,6 @@ function AssignmentsInner() {
 
   return (
     <div>
-      <AssignmentWorkspaceTabs />
       <PageHeader
         kicker="Assignments"
         title="Assignments"
