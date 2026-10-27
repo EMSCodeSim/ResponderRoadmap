@@ -42,22 +42,44 @@ export default function LoginForm({ accountCreationOpen }: { accountCreationOpen
 
   return (
     <main className="min-h-screen bg-white text-navy-900 lg:grid lg:grid-cols-[1.08fr_.92fr]">
-      <section className="relative hidden min-h-screen overflow-hidden border-r border-white/10 lg:block">
-        <Image
-          src="/showcase/dashboard-phone-artwork.png"
-          alt="Responder Roadmap department dashboard and member phone app working together"
-          fill
-          priority
-          sizes="55vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0B1220]/80 via-transparent to-[#0B1220]/15" />
-        <Link href="/" className="absolute left-8 top-7 rounded-md bg-[#0B1220]/80 px-4 py-3 backdrop-blur-sm">
-          <BrandLockup size={40} subtitle="Fire & EMS Qualification Tracking" />
-        </Link>
-        <div className="absolute inset-x-8 bottom-8 rounded-lg border border-white/10 bg-[#0B1220]/82 p-5 backdrop-blur-md">
-          <p className="text-sm font-semibold">One shared department training record</p>
-          <p className="mt-1 text-sm leading-6 text-white/65">Members document work in the app. Training Officers manage progress from the dashboard.</p>
+      <section className="hidden min-h-screen overflow-hidden border-r border-white/10 bg-[#0B1220] text-white lg:flex lg:flex-col">
+        <div className="px-8 pt-7">
+          <Link href="/" className="inline-block rounded-md bg-white/5 px-4 py-3">
+            <BrandLockup size={40} subtitle="Fire & EMS Qualification Tracking" />
+          </Link>
+        </div>
+
+        <div className="flex flex-1 flex-col justify-center px-8 py-8">
+          <div className="relative mx-auto aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-xl border border-white/10 bg-[#111C2F] shadow-2xl shadow-black/30">
+            <Image
+              src="/showcase/dashboard-phone-artwork.png"
+              alt="Responder Roadmap department dashboard and member phone app working together"
+              fill
+              priority
+              sizes="55vw"
+              className="object-contain"
+            />
+          </div>
+
+          <div className="mx-auto mt-7 w-full max-w-4xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-300">One connected training system</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Document in the field. Manage from the dashboard.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/65">
+              Members record training from the mobile app while Training Officers organize requirements, review progress, and keep department records moving.
+            </p>
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              {[
+                ["Field ready", "Record training and completed skills from a phone."],
+                ["Verified work", "Evaluators review evidence and sign off requirements."],
+                ["Department view", "See progress, follow-up needs, and qualifications."],
+              ].map(([title, description]) => (
+                <div key={title} className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-sm font-semibold">{title}</p>
+                  <p className="mt-1 text-xs leading-5 text-white/55">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
