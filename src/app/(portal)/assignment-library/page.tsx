@@ -40,11 +40,9 @@ export default function AssignmentLibraryPage() {
         kicker="Assignment library"
         title="Assignments"
         description="Create and reuse short-term or recurring work. Assignments use the same requirements, evidence, evaluation, return, and approval workflow as Task Books."
-        actions={<Link href="/assignments/new"><Button>Create Assignment</Button></Link>}
       />
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <Input className="min-w-52 flex-1" aria-label="Search Assignment library" placeholder="Search Assignment library" value={q} onChange={(event) => setQ(event.target.value)} />
-        <Link href="/assignments"><Button variant="secondary">View Progress</Button></Link>
       </div>
       {error ? <p role="alert" className="mb-4 text-sm text-danger">{error}</p> : null}
       {!books && !error ? <p className="text-navy-500">Loading library…</p> : null}

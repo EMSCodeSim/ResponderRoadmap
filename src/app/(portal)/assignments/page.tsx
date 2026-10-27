@@ -2,8 +2,6 @@
 
 import { TrainingLifecycle } from "@/components/TrainingLifecycle";
 
-import { AssignmentWorkspaceTabs } from "@/components/AssignmentWorkspaceTabs";
-
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -294,16 +292,10 @@ function AssignmentsInner() {
 
   return (
     <div>
-      <AssignmentWorkspaceTabs />
       <PageHeader
         kicker="Assignments"
         title="Assignments"
         description="Track standalone training assignments, due dates, completion and approval. Task Books have their own separate progress workspace."
-        actions={canAssign ? (
-          <div className="flex flex-wrap gap-2">
-            <Link href="/assignments/new"><Button>Create Assignment</Button></Link>
-          </div>
-        ) : undefined}
       />
 
       <TrainingLifecycle current="ASSIGNMENT" />
