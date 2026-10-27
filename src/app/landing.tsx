@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { DashboardPreview } from "@/components/marketing/DashboardPreview";
@@ -20,6 +21,23 @@ const capabilities = [
   { title: "Assign work", body: "Assign Task Books and development work to a member or group, then follow each requirement through completion." },
   { title: "Capture field training", body: "Start from a department-built Training Sheet template, use QR rosters, and record attendance and skill results in the field." },
   { title: "Review and qualify", body: "Authorized evaluators approve or return submitted work. See approved, pending, missing, and expiring requirements separately." },
+];
+
+const screenshots = [
+  {
+    src: "/showcase/dashboard-demo.png",
+    layout: "landscape",
+    alt: "Responder Roadmap Training Officer dashboard showing qualification overview, items needing attention, and member progress.",
+    title: "Department overview",
+    body: "See active Task Books, Assignments, evaluator reviews, and follow-up needs in one place.",
+  },
+  {
+    src: "/showcase/evaluator-demo.png",
+    layout: "portrait",
+    alt: "Responder Roadmap evaluator view showing submitted skills and approval actions.",
+    title: "Evaluator review",
+    body: "Authorized evaluators review submitted evidence and approve or return requirements.",
+  },
 ];
 
 const workflow = [
@@ -59,9 +77,9 @@ function Ctas({ demoHref, centered = false }: { demoHref: string; centered?: boo
       <TrackedLink href={demoHref} event="homepage_demo_clicked" className={ctaPrimary}>
         {demoHref === "/demo" ? "See the 3-Minute Demo" : "Request a department demo"}
       </TrackedLink>
-      <TrackedLink href="/register" event="signup_clicked" className={ctaGhost}>
-        Start Live Test
-      </TrackedLink>
+      <Link href="/login" className={ctaGhost}>
+        Log in
+      </Link>
     </div>
   );
 }
@@ -76,20 +94,20 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <BrandLockup size={36} subtitle="Fire & EMS Qualification Tracking" />
           </Link>
           <nav aria-label="Main navigation" className="hidden items-center gap-7 text-[13px] font-medium text-white/60 md:flex">
-            <Link href={demoHref} className="hover:text-white">Demo</Link>
             <a href="#product" className="hover:text-white">Product</a>
-            <Link href="/login" className="hover:text-white">Sign in</Link>
+            <a href="#screenshots" className="hover:text-white">Screenshots</a>
           </nav>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-[13px] font-medium text-white/60 hover:text-white md:hidden">Sign in</Link>
-            <TrackedLink href={demoHref} event="homepage_demo_clicked" className={`${ctaPrimary} hidden min-h-9 px-3.5 text-[13px] md:inline-flex`}>
-              See the 3-Minute Demo
+          <div className="flex items-center gap-2">
+            <Link href="/login" className={`${ctaGhost} min-h-9 px-3.5 text-[13px]`}>Log in</Link>
+            <TrackedLink href={demoHref} event="homepage_demo_clicked" className={`${ctaPrimary} min-h-9 px-3.5 text-[13px]`}>
+              See Demo
             </TrackedLink>
           </div>
         </div>
-        <nav aria-label="Page sections" className="flex items-center justify-between border-t border-white/[0.06] px-5 py-2 text-[13px] font-medium text-white/55 md:hidden sm:px-8">
-          <Link href={demoHref} className="hover:text-white">Demo</Link>
+        <nav aria-label="Page sections" className="flex items-center justify-between gap-3 border-t border-white/[0.06] px-5 py-2 text-[13px] font-medium text-white/55 md:hidden sm:px-8">
+          <Link href={demoHref} className={`${ctaPrimary} min-h-9 px-3.5`}>See Demo</Link>
           <a href="#product" className="hover:text-white">Product</a>
+          <a href="#screenshots" className="hover:text-white">Screenshots</a>
         </nav>
       </header>
 
@@ -119,6 +137,34 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <span>Built for practical department testing and daily use</span>
             <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
             <span>Your RMS remains the official records system</span>
+          </div>
+        </section>
+
+        <section id="screenshots" className="border-y border-white/[0.08] bg-[#0E1624]" aria-labelledby="screenshots-heading">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+            <p className={kicker}>A look inside</p>
+            <h2 id="screenshots-heading" className={heading}>See the department overview and evaluator experience.</h2>
+            <p className={body}>Responder Roadmap connects department-defined requirements, field training records, and human approval in one qualification workflow.</p>
+            <div className="mt-10 grid gap-5 lg:grid-cols-2">
+              {screenshots.map((item) => (
+                <figure key={item.src} className={`${card} overflow-hidden`}>
+                  <div className={`relative bg-[#F3F5F8] ${item.layout === "landscape" ? "aspect-[16/10]" : "aspect-[4/5] sm:aspect-[5/6]"}`}>
+                    <Image
+                      src={item.src}
+                      alt={item.alt}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      className="object-contain"
+                    />
+                  </div>
+                  <figcaption className="p-5">
+                    <h3 className="text-base font-semibold">{item.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-white/60">{item.body}</p>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-white/40">Screenshots use fictional demo department records.</p>
           </div>
         </section>
 
