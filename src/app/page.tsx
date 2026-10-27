@@ -5,14 +5,14 @@ import { isDemoAvailable } from "@/server/demo";
 import { LandingPage } from "./landing";
 
 export const metadata: Metadata = {
-  title: { absolute: "Fire Department Qualification & Training Software | Responder Roadmap" },
+  title: { absolute: "Fire & EMS Qualification Tracking | Responder Roadmap" },
   description:
-    "Track firefighter qualifications, competencies, Task Books, evaluations, credentials, and department readiness. Works alongside your existing RMS.",
+    "Set department qualification requirements and track Task Books, field Training Sheets, evaluator approvals, credentials, and explicit qualifications alongside your RMS.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Fire Department Qualification & Training Software | Responder Roadmap",
+    title: "Fire & EMS Qualification Tracking | Responder Roadmap",
     description:
-      "Know what every member has completed, what they are working on, and what they need next — without replacing your RMS.",
+      "Track department qualifications from assigned requirements through evaluator approval. Capture field training with reusable templates, then hand off records to your RMS.",
     url: "https://responderroadmap.com/",
   },
 };
