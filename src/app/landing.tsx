@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { DashboardPreview } from "@/components/marketing/DashboardPreview";
-import { TrackedLink } from "@/components/marketing/TrackedLink";
 import { DEMO_DEPARTMENT_NAME, DEMO_MEMBERS, DEMO_READINESS } from "@/lib/demo-story";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
@@ -71,12 +70,12 @@ function glanceStatus(member: (typeof glance)[number]) {
   return { label: member.status, tone: "text-white/60" };
 }
 
-function Ctas({ demoHref, centered = false }: { demoHref: string; centered?: boolean }) {
+function Ctas({ centered = false }: { centered?: boolean }) {
   return (
     <div className={`flex flex-col gap-3 sm:flex-row ${centered ? "sm:justify-center" : ""}`}>
-      <TrackedLink href={demoHref} event="homepage_demo_clicked" className={ctaPrimary}>
+      <a href="#product" className={ctaPrimary}>
         {demoHref === "/demo" ? "See the 3-Minute Demo" : "Request a department demo"}
-      </TrackedLink>
+      </a>
       <Link href="/login" className={ctaGhost}>
         Log in
       </Link>
@@ -84,8 +83,8 @@ function Ctas({ demoHref, centered = false }: { demoHref: string; centered?: boo
   );
 }
 
-export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
-  const demoHref = demoAvailable ? "/demo" : "/department-interest?source=demo-unavailable";
+export function LandingPage() {
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#0B1220] text-white">
       <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#0B1220]/92 backdrop-blur-md">
@@ -98,14 +97,14 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <a href="#screenshots" className="hover:text-white">Screenshots</a>
           </nav>
           <div className="flex items-center gap-2">
-            <Link href="/login" className={`${ctaGhost} min-h-9 px-3.5 text-[13px]`}>Log in</Link>
+            
             <TrackedLink href={demoHref} event="homepage_demo_clicked" className={`${ctaPrimary} min-h-9 px-3.5 text-[13px]`}>
               See Demo
-            </TrackedLink>
+            </a>
           </div>
         </div>
         <nav aria-label="Page sections" className="flex items-center justify-between gap-3 border-t border-white/[0.06] px-5 py-2 text-[13px] font-medium text-white/55 md:hidden sm:px-8">
-          <Link href={demoHref} className={`${ctaPrimary} min-h-9 px-3.5`}>See Demo</Link>
+          
           <a href="#product" className="hover:text-white">Product</a>
           <a href="#screenshots" className="hover:text-white">Screenshots</a>
         </nav>
@@ -121,13 +120,10 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/68">
               Set requirements for each role. Assign Task Books and Assignments, then document field training with reusable Training Sheet templates. Authorized evaluators review the evidence; your department decides when a member is qualified. Roadmap works alongside your RMS and leaves official records there.
             </p>
-            <div className="mt-8"><Ctas demoHref={demoHref} /></div>
-            <Link href="/digital-firefighter-task-books" className="mt-4 inline-flex text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">Explore Digital Firefighter Task Books →</Link>
-            <p className="mt-5 text-[13px] leading-6 text-white/45">
-              Built for Fire & EMS training officers, evaluators, and crews. Explore the fictional demo without an account.
-            </p>
+            <div className="mt-8"></div>
+                        
           </div>
-          <DashboardPreview href={demoHref} compact />
+          <DashboardPreview compact />
         </section>
 
         <section className="border-y border-white/[0.08] bg-[#0E1624]">
@@ -193,7 +189,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
                 Set department requirements, build Training Sheet templates, assign work, see who needs follow-up, and review submitted evidence in one department-wide view.
               </p>
               <p className="mt-4 text-xs leading-5 text-white/45">Approved work updates the shared progress and qualification picture. Your department’s authorized people make the qualification decision.</p>
-              <Link href={demoHref} className="mt-5 inline-flex text-sm font-semibold text-white/75 underline decoration-white/25 underline-offset-4 hover:text-white">Explore the department dashboard →</Link>
+              
             </article>
           </div>
 
@@ -271,7 +267,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             </div>
             <TrackedLink href={demoHref} event="homepage_demo_clicked" className="mt-8 inline-flex min-h-10 items-center text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">
               See It in the Demo →
-            </TrackedLink>
+            </a>
           </div>
         </section>
 
@@ -321,41 +317,20 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           </p>
         </section>
 
-        <section className="mx-auto max-w-3xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>Questions</p>
-          <h2 className={heading}>Answers before you start.</h2>
-          <div className="mt-8 divide-y divide-white/[0.08] border-y border-white/[0.08]">
-            {faqs.map(([question, answer]) => (
-              <details key={question} className="group py-4">
-                <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium text-white/90">
-                  {question}
-                  <span aria-hidden="true" className="text-white/30 group-open:rotate-45">+</span>
-                </summary>
-                <p className="mt-2 max-w-2xl pb-1 text-sm leading-7 text-white/55">{answer}</p>
-              </details>
-            ))}
-          </div>
-        </section>
+        
 
-        <section className="border-t border-white/[0.08] bg-[#0E1624] px-5 py-16 text-center sm:py-20">
-          <p className={kicker}>See it in three minutes</p>
-          <h2 className="mx-auto mt-3 max-w-2xl text-[1.85rem] font-semibold tracking-tight sm:text-[2.35rem]">Turn documented training into a qualification decision.</h2>
-          <p className="mx-auto mb-8 mt-4 max-w-xl text-[15px] leading-7 text-white/60">See how requirements, Task Books, Training Sheets, evaluator approvals, and qualification status stay connected—with a traceable record for each decision.</p>
-          <Ctas demoHref={demoHref} centered />
-          <p className="mt-6 text-sm text-white/40">Already invited? <Link href="/login" className="font-medium text-white/70 underline underline-offset-4 hover:text-white">Sign in</Link></p>
-        </section>
+        
       </main>
 
       <footer className="border-t border-white/[0.08]">
         <div className="mx-auto flex max-w-6xl flex-col justify-between gap-6 px-5 py-8 text-[13px] text-white/40 sm:px-8 md:flex-row md:items-end">
           <div>
             <p className="font-medium text-white/70">Responder Roadmap</p>
-            <p className="mt-1">{DEMO_DEPARTMENT_NAME} is a fictional demo · Fire · EMS · Training Division</p>
+            <p className="mt-1"></p>
             <p className="mt-3 text-xs">Department-defined qualifications, competency tracking, and field training records for Fire & EMS.</p>
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
-            <Link href="/login" className="hover:text-white">Sign in</Link>
-            <Link href={demoHref} className="hover:text-white">Demo</Link>
+            
             <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="hover:text-white">iPhone app</a>
             <Link href="/department-interest" className="hover:text-white">Contact</Link>
           </div>

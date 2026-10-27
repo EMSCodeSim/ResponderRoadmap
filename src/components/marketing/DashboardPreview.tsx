@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { DEMO_ATTENTION, DEMO_DEPARTMENT_NAME, DEMO_MEMBERS, DEMO_SUMMARY } from "@/lib/demo-story";
 
 const statusClass: Record<string, string> = {
@@ -8,7 +7,7 @@ const statusClass: Record<string, string> = {
   Completed: "bg-slate-100 text-slate-700",
 };
 
-export function DashboardPreview({ href, compact = false }: { href: string; compact?: boolean }) {
+export function DashboardPreview({ compact = false }: { compact?: boolean }) {
   const rows = compact ? DEMO_MEMBERS.slice(0, 5) : DEMO_MEMBERS;
   return (
     <div className="overflow-hidden rounded-lg border border-white/15 bg-[#F3F5F8] text-[#0C1524] shadow-[0_16px_40px_rgba(0,0,0,.28)]">
@@ -107,7 +106,7 @@ export function DashboardPreview({ href, compact = false }: { href: string; comp
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#D6DDE8] bg-white px-4 py-3 text-[11px] text-[#5A7196]">
         <span>Fictional {DEMO_DEPARTMENT_NAME} records · not a customer department</span>
-        <Link href={href} className="font-bold text-[#C8102E] underline underline-offset-4">See it in the demo →</Link>
+        <span className="font-semibold text-[#5A7196]">Department dashboard preview</span>
       </div>
     </div>
   );
