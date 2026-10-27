@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import { cx } from "@/components/ui";
 
 const TABS = [
-  { label: "Library", href: "/assignment-library" },
   { label: "Progress", href: "/assignments" },
+  { label: "Library", href: "/assignment-library" },
+  { label: "Create Assignment", href: "/assignments/new" },
 ] as const;
 
 export function AssignmentWorkspaceTabs() {
