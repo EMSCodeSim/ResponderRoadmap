@@ -26,18 +26,21 @@ const capabilities = [
 const screenshots = [
   {
     src: "/showcase/dashboard-demo.png",
+    layout: "wide",
     alt: "Responder Roadmap Training Officer dashboard showing qualification overview, items needing attention, and member progress.",
     title: "Department overview",
     body: "See active Task Books, Assignments, evaluator reviews, and follow-up needs in one place.",
   },
   {
     src: "/showcase/member-demo.png",
+    layout: "portrait",
     alt: "Responder Roadmap member view showing assigned qualification work and progress.",
     title: "Member progress",
     body: "Members can see assigned requirements, completed work, and what needs attention next.",
   },
   {
     src: "/showcase/evaluator-demo.png",
+    layout: "portrait",
     alt: "Responder Roadmap evaluator view showing submitted skills and approval actions.",
     title: "Evaluator review",
     body: "Authorized evaluators review submitted evidence and approve or return requirements.",
@@ -149,15 +152,15 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <p className={kicker}>A look inside</p>
             <h2 id="screenshots-heading" className={heading}>See how the department, member, and evaluator work together.</h2>
             <p className={body}>Responder Roadmap connects department-defined requirements, field training records, and human approval in one qualification workflow.</p>
-            <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            <div className="mt-10 grid gap-5 lg:grid-cols-2">
               {screenshots.map((item) => (
-                <figure key={item.src} className={`${card} overflow-hidden`}>
-                  <div className="relative aspect-[16/10] bg-[#F3F5F8]">
+                <figure key={item.src} className={`${card} overflow-hidden ${item.layout === "wide" ? "lg:col-span-2" : ""}`}>
+                  <div className={`relative bg-[#F3F5F8] ${item.layout === "wide" ? "aspect-[16/9]" : "aspect-[4/5] sm:aspect-[5/6]"}`}>
                     <Image
                       src={item.src}
                       alt={item.alt}
                       fill
-                      sizes="(max-width: 1024px) 100vw, 33vw"
+                      sizes="(max-width: 1024px) 100vw, 50vw"
                       className="object-contain"
                     />
                   </div>
