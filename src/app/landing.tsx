@@ -118,7 +118,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
             <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
             <span>Built for practical department testing and daily use</span>
             <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
-            <span>Works alongside your current RMS — no replacement required</span>
+            <span>Your RMS remains the official records system</span>
           </div>
         </section>
 
@@ -217,7 +217,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         <section id="how-it-works" className="border-y border-white/[0.08] bg-[#0E1624]">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
             <p className={kicker}>The workflow</p>
-            <h2 className={heading}>Define expectations → Assign → Train → Document → Verify → Identify gaps → Export</h2>
+            <h2 className={heading}>Define → Assign → Train → Document → Review → Qualify → Export</h2>
             <ol className="mt-10 grid gap-px overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.08] sm:grid-cols-2 lg:grid-cols-7">
               {workflow.map((item, index) => (
                 <li key={item.title} className="bg-[#121A2A] p-5">
@@ -234,7 +234,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <p className={kicker}>Keep your current records system</p>
           <h2 className={heading}>Don’t replace your RMS. Make the training workflow around it better.</h2>
           <p className="mt-5 max-w-3xl text-[15px] leading-7 text-white/68">
-            Responder Roadmap is intentionally designed to work alongside the records system your department already uses — not replace it. Manage expectations, Task Books, Assignments, group training, QR attendance, evaluations, training hours, certifications, and gaps in Roadmap. When training is complete, export a clean digital training record to your existing RMS or records process. No major data migration. No need to rebuild the department’s official records system.
+            Use Responder Roadmap alongside the records system your department already uses. Manage role expectations, Task Books, Assignments, group training, QR attendance, evaluations, training hours, credentials, and gaps in Roadmap. Export completed training records to your RMS or established records process. Your department keeps its official records system in place.
           </p>
         </section>
 
