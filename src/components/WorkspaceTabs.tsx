@@ -32,10 +32,10 @@ export function WorkspaceTabs() {
   const taskBookWorkspace = pathname === "/task-books" || pathname.startsWith("/task-books/") || pathname.startsWith("/task-book-progress");
   const tabs = taskBookWorkspace
     ? [
-        { key: "task-books", label: "Library", href: "/task-books" },
-        { key: "assignments", label: "Progress", href: "/task-book-progress" },
-        { key: "task-books", label: "Create Task Book", href: "/task-books/fast-start" },
-      ].filter((tab) => allowed.includes(tab.key))
+        { key: "progress", permission: "assignments", label: "Progress", href: "/task-book-progress" },
+        { key: "library", permission: "task-books", label: "Library", href: "/task-books" },
+        { key: "create", permission: "task-books", label: "Create Task Book", href: "/task-books/fast-start" },
+      ].filter((tab) => allowed.includes(tab.permission))
     : TABS.filter((tab) => allowed.includes(tab.key));
   if (tabs.length < 2) return null;
 
