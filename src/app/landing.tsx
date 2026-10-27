@@ -169,8 +169,8 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         </section>
 
         <section id="product" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>From department requirements to documented qualifications</p>
-          <h2 className={heading}>Follow each qualification from assigned requirement to evaluator approval.</h2>
+          <p className={kicker}>One shared department training record</p>
+          <h2 className={heading}>The member app and department dashboard work together.</h2>
           <p className={body}>
             Members and evaluators use the Responder Roadmap app in the field. Training Officers use the department dashboard to set up work, review progress, and keep the whole department organized. Both views work from the same department training record.
           </p>
