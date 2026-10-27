@@ -261,7 +261,7 @@ export default function TrainingSheetTemplatesPage() {
     anchor.href = url;
     anchor.download = safeName + ".json";
     anchor.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async function importTemplate(file: File) {
@@ -293,6 +293,7 @@ export default function TrainingSheetTemplatesPage() {
         ? imported.gradingConfig as Record<string, unknown>
         : {};
       const passMark = (value: unknown) => {
+        if (value == null || value === "") return null;
         const number = Number(value);
         return Number.isFinite(number) && number >= 0 && number <= 100 ? number : null;
       };
