@@ -38,8 +38,8 @@ expect_page "$BASE/pricing"
 expect_page "$BASE/department-interest"
 
 HOME=$(curl -fsS "$BASE/")
-echo "$HOME" | grep -q 'Know whether your people are actually ready.' || { echo 'Homepage missing readiness hero headline'; exit 1; }
-echo "$HOME" | grep -q 'Readiness you can explain' || { echo 'Homepage missing readiness proof section'; exit 1; }
+echo "$HOME" | grep -q 'Turn department requirements into verified qualifications.' || { echo 'Homepage missing readiness hero headline'; exit 1; }
+echo "$HOME" | grep -q 'See the requirements and approvals behind qualification status.' || { echo 'Homepage missing readiness proof section'; exit 1; }
 echo "$HOME" | grep -q 'See the 3-Minute Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
 ok 'homepage Training Officer positioning without embedded pricing'
 for PAGE in "$BASE/" "$BASE/demo" "$BASE/login" "$BASE/register" "$BASE/department-interest" "$BASE/pricing"; do
