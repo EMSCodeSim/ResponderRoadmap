@@ -1092,12 +1092,12 @@ export async function submitRequirement(
     },
   });
   if (needsReview) {
-    const recipientId = requirement.evaluatorSignOffRequired
+    const recipientId = parsed.evaluatorSignOffRequired
       ? input.evaluatorId || assignment.evaluatorId
       : assignment.supervisorId;
     const recipients = recipientId
       ? [{ userId: recipientId }]
-      : requirement.evaluatorSignOffRequired
+      : parsed.evaluatorSignOffRequired
         ? await prisma.departmentMembership.findMany({
             where: { departmentId: ctx.departmentId, status: "ACTIVE", role: "EVALUATOR", evaluatorStatus: { not: "SUSPENDED" } },
             select: { userId: true },
