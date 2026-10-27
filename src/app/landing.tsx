@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
