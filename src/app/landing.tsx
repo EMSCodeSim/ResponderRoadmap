@@ -169,9 +169,46 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         </section>
 
         <section id="product" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>From department requirements to documented qualifications</p>
-          <h2 className={heading}>Follow each qualification from assigned requirement to evaluator approval.</h2>
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <p className={kicker}>One shared department training record</p>
+          <h2 className={heading}>The member app and department dashboard work together.</h2>
+          <p className={body}>
+            Members and evaluators use the Responder Roadmap app in the field. Training Officers use the department dashboard to set up work, review progress, and keep the whole department organized. Both views work from the same department training record.
+          </p>
+
+          <div className="mt-8 grid gap-4 lg:grid-cols-2">
+            <article className={`${card} p-6 sm:p-7`}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#FB7185]">In the field · member app</p>
+              <h3 className="mt-3 text-xl font-semibold">Members record training where it happens.</h3>
+              <p className="mt-3 text-sm leading-6 text-white/60">
+                Open assigned Task Books and Assignments, join a class from its QR code, record completed skills and training, and submit work for evaluation from a phone.
+              </p>
+              <p className="mt-4 text-xs leading-5 text-white/45">Evaluators can review submitted work and sign off from the app, with each decision attached to the member’s record.</p>
+              <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="mt-5 inline-flex text-sm font-semibold text-white/75 underline decoration-white/25 underline-offset-4 hover:text-white">Get the iPhone app →</a>
+            </article>
+
+            <article className={`${card} p-6 sm:p-7`}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#93C5FD]">Department operations · dashboard</p>
+              <h3 className="mt-3 text-xl font-semibold">Training Officers organize and oversee the work.</h3>
+              <p className="mt-3 text-sm leading-6 text-white/60">
+                Set department requirements, build Training Sheet templates, assign work, see who needs follow-up, and review submitted evidence in one department-wide view.
+              </p>
+              <p className="mt-4 text-xs leading-5 text-white/45">Approved work updates the shared progress and qualification picture. Your department’s authorized people make the qualification decision.</p>
+              <Link href={demoHref} className="mt-5 inline-flex text-sm font-semibold text-white/75 underline decoration-white/25 underline-offset-4 hover:text-white">Explore the department dashboard →</Link>
+            </article>
+          </div>
+
+          <div className="mt-5 rounded-lg border border-white/[0.08] bg-[#0E1624] p-5 sm:p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">One connected workflow</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div><p className="text-sm font-semibold">1. Set up</p><p className="mt-1 text-xs leading-5 text-white/55">Training Officer assigns requirements in the dashboard.</p></div>
+              <div><p className="text-sm font-semibold">2. Do the work</p><p className="mt-1 text-xs leading-5 text-white/55">Member completes training and records evidence in the app.</p></div>
+              <div><p className="text-sm font-semibold">3. Review</p><p className="mt-1 text-xs leading-5 text-white/55">An authorized evaluator reviews and signs submitted work.</p></div>
+              <div><p className="text-sm font-semibold">4. Follow progress</p><p className="mt-1 text-xs leading-5 text-white/55">The dashboard reflects approved work and what still needs attention.</p></div>
+            </div>
+          </div>
+
+          <h3 className="mt-12 text-lg font-semibold text-white">What your department can manage</h3>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {capabilities.map((item, index) => (
               <article key={item.title} className={`${card} p-6`}>
                 <span className="text-[11px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
