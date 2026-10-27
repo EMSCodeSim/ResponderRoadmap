@@ -67,7 +67,7 @@ type Detail = {
         memberNotes: string;
         repetitionCount: number;
         evidence: Array<{ id: string; type: string; description: string }>;
-        signOffs: Array<{ id: string; result: string; notes: string; signedAt: string; evaluatorName: string; approvalLevel: string }>;
+        signOffs: Array<{ id: string; result: string; notes: string; signedAt: string; evaluatorName: string; approvalLevel: string; repetitionIndex: number }>;
         attempts: Array<{ id: string; result: string; comments: string; signedAt: string; evaluatorName: string; repetitionIndex: number }>;
       } | null;
     }>;
@@ -341,7 +341,7 @@ export default function MyTaskBookDetailPage() {
                             <ul className="mt-1 text-xs text-navy-600">
                               {req.completion.signOffs.map((sign) => (
                                 <li key={sign.id}>
-                                  {sign.evaluatorName} ({sign.approvalLevel.toLowerCase()}) {sign.result.toLowerCase().replaceAll("_", " ")} · {formatDate(sign.signedAt)}
+                                  Rep {sign.repetitionIndex}: {sign.evaluatorName} ({sign.approvalLevel.toLowerCase()}) {sign.result.toLowerCase().replaceAll("_", " ")} · {formatDate(sign.signedAt)}
                                 </li>
                               ))}
                             </ul>
