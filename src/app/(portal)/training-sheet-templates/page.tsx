@@ -240,12 +240,120 @@ export default function TrainingSheetTemplatesPage() {
     }));
   }
 
+  function exportTemplate(item: Template) {
+    const linkedChecklist = setup?.checklists.find((checklist) => checklist.id === item.checklistVersionId);
+    const bundle = {
+      format: "responder-roadmap.training-sheet-template",
+      version: 1,
+      template: {
+        name: item.name, defaultTitle: item.defaultTitle, topic: item.topic,
+        trainingCategory: item.trainingCategory, classType: item.classType,
+        checklist: linkedChecklist ? { title: linkedChecklist.title, version: linkedChecklist.version } : null,
+        gradingConfig: item.gradingConfig, ceCredits: item.ceCredits, creditHours: item.creditHours,
+        location: item.location, notes: item.notes, customFields: item.customFields,
+        selfRegistration: item.selfRegistration,
+      },
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const safeName = item.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "training-sheet-template";
+    anchor.href = url;
+    anchor.download = safeName + ".json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importTemplate(file: File) {
+    try {
+      if (file.size > 1_000_000) throw new Error("Template file must be smaller than 1 MB.");
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("This is not a Responder Roadmap template file.");
+      const bundle = parsed as Record<string, unknown>;
+      if (bundle.format !== "responder-roadmap.training-sheet-template" || bundle.version !== 1) {
+        throw new Error("This template file version is not supported.");
+      }
+      const raw = bundle.template;
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("The template file is missing its template details.");
+      const imported = raw as Record<string, unknown>;
+      const allowedCategories = ["COMPANY", "FACILITY", "HAZMAT", "DRIVER", "OFFICER", "EMS", "OTHER"];
+      const allowedTypes = ["GENERAL", "FIRE_ACADEMY", "CPR", "EMS"];
+      const topic = typeof imported.topic === "string" && TEMPLATE_TOPICS.includes(imported.topic) ? imported.topic : "OTHER";
+      const trainingCategory = typeof imported.trainingCategory === "string" && allowedCategories.includes(imported.trainingCategory) ? imported.trainingCategory : "OTHER";
+      const classType = typeof imported.classType === "string" && allowedTypes.includes(imported.classType) ? imported.classType : "GENERAL";
+      const checklistInfo = imported.checklist && typeof imported.checklist === "object" && !Array.isArray(imported.checklist)
+        ? imported.checklist as Record<string, unknown>
+        : null;
+      const checklistTitle = typeof checklistInfo?.title === "string" ? checklistInfo.title.trim().toLowerCase() : "";
+      const checklistVersion = typeof checklistInfo?.version === "string" ? checklistInfo.version.trim() : "";
+      const localChecklist = checklistTitle && checklistVersion
+        ? setup?.checklists.find((item) => item.title.trim().toLowerCase() === checklistTitle && item.version === checklistVersion)
+        : undefined;
+      const grading = imported.gradingConfig && typeof imported.gradingConfig === "object" && !Array.isArray(imported.gradingConfig)
+        ? imported.gradingConfig as Record<string, unknown>
+        : {};
+      const passMark = (value: unknown) => {
+        const number = Number(value);
+        return Number.isFinite(number) && number >= 0 && number <= 100 ? number : null;
+      };
+      const gradingConfig = {
+        writtenTestEnabled: grading.writtenTestEnabled === true,
+        writtenTestPassPercent: passMark(grading.writtenTestPassPercent),
+        ccfEnabled: grading.ccfEnabled === true,
+        ccfPassPercent: passMark(grading.ccfPassPercent),
+      };
+      const ceCredits = Array.isArray(imported.ceCredits)
+        ? imported.ceCredits.filter((item): item is Record<string, unknown> => !!item && typeof item === "object" && !Array.isArray(item))
+          .map((item) => ({ category: String(item.category || ""), hours: Number(item.hours) }))
+          .filter((item) => Object.keys(EMS_CE_CATEGORIES).includes(item.category) && Number.isFinite(item.hours) && item.hours > 0 && item.hours <= 24)
+        : [];
+      const customFields = (Array.isArray(imported.customFields) ? imported.customFields.slice(0, 20) : []).flatMap((field, index) => {
+        if (!field || typeof field !== "object" || Array.isArray(field)) return [];
+        const item = field as Record<string, unknown>;
+        const label = typeof item.label === "string" ? item.label.trim().slice(0, 100) : "";
+        const allowedFieldTypes = ["TEXT", "NUMBER", "PERCENT", "DATE", "PASS_FAIL", "CHECKBOX"];
+        const type = typeof item.type === "string" && allowedFieldTypes.includes(item.type) ? item.type : "TEXT";
+        return label ? [{ id: "custom-import-" + (index + 1), label, type, required: item.required === true }] : [];
+      });
+      const baseName = (typeof imported.name === "string" && imported.name.trim() ? imported.name.trim() : "Imported training template").slice(0, 100);
+      let importedName = baseName + " (imported)";
+      let copyNumber = 2;
+      while (templates.some((item) => item.name.toLowerCase() === importedName.toLowerCase())) {
+        importedName = baseName.slice(0, 90) + " (" + copyNumber + ")";
+        copyNumber += 1;
+      }
+      const creditHours = Number(imported.creditHours ?? 0);
+      if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new Error("The template has an invalid credit-hours value.");
+      setForm({
+        name: importedName,
+        defaultTitle: typeof imported.defaultTitle === "string" ? imported.defaultTitle.slice(0, 180) : "",
+        classType, trainingCategory, topic, gradingConfig, ceCredits, creditHours,
+        checklistVersionId: localChecklist?.id || "",
+        location: typeof imported.location === "string" ? imported.location.slice(0, 180) : "",
+        notes: typeof imported.notes === "string" ? imported.notes.slice(0, 4000) : "",
+        customFields, selfRegistration: imported.selfRegistration === true, proctorUserIds: [],
+      });
+      setEditingId(null);
+      setBuilderStep(1);
+      setPageView("BUILDER");
+      setError(null);
+      setMessage(localChecklist
+        ? "Template imported. Review the department checklist, grades, and proctors before saving."
+        : checklistTitle
+          ? "Template imported. Choose the matching checklist published by this department, then review and save."
+          : "Template imported. Review its details and assign department proctors before saving.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to import this template.");
+    }
+  }
+
   return (
     <div>
       <PageHeader
         kicker="Training delivery"
         title="Training Sheet Library"
-        description="Build reusable EMS, fire, and department training sheets once. Select one when creating training to prefill the details, checklist, hours, QR setting, and proctors."
+        description="Departments define reusable training sheets with their category, title, checklist, grading, and field defaults. Select one to start a class or skills checkoff quickly, or import/export a template to share its setup."
         actions={<Link href="/classes" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Back to training</Link>}
       />
       <Flash message={error} tone="danger" />
@@ -413,6 +521,17 @@ export default function TrainingSheetTemplatesPage() {
               <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "HazMat Refresher", defaultTitle: "HazMat Operations Refresher", topic: "HAZMAT", trainingCategory: "HAZMAT", selfRegistration: true }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>HazMat</Button>
               <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "Driver Operator Training", defaultTitle: "Driver Operator Practical Training", topic: "DRIVER", trainingCategory: "DRIVER" }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>Driver</Button>
               <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "Officer Development", defaultTitle: "Officer Development Training", topic: "OFFICER", trainingCategory: "OFFICER" }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>Officer</Button>
+              <label className="inline-flex min-h-11 cursor-pointer items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">
+                Import template JSON
+                <input className="sr-only" type="file" accept=".json,application/json" aria-label="Import a training sheet template JSON file"
+                  onChange={(event) => {
+                    const input = event.currentTarget;
+                    const file = input.files?.[0];
+                    input.value = "";
+                    if (file) void importTemplate(file);
+                  }}
+                />
+              </label>
             </div>
           </Card>
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -452,6 +571,7 @@ export default function TrainingSheetTemplatesPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {!item.archived ? <Link href={`/classes?template=${encodeURIComponent(item.id)}`} className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">Use template</Link> : null}
+                  <Button type="button" variant="secondary" onClick={() => exportTemplate(item)}>Export JSON</Button>
                   <Button type="button" variant="secondary" onClick={() => edit(item)}>Edit</Button>
                    <Button type="button" variant="secondary" onClick={() => duplicate(item)}>Duplicate</Button>
                   <Button type="button" variant="secondary" onClick={() => void archive(item)}>{item.archived ? "Restore" : "Archive"}</Button>
