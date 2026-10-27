@@ -16,20 +16,20 @@ const ctaGhost =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-transparent px-5 text-sm font-semibold text-white/90 transition hover:bg-white/5";
 
 const capabilities = [
-  { title: "Define", body: "Set the training expectations your department uses for roles, certifications, Task Books, and annual hours." },
-  { title: "Assign", body: "Assign Task Books, individual training, or group training without chasing spreadsheets and paper." },
-  { title: "Document", body: "Capture attendance, evaluations, approvals, training hours, and digital training sheets in one workflow." },
-  { title: "Find the gaps", body: "See who is on track, what is overdue or expiring, and what training needs attention next." },
+  { title: "Set requirements", body: "Define role qualifications, required credentials, Task Books, skills, and annual training expectations for your department." },
+  { title: "Assign work", body: "Assign Task Books and development work to a member or group, then follow each requirement through completion." },
+  { title: "Capture field training", body: "Start from a department-built Training Sheet template, use QR rosters, and record attendance and skill results in the field." },
+  { title: "Review and qualify", body: "Authorized evaluators approve or return submitted work. See approved, pending, missing, and expiring requirements separately." },
 ];
 
 const workflow = [
-  { title: "Define", body: "Set department expectations by role or position." },
-  { title: "Assign", body: "Assign Task Books, training, or development work." },
-  { title: "Train", body: "Run individual or group training with QR attendance." },
-  { title: "Document", body: "Record training sheets, hours, certifications, and progress." },
-  { title: "Verify", body: "Human evaluators and officers complete required approvals." },
-  { title: "Identify", body: "Training Gaps show who needs attention next." },
-  { title: "Export", body: "Produce clean records for the department RMS." },
+  { title: "Define", body: "Set qualification and training requirements by department role." },
+  { title: "Assign", body: "Assign Task Books, skills, and development work to members." },
+  { title: "Train", body: "Run classes from department templates and collect attendance with QR." },
+  { title: "Document", body: "Record training hours, checklist results, credentials, and evidence." },
+  { title: "Review", body: "Authorized evaluators approve or return submitted requirements." },
+  { title: "Qualify", body: "See approved qualifications and the requirements still in progress." },
+  { title: "Export", body: "Hand off completed training records to the department RMS." },
 ];
 
 const glance = [
@@ -73,7 +73,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
       <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#0B1220]/92 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-3.5 sm:px-8">
           <Link href="/" aria-label="Responder Roadmap home">
-            <BrandLockup size={36} subtitle="Fire & EMS Training Readiness" />
+            <BrandLockup size={36} subtitle="Fire & EMS Qualification Tracking" />
           </Link>
           <nav aria-label="Main navigation" className="hidden items-center gap-7 text-[13px] font-medium text-white/60 md:flex">
             <Link href={demoHref} className="hover:text-white">Demo</Link>
@@ -96,17 +96,17 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
       <main>
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-14 lg:pb-20 lg:pt-16">
           <div>
-            <p className={kicker}>Fire & EMS Training Readiness</p>
+            <p className={kicker}>Fire & EMS qualification and competency tracking</p>
             <h1 className="mt-4 max-w-xl text-[2.35rem] font-semibold leading-[1.12] tracking-tight text-white sm:text-5xl">
-              Know whether your people are actually ready.
+              Turn department requirements into verified qualifications.
             </h1>
             <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/68">
-              See who is qualified, what is holding others back, which evaluations need action, and what your department should train on next. Task Books, evaluations, credentials, and training records build the readiness picture — while your existing RMS remains the official records system.
+              Set requirements for each role. Assign Task Books and Assignments, then document field training with reusable Training Sheet templates. Authorized evaluators review the evidence; your department decides when a member is qualified. Roadmap works alongside your RMS and leaves official records there.
             </p>
             <div className="mt-8"><Ctas demoHref={demoHref} /></div>
             <Link href="/digital-firefighter-task-books" className="mt-4 inline-flex text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">Explore Digital Firefighter Task Books →</Link>
             <p className="mt-5 text-[13px] leading-6 text-white/45">
-              Built specifically for Fire & EMS Training Officers. No account required for the demo.
+              Built for Fire & EMS training officers, evaluators, and crews. Explore the fictional demo without an account.
             </p>
           </div>
           <DashboardPreview href={demoHref} compact />
@@ -123,8 +123,8 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         </section>
 
         <section id="product" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>From training activity to operational readiness</p>
-          <h2 className={heading}>Know who can do what. See what is missing. Act on the next training need.</h2>
+          <p className={kicker}>From department requirements to documented qualifications</p>
+          <h2 className={heading}>Follow each qualification from assigned requirement to evaluator approval.</h2>
           <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {capabilities.map((item, index) => (
               <article key={item.title} className={`${card} p-6`}>
@@ -140,13 +140,14 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         <section className="border-y border-white/[0.08] bg-[#0E1624]">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
             <p className={kicker}>Training Officer view</p>
-            <h2 className={heading}>Readiness you can explain — not a black-box score.</h2>
-            <p className={body}>Roadmap connects department-defined role expectations to approved qualifications, Task Book progress, credentials, evaluations, and training gaps. Humans still decide competency and authorization.</p>
+            <h2 className={heading}>See the requirements and approvals behind qualification status.</h2>
+            <p className={body}>Roadmap connects department-defined role requirements to Task Books, training records, verified credentials, and evaluator decisions. Pending, returned, and incomplete work stays separate from approved qualification status. Your department makes the competency and authorization decision.</p>
             <div className="mt-10 grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
               <article className={`${card} p-6`}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Department readiness</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Qualification coverage</p>
                 <p className="mt-3 text-5xl font-semibold tabular-nums">{DEMO_READINESS.score}%</p>
                 <p className="mt-3 text-sm leading-6 text-white/55">{DEMO_READINESS.explanation}</p>
+                <p className="mt-2 text-xs text-white/45">Coverage summarizes department-defined requirements; it does not grant an operational qualification.</p>
                 <div className="mt-5 border-t border-white/[0.08] pt-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#FB7185]">Next training need</p>
                   <p className="mt-1 font-semibold">{DEMO_READINESS.trainingGap.topic}</p>
@@ -255,8 +256,8 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
 
         <section className="border-t border-white/[0.08] bg-[#0E1624] px-5 py-16 text-center sm:py-20">
           <p className={kicker}>See it in three minutes</p>
-          <h2 className="mx-auto mt-3 max-w-2xl text-[1.85rem] font-semibold tracking-tight sm:text-[2.35rem]">Turn training records into a readiness decision.</h2>
-          <p className="mx-auto mb-8 mt-4 max-w-xl text-[15px] leading-7 text-white/60">See how Responder Roadmap shows who is qualified, where readiness is thin, what needs evaluation, and what training should happen next — with a clear human-approved record behind every answer.</p>
+          <h2 className="mx-auto mt-3 max-w-2xl text-[1.85rem] font-semibold tracking-tight sm:text-[2.35rem]">Turn documented training into a qualification decision.</h2>
+          <p className="mx-auto mb-8 mt-4 max-w-xl text-[15px] leading-7 text-white/60">See how requirements, Task Books, Training Sheets, evaluator approvals, and qualification status stay connected—with a traceable record for each decision.</p>
           <Ctas demoHref={demoHref} centered />
           <p className="mt-6 text-sm text-white/40">Already invited? <Link href="/login" className="font-medium text-white/70 underline underline-offset-4 hover:text-white">Sign in</Link></p>
         </section>
@@ -267,7 +268,7 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
           <div>
             <p className="font-medium text-white/70">Responder Roadmap</p>
             <p className="mt-1">{DEMO_DEPARTMENT_NAME} is a fictional demo · Fire · EMS · Training Division</p>
-            <p className="mt-3 text-xs">Fire & EMS training readiness — with AI reducing the administrative work.</p>
+            <p className="mt-3 text-xs">Department-defined qualifications, competency tracking, and field training records for Fire & EMS.</p>
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             <Link href="/login" className="hover:text-white">Sign in</Link>
