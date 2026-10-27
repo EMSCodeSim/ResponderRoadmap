@@ -508,7 +508,7 @@ function ShiftTrainingHours() {
       </div>
 
       {!loaded ? <p className="mt-3 text-sm text-navy-500">Loading training hours…</p> : null}
-      {loadError ? <p role="alert" className="mt-3 text-sm text-danger">Training hours could not be loaded. Open Reports to try again.</p> : null}
+      {loadError ? <p role="alert" className="mt-3 text-sm text-danger">Training hours could not be loaded. <Link href="/reports?type=training-hours" className="font-semibold underline">Open the training hours report →</Link></p> : null}
 
       {selectedShift ? (
         <section className="mt-5 border-t border-navy-200 pt-4" aria-live="polite" aria-labelledby="shift-training-records-title">
