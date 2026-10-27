@@ -296,11 +296,6 @@ function AssignmentsInner() {
         kicker="Assignments"
         title="Assignments"
         description="Track standalone training assignments, due dates, completion and approval. Task Books have their own separate progress workspace."
-        actions={canAssign ? (
-          <div className="flex flex-wrap gap-2">
-            <Link href="/assignments/new"><Button>Create Assignment</Button></Link>
-          </div>
-        ) : undefined}
       />
 
       <TrainingLifecycle current="ASSIGNMENT" />
