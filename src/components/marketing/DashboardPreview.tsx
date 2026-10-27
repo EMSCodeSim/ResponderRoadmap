@@ -18,8 +18,8 @@ export function DashboardPreview({ href, compact = false }: { href: string; comp
       </div>
       <div className="p-4 sm:p-5">
         <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[#5A7196]">Home</p>
-        <h3 className="mt-1 text-lg font-bold tracking-tight sm:text-xl">Department progress</h3>
-        <p className="mt-1 text-xs text-[#5A7196]">One screen tells you what is happening in the department.</p>
+        <h3 className="mt-1 text-lg font-bold tracking-tight sm:text-xl">Qualification overview</h3>
+        <p className="mt-1 text-xs text-[#5A7196]">Track role requirements, assigned work, and evaluator approvals that need action.</p>
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
           {[
             ["Members", DEMO_SUMMARY.members],
