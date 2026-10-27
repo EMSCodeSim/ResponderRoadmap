@@ -26,17 +26,10 @@ const capabilities = [
 const screenshots = [
   {
     src: "/showcase/dashboard-demo.png",
-    layout: "wide",
+    layout: "landscape",
     alt: "Responder Roadmap Training Officer dashboard showing qualification overview, items needing attention, and member progress.",
     title: "Department overview",
     body: "See active Task Books, Assignments, evaluator reviews, and follow-up needs in one place.",
-  },
-  {
-    src: "/showcase/member-demo.png",
-    layout: "portrait",
-    alt: "Responder Roadmap member view showing assigned qualification work and progress.",
-    title: "Member progress",
-    body: "Members can see assigned requirements, completed work, and what needs attention next.",
   },
   {
     src: "/showcase/evaluator-demo.png",
@@ -150,12 +143,12 @@ export function LandingPage({ demoAvailable }: { demoAvailable: boolean }) {
         <section id="screenshots" className="border-y border-white/[0.08] bg-[#0E1624]" aria-labelledby="screenshots-heading">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
             <p className={kicker}>A look inside</p>
-            <h2 id="screenshots-heading" className={heading}>See how the department, member, and evaluator work together.</h2>
+            <h2 id="screenshots-heading" className={heading}>See the department overview and evaluator experience.</h2>
             <p className={body}>Responder Roadmap connects department-defined requirements, field training records, and human approval in one qualification workflow.</p>
             <div className="mt-10 grid gap-5 lg:grid-cols-2">
               {screenshots.map((item) => (
-                <figure key={item.src} className={`${card} overflow-hidden ${item.layout === "wide" ? "lg:col-span-2" : ""}`}>
-                  <div className={`relative bg-[#F3F5F8] ${item.layout === "wide" ? "aspect-[16/9]" : "aspect-[4/5] sm:aspect-[5/6]"}`}>
+                <figure key={item.src} className={`${card} overflow-hidden`}>
+                  <div className={`relative bg-[#F3F5F8] ${item.layout === "landscape" ? "aspect-[16/10]" : "aspect-[4/5] sm:aspect-[5/6]"}`}>
                     <Image
                       src={item.src}
                       alt={item.alt}
