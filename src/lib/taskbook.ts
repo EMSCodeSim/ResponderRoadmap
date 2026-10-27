@@ -104,10 +104,16 @@ export function defaultApprovalPath(supervisorRequired?: boolean, evaluatorRequi
 }
 
 export function serializeRequirement(input: RequirementFields) {
+  const repetitionsRequired = Math.max(1, input.repetitionsRequired ?? 1);
+  const evaluatorSignOffRequired = repetitionsRequired > 1 || (input.evaluatorSignOffRequired ?? true);
   const approvalPath =
     input.approvalPath && input.approvalPath.length
       ? input.approvalPath
-      : defaultApprovalPath(input.supervisorApprovalRequired, input.evaluatorSignOffRequired ?? true);
+      : defaultApprovalPath(input.supervisorApprovalRequired, evaluatorSignOffRequired);
+  const normalizedApprovalPath =
+    repetitionsRequired > 1
+      ? ["EVALUATOR" as ApprovalLevel, ...approvalPath.filter((level) => level !== "EVALUATOR")]
+      : approvalPath;
   const evidenceTypes =
     input.evidenceTypes && input.evidenceTypes.length
       ? input.evidenceTypes
@@ -127,8 +133,8 @@ export function serializeRequirement(input: RequirementFields) {
     memberNotesAllowed: input.memberNotesAllowed ?? true,
     evaluatorNotesEnabled: input.evaluatorNotesEnabled ?? true,
     supervisorApprovalRequired: input.supervisorApprovalRequired ?? approvalPath.includes("SUPERVISOR"),
-    evaluatorSignOffRequired: input.evaluatorSignOffRequired ?? true,
-    repetitionsRequired: Math.max(1, input.repetitionsRequired ?? 1),
+    evaluatorSignOffRequired,
+    repetitionsRequired,
     prerequisitesJson: JSON.stringify(input.prerequisites ?? []),
     estimatedMinutes: input.estimatedMinutes ?? null,
     tagsJson: JSON.stringify(input.tags ?? []),
@@ -143,7 +149,7 @@ export function serializeRequirement(input: RequirementFields) {
     retryWaitHours: input.retryWaitHours ?? null,
     remediationRequired: input.remediationRequired ?? false,
     supervisorReviewOnFail: input.supervisorReviewOnFail ?? false,
-    approvalPathJson: JSON.stringify(approvalPath),
+    approvalPathJson: JSON.stringify(normalizedApprovalPath),
     standardsJson: JSON.stringify(input.standards ?? []),
     retryPolicy: input.retryPolicy || "UNLIMITED",
   };
@@ -164,17 +170,25 @@ export function deserializeRequirement<T extends Record<string, unknown>>(requir
     evidenceType?: string;
   };
   const approvalPath = parseJsonArray(row.approvalPathJson);
+  const repetitionsRequired = Math.max(1, Number(row.repetitionsRequired || 1));
+  const evaluatorSignOffRequired = repetitionsRequired > 1 || Boolean(row.evaluatorSignOffRequired ?? true);
+  const parsedApprovalPath = approvalPath.length
+    ? approvalPath
+    : defaultApprovalPath(row.supervisorApprovalRequired, evaluatorSignOffRequired);
   return {
     ...requirement,
+    evaluatorSignOffRequired,
+    repetitionsRequired,
     objectives: parseJsonArray(row.objectivesJson),
     tags: parseJsonArray(row.tagsJson),
     prerequisites: parseJsonArray(row.prerequisitesJson),
     evaluationSteps: parseJsonValue<EvaluationStep[]>(row.evaluationStepsJson, []),
     criticalFailures: parseJsonValue<CriticalFailure[]>(row.criticalFailuresJson, []),
     evidenceTypes: parseJsonArray(row.evidenceTypesJson),
-    approvalPath: approvalPath.length
-      ? approvalPath
-      : defaultApprovalPath(row.supervisorApprovalRequired, row.evaluatorSignOffRequired ?? true),
+    approvalPath:
+      repetitionsRequired > 1
+        ? ["EVALUATOR" as ApprovalLevel, ...parsedApprovalPath.filter((level) => level !== "EVALUATOR")]
+        : parsedApprovalPath,
     standards: parseJsonValue<StandardReference[]>(row.standardsJson, []),
   };
 }

@@ -1037,8 +1037,26 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Repetitions required" hint="Each attempt keeps its own date, evaluator, notes, and result.">
-                    <Input type="number" min={1} value={currentReq.repetitionsRequired} disabled={draftLocked} onChange={(e) => updateReq({ repetitionsRequired: Number(e.target.value) })} />
+                  <Field label="Performances required" hint="Every performance needs its own evaluator signature, and each one must be signed on a different calendar day.">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={currentReq.repetitionsRequired}
+                      disabled={draftLocked}
+                      onChange={(e) => {
+                        const repetitionsRequired = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                        updateReq({
+                          repetitionsRequired,
+                          ...(repetitionsRequired > 1
+                            ? {
+                                evaluatorSignOffRequired: true,
+                                approvalPath: ["EVALUATOR", ...currentReq.approvalPath.filter((level) => level !== "EVALUATOR")],
+                              }
+                            : {}),
+                        });
+                      }}
+                    />
                   </Field>
                   <Field label="Evaluation steps" hint="Evaluators mark Meets / Needs Improvement / Not Performed on each step.">
                     <div className="space-y-2">
@@ -1128,8 +1146,13 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               {editorTab === "signoff" ? (
                 <>
                   <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={currentReq.evaluatorSignOffRequired} disabled={draftLocked} onChange={(e) => updateReq({ evaluatorSignOffRequired: e.target.checked })} />
-                    Evaluator sign-off required
+                    <input
+                      type="checkbox"
+                      checked={currentReq.evaluatorSignOffRequired || currentReq.repetitionsRequired > 1}
+                      disabled={draftLocked || currentReq.repetitionsRequired > 1}
+                      onChange={(e) => updateReq({ evaluatorSignOffRequired: e.target.checked })}
+                    />
+                    Evaluator sign-off required{currentReq.repetitionsRequired > 1 ? " (required for each performance)" : ""}
                   </label>
                   <Field label="Approval path" hint="Each level keeps name, role, date, result, and comments.">
                     <div className="space-y-1">
@@ -1137,8 +1160,8 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                         <label key={level} className="flex items-center gap-2 text-sm">
                           <input
                             type="checkbox"
-                            disabled={draftLocked}
-                            checked={currentReq.approvalPath.includes(level)}
+                            disabled={draftLocked || (currentReq.repetitionsRequired > 1 && level === "EVALUATOR")}
+                            checked={currentReq.approvalPath.includes(level) || (currentReq.repetitionsRequired > 1 && level === "EVALUATOR")}
                             onChange={(e) => {
                               const next = e.target.checked
                                 ? [...currentReq.approvalPath, level]

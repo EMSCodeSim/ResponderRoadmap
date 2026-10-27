@@ -455,7 +455,7 @@ export async function listSignOffQueue(ctx: AuthContext, filter: { view?: string
   const mapped = completions.map((item) => {
     const parsed = deserializeRequirement(item.requirement as unknown as Record<string, unknown>);
     const logicalStage = reviewStageForRequirement({
-      evaluatorSignOffRequired: item.requirement.evaluatorSignOffRequired,
+      evaluatorSignOffRequired: parsed.evaluatorSignOffRequired,
       supervisorApprovalRequired: item.requirement.supervisorApprovalRequired,
       signOffs: item.signOffs,
       submittedAt: item.submittedAt,
@@ -738,7 +738,7 @@ export async function reviewSignOff(
     separationOverride ? `Administrator same-reviewer override: ${overrideReason}` : "",
   ].filter(Boolean).join("\n\n");
 
-  const nextRepIndex = completion.attempts.length + 1;
+  const nextRepIndex = completion.repetitionCount + 1;
   let nextStatus = completion.status;
   let repetitionCount = completion.repetitionCount;
   let completedAt = completion.completedAt;
@@ -927,6 +927,18 @@ export async function submitRequirement(
     throw new HttpError(400, "Complete the required prior tasks before submitting this one.");
   }
 
+  if (repetitionsRequired > 1 && currentRepetitionCount > 0 && existing) {
+    const previousPerformanceSignOff = [...existing.signOffs]
+      .reverse()
+      .find((signOff) => signOff.result === "APPROVED");
+    if (
+      previousPerformanceSignOff &&
+      previousPerformanceSignOff.signedAt.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
+    ) {
+      throw new HttpError(400, "Each required performance must be signed on a different calendar day.");
+    }
+  }
+
   if (parsed.maxAttempts) {
     const attempts = existing?.attempts.length ?? 0;
     const maxAttempts = Number(parsed.maxAttempts);
@@ -967,7 +979,7 @@ export async function submitRequirement(
   }
 
   const submittedRepetition = Math.min(repetitionsRequired, currentRepetitionCount + 1);
-  const needsReview = requirement.evaluatorSignOffRequired || requirement.supervisorApprovalRequired;
+  const needsReview = parsed.evaluatorSignOffRequired || requirement.supervisorApprovalRequired;
   const storedRepetitionCount = needsReview ? currentRepetitionCount : submittedRepetition;
   const nextStatus = needsReview ? "SUBMITTED" : "APPROVED";
   const now = new Date();
@@ -1080,12 +1092,12 @@ export async function submitRequirement(
     },
   });
   if (needsReview) {
-    const recipientId = requirement.evaluatorSignOffRequired
+    const recipientId = parsed.evaluatorSignOffRequired
       ? input.evaluatorId || assignment.evaluatorId
       : assignment.supervisorId;
     const recipients = recipientId
       ? [{ userId: recipientId }]
-      : requirement.evaluatorSignOffRequired
+      : parsed.evaluatorSignOffRequired
         ? await prisma.departmentMembership.findMany({
             where: { departmentId: ctx.departmentId, status: "ACTIVE", role: "EVALUATOR", evaluatorStatus: { not: "SUSPENDED" } },
             select: { userId: true },
