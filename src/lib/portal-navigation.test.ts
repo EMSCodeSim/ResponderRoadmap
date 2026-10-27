@@ -4,12 +4,11 @@ import { getPortalNavigation, isPortalNavItemActive } from "./portal-navigation"
 const officerPermissions = ["dashboard", "inbox", "task-books", "training-assignments", "classes", "members", "evaluate", "skill-mastery", "reports", "settings"];
 
 describe("role-based portal navigation", () => {
-  it("groups Training Officer work by task, competency, and insight", () => {
+  it("keeps Training Officer navigation focused on core work and readiness", () => {
     const { nav, inboxVisible, settingsVisible } = getPortalNavigation("TRAINING_OFFICER", officerPermissions);
     expect(nav.map(({ label, section }) => [label, section])).toEqual([
       ["Home", "HOME"], ["Task Books", "CORE WORK"], ["Assignments", "CORE WORK"], ["Training Sheets", "ASSIGN & TRAIN"],
       ["People", "PEOPLE & READINESS"], ["Approved Roles", "PEOPLE & READINESS"],
-      ["Training Needs", "IMPROVE & REPORT"], ["Reports", "IMPROVE & REPORT"],
     ]);
     expect(nav.every((item) => item.description.length > 8)).toBe(true);
     expect(inboxVisible).toBe(true);
