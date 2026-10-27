@@ -52,7 +52,7 @@ export default function LoginForm({ accountCreationOpen }: { accountCreationOpen
         <div className="flex flex-1 flex-col justify-center px-8 py-8">
           <div className="relative mx-auto aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-xl border border-white/10 bg-[#111C2F] shadow-2xl shadow-black/30">
             <Image
-              src="/showcase/dashboard-phone-artwork.png"
+              src="/showcase/dashboard-phone-artwork.jpg"
               alt="Responder Roadmap department dashboard and member phone app working together"
               fill
               priority
