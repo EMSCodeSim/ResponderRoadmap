@@ -154,13 +154,27 @@ export function LandingPage() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#0B1220] text-white">
       <header className="border-b border-white/[0.08] bg-[#0B1220]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
           <BrandLockup size={38} subtitle="Fire & EMS Qualification Tracking" />
-          <nav aria-label="Product sections" className="flex items-center gap-5 text-[13px] font-medium text-white/60">
-            <a href="#platform" className="hover:text-white">Platform</a>
-            <a href="#views" className="hover:text-white">App & dashboard</a>
-            <a href="#workflow" className="hidden hover:text-white sm:inline">Workflow</a>
-          </nav>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <nav aria-label="Product sections" className="mr-2 hidden items-center gap-5 text-[13px] font-medium text-white/60 lg:flex">
+              <a href="#platform" className="hover:text-white">Platform</a>
+              <a href="#views" className="hover:text-white">App & dashboard</a>
+              <a href="#workflow" className="hover:text-white">Workflow</a>
+            </nav>
+            <a
+              href="/login"
+              className="inline-flex min-h-10 items-center justify-center rounded-md border border-white/15 px-3.5 text-[13px] font-semibold text-white/85 transition hover:bg-white/5 hover:text-white"
+            >
+              Log in
+            </a>
+            <a
+              href="/demo"
+              className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#C8102E] px-3.5 text-[13px] font-semibold text-white transition hover:bg-[#9E0C24]"
+            >
+              See Demo
+            </a>
+          </div>
         </div>
       </header>
 
