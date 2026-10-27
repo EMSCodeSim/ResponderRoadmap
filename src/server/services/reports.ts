@@ -382,6 +382,7 @@ export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
     hours: number;
     memberId: string;
     memberName: string;
+    shift: string | null;
     instructor: string;
   }> = [];
 
@@ -419,6 +420,7 @@ export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
         hours,
         memberId: current.memberId,
         memberName: current.memberName,
+        shift: current.shift,
         instructor,
       });
     }

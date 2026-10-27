@@ -9,6 +9,20 @@ import { relativeTime } from "@/lib/dates";
 import { operationalStatusTone, type OperationalStatus } from "@/lib/member-status";
 import { createAssignmentPath, createTaskBookPath } from "@/lib/routes";
 
+type ShiftTrainingRecord = {
+  classId: string;
+  date: string;
+  title: string;
+  category: string;
+  hours: number;
+  memberId: string;
+  memberName: string;
+  shift: string | null;
+  instructor: string;
+};
+
+type ShiftTrainingPeriod = "day" | "week" | "month";
+
 type TodayItem = {
   id?: string;
   assignmentId?: string;
@@ -201,6 +215,7 @@ export default function DashboardPage() {
       ) : (
         <>
           <ActivationChecklist data={data} />
+          <ShiftTrainingHours />
           <div className="mb-6">
             {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
             <EvaluatorCoverage coverage={data.evaluatorCoverage} />
@@ -374,6 +389,180 @@ function TrainingGapsHome() {
       </ul>
     )}
   </Card>;
+}
+
+function ShiftTrainingHours() {
+  const [records, setRecords] = useState<ShiftTrainingRecord[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [period, setPeriod] = useState<ShiftTrainingPeriod>("week");
+  const [selectedShift, setSelectedShift] = useState<"A" | "B" | "C" | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const now = new Date();
+    const years = now.getMonth() === 0 ? [now.getFullYear() - 1, now.getFullYear()] : [now.getFullYear()];
+    Promise.all(years.map((year) => api<{ records: ShiftTrainingRecord[] }>(`reports/training-hours?year=${year}`)))
+      .then((reports) => {
+        if (active) setRecords(reports.flatMap((report) => report.records));
+      })
+      .catch(() => {
+        if (active) setLoadError(true);
+      })
+      .finally(() => {
+        if (active) setLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const now = new Date();
+  const start = shiftTrainingPeriodStart(period, now);
+  const periodRecords = records.filter((record) => {
+    const date = new Date(record.date);
+    return date >= start && date <= now && normalizeTrainingShift(record.shift) !== null;
+  });
+  const shifts = (["A", "B", "C"] as const).map((shift) => {
+    const shiftRecords = periodRecords.filter((record) => normalizeTrainingShift(record.shift) === shift);
+    return {
+      shift,
+      hours: shiftRecords.reduce((total, record) => total + record.hours, 0),
+      sessions: new Set(shiftRecords.map((record) => record.classId)).size,
+      attendees: new Set(shiftRecords.map((record) => record.memberId)).size,
+    };
+  });
+  const periodLabel = period === "day" ? "Today" : period === "week" ? "Last 7 days" : "This month";
+  const selectedRecords = selectedShift
+    ? periodRecords.filter((record) => normalizeTrainingShift(record.shift) === selectedShift)
+    : [];
+  const sessions = new Map<string, {
+    classId: string;
+    title: string;
+    date: string;
+    category: string;
+    instructor: string;
+    memberHours: number;
+    attendees: Map<string, string>;
+  }>();
+  selectedRecords.forEach((record) => {
+    const session = sessions.get(record.classId) ?? {
+      classId: record.classId,
+      title: record.title,
+      date: record.date,
+      category: record.category,
+      instructor: record.instructor,
+      memberHours: 0,
+      attendees: new Map<string, string>(),
+    };
+    session.memberHours += record.hours;
+    session.attendees.set(record.memberId, record.memberName);
+    sessions.set(record.classId, session);
+  });
+  const selectedSessions = [...sessions.values()].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  return (
+    <Card className="mb-6 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="kicker">TRAINING HOURS · BY SHIFT</div>
+          <h2 className="display mt-1 text-xl font-bold">Training by Shift</h2>
+          <p className="mt-1 text-sm text-navy-600">Hours are totaled across attending members. Select a shift to see its completed training records.</p>
+        </div>
+        <div className="flex rounded-md border border-navy-200 p-1" role="group" aria-label="Training hours time frame">
+          {([
+            ["day", "Daily"],
+            ["week", "Weekly"],
+            ["month", "Monthly"],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={period === value}
+              onClick={() => setPeriod(value)}
+              className={`min-h-10 rounded px-3 text-sm font-semibold ${period === value ? "bg-navy-900 text-white" : "text-navy-700 hover:bg-navy-50"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {shifts.map((item) => (
+          <button
+            key={item.shift}
+            type="button"
+            aria-pressed={selectedShift === item.shift}
+            onClick={() => setSelectedShift(selectedShift === item.shift ? null : item.shift)}
+            className={`rounded-lg border p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fire ${selectedShift === item.shift ? "border-fire bg-fire/5" : "border-navy-200 bg-white hover:border-fire"}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold text-navy-950">Shift {item.shift}</span>
+              <span className="text-sm font-semibold text-fire">{selectedShift === item.shift ? "Selected" : "View records →"}</span>
+            </div>
+            <div className="mt-2 text-2xl font-bold text-navy-950">{formatTrainingHours(item.hours)} hrs</div>
+            <div className="mt-1 text-sm text-navy-600">{item.sessions} completed {item.sessions === 1 ? "class" : "classes"} · {item.attendees} members</div>
+          </button>
+        ))}
+      </div>
+
+      {!loaded ? <p className="mt-3 text-sm text-navy-500">Loading training hours…</p> : null}
+      {loadError ? <p role="alert" className="mt-3 text-sm text-danger">Training hours could not be loaded. <Link href="/reports?type=training-hours" className="font-semibold underline">Open the training hours report →</Link></p> : null}
+
+      {selectedShift ? (
+        <section className="mt-5 border-t border-navy-200 pt-4" aria-live="polite" aria-labelledby="shift-training-records-title">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 id="shift-training-records-title" className="font-bold text-navy-950">Shift {selectedShift} · {periodLabel}</h3>
+            <span className="text-sm text-navy-500">{formatTrainingHours(shifts.find((item) => item.shift === selectedShift)?.hours ?? 0)} member-hours</span>
+          </div>
+          {selectedSessions.length ? (
+            <ul className="mt-3 divide-y divide-navy-100">
+              {selectedSessions.map((session) => {
+                const names = [...session.attendees.values()];
+                return (
+                  <li key={session.classId} className="py-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <Link href={`/reports/class-training-sheet/${session.classId}`} className="font-semibold text-navy-950 hover:text-fire hover:underline">
+                          {session.title}
+                        </Link>
+                        <div className="mt-1 text-sm text-navy-600">{new Date(session.date).toLocaleDateString()} · {session.category.replaceAll("_", " ")} · Instructor: {session.instructor}</div>
+                      </div>
+                      <span className="text-sm font-semibold text-navy-700">{names.length} {names.length === 1 ? "member" : "members"} · {formatTrainingHours(session.memberHours)} member-hours</span>
+                    </div>
+                    <p className="mt-1 text-xs text-navy-500">Attended by {names.slice(0, 6).join(", ")}{names.length > 6 ? ` and ${names.length - 6} more` : ""}</p>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-3 rounded-md bg-navy-50 p-3 text-sm text-navy-600">
+              No completed training records for Shift {selectedShift} {periodLabel.toLowerCase()}.
+            </p>
+          )}
+        </section>
+      ) : null}
+      <p className="mt-3 text-xs text-navy-500">Based on completed training sheets with members assigned to Shifts A, B, or C.</p>
+    </Card>
+  );
+}
+
+function shiftTrainingPeriodStart(period: ShiftTrainingPeriod, now: Date) {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  if (period === "week") start.setDate(start.getDate() - 6);
+  if (period === "month") start.setDate(1);
+  return start;
+}
+
+function normalizeTrainingShift(shift: string | null) {
+  const normalized = shift?.trim().toUpperCase().replace(/\s*SHIFT$/, "");
+  return normalized === "A" || normalized === "B" || normalized === "C" ? normalized : null;
+}
+
+function formatTrainingHours(hours: number) {
+  return `${Number(hours.toFixed(2))}`;
 }
 
 function ActivationChecklist({ data }: { data: Dashboard }) {
