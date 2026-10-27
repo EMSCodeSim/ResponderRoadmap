@@ -180,7 +180,7 @@ export default function DashboardPage() {
             ? "Teach, take attendance, evaluate skills, and finish the training record."
               : data.personal
               ? "Your next training step, Task Books, Assignments, and evaluations waiting for review."
-              : "Review what needs attention and track department training readiness below."
+              : "Review what needs attention and follow up on department training below."
         }
         actions={
           data.instructor ? <Link href="/classes"><Button>Create Class</Button></Link> : data.personal ? undefined : (
@@ -202,7 +202,6 @@ export default function DashboardPage() {
         <>
           <ActivationChecklist data={data} />
           <div className="mb-6">
-            <DepartmentReadinessSnapshot data={data} />
             {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
             <EvaluatorCoverage coverage={data.evaluatorCoverage} />
             <DepartmentRecentActivity events={data.recentActivity} />
