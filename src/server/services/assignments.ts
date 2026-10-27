@@ -738,7 +738,7 @@ export async function reviewSignOff(
     separationOverride ? `Administrator same-reviewer override: ${overrideReason}` : "",
   ].filter(Boolean).join("\n\n");
 
-  const nextRepIndex = completion.attempts.length + 1;
+  const nextRepIndex = completion.repetitionCount + 1;
   let nextStatus = completion.status;
   let repetitionCount = completion.repetitionCount;
   let completedAt = completion.completedAt;
@@ -928,10 +928,9 @@ export async function submitRequirement(
   }
 
   if (repetitionsRequired > 1 && currentRepetitionCount > 0 && existing) {
-    const previousApprovedSignOffs = existing.signOffs.filter(
-      (signOff) => signOff.repetitionIndex === currentRepetitionCount && signOff.result === "APPROVED",
-    );
-    const previousPerformanceSignOff = previousApprovedSignOffs[previousApprovedSignOffs.length - 1];
+    const previousPerformanceSignOff = [...existing.signOffs]
+      .reverse()
+      .find((signOff) => signOff.result === "APPROVED");
     if (
       previousPerformanceSignOff &&
       previousPerformanceSignOff.signedAt.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
