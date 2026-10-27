@@ -1,7 +1,5 @@
 "use client";
 
-import { TrainingLifecycle } from "@/components/TrainingLifecycle";
-
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -298,7 +296,6 @@ function AssignmentsInner() {
         description="Track standalone training assignments, due dates, completion and approval. Task Books have their own separate progress workspace."
       />
 
-      <TrainingLifecycle current="ASSIGNMENT" />
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
           href="/assignments"
