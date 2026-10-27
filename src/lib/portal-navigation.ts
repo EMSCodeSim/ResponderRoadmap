@@ -39,8 +39,8 @@ export function getPortalNavigation(role: Role | null, permissions: string[], en
   return {
     nav: [
       allowed.has("dashboard") ? home : null,
-      make("/task-books", "Task Books", "Build and track qualification paths", "book", "task-books", "CORE WORK", TRAINING_PATHS),
-      make("/assignment-library", "Assignments", "Give members specific work to complete", "assignment", "training-assignments", "CORE WORK", ASSIGNMENT_PATHS),
+      make("/task-book-progress", "Task Books", "Build and track qualification paths", "book", "task-books", "CORE WORK", TRAINING_PATHS),
+      make("/assignments", "Assignments", "Give members specific work to complete", "assignment", "training-assignments", "CORE WORK", ASSIGNMENT_PATHS),
       make("/classes", "Training Sheets", "Classes, drills, QR rosters, and attendance", "events", "classes", "ASSIGN & TRAIN"),
       make("/members", "People", "Members, roles, shifts, and evaluators", "people", "members", "PEOPLE & READINESS", ["/members", "/enrollment", "/evaluators"]),
       featureOn("QUALIFICATIONS") ? make("/qualifications", "Approved Roles", "Department-authorized roles and what is missing", "qualification", "members", "PEOPLE & READINESS") : null,
