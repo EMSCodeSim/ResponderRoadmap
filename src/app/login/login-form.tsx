@@ -56,6 +56,7 @@ export default function LoginForm({ accountCreationOpen }: { accountCreationOpen
               alt="Responder Roadmap department dashboard and member phone app working together"
               fill
               priority
+              unoptimized
               sizes="55vw"
               className="object-contain"
             />
