@@ -1,21 +1,19 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
-import { WalkDemoButton } from "@/components/walk-demo";
-import { BrandLockup, BrandMark } from "@/components/brand";
+import { BrandLockup } from "@/components/brand";
 import { Button, Field, Flash, Input } from "@/components/ui";
-import { AppWebSignIn } from "@/components/auth/AppWebSignIn";
+import { OPEN_ACCOUNT_CREATION_END_LABEL } from "@/lib/account-access";
 
-export default function LoginForm({ demoAvailable }: { demoAvailable: boolean }) {
+export default function LoginForm({ accountCreationOpen }: { accountCreationOpen: boolean }) {
   const router = useRouter();
   const search = useSearchParams();
   const requestedNext = search.get("next") || "/dashboard";
   const next = requestedNext.startsWith("/") && !requestedNext.startsWith("//") ? requestedNext : "/dashboard";
-  const walk = search.get("walk");
-  const autoWalk = demoAvailable && (walk === "to" || walk === "member" || walk === "evaluator") ? walk : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -39,90 +37,68 @@ export default function LoginForm({ demoAvailable }: { demoAvailable: boolean })
     }
   }
 
+  const accountHref = accountCreationOpen ? "/register" : "/department-interest?source=account-request";
+  const accountLabel = accountCreationOpen ? "Create free account" : "Request an account";
+
   return (
-    <div className="min-h-screen md:grid md:grid-cols-2">
-      <div className="hidden flex-col justify-between bg-navy-900 p-10 text-white md:flex">
-        <Link href="/">
-          <BrandLockup size={56} subtitle="Task Books for Fire & EMS" />
+    <main className="min-h-screen bg-white text-navy-900 lg:grid lg:grid-cols-[1.08fr_.92fr]">
+      <section className="relative hidden min-h-screen overflow-hidden border-r border-white/10 lg:block">
+        <Image
+          src="/showcase/dashboard-phone-artwork.png"
+          alt="Responder Roadmap department dashboard and member phone app working together"
+          fill
+          priority
+          sizes="55vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0B1220]/80 via-transparent to-[#0B1220]/15" />
+        <Link href="/" className="absolute left-8 top-7 rounded-md bg-[#0B1220]/80 px-4 py-3 backdrop-blur-sm">
+          <BrandLockup size={40} subtitle="Fire & EMS Qualification Tracking" />
         </Link>
-        <div>
-          <h1 className="display text-5xl font-bold leading-tight">Know who is ready. Prove it on the record.</h1>
-          <p className="mt-4 max-w-md text-white/70">
-            Training officers open a named daily board. Evaluators review skills on a phone. Members already know the next requirement. The department keeps the record.
-          </p>
+        <div className="absolute inset-x-8 bottom-8 rounded-lg border border-white/10 bg-[#0B1220]/82 p-5 backdrop-blur-md">
+          <p className="text-sm font-semibold">One shared department training record</p>
+          <p className="mt-1 text-sm leading-6 text-white/65">Members document work in the app. Training Officers manage progress from the dashboard.</p>
         </div>
-        <div className="text-sm text-white/50">
-          {demoAvailable ? "Metro Fire sample data is ready. No demo credentials required." : "Department access for fire and EMS training divisions."}
-        </div>
-      </div>
-      <div className="flex items-center justify-center px-6 py-12">
+      </section>
+
+      <section className="flex min-h-screen items-center justify-center bg-white px-6 py-10 sm:px-10">
         <div className="w-full max-w-md">
-          <Link href="/" className="mb-4 inline-block">
-            <span className="flex items-center gap-3">
-              <BrandMark size={48} />
-              <span>
-                <span className="kicker">ResponderRoadmap</span>
-                <span className="mt-0.5 block text-xs font-semibold text-navy-500">Task Books for Fire &amp; EMS</span>
-              </span>
-            </span>
+          <Link href="/" className="mb-10 inline-block lg:hidden">
+            <BrandLockup size={42} subtitle="Fire & EMS Qualification Tracking" />
           </Link>
-          <h2 className="display text-4xl font-bold text-navy-900">Department access</h2>
-          <p className="mt-2 text-navy-500">
-            {demoAvailable
-              ? "Start the live demo as a Training Officer, or sign in with your department account."
-              : "Use your department account. Members complete work in their Task Books."}
-          </p>
 
-          {demoAvailable ? (
-            <div className="mt-6 space-y-3 rounded-md border border-navy-200 bg-navy-50 p-4">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-wide text-navy-500">Try ResponderRoadmap</div>
-                <p className="mt-1 text-xs text-navy-500">Open the Metro Fire workspace as the Training Officer. You can switch perspectives inside the demo.</p>
-              </div>
-              {autoWalk ? <WalkDemoButton walk={autoWalk} auto /> : <WalkDemoButton walk="to">Start Live Demo</WalkDemoButton>}
-            </div>
-          ) : null}
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-navy-400">Department access</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight">Log in</h1>
+          <p className="mt-3 text-sm leading-6 text-navy-500">Use the email and password connected to your Responder Roadmap account.</p>
 
-          <AppWebSignIn
-            onSignedIn={(needsDepartment) => {
-              router.push(needsDepartment && next === "/dashboard" ? "/onboarding" : next);
-              router.refresh();
-            }}
-          />
-
-          <div className="mt-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-navy-400">
-            <span className="h-px flex-1 bg-navy-200" />
-            <span>or use password</span>
-            <span className="h-px flex-1 bg-navy-200" />
-          </div>
-
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
+          <form onSubmit={onSubmit} className="mt-8 space-y-5">
             <Flash message={error} tone="danger" />
             <Field label="Email">
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" />
+              <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="username" />
             </Field>
             <Field label="Password">
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+              <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" />
             </Field>
             <Button type="submit" disabled={busy} className="w-full">
-              {busy ? "Signing in…" : "Sign in"}
+              {busy ? "Logging in…" : "Log in"}
             </Button>
           </form>
 
-          <div className="mt-6 border-t border-navy-200 pt-5 text-sm text-navy-500">
-            <p>
-              Have a pilot invitation? Use the invitation link sent by your department, then sign in here.
+          <div className="mt-8 border-t border-navy-200 pt-6">
+            <p className="text-sm text-navy-500">
+              {accountCreationOpen
+                ? `New to Responder Roadmap? Account creation is free through ${OPEN_ACCOUNT_CREATION_END_LABEL}.`
+                : "New departments now begin with an account request."}
             </p>
-            <p className="mt-2">
-              Starting a department test?{" "}
-              <Link href="/department-interest?source=department-test" className="font-semibold text-fire">
-                Request department test access
-              </Link>
-              .
-            </p>
+            <Link
+              href={accountHref}
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 px-4 text-sm font-semibold text-navy-800 transition hover:bg-navy-50"
+            >
+              {accountLabel}
+            </Link>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

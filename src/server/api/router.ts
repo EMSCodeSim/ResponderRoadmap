@@ -26,6 +26,7 @@ import { parseMetadata } from "@/server/http";
 import { navItemsForRole } from "@/server/permissions";
 import { taskBookAttestationRecord } from "@/lib/taskbook-attestation";
 import type { Role } from "@/lib/constants";
+import { isDepartmentInviteOrJoinRegistration, isOpenAccountCreationAvailable } from "@/lib/account-access";
 
 function match(path: string[], pattern: string) {
   const parts = pattern.split("/").filter(Boolean);
@@ -75,11 +76,17 @@ export async function handleApi(req: Request, path: string[]) {
     }
     if (method === "POST" && match(path, "auth/register")) {
       const body = await readBody(req);
+      if (!isDepartmentInviteOrJoinRegistration(body) && !isOpenAccountCreationAvailable()) {
+        return jsonError("Open account creation has ended. Submit an account request for access.", 403);
+      }
       const result = await auth.register(body);
       return jsonOk(result);
     }
     if (method === "POST" && match(path, "auth/app-register")) {
       const body = await readBody(req);
+      if (!isDepartmentInviteOrJoinRegistration(body) && !isOpenAccountCreationAvailable()) {
+        return jsonError("Open account creation has ended. Submit an account request for access.", 403);
+      }
       const result = await auth.register(body);
       const token = result.session ? await signSession(result.session) : null;
       return jsonOk({ ...result, token });
