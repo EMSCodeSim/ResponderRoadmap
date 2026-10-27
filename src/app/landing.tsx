@@ -1,339 +1,286 @@
 import Image from "next/image";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
-import { DashboardPreview } from "@/components/marketing/DashboardPreview";
-import { DEMO_DEPARTMENT_NAME, DEMO_MEMBERS, DEMO_READINESS } from "@/lib/demo-story";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
 
-const kicker = "text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40";
-const heading = "mt-3 max-w-3xl text-[1.85rem] font-semibold leading-tight tracking-tight text-white sm:text-[2.35rem]";
-const body = "mt-4 max-w-2xl text-[15px] leading-7 text-white/68";
-const card = "rounded-lg border border-white/[0.08] bg-[#121A2A]";
-const ctaPrimary =
-  "inline-flex min-h-11 items-center justify-center rounded-md bg-[#C8102E] px-5 text-sm font-semibold text-white transition hover:bg-[#9E0C24] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
-const ctaGhost =
-  "inline-flex min-h-11 items-center justify-center rounded-md border border-white/15 bg-transparent px-5 text-sm font-semibold text-white/90 transition hover:bg-white/5";
+const card = "rounded-xl border border-white/[0.08] bg-[#121A2A]";
+const kicker = "text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-300/80";
+const heading = "mt-3 max-w-3xl text-[1.9rem] font-semibold leading-tight tracking-tight text-white sm:text-[2.4rem]";
+const body = "mt-4 max-w-3xl text-[15px] leading-7 text-white/68";
 
 const capabilities = [
-  { title: "Set requirements", body: "Define role qualifications, required credentials, Task Books, skills, and annual training expectations for your department." },
-  { title: "Assign work", body: "Assign Task Books and development work to a member or group, then follow each requirement through completion." },
-  { title: "Capture field training", body: "Start from a department-built Training Sheet template, use QR rosters, and record attendance and skill results in the field." },
-  { title: "Review and qualify", body: "Authorized evaluators approve or return submitted work. See approved, pending, missing, and expiring requirements separately." },
-];
-
-const screenshots = [
-  {
-    src: "/showcase/dashboard-demo.png",
-    layout: "landscape",
-    alt: "Responder Roadmap Training Officer dashboard showing qualification overview, items needing attention, and member progress.",
-    title: "Department overview",
-    body: "See active Task Books, Assignments, evaluator reviews, and follow-up needs in one place.",
-  },
-  {
-    src: "/showcase/evaluator-demo.png",
-    layout: "portrait",
-    alt: "Responder Roadmap evaluator view showing submitted skills and approval actions.",
-    title: "Evaluator review",
-    body: "Authorized evaluators review submitted evidence and approve or return requirements.",
-  },
+  ["Department requirements", "Define roles, credentials, Task Books, recurring skills, and department training expectations."],
+  ["Field documentation", "Members and instructors record classes, skills, evidence, and training hours from the app."],
+  ["Human verification", "Authorized evaluators review submitted work and attach each decision to the member record."],
+  ["Progress oversight", "Training Officers see incomplete work, follow-up needs, expiring credentials, and approved qualifications."],
 ];
 
 const workflow = [
-  { title: "Define", body: "Set qualification and training requirements by department role." },
-  { title: "Assign", body: "Assign Task Books, skills, and development work to members." },
-  { title: "Train", body: "Run classes from department templates and collect attendance with QR." },
-  { title: "Document", body: "Record training hours, checklist results, credentials, and evidence." },
-  { title: "Review", body: "Authorized evaluators approve or return submitted requirements." },
-  { title: "Qualify", body: "See approved qualifications and the requirements still in progress." },
-  { title: "Export", body: "Hand off completed training records to the department RMS." },
+  ["Set up", "Build department requirements and reusable Training Sheet templates in the dashboard."],
+  ["Complete", "Members perform assigned work and document training from the app."],
+  ["Review", "Evaluators examine evidence and sign each required performance."],
+  ["Follow", "The dashboard shows approved progress and the work that still needs attention."],
 ];
 
-const glance = [
-  DEMO_MEMBERS.find((member) => member.id === "mem_smith")!,
-  DEMO_MEMBERS.find((member) => member.id === "mem_jones")!,
-  DEMO_MEMBERS.find((member) => member.id === "mem_garcia")!,
-];
+function DashboardVisual() {
+  const members = [
+    { name: "Jordan Smith", work: "Probationary Firefighter", progress: "80%", status: "Awaiting review" },
+    { name: "Casey Jones", work: "Driver / Operator", progress: "61%", status: "Needs follow-up" },
+    { name: "Morgan Garcia", work: "First-Due Company", progress: "100%", status: "Complete" },
+  ];
 
-const faqs = [
-  ["Do I need an account to see the demo?", "No. The 3-minute Department Demo requires no signup and no credit card."],
-  ["Does AI approve training?", "No. Responder AI drafts Task Books, Assignments, criteria, and answers. Required human evaluation and final approval still create the official record."],
-  ["Do we have to replace our current RMS or records system?", "No. Keep it. Responder Roadmap is intentionally designed to work alongside your current system. Manage the training workflow in Roadmap, then export completed records to the system your department already uses."],
-  ["Does a submitted skill automatically count?", "No. A requirement counts only after its required approvals are completed."],
-  ["Can members use an iPhone?", "Yes. Members have access to the iPhone app, and the same workflow works in a phone browser."],
-];
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-300 bg-[#F4F6F9] text-[#0C1524] shadow-2xl shadow-black/30">
+      <div className="flex items-center justify-between bg-[#111B2C] px-4 py-3 text-white">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[.15em] text-white/45">Department dashboard</p>
+          <p className="mt-1 text-sm font-semibold">Qualification and training overview</p>
+        </div>
+        <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-[10px] font-semibold text-emerald-200">Current department view</span>
+      </div>
+      <div className="p-4 sm:p-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            ["Members", "75"],
+            ["Review now", "6"],
+            ["Follow up", "2"],
+            ["Sheets to finish", "14"],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+              <p className="mt-1 text-2xl font-bold">{value}</p>
+            </div>
+          ))}
+        </div>
 
-function glanceStatus(member: (typeof glance)[number]) {
-  if (member.status === "Awaiting Evaluation") return { label: `${member.awaitingEvaluation} awaiting evaluation`, tone: "text-[#C47A0A]" };
-  if (member.status === "Completed") return { label: "Completed", tone: "text-white/50" };
-  if (member.status === "Needs Attention") return { label: "Needs attention", tone: "text-[#C8102E]" };
-  return { label: member.status, tone: "text-white/60" };
+        <div className="mt-3 grid gap-3 sm:grid-cols-[.9fr_1.1fr]">
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold">Needs attention</p>
+              <span className="text-[10px] text-slate-500">22 items</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {[
+                ["Review now", "6"],
+                ["Follow up", "2"],
+                ["Training Sheets", "14"],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-[11px]">
+                  <span className="font-semibold">{label}</span>
+                  <span className="font-bold text-[#C8102E]">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <p className="text-xs font-bold">Member progress</p>
+              <span className="text-[10px] text-slate-500">Approved work</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {members.map((member) => (
+                <div key={member.name} className="px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-bold">{member.name}</p>
+                      <p className="truncate text-[10px] text-slate-500">{member.work}</p>
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-600">{member.status}</span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-[#C8102E]" style={{ width: member.progress }} />
+                    </div>
+                    <span className="text-[10px] font-bold">{member.progress}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function Ctas({ centered = false }: { centered?: boolean }) {
+function MemberAppVisual() {
   return (
-    <div className={`flex flex-col gap-3 sm:flex-row ${centered ? "sm:justify-center" : ""}`}>
-      <a href="#product" className={ctaPrimary}>
-        {demoHref === "/demo" ? "See the 3-Minute Demo" : "Request a department demo"}
-      </a>
-      <Link href="/login" className={ctaGhost}>
-        Log in
-      </Link>
+    <div className="mx-auto w-full max-w-[330px] rounded-[2.4rem] border-[7px] border-[#05080E] bg-[#07111F] p-2 shadow-2xl shadow-black/45">
+      <div className="overflow-hidden rounded-[1.8rem] bg-[#F4F6F9] text-[#0C1524]">
+        <div className="bg-[#111B2C] px-5 pb-4 pt-5 text-white">
+          <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-white/15" />
+          <p className="text-[10px] font-semibold uppercase tracking-[.15em] text-white/45">Member app</p>
+          <h3 className="mt-1 text-lg font-semibold">My training</h3>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-3 rounded-lg bg-slate-200 p-1 text-center text-[10px] font-semibold">
+            <span className="rounded-md bg-[#C8102E] px-2 py-2 text-white">Assigned</span>
+            <span className="px-2 py-2">Task Books</span>
+            <span className="px-2 py-2">Completed</span>
+          </div>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-bold">Apparatus rig check</p>
+            <p className="mt-1 text-[10px] text-slate-500">Driver / Operator Task Book · Performance 3 of 5</p>
+            <div className="mt-4 space-y-3">
+              {[
+                ["Inspect fluids and belts", true],
+                ["Check emergency lighting", true],
+                ["Verify equipment inventory", true],
+                ["Document deficiencies", false],
+              ].map(([label, complete]) => (
+                <div key={String(label)} className="flex items-center gap-2 text-[11px]">
+                  <span className={complete ? "flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-white" : "h-5 w-5 rounded border border-slate-300"}>{complete ? "✓" : ""}</span>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+            <button className="mt-5 w-full rounded-lg bg-[#C8102E] px-3 py-3 text-xs font-bold text-white">Request evaluator signature</button>
+          </div>
+          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-bold">Quick actions</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-center text-[10px] font-semibold">
+              <span className="rounded-lg bg-slate-100 px-2 py-3">Join class</span>
+              <span className="rounded-lg bg-slate-100 px-2 py-3">Quick log</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 export function LandingPage() {
-
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#0B1220] text-white">
-      <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#0B1220]/92 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-3.5 sm:px-8">
-          <Link href="/" aria-label="Responder Roadmap home">
-            <BrandLockup size={36} subtitle="Fire & EMS Qualification Tracking" />
-          </Link>
-          <nav aria-label="Main navigation" className="hidden items-center gap-7 text-[13px] font-medium text-white/60 md:flex">
-            <a href="#product" className="hover:text-white">Product</a>
-            <a href="#screenshots" className="hover:text-white">Screenshots</a>
+      <header className="border-b border-white/[0.08] bg-[#0B1220]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
+          <BrandLockup size={38} subtitle="Fire & EMS Qualification Tracking" />
+          <nav aria-label="Product sections" className="flex items-center gap-5 text-[13px] font-medium text-white/60">
+            <a href="#platform" className="hover:text-white">Platform</a>
+            <a href="#views" className="hover:text-white">App & dashboard</a>
+            <a href="#workflow" className="hidden hover:text-white sm:inline">Workflow</a>
           </nav>
-          <div className="flex items-center gap-2">
-            
-            <TrackedLink href={demoHref} event="homepage_demo_clicked" className={`${ctaPrimary} min-h-9 px-3.5 text-[13px]`}>
-              See Demo
-            </a>
-          </div>
         </div>
-        <nav aria-label="Page sections" className="flex items-center justify-between gap-3 border-t border-white/[0.06] px-5 py-2 text-[13px] font-medium text-white/55 md:hidden sm:px-8">
-          
-          <a href="#product" className="hover:text-white">Product</a>
-          <a href="#screenshots" className="hover:text-white">Screenshots</a>
-        </nav>
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-14 lg:pb-20 lg:pt-16">
+        <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[.86fr_1.14fr] lg:gap-14 lg:pb-20 lg:pt-16">
           <div>
-            <p className={kicker}>Fire & EMS qualification and competency tracking</p>
-            <h1 className="mt-4 max-w-xl text-[2.35rem] font-semibold leading-[1.12] tracking-tight text-white sm:text-5xl">
-              Turn department requirements into verified qualifications.
+            <p className={kicker}>Qualification and competency tracking for Fire & EMS</p>
+            <h1 className="mt-4 max-w-xl text-[2.5rem] font-semibold leading-[1.1] tracking-tight sm:text-5xl">
+              Connect field training to verified department qualifications.
             </h1>
             <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/68">
-              Set requirements for each role. Assign Task Books and Assignments, then document field training with reusable Training Sheet templates. Authorized evaluators review the evidence; your department decides when a member is qualified. Roadmap works alongside your RMS and leaves official records there.
+              Build department requirements, assign Task Books and development work, capture Training Sheets in the field, and keep every approval connected to the member record.
             </p>
-            <div className="mt-8"></div>
-                        
-          </div>
-          <DashboardPreview compact />
-        </section>
-
-        <section className="border-y border-white/[0.08] bg-[#0E1624]">
-          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-4 text-[13px] text-white/50 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-            <span>AI does the tedious work. Humans decide.</span>
-            <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
-            <span>Built for practical department testing and daily use</span>
-            <span className="hidden h-3 w-px bg-white/10 sm:block" aria-hidden="true" />
-            <span>Your RMS remains the official records system</span>
-          </div>
-        </section>
-
-        <section id="screenshots" className="border-y border-white/[0.08] bg-[#0E1624]" aria-labelledby="screenshots-heading">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-            <p className={kicker}>A look inside</p>
-            <h2 id="screenshots-heading" className={heading}>See the department overview and evaluator experience.</h2>
-            <p className={body}>Responder Roadmap connects department-defined requirements, field training records, and human approval in one qualification workflow.</p>
-            <div className="mt-10 grid gap-5 lg:grid-cols-2">
-              {screenshots.map((item) => (
-                <figure key={item.src} className={`${card} overflow-hidden`}>
-                  <div className={`relative bg-[#F3F5F8] ${item.layout === "landscape" ? "aspect-[16/10]" : "aspect-[4/5] sm:aspect-[5/6]"}`}>
-                    <Image
-                      src={item.src}
-                      alt={item.alt}
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 50vw"
-                      className="object-contain"
-                    />
-                  </div>
-                  <figcaption className="p-5">
-                    <h3 className="text-base font-semibold">{item.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-white/60">{item.body}</p>
-                  </figcaption>
-                </figure>
+            <div className="mt-7 grid max-w-xl grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              {["Task Books", "Assignments", "Training Sheets", "Qualifications"].map((item) => (
+                <span key={item} className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-3 text-center font-medium text-white/70">{item}</span>
               ))}
             </div>
-            <p className="mt-4 text-xs text-white/40">Screenshots use fictional demo department records.</p>
+          </div>
+          <DashboardVisual />
+        </section>
+
+        <section className="border-y border-white/[0.08] bg-[#0E1624] px-5 py-16 sm:px-8 lg:py-20">
+          <div className="mx-auto max-w-6xl">
+            <p className={kicker}>Current product</p>
+            <h2 className={heading}>The dashboard and member app share one department training record.</h2>
+            <p className={body}>
+              Training Officers organize the department from the dashboard. Members and evaluators document and review work from the app. Approved work flows back into the same progress and qualification view.
+            </p>
+            <div className="mt-10 overflow-hidden rounded-2xl border border-white/10 bg-[#111B2C] shadow-2xl shadow-black/30">
+              <Image
+                src="/showcase/dashboard-phone-artwork.jpg"
+                alt="Responder Roadmap department dashboard and member app working together"
+                width={1672}
+                height={941}
+                priority
+                unoptimized
+                className="h-auto w-full"
+              />
+            </div>
           </div>
         </section>
 
-        <section id="product" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>One shared department training record</p>
-          <h2 className={heading}>The member app and department dashboard work together.</h2>
-          <p className={body}>
-            Members and evaluators use the Responder Roadmap app in the field. Training Officers use the department dashboard to set up work, review progress, and keep the whole department organized. Both views work from the same department training record.
-          </p>
+        <section id="views" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+          <p className={kicker}>Up-to-date product views</p>
+          <h2 className={heading}>See what each person uses.</h2>
+          <p className={body}>These current product previews show the department oversight view and the field workflow members use to complete and submit work.</p>
 
-          <div className="mt-8 grid gap-4 lg:grid-cols-2">
-            <article className={`${card} p-6 sm:p-7`}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#FB7185]">In the field · member app</p>
-              <h3 className="mt-3 text-xl font-semibold">Members record training where it happens.</h3>
-              <p className="mt-3 text-sm leading-6 text-white/60">
-                Open assigned Task Books and Assignments, join a class from its QR code, record completed skills and training, and submit work for evaluation from a phone.
-              </p>
-              <p className="mt-4 text-xs leading-5 text-white/45">Evaluators can review submitted work and sign off from the app, with each decision attached to the member’s record.</p>
-              <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="mt-5 inline-flex text-sm font-semibold text-white/75 underline decoration-white/25 underline-offset-4 hover:text-white">Get the iPhone app →</a>
-            </article>
-
-            <article className={`${card} p-6 sm:p-7`}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#93C5FD]">Department operations · dashboard</p>
-              <h3 className="mt-3 text-xl font-semibold">Training Officers organize and oversee the work.</h3>
-              <p className="mt-3 text-sm leading-6 text-white/60">
-                Set department requirements, build Training Sheet templates, assign work, see who needs follow-up, and review submitted evidence in one department-wide view.
-              </p>
-              <p className="mt-4 text-xs leading-5 text-white/45">Approved work updates the shared progress and qualification picture. Your department’s authorized people make the qualification decision.</p>
-              
-            </article>
+          <div className="mt-10 grid items-start gap-8 lg:grid-cols-[1.2fr_.8fr]">
+            <figure className={card}>
+              <div className="p-4 sm:p-5"><DashboardVisual /></div>
+              <figcaption className="border-t border-white/[0.08] p-5">
+                <h3 className="font-semibold">Training Officer dashboard</h3>
+                <p className="mt-2 text-sm leading-6 text-white/55">Review needs attention, open member progress, manage department requirements, and follow training that still needs documentation.</p>
+              </figcaption>
+            </figure>
+            <figure className={card}>
+              <div className="p-5 sm:p-7"><MemberAppVisual /></div>
+              <figcaption className="border-t border-white/[0.08] p-5">
+                <h3 className="font-semibold">Member and evaluator app</h3>
+                <p className="mt-2 text-sm leading-6 text-white/55">Complete assigned skills, document repeated performances, join Training Sheets, and request evaluator signatures from the field.</p>
+              </figcaption>
+            </figure>
           </div>
+        </section>
 
-          <div className="mt-5 rounded-lg border border-white/[0.08] bg-[#0E1624] p-5 sm:p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">One connected workflow</p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div><p className="text-sm font-semibold">1. Set up</p><p className="mt-1 text-xs leading-5 text-white/55">Training Officer assigns requirements in the dashboard.</p></div>
-              <div><p className="text-sm font-semibold">2. Do the work</p><p className="mt-1 text-xs leading-5 text-white/55">Member completes training and records evidence in the app.</p></div>
-              <div><p className="text-sm font-semibold">3. Review</p><p className="mt-1 text-xs leading-5 text-white/55">An authorized evaluator reviews and signs submitted work.</p></div>
-              <div><p className="text-sm font-semibold">4. Follow progress</p><p className="mt-1 text-xs leading-5 text-white/55">The dashboard reflects approved work and what still needs attention.</p></div>
+        <section id="platform" className="border-y border-white/[0.08] bg-[#0E1624]">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+            <p className={kicker}>Department defined</p>
+            <h2 className={heading}>Built around the way your department qualifies people.</h2>
+            <div className="mt-9 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {capabilities.map(([title, description], index) => (
+                <article key={title} className={card + " p-6"}>
+                  <span className="text-[11px] font-semibold text-white/30">{(index + 1).toString().padStart(2, "0")}</span>
+                  <h3 className="mt-3 text-lg font-semibold">{title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-white/58">{description}</p>
+                </article>
+              ))}
             </div>
           </div>
+        </section>
 
-          <h3 className="mt-12 text-lg font-semibold text-white">What your department can manage</h3>
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {capabilities.map((item, index) => (
-              <article key={item.title} className={`${card} p-6`}>
-                <span className="text-[11px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
-                <h3 className="mt-3 text-lg font-semibold">{item.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-white/60">{item.body}</p>
-                
+        <section id="workflow" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
+          <p className={kicker}>Connected workflow</p>
+          <h2 className={heading}>From assigned requirement to verified record.</h2>
+          <div className="mt-9 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {workflow.map(([title, description], index) => (
+              <article key={title} className={card + " p-6"}>
+                <span className="text-[11px] font-semibold text-sky-300/70">Step {(index + 1).toString()}</span>
+                <h3 className="mt-3 text-lg font-semibold">{title}</h3>
+                <p className="mt-3 text-sm leading-6 text-white/58">{description}</p>
               </article>
             ))}
           </div>
         </section>
 
         <section className="border-y border-white/[0.08] bg-[#0E1624]">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-            <p className={kicker}>Training Officer view</p>
-            <h2 className={heading}>See the requirements and approvals behind qualification status.</h2>
-            <p className={body}>Roadmap connects department-defined role requirements to Task Books, training records, verified credentials, and evaluator decisions. Pending, returned, and incomplete work stays separate from approved qualification status. Your department makes the competency and authorization decision.</p>
-            <div className="mt-10 grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
-              <article className={`${card} p-6`}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Qualification coverage</p>
-                <p className="mt-3 text-5xl font-semibold tabular-nums">{DEMO_READINESS.score}%</p>
-                <p className="mt-3 text-sm leading-6 text-white/55">{DEMO_READINESS.explanation}</p>
-                <p className="mt-2 text-xs text-white/45">Coverage summarizes department-defined requirements; it does not grant an operational qualification.</p>
-                <div className="mt-5 border-t border-white/[0.08] pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#FB7185]">Next training need</p>
-                  <p className="mt-1 font-semibold">{DEMO_READINESS.trainingGap.topic}</p>
-                  <p className="mt-1 text-sm text-white/50">{DEMO_READINESS.trainingGap.scope}</p>
-                </div>
-              </article>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {DEMO_READINESS.qualifications.map((item) => (
-                  <article key={item.name} className={`${card} p-5`}>
-                    <p className="text-sm font-semibold">{item.name}</p>
-                    <p className="mt-3 text-3xl font-semibold tabular-nums">{item.qualified}/{item.target}</p>
-                    <p className="mt-1 text-xs text-white/45">{item.status}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
-              <article className={`${card} p-5`}><p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Training gap</p><p className="mt-2 font-semibold">{DEMO_READINESS.trainingGap.topic}</p><p className="mt-2 text-sm leading-6 text-white/50">{DEMO_READINESS.trainingGap.reason}</p></article>
-              <article className={`${card} p-5`}><p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Credential watch</p><p className="mt-2 font-semibold">{DEMO_READINESS.credentialRisk.member}</p><p className="mt-2 text-sm leading-6 text-white/50">{DEMO_READINESS.credentialRisk.credential} · expires {DEMO_READINESS.credentialRisk.expires}</p></article>
-              <article className={`${card} p-5`}><p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">RMS action</p><p className="mt-2 font-semibold">{DEMO_READINESS.rmsHandoff.ready} record ready</p><p className="mt-2 text-sm leading-6 text-white/50">{DEMO_READINESS.rmsHandoff.detail}</p></article>
-            </div>
-            <p className="mt-8 text-xs font-semibold uppercase tracking-[0.14em] text-white/35">Drill into the people behind the readiness picture</p>
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
-              {glance.map((member) => {
-                const status = glanceStatus(member);
-                return (
-                  <article key={member.id} className={`${card} p-6`}>
-                    <p className="text-base font-semibold">{member.name}</p>
-                    <p className="mt-1 text-sm text-white/50">{member.currentWork}</p>
-                    <div className="mt-5 h-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
-                      <div className="h-full bg-[#C8102E]" style={{ width: `${member.percent}%` }} />
-                    </div>
-                    <p className="mt-3 text-2xl font-semibold tabular-nums">{member.percent}% <span className="text-sm font-medium text-white/40">complete</span></p>
-                    <p className={`mt-2 text-sm font-medium ${status.tone}`}>{status.label}</p>
-                  </article>
-                );
-              })}
-            </div>
-            <TrackedLink href={demoHref} event="homepage_demo_clicked" className="mt-8 inline-flex min-h-10 items-center text-sm font-semibold text-white/70 underline decoration-white/25 underline-offset-4 hover:text-white">
-              See It in the Demo →
-            </a>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>Responder AI</p>
-          <h2 className={heading}>AI that removes work — not control.</h2>
-          <p className="mt-4 max-w-3xl text-[15px] leading-7 text-white/68">
-            Responder AI helps Training Officers build Task Books, create Assignments, write requirements, draft evaluation criteria, summarize department progress, identify pending work, and answer how-to questions. You review it. You edit it. You approve it.
-          </p>
-          <div className="mt-10 grid gap-4 lg:grid-cols-2">
-            <article className={`${card} p-6`}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Task Book draft</p>
-              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Training Officer:</span> “Create a probationary firefighter Task Book covering SCBA, hose deployment, ladders, forcible entry, apparatus checks, and radio operations.”</p>
-              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Responder AI:</span> Generates the initial Task Book structure and requirements.</p>
-              <p className="mt-5 border-l-2 border-[#C8102E] pl-4 text-sm leading-6 text-white/70">AI never replaces required human evaluation or final approval.</p>
+          <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:px-8 lg:grid-cols-2 lg:py-20">
+            <article>
+              <p className={kicker}>Training Sheets</p>
+              <h2 className="mt-3 text-2xl font-semibold">Document classes quickly in the field.</h2>
+              <p className="mt-4 text-sm leading-7 text-white/60">Start from department templates, add rosters by QR or department membership, record checklists and grading, then finish objectives, hours, narrative, and RMS codes.</p>
             </article>
-            <article className={`${card} p-6`}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Support desk + department assistant</p>
-              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Training Officer:</span> “Why is Smith’s Task Book still at 80%?”</p>
-              <p className="mt-4 text-sm leading-7 text-white/65"><span className="font-semibold text-white">Responder AI:</span> “Smith has 20 requirements. 16 are approved, 2 are awaiting evaluator approval, and 2 remain incomplete.”</p>
-              <p className="mt-5 text-sm text-white/45">Ask how to use Responder Roadmap, or what needs attention in the department.</p>
+            <article>
+              <p className={kicker}>Task Books and Assignments</p>
+              <h2 className="mt-3 text-2xl font-semibold">Track repeated skills and required signatures.</h2>
+              <p className="mt-4 text-sm leading-7 text-white/60">Require a performance more than once, keep each completion on its own date, and require an evaluator signature for every performance before the requirement is complete.</p>
             </article>
           </div>
         </section>
-
-        <section id="how-it-works" className="border-y border-white/[0.08] bg-[#0E1624]">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-            <p className={kicker}>The workflow</p>
-            <h2 className={heading}>Define → Assign → Train → Document → Review → Qualify → Export</h2>
-            <ol className="mt-10 grid gap-px overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.08] sm:grid-cols-2 lg:grid-cols-7">
-              {workflow.map((item, index) => (
-                <li key={item.title} className="bg-[#121A2A] p-5">
-                  <span className="text-[11px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
-                  <h3 className="mt-3 text-base font-semibold">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-white/50">{item.body}</p>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-20">
-          <p className={kicker}>Keep your current records system</p>
-          <h2 className={heading}>Don’t replace your RMS. Make the training workflow around it better.</h2>
-          <p className="mt-5 max-w-3xl text-[15px] leading-7 text-white/68">
-            Use Responder Roadmap alongside the records system your department already uses. Manage role expectations, Task Books, Assignments, group training, QR attendance, evaluations, training hours, credentials, and gaps in Roadmap. Export completed training records to your RMS or established records process. Your department keeps its official records system in place.
-          </p>
-        </section>
-
-        
-
-        
       </main>
 
       <footer className="border-t border-white/[0.08]">
-        <div className="mx-auto flex max-w-6xl flex-col justify-between gap-6 px-5 py-8 text-[13px] text-white/40 sm:px-8 md:flex-row md:items-end">
+        <div className="mx-auto flex max-w-6xl flex-col justify-between gap-5 px-5 py-8 text-[13px] text-white/45 sm:px-8 md:flex-row md:items-center">
           <div>
-            <p className="font-medium text-white/70">Responder Roadmap</p>
-            <p className="mt-1"></p>
-            <p className="mt-3 text-xs">Department-defined qualifications, competency tracking, and field training records for Fire & EMS.</p>
+            <p className="font-medium text-white/75">Responder Roadmap</p>
+            <p className="mt-1">Department qualifications, competency tracking, and field training records for Fire & EMS.</p>
           </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
-            
-            <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="hover:text-white">iPhone app</a>
-            <Link href="/department-interest" className="hover:text-white">Contact</Link>
-          </div>
+          <a href={APP_STORE_URL} target="_blank" rel="noreferrer" className="font-medium text-white/65 hover:text-white">Responder Roadmap for iPhone</a>
         </div>
       </footer>
     </div>
