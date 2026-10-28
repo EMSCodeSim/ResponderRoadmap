@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 12183)
+Total output lines: 861
+
 "use client";
 
 import Link from "next/link";
@@ -51,7 +54,7 @@ type WorkItem = {
 
 type WorkQueueItem = {
   id: string;
-  kind: "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
+  kind: "MEMBER_APPROVAL" | "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
   priority: "URGENT" | "HIGH" | "NORMAL";
   title: string;
   reason: string;
@@ -254,6 +257,7 @@ function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
   const items = queue?.items ?? [];
   const priorityRank: Record<WorkQueueItem["priority"], number> = { URGENT: 0, HIGH: 1, NORMAL: 2 };
   const categories: Array<{ kind: WorkQueueItem["kind"]; title: string }> = [
+    { kind: "MEMBER_APPROVAL", title: "Member approvals" },
     { kind: "EVALUATION", title: "Review now" },
     { kind: "ASSIGNMENT", title: "Follow up" },
     { kind: "TRAINING_SHEET", title: "Training Sheets to complete" },
@@ -527,18 +531,7 @@ function ShiftTrainingHours() {
                         <Link href={`/reports/class-training-sheet/${session.classId}`} className="font-semibold text-navy-950 hover:text-fire hover:underline">
                           {session.title}
                         </Link>
-                        <div className="mt-1 text-sm text-navy-600">{new Date(session.date).toLocaleDateString()} · {session.category.replaceAll("_", " ")} · Instructor: {session.instructor}</div>
-                      </div>
-                      <span className="text-sm font-semibold text-navy-700">{names.length} {names.length === 1 ? "member" : "members"} · {formatTrainingHours(session.memberHours)} member-hours</span>
-                    </div>
-                    <p className="mt-1 text-xs text-navy-500">Attended by {names.slice(0, 6).join(", ")}{names.length > 6 ? ` and ${names.length - 6} more` : ""}</p>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="mt-3 rounded-md bg-navy-50 p-3 text-sm text-navy-600">
-              No completed training records for Shift {selectedShift} {periodLabel.toLowerCase()}.
+                        <div className="mt-1 text-sm text-navy-600">{new Date(session.date).to…183 tokens truncated…raining records for Shift {selectedShift} {periodLabel.toLowerCase()}.
             </p>
           )}
         </section>

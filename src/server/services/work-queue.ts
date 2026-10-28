@@ -1,11 +1,13 @@
 import type { AuthContext } from "@/server/permissions";
+import { hasPermission } from "@/server/permissions";
+import { prisma } from "@/server/db";
 import * as assignments from "@/server/services/assignments";
 import * as classes from "@/server/services/classes";
 import * as memberApp from "@/server/services/memberApp";
 
 export type WorkQueueItem = {
   id: string;
-  kind: "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
+  kind: "MEMBER_APPROVAL" | "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
   priority: "URGENT" | "HIGH" | "NORMAL";
   title: string;
   reason: string;
@@ -34,7 +36,8 @@ export async function getWorkQueue(ctx: AuthContext) {
   const items: WorkQueueItem[] = [];
   const canReview = reviewRoles.has(ctx.role);
   const canSeeTraining = instructorRoles.has(ctx.role);
-  const [myAssignments, reviewQueue, instructorData] = await Promise.all([
+  const canApproveMembers = hasPermission(ctx.role, "invitations.write") && hasPermission(ctx.role, "members.write");
+  const [myAssignments, reviewQueue, instructorData, pendingMembers] = await Promise.all([
     memberApp.listMyAssignments(ctx),
     canReview ? assignments.listSignOffQueue(ctx, { view: "needs_me" }) : Promise.resolve(null),
     canSeeTraining
@@ -43,7 +46,27 @@ export async function getWorkQueue(ctx: AuthContext) {
           classes.listRmsActionQueue(ctx),
         ] as const)
       : Promise.resolve(null),
+    canApproveMembers ? prisma.departmentMembership.findMany({
+      where: { departmentId: ctx.departmentId, status: "PENDING" },
+      select: { id: true, joinedAt: true, user: { select: { name: true, email: true } } },
+      orderBy: { joinedAt: "asc" },
+    }) : Promise.resolve([]),
   ]);
+
+  for (const member of pendingMembers) {
+    items.push({
+      id: `member-approval:${member.id}`,
+      kind: "MEMBER_APPROVAL",
+      priority: "HIGH",
+      title: `${member.user.name} requested department access`,
+      reason: `Join-code request · ${member.user.email}`,
+      owner: "Training Officer",
+      actionLabel: "Review request",
+      href: "/enrollment",
+      targetId: member.id,
+      dueAt: member.joinedAt,
+    });
+  }
 
   for (const assignment of myAssignments) {
     const returned = assignment.sections.flatMap((section) => section.requirements)
