@@ -278,7 +278,10 @@ export async function joinByCode(userId: string, joinCode: string, requestedShif
   const existing = await prisma.departmentMembership.findUnique({
     where: { departmentId_userId: { departmentId: department.id, userId } },
   });
-  if (existing) throw new HttpError(409, "You are already a member of this department.");
+  if (existing) {
+    if (existing.status === "PENDING") return { department, membership: existing };
+    throw new HttpError(409, "You are already an active member of this department.");
+  }
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new HttpError(401, "Authentication required.");
   const membership = await prisma.departmentMembership.create({

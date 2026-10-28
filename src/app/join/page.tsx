@@ -15,6 +15,7 @@ function JoinContent() {
   const [busy, setBusy] = useState(false);
   const [department, setDepartment] = useState<string | null>(null);
   const [requestSubmitted, setRequestSubmitted] = useState(false);
+  const [alreadyActive, setAlreadyActive] = useState(false);
   const initialCode = search.get("code")?.trim().toUpperCase() || "";
 
   useEffect(() => {
@@ -52,10 +53,15 @@ function JoinContent() {
   async function requestJoin() {
     setBusy(true); setError(null);
     try {
-      await api("join", { method: "POST", body: JSON.stringify({ joinCode: code }) });
+      const result = await api<{ membership?: { status?: string } }>("join", { method: "POST", body: JSON.stringify({ joinCode: code }) });
+      setAlreadyActive(result.membership?.status === "ACTIVE");
       setRequestSubmitted(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) setError("Your sign-in session expired. Sign in again to request to join.");
+      else if (err instanceof ApiError && err.status === 409 && err.message.includes("active member")) {
+        setAlreadyActive(true);
+        setRequestSubmitted(true);
+      }
       else setError(err instanceof ApiError ? err.message : "Unable to request to join.");
     } finally { setBusy(false); }
   }
@@ -73,11 +79,11 @@ function JoinContent() {
         {department && requestSubmitted ? (
           <div className="space-y-4">
             <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
-              <div className="text-sm font-semibold text-amber-900">Approval requested</div>
+              <div className="text-sm font-semibold text-amber-900">{alreadyActive ? "Already a member" : "Approval requested"}</div>
               <div className="mt-1 text-lg font-bold text-navy-900">{department}</div>
-              <p className="mt-1 text-sm text-navy-600">A Training Officer must approve your membership before you can access the department.</p>
+              <p className="mt-1 text-sm text-navy-600">{alreadyActive ? "Your department membership is active. Sign in to open the department." : "Your join request is waiting for a Training Officer. Pending requests appear under Admin → Member Enrollment → Pending join-code approvals."}</p>
             </div>
-            <Link href="/login" className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">Return to sign in</Link>
+            <Link href={alreadyActive ? "/login" : "/login?next=%2Fdashboard"} className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">{alreadyActive ? "Sign in" : "Return to sign in"}</Link>
           </div>
         ) : department ? (
           <div className="space-y-4">

@@ -12,15 +12,17 @@ type DepartmentAdminOverview = {
   openInvitations: number;
   credentialReviews: number;
   expiringCredentials: number;
+  approvalItems: Array<{ id: string; title: string; detail: string; href: string; kind: "member" | "credential" | "evaluation" }>;
   setupChecks: Array<{ label: string; detail: string; href: string; done: boolean }>;
 };
 type AdminDepartment = { name: string; timezone: string; agencyType: string };
 type AdminMember = { status: string };
 type AdminEnrollment = {
   invitations: Array<{ status: string }>;
-  pendingMembers: Array<{ id: string }>;
+  pendingMembers: Array<{ id: string; name: string; email: string; joinedAt: string }>;
 };
-type AdminCredential = { verificationStatus: string; health: string };
+type AdminCredential = { id: string; memberId: string; memberName: string; credentialName: string; verificationStatus: string; health: string };
+type AdminDashboard = { today?: { signOffs: Array<{ id: string; memberName: string; requirementTitle: string; taskBookTitle: string; href: string }>; signOffTotal: number } };
 type AdminExpectation = { active: boolean };
 type AdminTaskBook = { status: string };
 type AdminTrainingSheetTemplate = { archived: boolean };
@@ -60,7 +62,7 @@ export default function SettingsPage() {
     async function loadAdminOverview() {
       setAdminOverviewError(null);
       try {
-        const [department, roster, enrollment, departmentCredentials, expectations, taskBooks, sheetTemplates] = await Promise.all([
+        const [department, roster, enrollment, departmentCredentials, expectations, taskBooks, sheetTemplates, dashboard] = await Promise.all([
           api<AdminDepartment>("department"),
           api<{ members: AdminMember[] }>("members"),
           api<AdminEnrollment>("enrollment"),
@@ -68,16 +70,48 @@ export default function SettingsPage() {
           api<{ profiles: AdminExpectation[] }>("training-expectations"),
           api<AdminTaskBook[]>("task-books"),
           api<AdminTrainingSheetTemplate[]>("training-sheet-templates"),
+          api<AdminDashboard>("dashboard"),
         ]);
         const activeMembers = roster.members.filter((member) => member.status === "ACTIVE").length;
         const activeExpectations = expectations.profiles.filter((profile) => profile.active).length;
         const publishedTaskBooks = taskBooks.filter((book) => book.status === "ACTIVE").length;
         const availableSheetTemplates = sheetTemplates.filter((template) => !template.archived).length;
+        const approvalItems: DepartmentAdminOverview["approvalItems"] = [
+          ...enrollment.pendingMembers.map((member) => ({
+            id: `member-${member.id}`,
+            title: `${member.name} requested department access`,
+            detail: `${member.email} · requested ${new Date(member.joinedAt).toLocaleDateString()}`,
+            href: "/enrollment",
+            kind: "member" as const,
+          })),
+          ...departmentCredentials.credentials.filter((credential) => credential.verificationStatus === "PENDING").map((credential) => ({
+            id: `credential-${credential.id}`,
+            title: `${credential.credentialName} needs verification`,
+            detail: `Submitted by ${credential.memberName}`,
+            href: `/members/${credential.memberId}?tab=certifications`,
+            kind: "credential" as const,
+          })),
+          ...(dashboard.today?.signOffs || []).map((signOff) => ({
+            id: `evaluation-${signOff.id}`,
+            title: `${signOff.requirementTitle} needs sign-off`,
+            detail: `${signOff.memberName} · ${signOff.taskBookTitle}`,
+            href: signOff.href,
+            kind: "evaluation" as const,
+          })),
+          ...((dashboard.today?.signOffTotal || 0) > (dashboard.today?.signOffs.length || 0) ? [{
+            id: "evaluation-more",
+            title: `${dashboard.today!.signOffTotal - dashboard.today!.signOffs.length} more skill sign-off${dashboard.today!.signOffTotal - dashboard.today!.signOffs.length === 1 ? "" : "s"} need review`,
+            detail: "Open the evaluation queue to review the remaining submissions.",
+            href: "/evaluate",
+            kind: "evaluation" as const,
+          }] : []),
+        ];
         const overview: DepartmentAdminOverview = {
           pendingApprovals: enrollment.pendingMembers.length,
           openInvitations: enrollment.invitations.filter((invitation) => invitation.status === "PENDING").length,
           credentialReviews: departmentCredentials.credentials.filter((credential) => credential.verificationStatus === "PENDING").length,
           expiringCredentials: departmentCredentials.credentials.filter((credential) => credential.health === "expiring").length,
+          approvalItems,
           setupChecks: [
             {
               label: "Department profile",
@@ -202,6 +236,26 @@ export default function SettingsPage() {
                 <strong className="display mt-1 block text-3xl font-bold text-navy-950">{adminOverview.expiringCredentials}</strong>
                 <span className="mt-1 block text-sm text-navy-600">{adminOverview.expiringCredentials ? "Credentials to follow up on" : "No upcoming expirations"}</span>
               </Link>
+            </div>
+          ) : null}
+          {adminOverview ? (
+            <div className="mt-4 rounded-lg border border-navy-200 bg-white p-4">
+              <h3 className="font-semibold text-navy-900">Waiting for approval</h3>
+              {adminOverview.approvalItems.length ? (
+                <ul className="mt-2 divide-y divide-navy-100">
+                  {adminOverview.approvalItems.map((item) => (
+                    <li key={item.id}>
+                      <Link href={item.href} className="flex min-h-14 flex-wrap items-center justify-between gap-2 py-3 hover:text-fire">
+                        <span>
+                          <span className="block font-semibold text-navy-900">{item.title}</span>
+                          <span className="mt-1 block text-sm text-navy-500">{item.detail}</span>
+                        </span>
+                        <Badge tone={item.kind === "member" ? "warn" : "neutral"}>{item.kind === "member" ? "Join request" : item.kind === "credential" ? "Credential" : "Skill sign-off"}</Badge>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="mt-2 text-sm text-navy-500">No member, credential, or skill approvals are waiting.</p>}
             </div>
           ) : null}
         </section>
