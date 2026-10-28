@@ -266,7 +266,12 @@ export async function register(input: { name: string; email: string; password: s
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) throw new HttpError(409, "An account with that email already exists. Sign in to accept your invitation.");
+  if (existing) {
+    if (joinCode && !token) {
+      throw new HttpError(409, "An account with that email already exists. Sign in, then request to join this department with the same code.");
+    }
+    throw new HttpError(409, "An account with that email already exists. Sign in to accept your invitation.");
+  }
 
   const passwordHash = await bcrypt.hash(input.password, 10);
   const departmentId = invitation?.departmentId || codeDepartment!.id;

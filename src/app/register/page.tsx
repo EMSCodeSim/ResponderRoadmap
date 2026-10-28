@@ -25,6 +25,7 @@ function RegisterContent() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pendingDepartment, setPendingDepartment] = useState<string | null>(null);
+  const [existingAccountJoin, setExistingAccountJoin] = useState(false);
 
   useEffect(() => {
     if (!joinCode || invitationToken) return;
@@ -44,6 +45,7 @@ function RegisterContent() {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setExistingAccountJoin(false);
     try {
       const result = await api<{ approvalPending?: boolean; departmentName?: string }>("auth/register", {
         method: "POST",
@@ -58,6 +60,7 @@ function RegisterContent() {
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to create account.");
+      setExistingAccountJoin(joinCode !== "" && err instanceof ApiError && err.status === 409);
     } finally {
       setBusy(false);
     }
@@ -91,6 +94,7 @@ function RegisterContent() {
             </p>
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <Flash message={error} tone="danger" />
+              {existingAccountJoin ? <Link href={`/login?next=${encodeURIComponent(`/join?code=${joinCode}`)}`} className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:bg-navy-50">Sign in and continue joining</Link> : null}
               <Field label="Full name">
                 <Input value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" />
               </Field>
