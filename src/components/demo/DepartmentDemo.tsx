@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BrandLockup } from "@/components/brand";
 import { TrackedLink } from "@/components/marketing/TrackedLink";
+import { WalkDemoButton } from "@/components/walk-demo";
 import { track, trackOnce } from "@/lib/analytics";
 import {
   AI_TASKBOOK_PROMPT,
@@ -34,7 +35,7 @@ const statusClass: Record<string, string> = {
 
 type Phase = "welcome" | "walk" | "done";
 
-export function DepartmentDemo({ liveDemoHref }: { liveDemoHref: string }) {
+export function DepartmentDemo({ liveDemoAvailable }: { liveDemoAvailable: boolean }) {
   const [phase, setPhase] = useState<Phase>("welcome");
   const [step, setStep] = useState(0);
   const [memberId, setMemberId] = useState("mem_smith");
@@ -92,9 +93,9 @@ export function DepartmentDemo({ liveDemoHref }: { liveDemoHref: string }) {
       </header>
 
       {phase === "welcome" ? (
-        <Welcome liveDemoHref={liveDemoHref} onStart={start} />
+        <Welcome liveDemoAvailable={liveDemoAvailable} onStart={start} />
       ) : phase === "done" ? (
-        <Complete liveDemoHref={liveDemoHref} onExplore={() => { setPhase("walk"); setStep(0); }} />
+        <Complete liveDemoAvailable={liveDemoAvailable} onExplore={() => { setPhase("walk"); setStep(0); }} />
       ) : (
         <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
           <ol className="grid grid-cols-6 gap-1.5" aria-label="Demo steps">
@@ -181,7 +182,7 @@ export function DepartmentDemo({ liveDemoHref }: { liveDemoHref: string }) {
   );
 }
 
-function Welcome({ liveDemoHref, onStart }: { liveDemoHref: string; onStart: () => void }) {
+function Welcome({ liveDemoAvailable, onStart }: { liveDemoAvailable: boolean; onStart: () => void }) {
   return (
     <main className="mx-auto max-w-3xl px-5 py-12 sm:px-8 sm:py-20">
       <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">No account · No credit card</p>
@@ -201,15 +202,21 @@ function Welcome({ liveDemoHref, onStart }: { liveDemoHref: string; onStart: () 
       </ol>
       <p className="mt-6 text-sm text-white/50">{DEMO_DEPARTMENT_NAME} — {DEMO_DEPARTMENT_TAG}. Isolated fictional records. Nothing you do here touches a real department.</p>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <Link href={liveDemoHref} className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#E11D48] px-6 text-sm font-bold hover:bg-[#BE123C]">Open Current Department Dashboard</Link>
+        {liveDemoAvailable ? (
+          <WalkDemoButton walk="to" className="sm:min-w-72">
+            Open Current Department Dashboard
+          </WalkDemoButton>
+        ) : (
+          <Link href="/department-interest?source=demo-unavailable" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#E11D48] px-6 text-sm font-bold hover:bg-[#BE123C]">Request a Department Demo</Link>
+        )}
         <button type="button" onClick={onStart} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/30 px-6 text-sm font-bold hover:bg-white/10">Guided Product Tour</button>
       </div>
-      <p className="mt-3 text-xs text-white/45">The live workspace uses the same current dashboard as a department account. The guided tour is a simplified walkthrough of the core workflow.</p>
+      <p className="mt-3 text-xs text-white/45">The department dashboard opens with fictional demo records in an isolated workspace. The guided tour is a simplified walkthrough of the core workflow.</p>
     </main>
   );
 }
 
-function Complete({ liveDemoHref, onExplore }: { liveDemoHref: string; onExplore: () => void }) {
+function Complete({ liveDemoAvailable, onExplore }: { liveDemoAvailable: boolean; onExplore: () => void }) {
   return (
     <main className="mx-auto max-w-3xl px-5 py-12 text-center sm:px-8 sm:py-20">
       <p className="text-xs font-bold uppercase tracking-[.18em] text-[#FB7185]">That’s Responder Roadmap</p>
@@ -221,7 +228,9 @@ function Complete({ liveDemoHref, onExplore }: { liveDemoHref: string; onExplore
       </div>
       <div className="mt-5 flex flex-wrap justify-center gap-4 text-sm">
         <Link href="/" className="text-white/65 underline underline-offset-4 hover:text-white">Return to Homepage</Link>
-        <Link href={liveDemoHref} className="text-white/65 underline underline-offset-4 hover:text-white">Open the live workspace</Link>
+        {liveDemoAvailable ? (
+          <WalkDemoButton walk="to" variant="ghost" className="text-white/65 underline underline-offset-4 hover:text-white">Open the department dashboard</WalkDemoButton>
+        ) : null}
       </div>
     </main>
   );
