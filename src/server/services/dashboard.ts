@@ -34,7 +34,7 @@ export async function getDashboard(ctx: AuthContext) {
   }
   const departmentId = ctx.departmentId;
 
-  const [members, assignments, completions, credentials, events, templates, credentialTypes, expectations, pendingJoinRequests, qualificationRoles, authorizations, evaluatorMembers, pendingEvaluations, department] = await Promise.all([
+  const [members, assignments, completions, credentials, events, sharedActivities, templates, credentialTypes, expectations, pendingJoinRequests, qualificationRoles, authorizations, evaluatorMembers, pendingEvaluations, department] = await Promise.all([
     prisma.departmentMembership.findMany({
       where: { departmentId, status: "ACTIVE" },
       include: { user: true },
@@ -66,6 +66,11 @@ export async function getDashboard(ctx: AuthContext) {
       include: { user: true },
       orderBy: { timestamp: "desc" },
       take: 12,
+    }),
+    prisma.activityEvent.findMany({
+      where: { departmentId, type: "APP_SHARED_ACTIVITY", userId: { not: null } },
+      orderBy: { timestamp: "desc" },
+      take: 50,
     }),
     prisma.taskBookTemplate.findMany({
       where: { departmentId, status: "ACTIVE" },
@@ -421,8 +426,20 @@ export async function getDashboard(ctx: AuthContext) {
     nextRequirement: string | null;
     nextAssignmentId: string | null;
     maxStalledDays: number;
+    recentSharedActivity: { title: string; category: string; timestamp: Date } | null;
     assignments: Array<{ status: string; pendingApproval: number; overdue: number; percent: number; stalledDays: number }>;
   }>();
+
+  const latestSharedActivityByUser = new Map<string, { title: string; category: string; timestamp: Date }>();
+  for (const event of sharedActivities) {
+    if (!event.userId || latestSharedActivityByUser.has(event.userId)) continue;
+    const metadata = parseMeta(event.metadataJson);
+    latestSharedActivityByUser.set(event.userId, {
+      title: String(metadata.title || metadata.category || "Quick Add activity"),
+      category: String(metadata.category || ""),
+      timestamp: event.timestamp,
+    });
+  }
 
   // Seed every active department member so the Training Captain can see the
   // entire roster, including people who do not currently have training assigned.
@@ -442,6 +459,7 @@ export async function getDashboard(ctx: AuthContext) {
       nextRequirement: null,
       nextAssignmentId: null,
       maxStalledDays: 0,
+      recentSharedActivity: latestSharedActivityByUser.get(member.userId) ?? null,
       assignments: [],
     });
   }
@@ -568,6 +586,7 @@ export async function getDashboard(ctx: AuthContext) {
         nextActionLabel: nextAction.label,
         nextActionHref: nextAction.href,
         href: memberProgressPath(row.id),
+        recentSharedActivity: row.recentSharedActivity,
       };
     })
     .sort((a, b) => {

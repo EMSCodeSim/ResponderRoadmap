@@ -7,7 +7,7 @@ import { activityText } from "@/lib/activity";
 import { Badge, Button, Card, Input, PageHeader, ProgressBar, Select } from "@/components/ui";
 import { relativeTime } from "@/lib/dates";
 import { operationalStatusTone, type OperationalStatus } from "@/lib/member-status";
-import { createAssignmentPath, createTaskBookPath } from "@/lib/routes";
+import { createAssignmentPath, createTaskBookPath, memberProgressPath } from "@/lib/routes";
 
 type ShiftTrainingRecord = {
   classId: string;
@@ -119,6 +119,7 @@ type Dashboard = {
     nextActionLabel: string;
     nextActionHref: string;
     href: string;
+    recentSharedActivity: { title: string; category: string; timestamp: string } | null;
   }>;
   doThisNext?: WorkItem | null;
   work?: {
@@ -629,36 +630,44 @@ function DepartmentRecentActivity({ events }: { events: Dashboard["recentActivit
 }
 
 function PeopleToFollowUp({ rows }: { rows: NonNullable<Dashboard["memberProgress"]> }) {
-  const followUp = rows
-    .filter((row) => row.overdue > 0 || row.stalledDays >= 30 || row.status === "Needs Attention" || row.evaluationEscalated)
-    .sort((a, b) => b.overdue - a.overdue || b.stalledDays - a.stalledDays)
+  const people = rows
+    .filter((row) => row.recentSharedActivity || row.overdue > 0 || row.stalledDays >= 30 || row.status === "Needs Attention" || row.evaluationEscalated)
+    .sort((a, b) => {
+      const sharedDifference = new Date(b.recentSharedActivity?.timestamp ?? 0).getTime() - new Date(a.recentSharedActivity?.timestamp ?? 0).getTime();
+      return sharedDifference || b.overdue - a.overdue || b.stalledDays - a.stalledDays;
+    })
     .slice(0, 8);
 
   return <Card className="mt-6 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <div className="kicker">PEOPLE · Follow-up</div>
-        <h2 className="display mt-1 text-2xl font-bold">People to Follow Up With</h2>
-        <p className="mt-1 text-sm text-navy-500">Only members with a meaningful training or evaluation signal appear here. The full roster stays on Members.</p>
+        <div className="kicker">PEOPLE · Recent activity and follow-up</div>
+        <h2 className="display mt-1 text-2xl font-bold">People</h2>
+        <p className="mt-1 text-sm text-navy-500">See department-shared Quick Add activity and members who need training follow-up.</p>
       </div>
       <Link href="/members" className="text-sm font-semibold text-fire underline">Open Members →</Link>
     </div>
 
-    {followUp.length === 0 ? (
-      <div className="mt-4 rounded-md border border-navy-200 bg-navy-50 p-4 text-sm text-navy-600">No members currently need individual follow-up.</div>
+    {people.length === 0 ? (
+      <div className="mt-4 rounded-md border border-navy-200 bg-navy-50 p-4 text-sm text-navy-600">No recent shared activity or individual follow-up is recorded.</div>
     ) : (
       <ul className="mt-4 divide-y divide-navy-100 rounded-md border border-navy-200 bg-white px-4">
-        {followUp.map((row) => (
+        {people.map((row) => {
+          const needsFollowUp = row.overdue > 0 || row.stalledDays >= 30 || row.status === "Needs Attention" || row.evaluationEscalated;
+          const shared = row.recentSharedActivity;
+          return (
           <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div>
               <Link href={row.href} className="font-semibold text-navy-950 hover:text-fire hover:underline">{row.name}</Link>
-              <div className="mt-1 text-sm font-medium text-navy-700">{followUpSummary(row).count} item{followUpSummary(row).count === 1 ? "" : "s"} need attention</div>
-              <div className="mt-1 text-xs text-navy-600">{followUpSummary(row).detail}</div>
-              <div className="mt-1 text-xs text-navy-500">Last meaningful activity {row.lastActivity ? relativeTime(row.lastActivity) : "not recorded"}</div>
+              {shared ? <div className="mt-1 text-sm font-medium text-navy-700">Shared {shared.title}{shared.category && shared.category !== shared.title ? ` (${shared.category})` : ""}</div> : null}
+              {shared ? <div className="mt-1 text-xs text-navy-500">Quick Add · {relativeTime(shared.timestamp)}</div> : null}
+              {needsFollowUp ? <div className="mt-2 text-sm font-medium text-navy-700">{followUpSummary(row).count} item{followUpSummary(row).count === 1 ? "" : "s"} need attention</div> : null}
+              {needsFollowUp ? <div className="mt-1 text-xs text-navy-600">{followUpSummary(row).detail}</div> : null}
             </div>
-            <Link href={row.nextActionHref} className="inline-flex min-h-10 items-center rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-fire hover:border-fire">{row.nextActionLabel}</Link>
+            <Link href={needsFollowUp ? row.nextActionHref : memberProgressPath(row.id, "activity")} className="inline-flex min-h-10 items-center rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-fire hover:border-fire">{needsFollowUp ? row.nextActionLabel : "View activity"}</Link>
           </li>
-        ))}
+          );
+        })}
       </ul>
     )}
   </Card>;
