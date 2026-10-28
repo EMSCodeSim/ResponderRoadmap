@@ -15,6 +15,6 @@ export const metadata: Metadata = {
 };
 
 export default async function DemoPage() {
-  const live = (await isDemoAvailable()) ? "/login?walk=to" : "/department-interest?source=demo-unavailable";
-  return <DepartmentDemo liveDemoHref={live} />;
+  const liveDemoAvailable = await isDemoAvailable();
+  return <DepartmentDemo liveDemoAvailable={liveDemoAvailable} />;
 }
