@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 5163)
+Total output lines: 256
+
 #!/usr/bin/env bash
 set -euo pipefail
 BASE="${BASE_URL:-http://127.0.0.1:3000}"
@@ -38,9 +41,9 @@ expect_page "$BASE/pricing"
 expect_page "$BASE/department-interest"
 
 HOME=$(curl -fsS "$BASE/")
-echo "$HOME" | grep -q 'Turn department requirements into verified qualifications.' || { echo 'Homepage missing readiness hero headline'; exit 1; }
-echo "$HOME" | grep -q 'See the requirements and approvals behind qualification status.' || { echo 'Homepage missing readiness proof section'; exit 1; }
-echo "$HOME" | grep -q 'See the 3-Minute Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
+echo "$HOME" | grep -q 'Connect field training to verified department qualifications.' || { echo 'Homepage missing qualification tracking headline'; exit 1; }
+echo "$HOME" | grep -q 'The dashboard and member app share one department training record.' || { echo 'Homepage missing dashboard and app relationship section'; exit 1; }
+echo "$HOME" | grep -q 'See Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
 ok 'homepage Training Officer positioning without embedded pricing'
 for PAGE in "$BASE/" "$BASE/demo" "$BASE/login" "$BASE/register" "$BASE/department-interest" "$BASE/pricing"; do
   HTML=$(curl -fsS "$PAGE")
@@ -154,12 +157,7 @@ RETRY_RECEIPT=$(echo "$RETRY_SUBMIT" | jq -r '.data.submissionReceipt.receiptId 
 ok 'member submission receipt and idempotent retry'
 
 json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | $JQ '.data.session.role == "EVALUATOR"' >/dev/null
-QUEUE=$(json "$BASE/api/v1/sign-offs?view=needs_me")
-SIGNOFF_ID=$(echo "$QUEUE" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data.items[] | select(.assignmentId == $aid and .requirementId == $rid)][0].id // empty')
-RETURN_LEVEL=$(echo "$QUEUE" | jq -r --arg aid "$MEMBER_ASSIGNMENT_ID" --arg rid "$REQ_ID" '[.data.items[] | select(.assignmentId == $aid and .requirementId == $rid)][0].reviewStage // "EVALUATOR"')
-[[ -n "$SIGNOFF_ID" ]] || { echo "$QUEUE"; echo "Submitted requirement missing from evaluator Needs Me view"; exit 1; }
-echo "$QUEUE" | $JQ '.data.view == "needs_me" and (.data.counts.needsMe | type) == "number"' >/dev/null
-RETURN_BODY=$(jq -nc --arg level "$RETURN_LEVEL" '{result:"NEEDS_REMEDIATION",notes:"Repeat the evolution and correct the QA test item.",stepResults:[],criticalFailuresTriggered:[],approvalLevel:$level,attested:false}')
+QUEUE=$(json "$BASE/api/v1/sign-offs?view=needs_me"…163 tokens truncated…EVEL" '{result:"NEEDS_REMEDIATION",notes:"Repeat the evolution and correct the QA test item.",stepResults:[],criticalFailuresTriggered:[],approvalLevel:$level,attested:false}')
 RETURNED=$(json -X POST "$BASE/api/v1/sign-offs/$SIGNOFF_ID" -d "$RETURN_BODY")
 echo "$RETURNED" | $JQ '.data.status == "RETURNED"' >/dev/null
 WAITING_AFTER_RETURN=$(json "$BASE/api/v1/sign-offs?view=waiting")
