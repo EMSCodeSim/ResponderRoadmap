@@ -1,498 +1,14 @@
-"use client";
-
-import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
-import { api, ApiError } from "@/lib/api";
-import { firefighterOneClassPreset } from "@/lib/firefighter-one-class-preset";
-import { blsCprClassPreset } from "@/lib/bls-cpr-class-preset";
-import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
-import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
-
-type CustomField = { id: string; label: string; type: string; required: boolean };
-type CEAllocation = { category: string; hours: number };
-type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null; rmsEntryCategories: string[]; customTopicLabel: string; customClassTypeLabel: string; customTrainingCategoryLabel: string };
-const TEMPLATE_TOPICS = ["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"];
-const TOPIC_LABELS: Record<string, string> = { EMS: "EMS", FIRE: "Fire", HAZMAT: "HazMat", DRIVER: "Driver Operator", CPR: "CPR", OFFICER: "Officer", FACILITY: "Facility", OTHER: "Other" };
-const TOPIC_ORDER = ["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"];
-type Template = {
-  customFields: CustomField[];
-  id: string;
-  name: string;
-  defaultTitle: string;
-  classType: string;
-  trainingCategory: string;
-  topic: string;
-  gradingConfig: GradingConfig;
-  ceCredits: CEAllocation[];
-  creditHours: number;
-  checklistVersionId: string | null;
-  location: string;
-  notes: string;
-  selfRegistration: boolean;
-  proctorUserIds: string[];
-  archived: boolean;
-  updatedAt?: string;
-  revision?: number;
-};
-
-type Setup = {
-  checklists: Array<{ id: string; title: string; version: string; skillCount: number }>;
-  proctors: Array<{ userId: string; name: string; role: string }>;
-};
-
-const blank = {
-  name: "",
-  defaultTitle: "",
-  classType: "GENERAL",
-  trainingCategory: "COMPANY",
-  topic: "FIRE",
-  gradingConfig: { writtenTestEnabled: false, writtenTestPassPercent: null, ccfEnabled: false, ccfPassPercent: null, rmsEntryCategories: [], customTopicLabel: "", customClassTypeLabel: "", customTrainingCategoryLabel: "" } as GradingConfig,
-  ceCredits: [] as CEAllocation[],
-  creditHours: 0,
-  checklistVersionId: "",
-  location: "",
-  notes: "",
-  customFields: [] as CustomField[],
-  selfRegistration: false,
-  proctorUserIds: [] as string[],
-};
-
-export default function TrainingSheetTemplatesPage() {
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [setup, setSetup] = useState<Setup | null>(null);
-  const [form, setForm] = useState(blank);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
-  const [librarySearch, setLibrarySearch] = useState("");
-  const [libraryFilter, setLibraryFilter] = useState("ALL");
-  const [topicFilter, setTopicFilter] = useState("ALL");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [builderStep, setBuilderStep] = useState(1);
-  const [pageView, setPageView] = useState<"LIBRARY" | "BUILDER">("LIBRARY");
-
-  async function load() {
-    const query = showArchived ? "?archived=all" : "";
-    const [rows, options] = await Promise.all([
-      api<Template[]>("training-sheet-templates" + query),
-      api<Setup>("classes/setup"),
-    ]);
-    setTemplates(rows);
-    setSetup(options);
-  }
-
-  useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load templates."));
-  }, [showArchived]);
-
-  function reset() {
-    setEditingId(null);
-    setForm(blank);
-    setBuilderStep(1);
-    setPageView("LIBRARY");
-  }
-
-  function edit(item: Template) {
-    setEditingId(item.id);
-    setForm({
-      name: item.name,
-      defaultTitle: item.defaultTitle,
-      classType: item.gradingConfig?.customClassTypeLabel ? "CUSTOM" : item.classType,
-      trainingCategory: item.gradingConfig?.customTrainingCategoryLabel ? "CUSTOM" : item.trainingCategory,
-      topic: item.gradingConfig?.customTopicLabel ? "CUSTOM" : item.topic || "OTHER",
-      gradingConfig: { ...blank.gradingConfig, ...(item.gradingConfig || {}) },
-      ceCredits: item.ceCredits || [],
-      creditHours: item.creditHours,
-      checklistVersionId: item.checklistVersionId || "",
-      location: item.location,
-      notes: item.notes,
-      customFields: item.customFields || [],
-      selfRegistration: item.selfRegistration,
-      proctorUserIds: item.proctorUserIds,
-    });
-    setMessage(null);
-    setBuilderStep(1);
-    setPageView("BUILDER");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    if (!form.name.trim() || !form.defaultTitle.trim()) {
-      setBuilderStep(1);
-      setError("Add a template name and default Training Sheet title before saving.");
-      return;
-    }
-    if ((form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null) || (form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null)) {
-      setBuilderStep(3);
-      setError("Set a passing score for each enabled grade before saving.");
-      return;
-    }
-    if (form.classType === "CPR" && !form.checklistVersionId) {
-      setBuilderStep(2);
-      setError("Select a published CPR skills checklist before saving the CPR training package.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api("training-sheet-templates" + (editingId ? "/" + editingId : ""), {
-        method: editingId ? "PATCH" : "POST",
-        body: JSON.stringify({ ...form, topic: form.topic === "CUSTOM" ? "OTHER" : form.topic, classType: form.classType === "CUSTOM" ? "GENERAL" : form.classType, trainingCategory: form.trainingCategory === "CUSTOM" ? "OTHER" : form.trainingCategory }),
-      });
-      await load();
-      setMessage(editingId ? "Template updated." : "Template saved.");
-      reset();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to save this template.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function archive(item: Template) {
-    setError(null);
-    setMessage(null);
-    try {
-      if (item.archived) {
-        await api("training-sheet-templates/" + item.id, {
-          method: "PATCH",
-          body: JSON.stringify({ archived: false }),
-        });
-      } else {
-        await api("training-sheet-templates/" + item.id + "/archive", { method: "POST" });
-      }
-      await load();
-      setMessage(item.archived ? "Template restored." : "Template archived. Existing training sheets are unchanged.");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to update this template.");
-    }
-  }
-
-  const visibleTemplates = templates.filter((item) => {
-    const kind = item.checklistVersionId ? "SKILLS" : "ATTENDANCE";
-    const term = librarySearch.trim().toLowerCase();
-    return (libraryFilter === "ALL" || libraryFilter === kind) &&
-      (topicFilter === "ALL" || item.topic === topicFilter) &&
-      (!term || [item.name, item.defaultTitle, item.notes, item.trainingCategory, item.topic].some((value) => value.toLowerCase().includes(term)));
-  });
-  const groupedTemplates = TOPIC_ORDER.map((topic) => ({
-    topic,
-    items: visibleTemplates.filter((item) => (item.topic || "OTHER") === topic).sort((a, b) => a.name.localeCompare(b.name)),
-  })).filter((group) => group.items.length > 0);
-
-  function chooseCprStarter() {
-    const matches = (setup?.checklists || []).filter((item) =>
-      /\b(BLS|CPR)\b/i.test(item.title) && /adult|infant|provider/i.test(item.title)
-    );
-    const selected = matches.length === 1 ? matches[0] : null;
-    setForm({
-      ...blank,
-      ...blsCprClassPreset,
-      topic: "EMS",
-      trainingCategory: "EMS",
-      gradingConfig: { ...blank.gradingConfig, writtenTestEnabled: true, writtenTestPassPercent: 80, ccfEnabled: true, ccfPassPercent: null },
-      checklistVersionId: selected?.id || "",
-    });
-    setError(null);
-    setMessage(selected
-      ? `CPR starter linked to published checklist: ${selected.title} v${selected.version}. Verify the checklist and proctors before saving.`
-      : "Select your department's published CPR skills checklist before saving this starter. No checklist has been assumed.");
-  }
-
-  function duplicate(item: Template) {
-    setEditingId(null);
-    setForm({
-      name: item.name + " copy", defaultTitle: item.defaultTitle, classType: item.gradingConfig?.customClassTypeLabel ? "CUSTOM" : item.classType,
-      trainingCategory: item.gradingConfig?.customTrainingCategoryLabel ? "CUSTOM" : item.trainingCategory, topic: item.gradingConfig?.customTopicLabel ? "CUSTOM" : item.topic || "OTHER",
-      gradingConfig: { ...blank.gradingConfig, ...(item.gradingConfig || {}) }, ceCredits: item.ceCredits || [],
-      creditHours: item.creditHours, checklistVersionId: item.checklistVersionId || "",
-      location: item.location, notes: item.notes, customFields: item.customFields || [],
-      selfRegistration: item.selfRegistration, proctorUserIds: item.proctorUserIds,
-    });
-    setBuilderStep(1);
-    setPageView("BUILDER");
-    setError(null);
-    setMessage("Template copied. Give the copy a unique name, review it, then save.");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  const selectedChecklist = setup?.checklists.find((item) => item.id === form.checklistVersionId);
-  const allocatedHours = form.ceCredits.reduce((sum, item) => sum + item.hours, 0);
-  const validationWarnings = [
-    !form.name.trim() ? "Add a template name." : "",
-    !form.defaultTitle.trim() ? "Add a default Training Sheet title." : "",
-    form.classType === "CPR" && !form.checklistVersionId ? "CPR templates require a published checklist." : "",
-    form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null ? "Set the written test passing score." : "",
-    form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null ? "Set the CCF passing score." : "",
-    form.customFields.some((field) => !field.label.trim()) ? "Name every custom grade or student field." : "",
-    form.gradingConfig.rmsEntryCategories.some((category) => !category.trim()) ? "Name every RMS entry category or remove the empty row." : "",
-    form.topic === "CUSTOM" && !form.gradingConfig.customTopicLabel.trim() ? "Enter the custom template topic." : "",
-    form.classType === "CUSTOM" && !form.gradingConfig.customClassTypeLabel.trim() ? "Enter the custom training type." : "",
-    form.trainingCategory === "CUSTOM" && !form.gradingConfig.customTrainingCategoryLabel.trim() ? "Enter the custom hours category." : "",
-    form.customFields.some((field) => /^(written test|test score|ccf)$/i.test(field.label.trim())) ? "A custom field duplicates the built-in written test or CCF score." : "",
-    form.checklistVersionId && !selectedChecklist ? "The selected checklist is no longer published." : "",
-    form.proctorUserIds.length === 0 ? "No default proctor is selected; the instructor must choose one when creating a sheet." : "",
-  ].filter(Boolean);
-  function toggleProctor(id: string) {
-    setForm((value) => ({
-      ...value,
-      proctorUserIds: value.proctorUserIds.includes(id)
-        ? value.proctorUserIds.filter((item) => item !== id)
-        : [...value.proctorUserIds, id],
-    }));
-  }
-
-  return (
-    <div>
-      <PageHeader
-        kicker="Training delivery"
-        title="Training Sheet Library"
-        description="Build reusable EMS, fire, and department training sheets once. Select one when creating training to prefill the details, checklist, hours, QR setting, and proctors."
-        actions={<Link href="/classes" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Back to training</Link>}
-      />
-      <Flash message={error} tone="danger" />
-      <Flash message={message} tone="current" />
-      <div className="mb-5 grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={() => setPageView("LIBRARY")} className={"min-h-16 rounded-xl border px-5 py-4 text-left font-bold " + (pageView === "LIBRARY" ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-900")}><span className="block">Template Library</span><span className={"mt-1 block text-sm font-normal " + (pageView === "LIBRARY" ? "text-white/80" : "text-navy-500")}>Find, use, duplicate, or edit saved templates</span></button>
-        <button type="button" onClick={() => { setEditingId(null); setForm(blank); setBuilderStep(1); setPageView("BUILDER"); setError(null); setMessage(null); }} className={"min-h-16 rounded-xl border px-5 py-4 text-left font-bold " + (pageView === "BUILDER" ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-900")}><span className="block">Create Template</span><span className={"mt-1 block text-sm font-normal " + (pageView === "BUILDER" ? "text-white/80" : "text-navy-500")}>Open the guided template builder</span></button>
-      </div>
-      <div>
-        {pageView === "BUILDER" ? <Card className="p-5">
-          <h2 className="text-lg font-bold text-navy-900">{editingId ? "Edit template" : "Build a template"}</h2>
-          <p className="mb-4 mt-1 text-sm text-navy-600">Choose a published checklist to make detailed practical sessions ready to launch.</p>
-          <div className="mb-4 grid grid-cols-4 gap-1" aria-label="Template builder progress">
-            {["Topic & title", "Checklist", "Grades & CE", "Review"].map((label, index) => <button key={label} type="button" onClick={() => setBuilderStep(index + 1)} className={"min-h-12 rounded-md px-2 py-2 text-xs font-semibold " + (builderStep === index + 1 ? "bg-fire text-white" : "bg-navy-50 text-navy-700")}>{index + 1}. {label}</button>)}
-          </div>
-          <form onSubmit={save} className="space-y-4">
-            <div className={builderStep === 1 ? "space-y-4" : "hidden"}>
-              <h3 className="font-bold text-navy-900">Topic and title</h3>
-              <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Template name"><Input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Monthly EMS airway lab" /></Field>
-              <Field label="Default training sheet title"><Input maxLength={180} value={form.defaultTitle} onChange={(e) => setForm({ ...form, defaultTitle: e.target.value })} placeholder="EMS airway management refresher" /></Field>
-              <Field label="Template topic">
-                <Select value={form.topic} onChange={(e) => {
-                  const topic = e.target.value;
-                  const category = ({ EMS: "EMS", FIRE: "COMPANY", HAZMAT: "HAZMAT", DRIVER: "DRIVER", CPR: "EMS", OFFICER: "OFFICER", FACILITY: "FACILITY", OTHER: "OTHER", CUSTOM: "CUSTOM" } as Record<string, string>)[topic] || "OTHER";
-                  setForm((current) => ({ ...current, topic, trainingCategory: category, gradingConfig: { ...current.gradingConfig, customTopicLabel: topic === "CUSTOM" ? current.gradingConfig.customTopicLabel : "", customTrainingCategoryLabel: topic === "CUSTOM" ? current.gradingConfig.customTrainingCategoryLabel : "" }, ceCredits: topic === "EMS" ? current.ceCredits : [], creditHours: topic === "EMS" ? current.creditHours : 0 }));
-                }}>
-                  {TEMPLATE_TOPICS.map((topic) => <option key={topic} value={topic}>{TOPIC_LABELS[topic]}</option>)}
-                  <option value="CUSTOM">Customâ€¦</option>
-                </Select>
-                {form.topic === "CUSTOM" ? <Input className="mt-2" value={form.gradingConfig.customTopicLabel} onChange={(e) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, customTopicLabel: e.target.value } }))} placeholder="Enter custom template topic" /> : null}
-              </Field>
-              <Field label="Training type">
-                <Select value={form.classType} onChange={(e) => setForm((current) => ({ ...current, classType: e.target.value, gradingConfig: { ...current.gradingConfig, customClassTypeLabel: e.target.value === "CUSTOM" ? current.gradingConfig.customClassTypeLabel : "" } }))}>
-                  <option value="GENERAL">General training</option>
-                  <option value="FIRE_ACADEMY">Fire academy testing</option>
-                  <option value="CPR">CPR</option><option value="EMS">EMS skills testing</option>
-                  <option value="CUSTOM">Customâ€¦</option>
-                </Select>
-                {form.classType === "CUSTOM" ? <Input className="mt-2" value={form.gradingConfig.customClassTypeLabel} onChange={(e) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, customClassTypeLabel: e.target.value } }))} placeholder="Enter custom training type" /> : null}
-              </Field>
-              <Field label="Hours category">
-                <Select value={form.trainingCategory} onChange={(e) => setForm((current) => ({ ...current, trainingCategory: e.target.value, gradingConfig: { ...current.gradingConfig, customTrainingCategoryLabel: e.target.value === "CUSTOM" ? current.gradingConfig.customTrainingCategoryLabel : "" } }))}>
-                  <option value="COMPANY">Company</option><option value="FACILITY">Facility</option><option value="HAZMAT">HazMat</option>
-                  <option value="DRIVER">Driver / apparatus</option><option value="OFFICER">Officer development</option><option value="EMS">EMS</option><option value="OTHER">Other</option>
-                  <option value="CUSTOM">Customâ€¦</option>
-                </Select>
-                {form.trainingCategory === "CUSTOM" ? <Input className="mt-2" value={form.gradingConfig.customTrainingCategoryLabel} onChange={(e) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, customTrainingCategoryLabel: e.target.value } }))} placeholder="Enter custom hours/RMS category" /> : null}
-              </Field>
-              <Field label="Credit hours" hint="Set 0 to use the class start and end times.">
-                <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: Number(e.target.value) })} />
-              </Field>
-              <Field label="Default location"><Input maxLength={180} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Training tower / Station 2" /></Field>
-              </div>
-            </div>
-            <section className={builderStep === 2 ? "space-y-4" : "hidden"}>
-              <h3 className="font-bold text-navy-900">Checklist</h3>
-              <p className="text-sm text-navy-600">Use attendance only, attach a published checklist, or open the checklist builder to create, copy, or import one.</p>
-              <Field label="Published skills checklist" hint={form.classType === "CPR" ? "Required for CPR templates." : "Optional for attendance-only training."}><Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}><option value="">Attendance only / no checklist</option>{setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} Â· {item.skillCount} skills</option>)}</Select></Field>
-              {selectedChecklist ? <div className="rounded-lg bg-navy-50 p-4 text-sm"><strong>{selectedChecklist.title} v{selectedChecklist.version}</strong><p className="mt-1 text-navy-600">{selectedChecklist.skillCount} skills. This exact published checklist version stays attached to the Training Sheet.</p></div> : null}
-              <div className="rounded-lg border border-dashed border-navy-300 p-4"><h4 className="font-semibold">Need a different checklist?</h4><p className="mt-1 text-sm text-navy-600">Create one manually, copy a starter or existing checklist, or import checklist text or a source file. Publish it, then return and select it here.</p><div className="mt-3 flex flex-wrap gap-2"><Link href="/task-books/fast-start?returnTo=/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900">Create or copy checklist</Link><Link href="/smart-import?returnTo=/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900">Import checklist</Link></div></div>
-            </section>
-            <div className={builderStep === 3 ? "space-y-4" : "hidden"}>
-            {form.topic === "EMS" ? (
-              <section className="rounded-lg border border-navy-200 p-4">
-                <h3 className="font-semibold">EMS CE category hours</h3>
-                <p className="mt-1 text-xs text-navy-600">Set the hours this template awards in each CE category. The total fills automatically.</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {Object.keys(EMS_CE_CATEGORIES).map((category) => (
-                    <Field key={category} label={category}>
-                      <Input type="number" min="0" max="24" step="0.25" value={form.ceCredits.find((item) => item.category === category)?.hours ?? ""} onChange={(event) => {
-                        const hours = event.target.value === "" ? 0 : Number(event.target.value);
-                        const remaining = form.ceCredits.filter((item) => item.category !== category);
-                        const ceCredits = hours > 0 && Number.isFinite(hours) ? [...remaining, { category, hours }] : remaining;
-                        setForm((current) => ({ ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) }));
-                      }} />
-                    </Field>
-                  ))}
-                </div>
-                <p className="mt-3 font-semibold">Total CE hours: {form.ceCredits.reduce((sum, item) => sum + item.hours, 0).toFixed(2)}</p>
-              </section>
-            ) : null}
-            <section className="rounded-lg border border-navy-200 p-4">
-              <h3 className="font-semibold">Grading</h3>
-              <p className="mt-1 text-xs text-navy-600">A selected checklist grades skills. Turn on score collection for a written test or CCF grade.</p>
-              <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.gradingConfig.writtenTestEnabled} onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, writtenTestEnabled: event.target.checked, writtenTestPassPercent: event.target.checked ? current.gradingConfig.writtenTestPassPercent ?? 80 : null } }))} />
-                Record a written test score
-              </label>
-              {form.gradingConfig.writtenTestEnabled ? <Field label="Optional written test pass mark (%)"><Input type="number" min="0" max="100" value={form.gradingConfig.writtenTestPassPercent ?? ""} onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, writtenTestPassPercent: event.target.value === "" ? null : Number(event.target.value) } }))} /></Field> : null}
-              <label className="mt-2 flex min-h-11 items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.gradingConfig.ccfEnabled} onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, ccfEnabled: event.target.checked, ccfPassPercent: event.target.checked ? current.gradingConfig.ccfPassPercent : null } }))} />
-                Record a CCF score
-              </label>
-              {form.gradingConfig.ccfEnabled ? <Field label="Optional CCF pass mark (%)"><Input type="number" min="0" max="100" value={form.gradingConfig.ccfPassPercent ?? ""} onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, ccfPassPercent: event.target.value === "" ? null : Number(event.target.value) } }))} /></Field> : null}
-              <div className="mt-4 border-t border-navy-100 pt-4">
-                <h4 className="font-semibold">Custom grading</h4>
-                <p className="mt-1 text-xs text-navy-600">Add department-defined grades such as Scenario Performance, Equipment Check or Instructor Sign-off. Choose percent, number, pass/fail or checkbox and make it required when appropriate.</p>
-                <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `grade-${Date.now()}-${current.customFields.length}`, label: "", type: "PASS_FAIL", required: true }] }))} disabled={form.customFields.length >= 20}>+ Add custom grade</Button>
-              </div>
-            </section>
-            <section className="rounded-lg border border-navy-200 p-4">
-              <h3 className="font-semibold">Custom RMS entry categories</h3>
-              <p className="mt-1 text-xs text-navy-600">List the department RMS categories or codes the instructor should use when entering this Training Sheet.</p>
-              {(form.gradingConfig.rmsEntryCategories || []).map((category, index) => (
-                <div key={index} className="mt-3 flex items-center gap-2">
-                  <Input aria-label={`RMS category ${index + 1}`} value={category} placeholder="e.g. Fire Training â€” Company Operations" onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, rmsEntryCategories: current.gradingConfig.rmsEntryCategories.map((item, itemIndex) => itemIndex === index ? event.target.value : item) } }))} />
-                  <button type="button" className="min-h-11 rounded border border-navy-200 px-3 text-sm text-danger" onClick={() => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, rmsEntryCategories: current.gradingConfig.rmsEntryCategories.filter((_, itemIndex) => itemIndex !== index) } }))}>Remove</button>
-                </div>
-              ))}
-              <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, rmsEntryCategories: [...(current.gradingConfig.rmsEntryCategories || []), ""] } }))} disabled={(form.gradingConfig.rmsEntryCategories || []).length >= 20}>+ Add RMS category</Button>
-            </section>
-            <Field label="Training instructions and objectives" hint="Edit one idea at a time. Items remain in order when copied to the training sheet.">
-              <div className="space-y-2 rounded-lg border border-navy-200 p-3">
-                {(form.notes ? form.notes.split("\n") : [""]).map((item, index) => (
-                  <div key={index} className="flex items-start gap-2">
-                    <span className="min-w-6 pt-3 text-sm font-semibold text-navy-500">{index + 1}.</span>
-                    <TextArea rows={2} value={item} onChange={(e) => setForm((current) => {
-                      const lines = current.notes ? current.notes.split("\n") : [""];
-                      lines[index] = e.target.value.replace(/\r?\n/g, " ");
-                      return { ...current, notes: lines.join("\n") };
-                    })} placeholder="One instruction or objective" />
-                    <button type="button" aria-label={`Remove item ${index + 1}`} className="rounded border border-navy-200 px-2 py-2 text-xs" onClick={() => setForm((current) => {
-                      const lines = current.notes ? current.notes.split("\n") : [""];
-                      return { ...current, notes: lines.filter((_, i) => i !== index).join("\n") };
-                    })}>Remove</button>
-                  </div>
-                ))}
-                <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, notes: current.notes ? current.notes + "\n" : "\n" }))}>+ Add item</Button>
-              </div>
-            </Field>
-            <div className="rounded-lg border border-navy-200 p-4">
-              <h3 className="font-semibold">Custom grades and student fields</h3>
-              <p className="mt-1 text-xs text-navy-600">These department-defined results are collected for every student when a class uses this template.</p>
-              {form.customFields.map((field, index) => (
-                <div key={field.id} className="mt-3 grid gap-2 rounded-md border border-navy-100 p-3 sm:grid-cols-2">
-                  <Input aria-label={`Field ${index + 1} label`} value={field.label} placeholder="e.g. CCF or Test score" onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, label: e.target.value } : f) }))} />
-                  <Select aria-label={`Field ${index + 1} type`} value={field.type} onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, type: e.target.value } : f) }))}>
-                    {["TEXT", "NUMBER", "PERCENT", "DATE", "PASS_FAIL", "CHECKBOX"].map((type) => <option key={type} value={type}>{type.replace("_", " ")}</option>)}
-                  </Select>
-                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, required: e.target.checked } : f) }))} />Required</label>
-                  <button type="button" className="text-sm text-danger" onClick={() => setForm((current) => ({ ...current, customFields: current.customFields.filter((_, i) => i !== index) }))}>Remove field</button>
-                </div>
-              ))}
-              <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `custom-${Date.now()}-${current.customFields.length}`, label: "", type: "TEXT", required: false }] }))} disabled={form.customFields.length >= 20}>+ Add other student field</Button>
-            </div>
-            </div>
-            <div className={builderStep === 4 ? "space-y-4" : "hidden"}>
-              <h3 className="font-bold text-navy-900">Review template</h3>
-              <div className="rounded-xl border border-navy-200 bg-navy-50 p-5">
-                <div className="flex flex-wrap gap-2"><Badge tone="neutral">{form.topic === "CUSTOM" ? form.gradingConfig.customTopicLabel || "Custom topic" : TOPIC_LABELS[form.topic] || "Other"}</Badge>{form.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance only</Badge>}{form.gradingConfig.writtenTestEnabled ? <Badge tone="current">Written test</Badge> : null}{form.gradingConfig.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{form.ceCredits.length ? <Badge tone="current">EMS CE</Badge> : null}</div>
-                <h4 className="mt-3 text-xl font-bold">{form.name || "Untitled template"}</h4><p className="mt-1 text-navy-700">{form.defaultTitle || "No default Training Sheet title"}</p>
-                <p className="mt-3 text-sm"><strong>Checklist:</strong> {selectedChecklist ? selectedChecklist.title + " v" + selectedChecklist.version + " Â· " + selectedChecklist.skillCount + " skills" : "Attendance only"}</p>
-                <p className="mt-1 text-sm"><strong>Credit:</strong> {form.creditHours ? form.creditHours + " hours" : "Calculated from class duration"}</p>
-                {form.ceCredits.length ? <p className="mt-1 text-sm"><strong>EMS CE:</strong> {form.ceCredits.map((item) => item.hours + " hr " + item.category).join(" Â· ")}</p> : null}
-                {form.customFields.length ? <p className="mt-1 text-sm"><strong>Custom grades/fields:</strong> {form.customFields.map((item) => item.label || "Untitled").join(" Â· ")}</p> : null}
-                {form.gradingConfig.rmsEntryCategories.length ? <p className="mt-1 text-sm"><strong>RMS categories:</strong> {form.gradingConfig.rmsEntryCategories.filter(Boolean).join(" Â· ")}</p> : null}
-              </div>
-              {validationWarnings.length ? <div className="rounded-lg border border-amber-300 bg-amber-50 p-4"><h4 className="font-semibold text-amber-900">Review before saving</h4><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">{validationWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-900">Template is ready to save.</div>}
-            <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm font-semibold">
-              <input type="checkbox" checked={form.selfRegistration} onChange={(e) => setForm({ ...form, selfRegistration: e.target.checked })} />
-              Enable QR self-registration by default
-            </label>
-            <Field label={"Default proctors (" + form.proctorUserIds.length + ")"} hint="They will be assigned automatically when this template is used.">
-              <div className="max-h-48 space-y-1 overflow-auto rounded-md border border-navy-200 p-2">
-                {setup?.proctors.map((person) => (
-                  <label key={person.userId} className="flex min-h-11 items-center gap-3 rounded px-2 hover:bg-navy-50">
-                    <input type="checkbox" checked={form.proctorUserIds.includes(person.userId)} onChange={() => toggleProctor(person.userId)} />
-                    <span>{person.name} Â· {person.role.toLowerCase().replaceAll("_", " ")}</span>
-                  </label>
-                ))}
-              </div>
-            </Field>
-            </div>
-            <div className="flex flex-wrap justify-between gap-2 border-t border-navy-100 pt-4">
-              <div>{builderStep > 1 ? <Button type="button" variant="secondary" onClick={() => setBuilderStep((step) => step - 1)}>Back</Button> : editingId ? <Button type="button" variant="secondary" onClick={reset}>Cancel edit</Button> : null}</div>
-              <div className="flex gap-2">{builderStep < 4 ? <Button type="button" onClick={() => setBuilderStep((step) => step + 1)}>Continue</Button> : <Button type="submit" disabled={busy || validationWarnings.some((warning) => /require|name every|no longer published/i.test(warning))}>{busy ? "Savingâ€¦" : editingId ? "Save changes" : "Save template"}</Button>}{editingId && builderStep > 1 ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
-            </div>
-          </form>
-        </Card> : null}
-        {pageView === "LIBRARY" ? <div>
-          <Card className="mb-5 p-4">
-            <h2 className="font-bold text-navy-900">Starter templates</h2>
-            <p className="mt-1 text-sm text-navy-600">Choose a starter to open it in the builder. It will not be saved until you review and save it.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, ...firefighterOneClassPreset, topic: "FIRE", gradingConfig: blank.gradingConfig, ceCredits: [] }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>Firefighter I</Button>
-              <Button type="button" variant="secondary" onClick={() => { chooseCprStarter(); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>BLS CPR</Button>
-              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "EMS Continuing Education", defaultTitle: "EMS Continuing Education", topic: "EMS", classType: "EMS", trainingCategory: "EMS", selfRegistration: true, ceCredits: [{ category: "Medical", hours: 0.5 }, { category: "Airway", hours: 0.5 }], creditHours: 1 }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>EMS CE</Button>
-              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "HazMat Refresher", defaultTitle: "HazMat Operations Refresher", topic: "HAZMAT", trainingCategory: "HAZMAT", selfRegistration: true }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>HazMat</Button>
-              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "Driver Operator Training", defaultTitle: "Driver Operator Practical Training", topic: "DRIVER", trainingCategory: "DRIVER" }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>Driver</Button>
-              <Button type="button" variant="secondary" onClick={() => { setForm({ ...blank, name: "Officer Development", defaultTitle: "Officer Development Training", topic: "OFFICER", trainingCategory: "OFFICER" }); setEditingId(null); setBuilderStep(1); setPageView("BUILDER"); }}>Officer</Button>
-            </div>
-          </Card>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-navy-900">Department templates</h2>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived</label>
-          </div>
-          <div className="mb-3 space-y-2">
-            <Input aria-label="Search templates" placeholder="Search CPR, SCBA, drillâ€¦" value={librarySearch} onChange={(event) => setLibrarySearch(event.target.value)} />
-            <Select aria-label="Filter templates" value={libraryFilter} onChange={(event) => setLibraryFilter(event.target.value)}>
-              <option value="ALL">All templates</option>
-              <option value="ATTENDANCE">Attendance only</option>
-              <option value="SKILLS">Skills checkoff</option>
-            </Select>
-            <Select aria-label="Filter templates by topic" value={topicFilter} onChange={(event) => setTopicFilter(event.target.value)}>
-              <option value="ALL">All topics</option>
-              {TEMPLATE_TOPICS.map((topic) => <option key={topic} value={topic}>{TOPIC_LABELS[topic]}</option>)}
-            </Select>
-            <p className="text-xs text-navy-500">Templates are grouped by topic. Skills grading comes from the linked published checklist.</p>
-          </div>
-          <div className="space-y-5">
-            {visibleTemplates.length === 0 ? <Card className="p-5 text-sm text-navy-500">No templates match this topic. Create one for a recurring EMS, fire, HazMat, or department training session.</Card> : groupedTemplates.map((group) => (
-              <section key={group.topic} aria-label={TOPIC_LABELS[group.topic]}>
-                <h3 className="mb-2 font-bold text-navy-800">{TOPIC_LABELS[group.topic]}</h3>
-                <div className="space-y-3">
-                  {group.items.map((item) => (
-              <Card key={item.id} className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-navy-900">{item.name}</h3><Badge tone="neutral">v{item.revision || 1}</Badge>{item.archived ? <Badge tone="neutral">Archived</Badge> : null}{item.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance</Badge>}{item.gradingConfig?.writtenTestEnabled ? <Badge tone="current">Test</Badge> : null}{item.gradingConfig?.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{item.customFields?.length ? <Badge tone="current">Custom grading</Badge> : null}{item.gradingConfig?.rmsEntryCategories?.length ? <Badge tone="current">RMS categories</Badge> : null}{item.ceCredits?.length ? <Badge tone="current">CE</Badge> : null}{item.selfRegistration ? <Badge tone="current">QR</Badge> : null}</div>
-                    <p className="mt-1 text-sm text-navy-600">{item.defaultTitle || item.name}</p>
-                    <p className="mt-2 text-xs text-navy-500">{item.gradingConfig?.customTopicLabel || TOPIC_LABELS[item.topic] || "Other"} Â· {item.creditHours ? item.creditHours + " hr" : "uses class duration"} Â· {item.selfRegistration ? "QR enabled" : "QR off"}</p>
-                    {item.ceCredits?.length ? <p className="mt-1 text-xs text-navy-600">CE: {item.ceCredits.map((credit) => `${credit.category} ${credit.hours} hr`).join(" Â· ")}</p> : null}
-                    {item.checklistVersionId ? <p className="mt-1 text-xs text-navy-600">Checklist attached</p> : null}
-                    {item.gradingConfig?.writtenTestEnabled ? <p className="mt-1 text-xs text-navy-600">Written test score{item.gradingConfig.writtenTestPassPercent != null ? ` Â· pass ${item.gradingConfig.writtenTestPassPercent}%` : ""}</p> : null}
-                    {item.notes ? <p className="mt-2 line-clamp-3 text-sm text-navy-700">{item.notes}</p> : null}{item.updatedAt ? <p className="mt-2 text-xs text-navy-500">Updated {new Date(item.updatedAt).toLocaleDateString()}</p> : null}
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {!item.archived ? <Link href={`/classes?template=${encodeURIComponent(item.id)}`} className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white">Use template</Link> : null}
-                  <Button type="button" variant="secondary" onClick={() => edit(item)}>Edit</Button>
-                   <Button type="button" variant="secondary" onClick={() => duplicate(item)}>Duplicate</Button>
-                  <Button type="button" variant="secondary" onClick={() => void archive(item)}>{item.archived ? "Restore" : "Archive"}</Button>
-                </div>
-              </Card>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </div> : null}
-      </div>
-    </div>
-  );
-}
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×Ž¶å:-jZ.¶›­–)Þ³R'W6R6Æ–VçB#° ¦–×÷'B²f÷&ÔWfVçBÂW6TVffV7BÂW6U7FFRÒg&öÒ'&V7B#°¦–×÷'BÆ–æ²g&öÒ&æW‡BöÆ–æ²#°¦–×÷'B²’Â”W'&÷"Òg&öÒ$öÆ–"ö’#°¦–×÷'B²f—&Vf–v‡FW$öæT6Æ75&W6WBÒg&öÒ$öÆ–"öf—&Vf–v‡FW"ÖöæRÖ6Æ72×&W6WB#°¦–×÷'B²&Ç47$6Æ75&W6WBÒg&öÒ$öÆ–"ö&Ç2Ö7"Ö6Æ72×&W6WB#°¦–×÷'B²TÕ5ô4Uô4DTtõ$”U2Òg&öÒ$öÆ–"öV×2Ö6RÖ6FVv÷&–W2#°¦–×÷'B²&FvRÂ'WGFöâÂ6&BÂf–VÆBÂfÆ6‚Â–çWBÂvT†VFW"Â6VÆV7BÂFW‡D&VÒg&öÒ$ö6ö×öæVçG2÷V’#° §G—R7W7FöÔf–VÆBÒ²–C¢7G&–æs²Æ&VÃ¢7G&–æs²G—S¢7G&–æs²&WV—&VC¢&ööÆVã²Æ–W5Fóó¢%$õ5DU""Â%$U5TÅB"Ó°§G—R4TÆÆö6F–öâÒ²6FVv÷'“¢7G&–æs²†÷W'3¢çVÖ&W"Ó°§G—Rw&F–æt6öæf–rÒ²w&—GFVåFW7DVæ&ÆVC¢&ööÆVã²w&—GFVåFW7E75W&6VçC¢çVÖ&W"ÂçVÆÃ²66dVæ&ÆVC¢&ööÆVã²66e75W&6VçC¢çVÖ&W"ÂçVÆÃ²&×4VçG'”6FVv÷&–W3¢7G&–æuµÓ²7W7FöÕF÷–4Æ&VÃ¢7G&–æs²7W7FöÔ6Æ75G—TÆ&VÃ¢7G&–æs²7W7FöÕG&–æ–æt6FVv÷'”Æ&VÃ¢7G&–ærÓ°¦6öç7BDTÕÄDUõDõ”52Ò²$TÕ2"Â$d•$R"Â$„¤ÔB"Â$E$•dU""Â$5""Â$ôdd”4U""Â$d4”Ä•E’"Â$õD„U"%Ó°¦6öç7BDõ”5ôÄ$TÅ3¢&V6÷&CÇ7G&–ærÂ7G&–æsâÒ²TÕ3¢$TÕ2"Âd•$S¢$f—&R"Â„¤ÔC¢$†¤ÖB"ÂE$•dU#¢$G&—fW"÷W&F÷""Â5#¢$5""Âôdd”4U#¢$öff–6W""Âd4”Ä•E“¢$f6–Æ—G’"ÂõD„U#¢$÷F†W""Ó°¦6öç7BDõ”5ôõ$DU"Ò²$TÕ2"Â$d•$R"Â$„¤ÔB"Â$E$•dU""Â$5""Â$ôdd”4U""Â$d4”Ä•E’"Â$õD„U"%Ó°§G—RFV×ÆFRÒ°¢7W7FöÔf–VÆG3¢7W7FöÔf–VÆEµÓ°¢–C¢7G&–æs°¢æÖS¢7G&–æs°¢FVfVÇEF—FÆS¢7G&–æs°¢6Æ75G—S¢7G&–æs°¢G&–æ–æt6FVv÷'“¢7G&–æs°¢F÷–3¢7G&–æs°¢w&F–æt6öæf–s¢w&F–æt6öæf–s°¢6T7&VF—G3¢4TÆÆö6F–öåµÓ°¢7&VF—D†÷W'3¢çVÖ&W#°¢6†V6¶Æ—7EfW'6–öä–C¢7G&–ærÂçVÆÃ°¢Æö6F–öã¢7G&–æs°¢æ÷FW3¢7G&–æs°¢6VÆe&Vv—7G&F–öã¢&ööÆVã°¢&ö7F÷%W6W$–G3¢7G&–æuµÓ°¢&6†—fVC¢&ööÆVã°¢WFFVDCó¢7G&–æs°¢&Wf—6–öãó¢çVÖ&W#°§Ó° §G—R6WGWÒ°¢6†V6¶Æ—7G3¢'&“Ç²–C¢7G&–æs²F—FÆS¢7G&–æs²fW'6–öã¢7G&–æs²6¶–ÆÄ6÷VçC¢çVÖ&W"Óã°¢&ö7F÷'3¢'&“Ç²W6W$–C¢7G&–æs²æÖS¢7G&–æs²&öÆS¢7G&–ærÓã°§Ó° ¦6öç7B&Ææ²Ò°¢æÖS¢""À¢FVfVÇEF—FÆS¢""À¢6Æ75G—S¢$tTäU$Â"À¢G&–æ–æt6FVv÷'“¢$4ôÕå’"À¢F÷–3¢$d•$R"À¢w&F–æt6öæf–s¢²w&—GFVåFW7DVæ&ÆVC¢fÇ6RÂw&—GFVåFW7E75W&6VçC¢çVÆÂÂ66dVæ&ÆVC¢fÇ6RÂ66e75W&6VçC¢çVÆÂÂ&×4VçG'”6FVv÷&–W3¢µÒÂ7W7FöÕF÷–4Æ&VÃ¢""Â7W7FöÔ6Æ75G—TÆ&VÃ¢""Â7W7FöÕG&–æ–æt6FVv÷'”Æ&VÃ¢""Ò2w&F–æt6öæf–rÀ¢6T7&VF—G3¢µÒ24TÆÆö6F–öåµÒÀ¢7&VF—D†÷W'3¢À¢6†V6¶Æ—7EfW'6–öä–C¢""À¢Æö6F–öã¢""À¢æ÷FW3¢""À¢7W7FöÔf–VÆG3¢µÒ27W7FöÔf–VÆEµÒÀ¢6VÆe&Vv—7G&F–öã¢fÇ6RÀ¢&ö7F÷%W6W$–G3¢µÒ27G&–æuµÒÀ§Ó° ¦W‡÷'BFVfVÇBgVæ7F–öâG&–æ–æu6†VWEFV×ÆFW5vR‚’°¢6öç7B·FV×ÆFW2Â6WEFV×ÆFW5ÒÒW6U7FFSÅFV×ÆFUµÓâ…µÒ“°¢6öç7B·6WGWÂ6WE6WGWÒÒW6U7FFSÅ6WGWÂçVÆÃâ†çVÆÂ“°¢6öç7B¶f÷&ÒÂ6WDf÷&ÕÒÒW6U7FFR†&Ææ²“°¢6öç7B¶VF—F–æt–BÂ6WDVF—F–æt–EÒÒW6U7FFSÇ7G&–ærÂçVÆÃâ†çVÆÂ“°¢6öç7B·6†÷t&6†—fVBÂ6WE6†÷t&6†—fVEÒÒW6U7FFR†fÇ6R“°¢6öç7B¶Æ–'&'•6V&6‚Â6WDÆ–'&'•6V&6…ÒÒW6U7FFR‚""“°¢6öç7B¶Æ–'&'”f–ÇFW"Â6WDÆ–'&'”f–ÇFW%ÒÒW6U7FFR‚$ÄÂ"“°¢6öç7B·F÷–4f–ÇFW"Â6WEF÷–4f–ÇFW%ÒÒW6U7FFR‚$ÄÂ"“°¢6öç7B¶'W7’Â6WD'W7•ÒÒW6U7FFR†fÇ6R“°¢6öç7B¶W'&÷"Â6WDW'&÷%ÒÒW6U7FFSÇ7G&–ærÂçVÆÃâ†çVÆÂ“°¢6öç7B¶ÖW76vRÂ6WDÖW76vUÒÒW6U7FFSÇ7G&–ærÂçVÆÃâ†çVÆÂ“°¢6öç7B¶'V–ÆFW%7FWÂ6WD'V–ÆFW%7FWÒÒW6U7FFRƒ“°¢6öç7B·vUf–WrÂ6WEvUf–WuÒÒW6U7FFSÂ$Ä”%$%’"Â$%T”ÄDU"#â‚$Ä”%$%’"“° ¢7–æ2gVæ7F–öâÆöB‚’°¢6öç7BVW'’Ò6†÷t&6†—fVBò#ö&6†—fVCÖÆÂ"¢"#°¢6öç7B·&÷w2Â÷F–öç5ÒÒv—B&öÖ—6RæÆÂ…°¢“ÅFV×ÆFUµÓâ‚'G&–æ–ær×6†VWB×FV×ÆFW2"²VW'’’À¢“Å6WGWâ‚&6Æ76W2÷6WGW"’À¢Ò“°¢6WEFV×ÆFW2‡&÷w2“°¢6WE6WGW†÷F–öç2“°¢Ð ¢W6TVffV7B‚‚’Óâ°¢ÆöB‚’æ6F6‚‚†W'"’Óâ6WDW'&÷"†W'"–ç7Fæ6VöbW'&÷"òW'"æÖW76vR¢%Væ&ÆRFòÆöBFV×ÆFW2â"’“°¢ÒÂ·6†÷t&6†—fVEÒ“° ¢gVæ7F–öâ&W6WB‚’°¢6WDVF—F–æt–B†çVÆÂ“°¢6WDf÷&Ò†&Ææ²“°¢6WD'V–ÆFW%7FWƒ“°¢6WEvUf–Wr‚$Ä”%$%’"“°¢Ð ¢gVæ7F–öâVF—B†—FVÓ¢FV×ÆFR’°¢6WDVF—F–æt–B†—FVÒæ–B“°¢6WDf÷&Ò‡°¢æÖS¢—FVÒææÖRÀ¢FVfVÇEF—FÆS¢—FVÒæFVfVÇEF—FÆRÀ¢6Æ75G—S¢—FVÒæw&F–æt6öæf–sòæ7W7FöÔ6Æ75G—TÆ&VÂò$5U5DôÒ"¢—FVÒæ6Æ75G—RÀ¢G&–æ–æt6FVv÷'“¢—FVÒæw&F–æt6öæf–sòæ7W7FöÕG&–æ–æt6FVv÷'”Æ&VÂò$5U5DôÒ"¢—FVÒçG&–æ–æt6FVv÷'’À¢F÷–3¢—FVÒæw&F–æt6öæf–sòæ7W7FöÕF÷–4Æ&VÂò$5U5DôÒ"¢—FVÒçF÷–2ÇÂ$õD„U""À¢w&F–æt6öæf–s¢²ââæ&Ææ²æw&F–æt6öæf–rÂâââ†—FVÒæw&F–æt6öæf–rÇÂ·Ò’ÒÀ¢6T7&VF—G3¢—FVÒæ6T7&VF—G2ÇÂµÒÀ¢7&VF—D†÷W'3¢—FVÒæ7&VF—D†÷W'2À¢6†V6¶Æ—7EfW'6–öä–C¢—FVÒæ6†V6¶Æ—7EfW'6–öä–BÇÂ""À¢Æö6F–öã¢—FVÒæÆö6F–öâÀ¢æ÷FW3¢—FVÒææ÷FW2À¢7W7FöÔf–VÆG3¢—FVÒæ7W7FöÔf–VÆG2ÇÂµÒÀ¢6VÆe&Vv—7G&F–öã¢—FVÒç6VÆe&Vv—7G&F–öâÀ¢&ö7F÷%W6W$–G3¢—FVÒç&ö7F÷%W6W$–G2À¢Ò“°¢6WDÖW76vR†çVÆÂ“°¢6WD'V–ÆFW%7FWƒ“°¢6WEvUf–Wr‚$%T”ÄDU""“°¢v–æF÷rç67&öÆÅFò‡²F÷¢Â&V†f–÷#¢'6Öö÷F‚"Ò“°¢Ð ¢7–æ2gVæ7F–öâ6fR†WfVçC¢f÷&ÔWfVçB’°¢WfVçBç&WfVçDFVfVÇB‚“°¢–b‚f÷&ÒææÖRçG&–Ò‚’ÇÂf÷&ÒæFVfVÇEF—FÆRçG&–Ò‚’’°¢6WD'V–ÆFW%7FWƒ“°¢6WDW'&÷"‚$FBFV×ÆFRæÖRæBFVfVÇBG&–æ–ær6†VWBF—FÆR&Vf÷&R6f–ærâ"“°¢&WGW&ã°¢Ð¢–b‚†f÷&Òæw&F–æt6öæf–rçw&—GFVåFW7DVæ&ÆVBbbf÷&Òæw&F–æt6öæf–rçw&—GFVåFW7E75W&6VçBÓÒçVÆÂ’ÇÂ†f÷&Òæw&F–æt6öæf–ræ66dVæ&ÆVBbbf÷&Òæw&F–æt6öæf–ræ66e75W&6VçBÓÒçVÆÂ’’°¢6WD'V–ÆFW%7FWƒ2“°¢6WDW'&÷"‚%6WB76–ær66÷&Rf÷"V6‚Væ&ÆVBw&FR&Vf÷&R6f–ærâ"“°¢&WGW&ã°¢Ð¢–b†f÷&Òæ6Æ75G—RÓÓÒ$5""bbf÷&Òæ6†V6¶Æ—7EfW'6–öä–B’°¢6WD'V–ÆFW%7FWƒ"“°¢6WDW'&÷"‚%6VÆV7BV&Æ—6†VB5"6¶–ÆÇ26†V6¶Æ—7B&Vf÷&R6f–ærF†R5"G&–æ–ær6¶vRâ"“°¢&WGW&ã°¢Ð¢6WD'W7’‡G'VR“°¢6WDW'&÷"†çVÆÂ“°¢6WDÖW76vR†çVÆÂ“°¢G'’°¢v—B’‚'G&–æ–ær×6†VWB×FV×ÆFW2"²†VF—F–æt–Bò"ò"²VF—F–æt–B¢""’Â°¢ÖWF†öC¢VF—F–æt–Bò%D4‚"¢%õ5B"À¢&öG“¢¥4ôâç7G&–æv–g’‡²ââæf÷&ÒÂF÷–3¢f÷&ÒçF÷–2ÓÓÒ$5U5DôÒ"ò$õD„U""¢f÷&ÒçF÷–2Â6Æ75G—S¢f÷&Òæ6Æ75G—RÓÓÒ$5U5DôÒ"ò$tTäU$Â"¢f÷&Òæ6Æ75G—RÂG&–æ–æt6FVv÷'“¢f÷&ÒçG&–æ–æt6FVv÷'’ÓÓÒ$5U5DôÒ"ò$õD„U""¢f÷&ÒçG&–æ–æt6FVv÷'’Ò’À¢Ò“°¢v—BÆöB‚“°¢6WDÖW76vR†VF—F–æt–Bò%FV×ÆFRWFFVBâ"¢%FV×ÆFR6fVBâ"“°¢&W6WB‚“°¢Ò6F6‚†W'"’°¢6WDW'&÷"†W'"–ç7Fæ6Vöb”W'&÷"òW'"æÖW76vR¢%Væ&ÆRFò6fRF†—2FV×ÆFRâ"“°¢Òf–æÆÇ’°¢6WD'W7’†fÇ6R“°¢Ð¢Ð ¢7–æ2gVæ7F–öâ&6†—fR†—FVÓ¢FV×ÆFR’°¢6WDW'&÷"†çVÆÂ“°¢6WDÖW76vR†çVÆÂ“°¢G'’°¢–b†—FVÒæ&6†—fVB’°¢v—B’‚'G&–æ–ær×6†VWB×FV×ÆFW2ò"²—FVÒæ–BÂ°¢ÖWF†öC¢%D4‚"À¢&öG“¢¥4ôâç7G&–æv–g’‡²&6†—fVC¢fÇ6RÒ’À¢Ò“°¢ÒVÇ6R°¢v—B’‚'G&–æ–ær×6†VWB×FV×ÆFW2ò"²—FVÒæ–B²"ö&6†—fR"Â²ÖWF†öC¢%õ5B"Ò“°¢Ð¢v—BÆöB‚“°¢6WDÖW76vR†—FVÒæ&6†—fVBò%FV×ÆFR&W7F÷&VBâ"¢%FV×ÆFR&6†—fVBâW†—7F–ærG&–æ–ær6†VWG2&RVæ6†ævVBâ"“°¢Ò6F6‚†W'"’°¢6WDW'&÷"†W'"–ç7Fæ6Vöb”W'&÷"òW'"æÖW76vR¢%Væ&ÆRFòWFFRF†—2FV×ÆFRâ"“°¢Ð¢Ð ¢6öç7Bf—6–&ÆUFV×ÆFW2ÒFV×ÆFW2æf–ÇFW"‚†—FVÒ’Óâ°¢6öç7B¶–æBÒ—FVÒæ6†V6¶Æ—7EfW'6–öä–Bò%4´”ÄÅ2"¢$EDTäDä4R#°¢6öç7BFW&ÒÒÆ–'&'•6V&6‚çG&–Ò‚’çFôÆ÷vW$66R‚“°¢&WGW&â†Æ–'&'”f–ÇFW"ÓÓÒ$ÄÂ"ÇÂÆ–'&'”f–ÇFW"ÓÓÒ¶–æB’b`¢‡F÷–4f–ÇFW"ÓÓÒ$ÄÂ"ÇÂ—FVÒçF÷–2ÓÓÒF÷–4f–ÇFW"’b`¢‚FW&ÒÇÂ¶—FVÒææÖRÂ—FVÒæFVfVÇEF—FÆRÂ—FVÒææ÷FW2Â—FVÒçG&–æ–æt6FVv÷'’Â—FVÒçF÷–5Òç6öÖR‚‡fÇVR’ÓâfÇVRçFôÆ÷vW$66R‚’æ–æ6ÇVFW2‡FW&Ò’’“°¢Ò“°¢6öç7Bw&÷WVEFV×ÆFW2ÒDõ”5ôõ$DU"æÖ‚‡F÷–2’Óâ‡°¢F÷–2À¢—FV×3¢f—6–&ÆUFV×ÆFW2æf–ÇFW"‚†—FVÒ’Óâ†—FVÒçF÷–2ÇÂ$õD„U""’ÓÓÒF÷–2’ç6÷'B‚†Â"’ÓâææÖRæÆö6ÆT6ö×&R†"ææÖR’’À¢Ò’’æf–ÇFW"‚†w&÷W’Óâw&÷Wæ—FV×2æÆVæwF‚â“° ¢gVæ7F–öâ6†ö÷6T7%7F'FW"‚’°¢6öç7BÖF6†W2Ò‡6WGWòæ6†V6¶Æ—7G2ÇÂµÒ’æf–ÇFW"‚†—FVÒ’Óà¢õÆ"„$Å7Ä5"•Æ"ö’çFW7B†—FVÒçF—FÆR’bböGVÇGÆ–æfçGÇ&÷f–FW"ö’çFW7B†—FVÒçF—FÆR¢“°¢6öç7B6VÆV7FVBÒÖF6†W2æÆVæwF‚ÓÓÒòÖF6†W5³Ò¢çVÆÃ°¢6WDf÷&Ò‡°¢ââæ&Ææ²À¢ââæ&Ç47$6Æ75&W6WBÀ¢F÷–3¢$TÕ2"À¢G&–æ–æt6FVv÷'“¢$TÕ2"À¢w&F–æt6öæf–s¢²ââæ&Ææ²æw&F–æt6öæf–rÂw&—GFVåFW7DVæ&ÆVC¢G'VRÂw&—GFVåFW7E75W&6VçC¢ƒÂ66dVæ&ÆVC¢G'VRÂ66e75W&6VçC¢çVÆÂÒÀ¢6†V6¶Æ—7EfW'6–öä–C¢6VÆV7FVCòæ–BÇÂ""À¢Ò“°¢6WDW'&÷"†çVÆÂ“°¢6WDÖW76vR‡6VÆV7FV@¢ò5"7F'FW"Æ–æ¶VBFòV&Æ—6†VB6†V6¶Æ—7C¢G·6VÆV7FVBçF—FÆWÒbG·6VÆV7FVBçfW'6–öçÒâfW&–g’F†R6†V6¶Æ—7BæB&ö7F÷'2&Vf÷&R6f–æræ ¢¢%6VÆV7B–÷W"FW'FÖVçBw2V&Æ—6†VB5"6¶–ÆÇ26†V6¶Æ—7B&Vf÷&R6f–ærF†—27F'FW"âæò6†V6¶Æ—7B†2&VVâ77VÖVBâ"“°¢Ð ¢gVæ7F–öâGWÆ–6FR†—FVÓ¢FV×ÆFR’°¢6WDVF—F–æt–B†çVÆÂ“°¢6WDf÷&Ò‡°¢æÖS¢—FVÒææÖR²"6÷’"ÂFVfVÇEF—FÆS¢—FVÒæFVfVÇEF—FÆRÂ6Æ75G—S¢—FVÒæw&F–æt6öæf–sòæ7W7FöÔ6Æ75G—TÆ&VÂò$5U5DôÒ"¢—FVÒæ6Æ75G—RÀ¢G&–æ–æt6FVv÷'“¢—FVÒæw&F–æt6öæf–sòæ7W7FöÕG&–æ–æt6FVv÷'”Æ&VÂò$5U5DôÒ"¢—FVÒçG&–æ–æt6FVv÷'’ÂF÷–3¢—FVÒæw&F–æt6öæf–sòæ7W7FöÕF÷–4Æ&VÂò$5U5DôÒ"¢—FVÒçF÷–2ÇÂ$õD„U""À¢w&F–æt6öæf–s¢²ââæ&Ææ²æw&F–æt6öæf–rÂâââ†—FVÒæw&F–æt6öæf–rÇÂ·Ò’ÒÂ6T7&VF—G3¢—FVÒæ6T7&VF—G2ÇÂµÒÀ¢7&VF—D†÷W'3¢—FVÒæ7&VF—D†÷W'2Â6†V6¶Æ—7EfW'6–öä–C¢—FVÒæ6†V6¶Æ—7EfW'6–öä–BÇÂ""À¢Æö6F–öã¢—FVÒæÆö6F–öâÂæ÷FW3¢—FVÒææ÷FW2Â7W7FöÔf–VÆG3¢—FVÒæ7W7FöÔf–VÆG2ÇÂµÒÀ¢6VÆe&Vv—7G&F–öã¢—FVÒç6VÆe&Vv—7G&F–öâÂ&ö7F÷%W6W$–G3¢—FVÒç&ö7F÷%W6W$–G2À¢Ò“°¢6WD'V–ÆFW%7FWƒ“°¢6WEvUf–Wr‚$%T”ÄDU""“°¢6WDW'&÷"†çVÆÂ“°¢6WDÖW76vR‚%FV×ÆFR6÷–VBâv—fRF†R6÷’Væ—VRæÖRÂ&Wf–Wr—BÂF†Vâ6fRâ"“°¢v–æF÷rç67&öÆÅFò‡²F÷¢Â&V†f–÷#¢'6Öö÷F‚"Ò“°¢Ð ¢6öç7B6VÆV7FVD6†V6¶Æ—7BÒ6WGWòæ6†V6¶Æ—7G2æf–æB‚†—FVÒ’Óâ—FVÒæ–BÓÓÒf÷&Òæ6†V6¶Æ—7EfW'6–öä–B“°¢6öç7BÆÆö6FVD†÷W'2Òf÷&Òæ6T7&VF—G2ç&VGV6R‚‡7VÒÂ—FVÒ’Óâ7VÒ²—FVÒæ†÷W'2Â“°¢6öç7BfÆ–FF–öåv&æ–æw2Ò°¢f÷&ÒææÖRçG&–Ò‚’ò$FBFV×ÆFRæÖRâ"¢""À¢f÷&ÒæFVfVÇEF—FÆRçG&–Ò‚’ò$FBFVfVÇBG&–æ–ær6†VWBF—FÆRâ"¢""À¢f÷&Òæ6Æ75G—RÓÓÒ$5""bbf÷&Òæ6†V6¶Æ—7EfW'6–öä–Bò$5"FV×ÆFW2&WV—&RV&Æ—6†VB6†V6¶Æ—7Bâ"¢""À¢f÷&Òæw&F–æt6öæf–rçw&—GFVåFW7DVæ&ÆVBbbf÷&Òæw&F–æt6öæf–rçw&—GFVåFW7E75W&6VçBÓÒçVÆÂò%6WBF†Rw&—GFVâFW7B76–ær66÷&Râ"¢""À¢f÷&Òæw&F–æt6öæf–ræ66dVæ&ÆVBbbf÷&Òæw&F–æt6öæf–ræ66e75W&6VçBÓÒçVÆÂò%6WBF†R44b76–ær66÷&Râ"¢""À¢f÷&Òæ7W7FöÔf–VÆG2ç6öÖR‚†f–VÆB’Óâf–VÆBæÆ&VÂçG&–Ò‚’’ò$æÖRWfW'’7W7FöÒw&FR÷"7GVFVçBf–VÆBâ"¢""À¢f÷&Òæw&F–æt6öæf–rç&×4VçG'”6FVv÷&–W2ç6öÖR‚†6FVv÷'’’Óâ6FVv÷'’çG&–Ò‚’’ò$æÖRWfW'’$Õ2VçG'’6FVv÷'’÷"&VÖ÷fRF†RV×G’&÷râ"¢""À¢f÷&ÒçF÷–2ÓÓÒ$5U5DôÒ"bbf÷&Òæw&F–æt6öæf–ræ7W7FöÕF÷–4Æ&VÂçG&–Ò‚’ò$VçFW"F†R7W7FöÒFV×ÆFRF÷–2â"¢""À¢f÷&Òæ6Æ75G—RÓÓÒ$5U5DôÒ"bbf÷&Òæw&F–æt6öæf–ræ7W7FöÔ6Æ75G—TÆ&VÂçG&–Ò‚’ò$VçFW"F†R7W7FöÒG&–æ–ærG—Râ"¢""À¢f÷&ÒçG&–æ–æt6FVv÷'’ÓÓÒ$5U5DôÒ"bbf÷&Òæw&F–æt6öæf–ræ7W7FöÕG&–æ–æt6FVv÷'”Æ&VÂçG&–Ò‚’ò$VçFW"F†R7W7FöÒ†÷W'26FVv÷'’â"¢""À¢f÷&Òæ7W7FöÔf–VÆG2ç6öÖR‚†f–VÆB’Óâõâ‡w&—GFVâFW7GÇFW7B66÷&WÆ66b’Bö’çFW7B†f–VÆBæÆ&VÂçG&–Ò‚’’’ò$7W7FöÒf–VÆBGWÆ–6FW2F†R'V–ÇBÖ–âw&—GFVâFW7B÷"44b66÷&Râ"¢""À¢f÷&Òæ6†V6¶Æ—7EfW'6–öä–Bbb6VÆV7FVD6†V6¶Æ—7Bò%F†R6VÆV7FVB6†V6¶Æ—7B—2æòÆöævW"V&Æ—6†VBâ"¢""À¢f÷&Òç&ö7F÷%W6W$–G2æÆVæwF‚ÓÓÒò$æòFVfVÇB&ö7F÷"—26VÆV7FVC²F†R–ç7G'V7F÷"×W7B6†ö÷6RöæRv†Vâ7&VF–ær6†VWBâ"¢""À¢Òæf–ÇFW"„&ööÆVâ“°¢gVæ7F–öâFövvÆU&ö7F÷"†–C¢7G&–ær’°¢6WDf÷&Ò‚‡fÇVR’Óâ‡°¢ââçfÇVRÀ¢&ö7F÷%W6W$–G3¢fÇVRç&ö7F÷%W6W$–G2æ–æ6ÇVFW2†–B¢òfÇVRç&ö7F÷%W6W$–G2æf–ÇFW"‚†—FVÒ’Óâ—FVÒÓÒ–B¢¢²ââçfÇVRç&ö7F÷%W6W$–G2Â–EÒÀ¢Ò’“°¢Ð ¢&WGW&â€¢ÆF—cà¢ÅvT†VFW ¢¶–6¶W#Ò%G&–æ–ærFVÆ—fW'’ ¢F—FÆSÒ%G&–æ–ær6†VWBÆ–'&'’ ¢FW67&—F–öãÒ$'V–ÆB&WW6&ÆRTÕ2Âf—&RÂæBFW'FÖVçBG&–æ–ær6†VWG2öæ6Râ6VÆV7BöæRv†Vâ7&VF–ærG&–æ–ærFò&Vf–ÆÂF†RFWF–Ç2Â6†V6¶Æ—7BÂ†÷W'2Â"6WGF–ærÂæB&ö7F÷'2â ¢7F–öç3×³ÄÆ–æ²‡&VcÒ"ö6Æ76W2"6Æ74æÖSÒ&–æÆ–æRÖfÆW‚Ö–âÖ‚Ó—FV×2Ö6VçFW"&÷VæFVBÖÖB&÷&FW"&÷&FW"Öæg’Ó3&r×v†—FR‚ÓB’Ó"FW‡B×6ÒföçB×6VÖ–&öÆBFW‡BÖæg’Ó“†÷fW#¦&rÖæg’ÓS#ä&6²FòG&–æ–æsÂôÆ–æ³çÐ¢óà¢ÄfÆ6‚ÖW76vS×¶W'&÷'ÒFöæSÒ&FævW""óà¢ÄfÆ6‚ÖW76vS×¶ÖW76vWÒFöæSÒ&7W'&VçB"óà¢ÆF—b6Æ74æÖSÒ&Ö"ÓRw&–BvÓ26Ó¦w&–BÖ6öÇ2Ó"#à¢Æ'WGFöâG—SÒ&'WGFöâ"öä6Æ–6³×²‚’Óâ6WEvUf–Wr‚$Ä”%$%’"—Ò6Æ74æÖS×²&Ö–âÖ‚Ób&÷VæFVB×†Â&÷&FW"‚ÓR’ÓBFW‡BÖÆVgBföçBÖ&öÆB"²‡vUf–WrÓÓÒ$Ä”%$%’"ò&&÷&FW"Öf—&R&rÖf—&RFW‡B×v†—FR"¢&&÷&FW"Öæg’Ó#&r×v†—FRFW‡BÖæg’Ó“"—ÓãÇ7â6Æ74æÖSÒ&&Æö6²#åFV×ÆFRÆ–'&'“Â÷7ããÇ7â6Æ74æÖS×²&×BÓ&Æö6²FW‡B×6ÒföçBÖæ÷&ÖÂ"²‡vUf–WrÓÓÒ$Ä”%$%’"ò'FW‡B×v†—FRóƒ"¢'FW‡BÖæg’ÓS"—Óäf–æBÂW6RÂGWÆ–6FRÂ÷"VF—B6fVBFV×ÆFW3Â÷7ããÂö'WGFöãà¢Æ'WGFöâG—SÒ&'WGFöâ"öä6Æ–6³×²‚’Óâ²6WDVF—F–æt–B†çVÆÂ“²6WDf÷&Ò†&Ææ²“²6WD'V–ÆFW%7FWƒ“²6WEvUf–Wr‚$%T”ÄDU""“²6WDW'&÷"†çVÆÂ“²6WDÖW76vR†çVÆÂ“²×Ò6Æ74æÖS×²&Ö–âÖ‚Ób&÷VæFVB×†Â&÷&FW"‚ÓR’ÓBFW‡BÖÆVgBföçBÖ&öÆB"²‡vUf–WrÓÓÒ$%T”ÄDU""ò&&÷&FW"Öf—&R&rÖf—&RFW‡B×v†—FR"¢&&÷&FW"Öæg’Ó#&r×v†—FRFW‡BÖæg’Ó“"—ÓãÇ7â6Æ74æÖSÒ&&Æö6²#ä7&VFRFV×ÆFSÂ÷7ããÇ7â6Æ74æÖS×²&×BÓ&Æö6²FW‡B×6ÒföçBÖæ÷&ÖÂ"²‡vUf–WrÓÓÒ$%T”ÄDU""ò'FW‡B×v†—FRóƒ"¢'FW‡BÖæg’ÓS"—Óä÷VâF†RwV–FVBFV×ÆFR'V–ÆFW#Â÷7ããÂö'WGFöãà¢ÂöF—cà¢ÆF—cà¢·vUf–WrÓÓÒ$%T”ÄDU""òÄ6&B6Æ74æÖSÒ'ÓR#à¢Æƒ"6Æ74æÖSÒ'FW‡BÖÆrföçBÖ&öÆBFW‡BÖæg’Ó“#ç¶VF—F–æt–Bò$VF—BFV×ÆFR"¢$'V–ÆBFV×ÆFR'ÓÂöƒ#à¢Ç6Æ74æÖSÒ&Ö"ÓB×BÓFW‡B×6ÒFW‡BÖæg’Óc#ä6†ö÷6RV&Æ—6†VB6†V6¶Æ—7BFòÖ¶RFWF–ÆVB&7F–6Â6W76–öç2&VG’FòÆVæ6‚ãÂ÷à¢ÆF—b6Æ74æÖSÒ&Ö"ÓBw&–Bw&–BÖ6öÇ2ÓBvÓ"&–ÖÆ&VÃÒ%FV×ÆFR'V–ÆFW"&öw&W72#à¢µ²%F÷–2bF—FÆR"Â$6†V6¶Æ—7B"Â$w&FW2b4R"Â%&Wf–Wr%ÒæÖ‚†Æ&VÂÂ–æFW‚’ÓâÆ'WGFöâ¶W“×¶Æ&VÇÒG—SÒ&'WGFöâ"öä6Æ–6³×²‚’Óâ6WD'V–ÆFW%7FW†–æFW‚²—Ò6Æ74æÖS×²&Ö–âÖ‚Ó"&÷VæFVBÖÖB‚Ó"’Ó"FW‡B×‡2föçB×6VÖ–&öÆB"²†'V–ÆFW%7FWÓÓÒ–æFW‚²ò&&rÖf—&RFW‡B×v†—FR"¢&&rÖæg’ÓSFW‡BÖæg’Ós"—Óç¶–æFW‚²Òâ¶Æ&VÇÓÂö'WGFöãâ—Ð¢ÂöF—cà¢Æf÷&Òöå7V&Ö—C×·6fWÒ6Æ74æÖSÒ'76R×’ÓB#à¢ÆF—b6Æ74æÖS×¶'V–ÆFW%7FWÓÓÒò'76R×’ÓB"¢&†–FFVâ'Óà¢Æƒ26Æ74æÖSÒ&föçBÖ&öÆBFW‡BÖæg’Ó“#åF÷–2æBF—FÆSÂöƒ3à¢ÆF—b6Æ74æÖSÒ&w&–BvÓBÖC¦w&–BÖ6öÇ2Ó"#à¢Äf–VÆBÆ&VÃÒ%FV×ÆFRæÖR#ãÄ–çWB&WV—&VBÖ„ÆVæwFƒ×³#ÒfÇVS×¶f÷&ÒææÖWÒöä6†ævS×²†R’Óâ6WDf÷&Ò‡²ââæf÷&ÒÂæÖS¢RçF&vWBçfÇVRÒ—ÒÆ6V†öÆFW#Ò$ÖöçF†Ç’TÕ2—'v’Æ""óãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ$FVfVÇBG&–æ–ær6†VWBF—FÆR#ãÄ–çWBÖ„ÆVæwFƒ×³ƒÒfÇVS×¶f÷&ÒæFVfVÇEF—FÆWÒöä6†ævS×²†R’Óâ6WDf÷&Ò‡²ââæf÷&ÒÂFVfVÇEF—FÆS¢RçF&vWBçfÇVRÒ—ÒÆ6V†öÆFW#Ò$TÕ2—'v’ÖævVÖVçB&Vg&W6†W""óãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ%FV×ÆFRF÷–2#à¢Å6VÆV7BfÇVS×¶f÷&ÒçF÷–7Òöä6†ævS×²†R’Óâ°¢6öç7BF÷–2ÒRçF&vWBçfÇVS°¢6öç7B6FVv÷'’Ò‡²TÕ3¢$TÕ2"Âd•$S¢$4ôÕå’"Â„¤ÔC¢$„¤ÔB"ÂE$•dU#¢$E$•dU""Â5#¢$TÕ2"Âôdd”4U#¢$ôdd”4U""Âd4”Ä•E“¢$d4”Ä•E’"ÂõD„U#¢$õD„U""Â5U5DôÓ¢$5U5DôÒ"Ò2&V6÷&CÇ7G&–ærÂ7G&–æsâ•·F÷–5ÒÇÂ$õD„U"#°¢6WDf÷&Ò‚†7W'&VçB’Óâ‡²ââæ7W'&VçBÂF÷–2ÂG&–æ–æt6FVv÷'“¢6FVv÷'’Âw&F–æt6öæf–s¢²ââæ7W'&VçBæw&F–æt6öæf–rÂ7W7FöÕF÷–4Æ&VÃ¢F÷–2ÓÓÒ$5U5DôÒ"ò7W'&VçBæw&F–æt6öæf–ræ7W7FöÕF÷–4Æ&VÂ¢""Â7W7FöÕG&–æ–æt6FVv÷'”Æ&VÃ¢F÷–2ÓÓÒ$5U5DôÒ"ò7W'&VçBæw&F–æt6öæf–ræ7W7FöÕG&–æ–æt6FVv÷'”Æ&VÂ¢""ÒÂ6T7&VF—G3¢F÷–2ÓÓÒ$TÕ2"ò7W'&VçBæ6T7&VF—G2¢µÒÂ7&VF—D†÷W'3¢F÷–2ÓÓÒ$TÕ2"ò7W'&VçBæ7&VF—D†÷W'2¢Ò’“°¢×Óà¢µDTÕÄDUõDõ”52æÖ‚‡F÷–2’ÓâÆ÷F–öâ¶W“×·F÷–7ÒfÇVS×·F÷–7ÓçµDõ”5ôÄ$TÅ5·F÷–5×ÓÂö÷F–öãâ—Ð¢Æ÷F–öâfÇVSÒ$5U5DôÒ#ä7W7FöÞ(
+cÂö÷F–öãà¢Âõ6VÆV7Cà¢¶f÷&ÒçF÷–2ÓÓÒ$5U5DôÒ"òÄ–çWB6Æ74æÖSÒ&×BÓ""fÇVS×¶f÷&Òæw&F–æt6öæf–ræ7W7FöÕF÷–4Æ&VÇÒöä6†ævS×²†R’Óâ6WDf÷&Ò‚†7W'&VçB’Óâ‡²ââæ7W'&VçBÂw&F–æt6öæf–s¢²ââæ7W'&VçBæw&F–æt6öæf–rÂ7W7FöÕF÷–4Æ&VÃ¢RçF&vWBçfÇVRÒÒ’—ÒÆ6V†öÆFW#Ò$VçFW"7W7FöÒFV×ÆFRF÷–2"óâ¢çVÆÇÐ¢Âôf–VÆCà¢Äf–VÆBÆ&VÃÒ%G&–æ–ærG—R#à¢Å6VÆV7BfÇVS×¶f÷&Òæ6Æ75G—WÒöä6†ævS×²†R’Óâ6WDf÷&Ò‚†7W'&VçB’Óâ‡²ââæ7W'&VçBÂ6Æ75G—S¢RçF&vWBçfÇVRÂw&F–æt6öæf–s¢²ââæ7W'&VçBæw&F–æt6öæf–rÂ7W7FöÔ6Æ75G—TÆ&VÃ¢RçF&vWBçfÇVRÓÓÒ$5U5DôÒ"ò7W'&VçBæw&F–æt6öæf–ræ7W7FöÔ6Æ75G—TÆ&VÂ¢""ÒÒ’—Óà¢Æ÷F–öâfÇVSÒ$tTäU$Â#ävVæW&ÂG&–æ–æsÂö÷F–öãà¢Æ÷F–öâfÇVSÒ$d•$Uô4DTÕ’#äf—&R6FV×’FW7F–æsÂö÷F–öãà¢Æ÷F–öâfÇVSÒ$5"#ä5#Âö÷F–öããÆ÷F–öâfÇVSÒ$TÕ2#äTÕ26¶–ÆÇ2FW7F–æsÂö÷F–öãà¢Æ÷F–öâfÇVSÒ$5U5DôÒ#ä7W7FöÞ(
+cÂö÷F–öãà¢Âõ6VÆV7Cà¢¶f÷&Òæ6Æ75G—RÓÓÒ$5U5DôÒ"òÄ–çWB6Æ74æÖSÒ&×BÓ""fÇVS×¶f÷&Òæw&F–æt6öæf–ræ7W7FöÔ6Æ75G—TÆ&VÇÒöä6†ævS×²†R’Óâ6WDf÷&Ò‚†7W'&VçB’Óâ‡²ââæ7W'&VçBÂw&F–æt6öæf–s¢²ââæ7W'&VçBæw&F–æt6öæf–rÂ7W7FöÔ6Æ75G—TÆ&VÃ¢RçF&vWBçfÇVRÒÒ’—ÒÆ6V†öÆFW#Ò$VçFW"7W7FöÒG&–æ–ærG—R"óâ¢çVÆÇÐ¢Âôf–VÆCà¢Äf–VÆBÆ&VÃÒ$†÷W'26FVv÷'’#à¢Å6VÆV7BfÇVS×¶f÷&ÒçG&–æ–æt6FVv÷'—Òöä6†ævS×²†R’Óâ6WDf÷&Ò‚†7W'&VçB’Óâ‡²ââæ7W'&VçBÂG&–æ–æt6FVv÷'“¢RçF&vWBçfÇVRÂw&F–æt6öæf–s¢²ââæ7W'&VçBæw&F–æt6öæf–rÂ7W7FöÕG&–æ–æt6FVv÷'”Æ&VÃ¢RçF&vWBçfÇVRÓÓÒ$5U5DôÒ"ò7W'&VçBæw&F–æt6öæf–ræ7W7FöÕG&–æ–æt6FVv÷'”Æ&VÂ¢""ÒÒ’—Óà¢Æ÷F–öâfÇVSÒ$4ôÕå’#ä6ö×ç“Âö÷F–öããÆ÷F–öâfÇVSÒ$d4”Ä•E’#äf6–Æ—G“Âö÷F–öããÆ÷F–öâfÇVSÒ$„¤ÔB#ä†¤ÖCÂö÷F–öãà¢Æ÷F–öâfÇVSÒ$E$•dU"#äG&—fW"ò&GW3Âö÷F–öããÆ÷F–öâfÇVSÒ$ôdd”4U"#äöff–6W"FWfVÆ÷ÖVçCÂö÷F–öããÆ÷F–öâfÇVSÒ$TÕ2#äTÕ3Âö÷F–öããÆ÷F–öâfÇVSÒ$õD„U"#ä÷F†W#Âö÷F–öãà¢Æ÷F–öâfÇVSÒ$5U5DôÒ#ä7W7FöÞ(
+cÂö÷F–öãà¢Âõ6VÆV7Cà¢¶f÷&ÒçG&–æ–æt6FVv÷'’ÓÓÒ$5U5DôÒ"òÄ–çWB6Æ74æÖSÒ&×BÓ""fÇVS×¶f÷&Òæw&F–æ}ºÛ›h‘éì¶»§q«^uÌèÕÉÉ•¹Ð¹É…‘¥¹½¹™¥œ¹ÉµÍ¹ÑÉå…Ñ•½É¥•Ì¹µ…À ¡¥Ñ•´°¥Ñ•µ%¹‘•à¤€ôø¥Ñ•µ%¹‘•à€ôôô¥¹‘•à€ü•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”€è¥Ñ•´¤ôô¤¥ô€¼ø(€€€€€€€€€€€€€€€€€€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÍ9…µ”ô‰µ¥¸µ ´ÄÄÉ½Õ¹‘•‰½É‘•È‰½É‘•Èµ¹…Ùä´ÈÀÀÁà´ÌÑ•áÐµÍ´Ñ•áÐµ‘…¹•Èˆ½¹±¥¬õì ¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°É…‘¥¹½¹™¥œèì€¸¸¹ÕÉÉ•¹Ð¹É…‘¥¹½¹™¥œ°ÉµÍ¹ÑÉå…Ñ•½É¥•ÌèÕÉÉ•¹Ð¹É…‘¥¹½¹™¥œ¹ÉµÍ¹ÑÉå…Ñ•½É¥•Ì¹™¥±Ñ•È ¡|°¥Ñ•µ%¹‘•à¤€ôø¥Ñ•µ%¹‘•à€„ôô¥¹‘•à¤ôô¤¥ôùI•µ½Ù”ð½‰ÕÑÑ½¸ø(€€€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€€€¤¥ô(€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ±…ÍÍ9…µ”ô‰µÐ´Ìˆ½¹±¥¬õì ¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°É…‘¥¹½¹™¥œèì€¸¸¹ÕÉÉ•¹Ð¹É…‘¥¹½¹™¥œ°ÉµÍ¹ÑÉå…Ñ•½É¥•Ìèl¸¸¸¡ÕÉÉ•¹Ð¹É…‘¥¹½¹™¥œ¹ÉµÍ¹ÑÉå…Ñ•½É¥•Ìñðmt¤°€ˆ‰tôô¤¥ô‘¥Í…‰±•õì¡™½É´¹É…‘¥¹½¹™¥œ¹ÉµÍ¹ÑÉå…Ñ•½É¥•Ìñðmt¤¹±•¹Ñ €øô€ÈÁôø¬‘I5L…Ñ•½Éäð½	ÕÑÑ½¸ø(€€€€€€€€€€€€ð½Í•Ñ¥½¸ø(€€€€€€€€€€€€ñ¥•±±…‰•°ô‰QÉ…¥¹¥¹œ¥¹ÍÑÉÕÑ¥½¹Ì…¹½‰©•Ñ¥Ù•Ìˆ¡¥¹Ðô‰‘¥Ð½¹”¥‘•„…Ð„Ñ¥µ”¸%Ñ•µÌÉ•µ…¥¸¥¸½É‘•ÈÝ¡•¸½Á¥•Ñ¼Ñ¡”ÑÉ…¥¹¥¹œÍ¡••Ð¸ˆø(€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰ÍÁ…”µä´ÈÉ½Õ¹‘•µ±œ‰½É‘•È‰½É‘•Èµ¹…Ùä´ÈÀÀÀ´Ìˆø(€€€€€€€€€€€€€€€ì¡™½É´¹¹½Ñ•Ì€ü™½É´¹¹½Ñ•Ì¹ÍÁ±¥Ð ‰q¸ˆ¤€èlˆ‰t¤¹µ…À ¡¥Ñ•´°¥¹‘•à¤€ôø€ (€€€€€€€€€€€€€€€€€€ñ‘¥Ø­•äõí¥¹‘•áô±…ÍÍ9…µ”ô‰™±•à¥Ñ•µÌµÍÑ…ÉÐ…À´Èˆø(€€€€€€€€€€€€€€€€€€€€ñÍÁ…¸±…ÍÍ9…µ”ô‰µ¥¸µÜ´ØÁÐ´ÌÑ•áÐµÍ´™½¹ÐµÍ•µ¥‰½±Ñ•áÐµ¹…Ùä´ÔÀÀˆùí¥¹‘•à€¬€Åô¸ð½ÍÁ…¸ø(€€€€€€€€€€€€€€€€€€€€ñQ•áÑÉ•„É½ÝÌõìÉôÙ…±Õ”õí¥Ñ•µô½¹¡…¹”õì¡”¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôøì(€€€€€€€€€€€€€€€€€€€€€½¹ÍÐ±¥¹•Ì€ôÕÉÉ•¹Ð¹¹½Ñ•Ì€üÕÉÉ•¹Ð¹¹½Ñ•Ì¹ÍÁ±¥Ð ‰q¸ˆ¤€èlˆ‰tì(€€€€€€€€€€€€€€€€€€€€€±¥¹•Ím¥¹‘•át€ô”¹Ñ…É•Ð¹Ù…±Õ”¹É•Á±…” ½qÈýq¸½œ°€ˆ€ˆ¤ì(€€€€€€€€€€€€€€€€€€€€€É•ÑÕÉ¸ì€¸¸¹ÕÉÉ•¹Ð°¹½Ñ•Ìè±¥¹•Ì¹©½¥¸ ‰q¸ˆ¤ôì(€€€€€€€€€€€€€€€€€€€ô¥ôÁ±…•¡½±‘•Èô‰=¹”¥¹ÍÑÉÕÑ¥½¸½È½‰©•Ñ¥Ù”ˆ€¼ø(€€€€€€€€€€€€€€€€€€€€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ…É¥„µ±…‰•°õíI•µ½Ù”¥Ñ•´€‘í¥¹‘•à€¬€Åõô±…ÍÍ9…µ”ô‰É½Õ¹‘•‰½É‘•È‰½É‘•Èµ¹…Ùä´ÈÀÀÁà´ÈÁä´ÈÑ•áÐµáÌˆ½¹±¥¬õì ¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôøì(€€€€€€€€€€€€€€€€€€€€€½¹ÍÐ±¥¹•Ì€ôÕÉÉ•¹Ð¹¹½Ñ•Ì€üÕÉÉ•¹Ð¹¹½Ñ•Ì¹ÍÁ±¥Ð ‰q¸ˆ¤€èlˆ‰tì(€€€€€€€€€€€€€€€€€€€€€É•ÑÕÉ¸ì€¸¸¹ÕÉÉ•¹Ð°¹½Ñ•Ìè±¥¹•Ì¹™¥±Ñ•È ¡|°¤¤€ôø¤€„ôô¥¹‘•à¤¹©½¥¸ ‰q¸ˆ¤ôì(€€€€€€€€€€€€€€€€€€€ô¥ôùI•µ½Ù”ð½‰ÕÑÑ½¸ø(€€€€€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€€€€€¤¥ô(€€€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°¹½Ñ•ÌèÕÉÉ•¹Ð¹¹½Ñ•Ì€üÕÉÉ•¹Ð¹¹½Ñ•Ì€¬€‰q¸ˆ€è€‰q¸ˆô¤¥ôø¬‘¥Ñ•´ð½	ÕÑÑ½¸ø(€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€ð½¥•±ø(€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰É½Õ¹‘•µ±œ‰½É‘•È‰½É‘•Èµ¹…Ùä´ÈÀÀÀ´Ðˆø(€€€€€€€€€€€€€€ñ Ì±…ÍÍ9…µ”ô‰™½¹ÐµÍ•µ¥‰½±ˆùÕÍÑ½´É½ÍÑ•ÈÉ•ÅÕ¥É•µ•¹ÑÌ…¹É•ÍÕ±ÑÌð½ Ìø(€€€€€€€€€€€€€€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµáÌÑ•áÐµ¹…Ùä´ØÀÀˆùI½ÍÑ•ÈÉ•ÅÕ¥É•µ•¹ÑÌ½±±•Ð¥¹™½Éµ…Ñ¥½¸…‰½ÕÐ•… ÍÑÕ‘•¹Ð°ÍÕ …Ì„•ÉÑ¥™¥…Ñ¥½¸•µ…¥°°ÍÑ…Ñ”°½ÈÉ•ÅÕ¥É•Í­¥±±ÌµÑ•ÍÐ½¹™¥Éµ…Ñ¥½¸¸I•ÍÕ±Ð™¥•±‘ÌÑÉ…¬Á•É™½Éµ…¹”¸I•ÅÕ¥É•É½ÍÑ•È¥Ñ•µÌµÕÍÐ‰”½µÁ±•Ñ•‰•™½É”Ñ¡”Í¡••Ð…¸‰”…ÁÁÉ½Ù•¸ð½Àø(€€€€€€€€€€€€€í™½É´¹ÕÍÑ½µ¥•±‘Ì¹µ…À ¡™¥•±°¥¹‘•à¤€ôø€ (€€€€€€€€€€€€€€€€ñ‘¥Ø­•äõí™¥•±¹¥‘ô±…ÍÍ9…µ”ô‰µÐ´ÌÉ¥…À´ÈÉ½Õ¹‘•µµ‰½É‘•È‰½É‘•Èµ¹…Ùä´ÄÀÀÀ´ÌÍ´éÉ¥µ½±Ì´Èˆø(€€€€€€€€€€€€€€€€€€ñ%¹ÁÕÐ…É¥„µ±…‰•°õí¥•±€‘í¥¹‘•à€¬€Åô±…‰•±ôÙ…±Õ”õí™¥•±¹±…‰•±ôÁ±…•¡½±‘•Èô‰”¹œ¸½ÈQ•ÍÐÍ½É”ˆ½¹¡…¹”õì¡”¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°ÕÍÑ½µ¥•±‘ÌèÕÉÉ•¹Ð¹ÕÍÑ½µ¥•±‘Ì¹µ…À ¡˜°¤¤€ôø¤€ôôô¥¹‘•à€üì€¸¸¹˜°±…‰•°è”¹Ñ…É•Ð¹Ù…±Õ”ô€è˜¤ô¤¥ô€¼ø(€€€€€€€€€€€€€€€€€€ñM•±•Ð…É¥„µ±…‰•°õí¥•±€‘í¥¹‘•à€¬€ÅôÑåÁ•ôÙ…±Õ”õí™¥•±¹ÑåÁ•ô½¹¡…¹”õì¡”¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°ÕÍÑ½µ¥•±‘ÌèÕÉÉ•¹Ð¹ÕÍÑ½µ¥•±‘Ì¹µ…À ¡˜°¤¤€ôø¤€ôôô¥¹‘•à€üì€¸¸¹˜°ÑåÁ”è”¹Ñ…É•Ð¹Ù…±Õ”ô€è˜¤ô¤¥ôø(€€€€€€€€€€€€€€€€€€€íl‰QaPˆ°€‰5%0ˆ°€‰MQQˆ°€‰1MPÐˆ°€‰9U5	Hˆ°€‰AI9Pˆ°€‰Qˆ°€‰AMM}%0ˆ°€‰!-	=`‰t¹µ…À ¡ÑåÁ”¤€ôø€ñ½ÁÑ¥½¸­•äõíÑåÁ•ôÙ…±Õ”õíÑåÁ•ôùíÑåÁ”€ôôô€‰1MPÐˆ€ü€‰1…ÍÐ€Ð‘¥¥ÑÌˆ€èÑåÁ”¹É•Á±…” ‰|ˆ°€ˆ€ˆ¥ôð½½ÁÑ¥½¸ø¥ô(€€€€€€€€€€€€€€€€€€ð½M•±•Ðø(€€€€€€€€€€€€€€€€€€ñM•±•Ð…É¥„µ±…‰•°õí¥•±€‘í¥¹‘•à€¬€Åô…ÁÁ±¥•ÌÑ½ôÙ…±Õ”õí™¥•±¹…ÁÁ±¥•ÍQ¼ñð€‰IMU1P‰ô½¹¡…¹”õì¡”¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°ÕÍÑ½µ¥•±‘ÌèÕÉÉ•¹Ð¹ÕÍÑ½µ¥•±‘Ì¹µ…À ¡˜°¤¤€ôø¤€ôôô¥¹‘•à€üì€¸¸¹˜°…ÁÁ±¥•ÍQ¼è”¹Ñ…É•Ð¹Ù…±Õ”…Ì€‰I=MQHˆð€‰IMU1Pˆô€è˜¤ô¤¥ôø(€€€€€€€€€€€€€€€€€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰I=MQHˆùI½ÍÑ•ÈÉ•ÅÕ¥É•µ•¹Ðð½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰IMU1PˆùQÉ…¥¹¥¹œÉ•ÍÕ±Ðð½½ÁÑ¥½¸ø(€€€€€€€€€€€€€€€€€€ð½M•±•Ðø(€€€€€€€€€€€€€€€€€€ñ±…‰•°±…ÍÍ9…µ”ô‰™±•à¥Ñ•µÌµ•¹Ñ•È…À´ÈÑ•áÐµÍ´ˆøñ¥¹ÁÕÐÑåÁ”ô‰¡•­‰½àˆ¡•­•õí™¥•±¹É•ÅÕ¥É•‘ô½¹¡…¹”õì¡”¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°ÕÍÑ½µ¥•±‘ÌèÕÉÉ•¹Ð¹ÕÍÑ½µ¥•±‘Ì¹µ…À ¡˜°¤¤€ôø¤€ôôô¥¹‘•à€üì€¸¸¹˜°É•ÅÕ¥É•è”¹Ñ…É•Ð¹¡•­•ô€è˜¤ô¤¥ô€¼ùI•ÅÕ¥É•ð½±…‰•°ø(€€€€€€€€€€€€€€€€€€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÍ9…µ”ô‰Ñ•áÐµÍ´Ñ•áÐµ‘…¹•Èˆ½¹±¥¬õì ¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°ÕÍÑ½µ¥•±‘ÌèÕÉÉ•¹Ð¹ÕÍÑ½µ¥•±‘Ì¹™¥±Ñ•È ¡|°¤¤€ôø¤€„ôô¥¹‘•à¤ô¤¥ôùI•µ½Ù”™¥•±ð½‰ÕÑÑ½¸ø(€€€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€€€¤¥ô(€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰µÐ´Ì™±•à™±•àµÝÉ…À…À´Èˆøñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°ÕÍÑ½µ¥•±‘Ìèl¸¸¹ÕÉÉ•¹Ð¹ÕÍÑ½µ¥•±‘Ì°ì¥èÉ½ÍÑ•È´‘í…Ñ”¹¹½Ü ¥ô´‘íÕÉÉ•¹Ð¹ÕÍÑ½µ¥•±‘Ì¹±•¹Ñ¡õ€°±…‰•°è€ˆˆ°ÑåÁ”è€‰QaPˆ°É•ÅÕ¥É•èÑÉÕ”°…ÁÁ±¥•ÍQ¼è€‰I=MQHˆõtô¤¥ô‘¥Í…‰±•õí™½É´¹ÕÍÑ½µ¥•±‘Ì¹±•¹Ñ €øô€ÈÁôø¬‘É½ÍÑ•ÈÉ•ÅÕ¥É•µ•¹Ðð½	ÕÑÑ½¸øñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøÍ•Ñ½É´ ¡ÕÉÉ•¹Ð¤€ôø€¡ì€¸¸¹ÕÉÉ•¹Ð°ÕÍÑ½µ¥•±‘Ìèl¸¸¹ÕÉÉ•¹Ð¹ÕÍÑ½µ¥•±‘Ì°ì¥èÉ•ÍÕ±Ð´‘í…Ñ”¹¹½Ü ¥ô´‘íÕÉÉ•¹Ð¹ÕÍÑ½µ¥•±‘Ì¹±•¹Ñ¡õ€°±…‰•°è€ˆˆ°ÑåÁ”è€‰QaPˆ°É•ÅÕ¥É•è™…±Í”°…ÁÁ±¥•ÍQ¼è€‰IMU1Pˆõtô¤¥ô‘¥Í…‰±•õí™½É´¹ÕÍÑ½µ¥•±‘Ì¹±•¹Ñ €øô€ÈÁôø¬‘É•ÍÕ±Ð™¥•±ð½	ÕÑÑ½¸øð½‘¥Øø(€€€€€€€€€€€€€€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÌÉ½Õ¹‘•µµ‰½É‘•È‰½É‘•Èµ…µ‰•È´ÈÀÀ‰œµ…µ‰•È´ÔÀÀ´ÌÑ•áÐµáÌÑ•áÐµ…µ‰•È´äÔÀˆù1…ÍÐ™½ÕÈ‘¥¥ÑÌ½˜…¸MM8…É”ÍÑ¥±°Í•¹Í¥Ñ¥Ù”Á•ÉÍ½¹…°¥¹™½Éµ…Ñ¥½¸¸½±±•ÐÑ¡•´½¹±äÝ¡•¸å½ÕÈ•ÉÑ¥™¥…Ñ¥½¸½ÈÉ•½É‘ÌÁÉ½•ÍÌÉ•ÅÕ¥É•ÌÑ¡•´ì½¹Í¥‘•ÈÕÍ¥¹œ„ÍÑÕ‘•¹Ð½È•ÉÑ¥™¥…Ñ”%¥¹ÍÑ•…¸ð½Àø(€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”õí‰Õ¥±‘•ÉMÑ•À€ôôô€Ð€ü€‰ÍÁ…”µä´Ðˆ€è€‰¡¥‘‘•¸‰ôø(€€€€€€€€€€€€€€ñ Ì±…ÍÍ9…µ”ô‰™½¹Ðµ‰½±Ñ•áÐµ¹…Ùä´äÀÀˆùI•Ù¥•ÜÑ•µÁ±…Ñ”ð½ Ìø(€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰É½Õ¹‘•µá°‰½É‘•È‰½É‘•Èµ¹…Ùä´ÈÀÀ‰œµ¹…Ùä´ÔÀÀ´Ôˆø(€€€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰™±•à™±•àµÝÉ…À…À´Èˆøñ	…‘”Ñ½¹”ô‰¹•ÕÑÉ…°ˆùí™½É´¹Ñ½Á¥Œ€ôôô€‰UMQ=4ˆ€ü™½É´¹É…‘¥¹½¹™¥œ¹ÕÍÑ½µQ½Á¥1…‰•°ñð€‰ÕÍÑ½´Ñ½Á¥Œˆ€èQ=A%}1	1Mm™½É´¹Ñ½Á¥tñð€‰=Ñ¡•È‰ôð½	…‘”ùí™½É´¹¡•­±¥ÍÑY•ÉÍ¥½¹%€ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹Ðˆù¡•­±¥ÍÐð½	…‘”ø€è€ñ	…‘”Ñ½¹”ô‰¹•ÕÑÉ…°ˆùÑÑ•¹‘…¹”½¹±äð½	…‘”ùõí™½É´¹É…‘¥¹½¹™¥œ¹ÝÉ¥ÑÑ•¹Q•ÍÑ¹…‰±•€ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹Ðˆù]É¥ÑÑ•¸Ñ•ÍÐð½	…‘”ø€è¹Õ±±õí™½É´¹É…‘¥¹½¹™¥œ¹™¹…‰±•€ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹Ðˆùð½	…‘”ø€è¹Õ±±õí™½É´¹•É•‘¥ÑÌ¹±•¹Ñ €ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹Ðˆù5Lð½	…‘”ø€è¹Õ±±ôð½‘¥Øø(€€€€€€€€€€€€€€€€ñ Ð±…ÍÍ9…µ”ô‰µÐ´ÌÑ•áÐµá°™½¹Ðµ‰½±ˆùí™½É´¹¹…µ”ñð€‰U¹Ñ¥Ñ±•Ñ•µÁ±…Ñ”‰ôð½ ÐøñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµ¹…Ùä´ÜÀÀˆùí™½É´¹‘•™…Õ±ÑQ¥Ñ±”ñð€‰9¼‘•™…Õ±ÐQÉ…¥¹¥¹œM¡••ÐÑ¥Ñ±”‰ôð½Àø(€€€€€€€€€€€€€€€€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÌÑ•áÐµÍ´ˆøñÍÑÉ½¹œù¡•­±¥ÍÐèð½ÍÑÉ½¹œøíÍ•±•Ñ•‘¡•­±¥ÍÐ€üÍ•±•Ñ•‘¡•­±¥ÍÐ¹Ñ¥Ñ±”€¬€ˆØˆ€¬Í•±•Ñ•‘¡•­±¥ÍÐ¹Ù•ÉÍ¥½¸€¬€ˆƒ
+Ü€ˆ€¬Í•±•Ñ•‘¡•­±¥ÍÐ¹Í­¥±±½Õ¹Ð€¬€ˆÍ­¥±±Ìˆ€è€‰ÑÑ•¹‘…¹”½¹±ä‰ôð½Àø(€€€€€€€€€€€€€€€€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµÍ´ˆøñÍÑÉ½¹œùÉ•‘¥Ðèð½ÍÑÉ½¹œøí™½É´¹É•‘¥Ñ!½ÕÉÌ€ü™½É´¹É•‘¥Ñ!½ÕÉÌ€¬€ˆ¡½ÕÉÌˆ€è€‰…±Õ±…Ñ•™É½´±…ÍÌ‘ÕÉ…Ñ¥½¸‰ôð½Àø(€€€€€€€€€€€€€€€í™½É´¹•É•‘¥ÑÌ¹±•¹Ñ €ü€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµÍ´ˆøñÍÑÉ½¹œù5Lèð½ÍÑÉ½¹œøí™½É´¹•É•‘¥ÑÌ¹µ…À ¡¥Ñ•´¤€ôø¥Ñ•´¹¡½ÕÉÌ€¬€ˆ¡È€ˆ€¬¥Ñ•´¹…Ñ•½Éä¤¹©½¥¸ ˆƒ
+Ü€ˆ¥ôð½Àø€è¹Õ±±ô(€€€€€€€€€€€€€€€í™½É´¹ÕÍÑ½µ¥•±‘Ì¹Í½µ” ¡¥Ñ•´¤€ôø¥Ñ•´¹…ÁÁ±¥•ÍQ¼€ôôô€‰I=MQHˆ¤€ü€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµÍ´ˆøñÍÑÉ½¹œùI½ÍÑ•ÈÉ•ÅÕ¥É•µ•¹ÑÌèð½ÍÑÉ½¹œøí™½É´¹ÕÍÑ½µ¥•±‘Ì¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹…ÁÁ±¥•ÍQ¼€ôôô€‰I=MQHˆ¤¹µ…À ¡¥Ñ•´¤€ôø¥Ñ•´¹±…‰•°ñð€‰U¹Ñ¥Ñ±•ˆ¤¹©½¥¸ ˆƒ
+Ü€ˆ¥ôð½Àø€è¹Õ±±ô(€€€€€€€€€€€€€€€í™½É´¹ÕÍÑ½µ¥•±‘Ì¹Í½µ” ¡¥Ñ•´¤€ôø¥Ñ•´¹…ÁÁ±¥•ÍQ¼€„ôô€‰I=MQHˆ¤€ü€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµÍ´ˆøñÍÑÉ½¹œùQÉ…¥¹¥¹œÉ•ÍÕ±ÑÌèð½ÍÑÉ½¹œøí™½É´¹ÕÍÑ½µ¥•±‘Ì¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹…ÁÁ±¥•ÍQ¼€„ôô€‰I=MQHˆ¤¹µ…À ¡¥Ñ•´¤€ôø¥Ñ•´¹±…‰•°ñð€‰U¹Ñ¥Ñ±•ˆ¤¹©½¥¸ ˆƒ
+Ü€ˆ¥ôð½Àø€è¹Õ±±ô(€€€€€€€€€€€€€€€í™½É´¹É…‘¥¹½¹™¥œ¹ÉµÍ¹ÑÉå…Ñ•½É¥•Ì¹±•¹Ñ €ü€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµÍ´ˆøñÍÑÉ½¹œùI5L…Ñ•½É¥•Ìèð½ÍÑÉ½¹œøí™½É´¹É…‘¥¹½¹™¥œ¹ÉµÍ¹ÑÉå…Ñ•½É¥•Ì¹™¥±Ñ•È¡	½½±•…¸¤¹©½¥¸ ˆƒ
+Ü€ˆ¥ôð½Àø€è¹Õ±±ô(€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€€íÙ…±¥‘…Ñ¥½¹]…É¹¥¹Ì¹±•¹Ñ €ü€ñ‘¥Ø±…ÍÍ9…µ”ô‰É½Õ¹‘•µ±œ‰½É‘•È‰½É‘•Èµ…µ‰•È´ÌÀÀ‰œµ…µ‰•È´ÔÀÀ´Ðˆøñ Ð±…ÍÍ9…µ”ô‰™½¹ÐµÍ•µ¥‰½±Ñ•áÐµ…µ‰•È´äÀÀˆùI•Ù¥•Ü‰•™½É”Í…Ù¥¹œð½ ÐøñÕ°±…ÍÍ9…µ”ô‰µÐ´È±¥ÍÐµ‘¥ÍŒÍÁ…”µä´ÄÁ°´ÔÑ•áÐµÍ´Ñ•áÐµ…µ‰•È´äÀÀˆùíÙ…±¥‘…Ñ¥½¹]…É¹¥¹Ì¹µ…À ¡Ý…É¹¥¹œ¤€ôø€ñ±¤­•äõíÝ…É¹¥¹ôùíÝ…É¹¥¹ôð½±¤ø¥ôð½Õ°øð½‘¥Øø€è€ñ‘¥Ø±…ÍÍ9…µ”ô‰É½Õ¹‘•µ±œ‰½É‘•È‰½É‘•ÈµÉ••¸´ÈÀÀ‰œµÉ••¸´ÔÀÀ´ÐÑ•áÐµÍ´™½¹ÐµÍ•µ¥‰½±Ñ•áÐµÉ••¸´äÀÀˆùQ•µÁ±…Ñ”¥ÌÉ•…‘äÑ¼Í…Ù”¸ð½‘¥Øùô(€€€€€€€€€€€€ñ±…‰•°±…ÍÍ9…µ”ô‰™±•àµ¥¸µ ´ÄÈ¥Ñ•µÌµ•¹Ñ•È…À´ÌÉ½Õ¹‘•µ±œ‰½É‘•È‰½É‘•Èµ¹…Ùä´ÈÀÀÀ´ÌÑ•áÐµÍ´™½¹ÐµÍ•µ¥‰½±ˆø(€€€€€€€€€€€€€€ñ¥¹ÁÕÐÑåÁ”ô‰¡•­‰½àˆ¡•­•õí™½É´¹Í•±™I•¥ÍÑÉ…Ñ¥½¹ô½¹¡…¹”õì¡”¤€ôøÍ•Ñ½É´¡ì€¸¸¹™½É´°Í•±™I•¥ÍÑÉ…Ñ¥½¸è”¹Ñ…É•Ð¹¡•­•ô¥ô€¼ø(€€€€€€€€€€€€€¹…‰±”EHÍ•±˜µÉ•¥ÍÑÉ…Ñ¥½¸‰ä‘•™…Õ±Ð(€€€€€€€€€€€€ð½±…‰•°ø(€€€€€€€€€€€€ñ¥•±±…‰•°õì‰•™…Õ±ÐÁÉ½Ñ½ÉÌ€ ˆ€¬™½É´¹ÁÉ½Ñ½ÉUÍ•É%‘Ì¹±•¹Ñ €¬€ˆ¤‰ô¡¥¹Ðô‰Q¡•äÝ¥±°‰”…ÍÍ¥¹•…ÕÑ½µ…Ñ¥…±±äÝ¡•¸Ñ¡¥ÌÑ•µÁ±…Ñ”¥ÌÕÍ•¸ˆø(€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰µ…àµ ´ÐàÍÁ…”µä´Ä½Ù•É™±½Üµ…ÕÑ¼É½Õ¹‘•µµ‰½É‘•È‰½É‘•Èµ¹…Ùä´ÈÀÀÀ´Èˆø(€€€€€€€€€€€€€€€íÍ•ÑÕÀü¹ÁÉ½Ñ½ÉÌ¹µ…À ¡Á•ÉÍ½¸¤€ôø€ (€€€€€€€€€€€€€€€€€€ñ±…‰•°­•äõíÁ•ÉÍ½¸¹ÕÍ•É%‘ô±…ÍÍ9…µ”ô‰™±•àµ¥¸µ ´ÄÄ¥Ñ•µÌµ•¹Ñ•È…À´ÌÉ½Õ¹‘•Áà´È¡½Ù•Èé‰œµ¹…Ùä´ÔÀˆø(€€€€€€€€€€€€€€€€€€€€ñ¥¹ÁÕÐÑåÁ”ô‰¡•­‰½àˆ¡•­•õí™½É´¹ÁÉ½Ñ½ÉUÍ•É%‘Ì¹¥¹±Õ‘•Ì¡Á•ÉÍ½¸¹ÕÍ•É%¥ô½¹¡…¹”õì ¤€ôøÑ½±•AÉ½Ñ½È¡Á•ÉÍ½¸¹ÕÍ•É%¥ô€¼ø(€€€€€€€€€€€€€€€€€€€€ñÍÁ…¸ùíÁ•ÉÍ½¸¹¹…µ•ôƒ
+ÜíÁ•ÉÍ½¸¹É½±”¹Ñ½1½Ý•É…Í” ¤¹É•Á±…•±° ‰|ˆ°€ˆ€ˆ¥ôð½ÍÁ…¸ø(€€€€€€€€€€€€€€€€€€ð½±…‰•°ø(€€€€€€€€€€€€€€€€¤¥ô(€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€ð½¥•±ø(€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰™±•à™±•àµÝÉ…À©ÕÍÑ¥™äµ‰•ÑÝ••¸…À´È‰½É‘•ÈµÐ‰½É‘•Èµ¹…Ùä´ÄÀÀÁÐ´Ðˆø(€€€€€€€€€€€€€€ñ‘¥Øùí‰Õ¥±‘•ÉMÑ•À€ø€Ä€ü€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøÍ•Ñ	Õ¥±‘•ÉMÑ•À ¡ÍÑ•À¤€ôøÍÑ•À€´€Ä¥ôù	…¬ð½	ÕÑÑ½¸ø€è•‘¥Ñ¥¹%€ü€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õíÉ•Í•Ñôù…¹•°•‘¥Ðð½	ÕÑÑ½¸ø€è¹Õ±±ôð½‘¥Øø(€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰™±•à…À´Èˆùí‰Õ¥±‘•ÉMÑ•À€ð€Ð€ü€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ½¹±¥¬õì ¤€ôøÍ•Ñ	Õ¥±‘•ÉMÑ•À ¡ÍÑ•À¤€ôøÍÑ•À€¬€Ä¥ôù½¹Ñ¥¹Õ”ð½	ÕÑÑ½¸ø€è€ñ	ÕÑÑ½¸ÑåÁ”ô‰ÍÕ‰µ¥Ðˆ‘¥Í…‰±•õí‰ÕÍäñðÙ…±¥‘…Ñ¥½¹]…É¹¥¹Ì¹Í½µ” ¡Ý…É¹¥¹œ¤€ôø€½É•ÅÕ¥É•ñ¹…µ”•Ù•Éåñ¹¼±½¹•ÈÁÕ‰±¥Í¡•½¤¹Ñ•ÍÐ¡Ý…É¹¥¹œ¤¥ôùí‰ÕÍä€ü€‰M…Ù¥¹ŸŠ˜ˆ€è•‘¥Ñ¥¹%€ü€‰M…Ù”¡…¹•Ìˆ€è€‰M…Ù”Ñ•µÁ±…Ñ”‰ôð½	ÕÑÑ½¸ùõí•‘¥Ñ¥¹%€˜˜‰Õ¥±‘•ÉMÑ•À€ø€Ä€ü€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õíÉ•Í•Ñôù…¹•°ð½	ÕÑÑ½¸ø€è¹Õ±±ôð½‘¥Øø(€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€ð½™½É´ø(€€€€€€€€ð½…Éø€è¹Õ±±ô(€€€€€€€íÁ…•Y¥•Ü€ôôô€‰1%	IIdˆ€ü€ñ‘¥Øø(€€€€€€€€€€ñ…É±…ÍÍ9…µ”ô‰µˆ´ÔÀ´Ðˆø(€€€€€€€€€€€€ñ È±…ÍÍ9…µ”ô‰™½¹Ðµ‰½±Ñ•áÐµ¹…Ùä´äÀÀˆùMÑ…ÉÑ•ÈÑ•µÁ±…Ñ•Ìð½ Èø(€€€€€€€€€€€€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµÍ´Ñ•áÐµ¹…Ùä´ØÀÀˆù¡½½Í”„ÍÑ…ÉÑ•ÈÑ¼½Á•¸¥Ð¥¸Ñ¡”‰Õ¥±‘•È¸%ÐÝ¥±°¹½Ð‰”Í…Ù•Õ¹Ñ¥°å½ÔÉ•Ù¥•Ü…¹Í…Ù”¥Ð¸ð½Àø(€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰µÐ´Ì™±•à™±•àµÝÉ…À…À´Èˆø(€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøìÍ•Ñ½É´¡ì€¸¸¹‰±…¹¬°€¸¸¹™¥É•™¥¡Ñ•É=¹•±…ÍÍAÉ•Í•Ð°Ñ½Á¥Œè€‰%Iˆ°É…‘¥¹½¹™¥œè‰±…¹¬¹É…‘¥¹½¹™¥œ°•É•‘¥ÑÌèmtô¤ìÍ•Ñ‘¥Ñ¥¹%¡¹Õ±°¤ìÍ•Ñ	Õ¥±‘•ÉMÑ•À Ä¤ìÍ•ÑA…•Y¥•Ü ‰	U%1Hˆ¤ìõôù¥É•™¥¡Ñ•È$ð½	ÕÑÑ½¸ø(€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøì¡½½Í•ÁÉMÑ…ÉÑ•È ¤ìÍ•Ñ‘¥Ñ¥¹%¡¹Õ±°¤ìÍ•Ñ	Õ¥±‘•ÉMÑ•À Ä¤ìÍ•ÑA…•Y¥•Ü ‰	U%1Hˆ¤ìõôù	1LAHð½	ÕÑÑ½¸ø(€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøìÍ•Ñ½É´¡ì€¸¸¹‰±…¹¬°¹…µ”è€‰5L½¹Ñ¥¹Õ¥¹œ‘Õ…Ñ¥½¸ˆ°‘•™…Õ±ÑQ¥Ñ±”è€‰5L½¹Ñ¥¹Õ¥¹œ‘Õ…Ñ¥½¸ˆ°Ñ½Á¥Œè€‰5Lˆ°±…ÍÍQåÁ”è€‰5Lˆ°ÑÉ…¥¹¥¹…Ñ•½Éäè€‰5Lˆ°Í•±™I•¥ÍÑÉ…Ñ¥½¸èÑÉÕ”°•É•‘¥ÑÌèmì…Ñ•½Éäè€‰5•‘¥…°ˆ°¡½ÕÉÌè€À¸Ôô°ì…Ñ•½Éäè€‰¥ÉÝ…äˆ°¡½ÕÉÌè€À¸Ôõt°É•‘¥Ñ!½ÕÉÌè€Äô¤ìÍ•Ñ‘¥Ñ¥¹%¡¹Õ±°¤ìÍ•Ñ	Õ¥±‘•ÉMÑ•À Ä¤ìÍ•ÑA…•Y¥•Ü ‰	U%1Hˆ¤ìõôù5Lð½	ÕÑÑ½¸ø(€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøìÍ•Ñ½É´¡ì€¸¸¹‰±…¹¬°¹…µ”è€‰!…é5…ÐI•™É•Í¡•Èˆ°‘•™…Õ±ÑQ¥Ñ±”è€‰!…é5…Ð=Á•É…Ñ¥½¹ÌI•™É•Í¡•Èˆ°Ñ½Á¥Œè€‰!i5Pˆ°ÑÉ…¥¹¥¹…Ñ•½Éäè€‰!i5Pˆ°Í•±™I•¥ÍÑÉ…Ñ¥½¸èÑÉÕ”ô¤ìÍ•Ñ‘¥Ñ¥¹%¡¹Õ±°¤ìÍ•Ñ	Õ¥±‘•ÉMÑ•À Ä¤ìÍ•ÑA…•Y¥•Ü ‰	U%1Hˆ¤ìõôù!…é5…Ðð½	ÕÑÑ½¸ø(€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøìÍ•Ñ½É´¡ì€¸¸¹‰±…¹¬°¹…µ”è€‰É¥Ù•È=Á•É…Ñ½ÈQÉ…¥¹¥¹œˆ°‘•™…Õ±ÑQ¥Ñ±”è€‰É¥Ù•È=Á•É…Ñ½ÈAÉ…Ñ¥…°QÉ…¥¹¥¹œˆ°Ñ½Á¥Œè€‰I%YHˆ°ÑÉ…¥¹¥¹…Ñ•½Éäè€‰I%YHˆô¤ìÍ•Ñ‘¥Ñ¥¹%¡¹Õ±°¤ìÍ•Ñ	Õ¥±‘•ÉMÑ•À Ä¤ìÍ•ÑA…•Y¥•Ü ‰	U%1Hˆ¤ìõôùÉ¥Ù•Èð½	ÕÑÑ½¸ø(€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøìÍ•Ñ½É´¡ì€¸¸¹‰±…¹¬°¹…µ”è€‰=™™¥•È•Ù•±½Áµ•¹Ðˆ°‘•™…Õ±ÑQ¥Ñ±”è€‰=™™¥•È•Ù•±½Áµ•¹ÐQÉ…¥¹¥¹œˆ°Ñ½Á¥Œè€‰=%Hˆ°ÑÉ…¥¹¥¹…Ñ•½Éäè€‰=%Hˆô¤ìÍ•Ñ‘¥Ñ¥¹%¡¹Õ±°¤ìÍ•Ñ	Õ¥±‘•ÉMÑ•À Ä¤ìÍ•ÑA…•Y¥•Ü ‰	U%1Hˆ¤ìõôù=™™¥•Èð½	ÕÑÑ½¸ø(€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€ð½…Éø(€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰µˆ´Ì™±•à¥Ñ•µÌµ•¹Ñ•È©ÕÍÑ¥™äµ‰•ÑÝ••¸…À´Ìˆø(€€€€€€€€€€€€ñ È±…ÍÍ9…µ”ô‰Ñ•áÐµ±œ™½¹Ðµ‰½±Ñ•áÐµ¹…Ùä´äÀÀˆù•Á…ÉÑµ•¹ÐÑ•µÁ±…Ñ•Ìð½ Èø(€€€€€€€€€€€€ñ±…‰•°±…ÍÍ9…µ”ô‰™±•à¥Ñ•µÌµ•¹Ñ•È…À´ÈÑ•áÐµÍ´ˆøñ¥¹ÁÕÐÑåÁ”ô‰¡•­‰½àˆ¡•­•õíÍ¡½ÝÉ¡¥Ù•‘ô½¹¡…¹”õì¡”¤€ôøÍ•ÑM¡½ÝÉ¡¥Ù•¡”¹Ñ…É•Ð¹¡•­•¥ô€¼øM¡½Ü…É¡¥Ù•ð½±…‰•°ø(€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰µˆ´ÌÍÁ…”µä´Èˆø(€€€€€€€€€€€€ñ%¹ÁÕÐ…É¥„µ±…‰•°ô‰M•…É Ñ•µÁ±…Ñ•ÌˆÁ±…•¡½±‘•Èô‰M•…É AH°M	°‘É¥±³Š˜ˆÙ…±Õ”õí±¥‰É…ÉåM•…É¡ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ1¥‰É…ÉåM•…É ¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼ø(€€€€€€€€€€€€ñM•±•Ð…É¥„µ±…‰•°ô‰¥±Ñ•ÈÑ•µÁ±…Ñ•ÌˆÙ…±Õ”õí±¥‰É…Éå¥±Ñ•Éô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ1¥‰É…Éå¥±Ñ•È¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ôø(€€€€€€€€€€€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰10ˆù±°Ñ•µÁ±…Ñ•Ìð½½ÁÑ¥½¸ø(€€€€€€€€€€€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰QQ99ˆùÑÑ•¹‘…¹”½¹±äð½½ÁÑ¥½¸ø(€€€€€€€€€€€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰M-%11LˆùM­¥±±Ì¡•­½™˜ð½½ÁÑ¥½¸ø(€€€€€€€€€€€€ð½M•±•Ðø(€€€€€€€€€€€€ñM•±•Ð…É¥„µ±…‰•°ô‰¥±Ñ•ÈÑ•µÁ±…Ñ•Ì‰äÑ½Á¥ŒˆÙ…±Õ”õíÑ½Á¥¥±Ñ•Éô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•ÑQ½Á¥¥±Ñ•È¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ôø(€€€€€€€€€€€€€€ñ½ÁÑ¥½¸Ù…±Õ”ô‰10ˆù±°Ñ½Á¥Ìð½½ÁÑ¥½¸ø(€€€€€€€€€€€€€íQ5A1Q}Q=A%L¹µ…À ¡Ñ½Á¥Œ¤€ôø€ñ½ÁÑ¥½¸­•äõíÑ½Á¥ôÙ…±Õ”õíÑ½Á¥ôùíQ=A%}1	1MmÑ½Á¥uôð½½ÁÑ¥½¸ø¥ô(€€€€€€€€€€€€ð½M•±•Ðø(€€€€€€€€€€€€ñÀ±…ÍÍ9…µ”ô‰Ñ•áÐµáÌÑ•áÐµ¹…Ùä´ÔÀÀˆùQ•µÁ±…Ñ•Ì…É”É½ÕÁ•‰äÑ½Á¥Œ¸M­¥±±ÌÉ…‘¥¹œ½µ•Ì™É½´Ñ¡”±¥¹­•ÁÕ‰±¥Í¡•¡•­±¥ÍÐ¸ð½Àø(€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰ÍÁ…”µä´Ôˆø(€€€€€€€€€€€íÙ¥Í¥‰±•Q•µÁ±…Ñ•Ì¹±•¹Ñ €ôôô€À€ü€ñ…É±…ÍÍ9…µ”ô‰À´ÔÑ•áÐµÍ´Ñ•áÐµ¹…Ùä´ÔÀÀˆù9¼Ñ•µÁ±…Ñ•Ìµ…Ñ Ñ¡¥ÌÑ½Á¥Œ¸É•…Ñ”½¹”™½È„É•ÕÉÉ¥¹œ5L°™¥É”°!…é5…Ð°½È‘•Á…ÉÑµ•¹ÐÑÉ…¥¹¥¹œÍ•ÍÍ¥½¸¸ð½…Éø€èÉ½ÕÁ•‘Q•µÁ±…Ñ•Ì¹µ…À ¡É½ÕÀ¤€ôø€ (€€€€€€€€€€€€€€ñÍ•Ñ¥½¸­•äõíÉ½ÕÀ¹Ñ½Á¥ô…É¥„µ±…‰•°õíQ=A%}1	1MmÉ½ÕÀ¹Ñ½Á¥uôø(€€€€€€€€€€€€€€€€ñ Ì±…ÍÍ9…µ”ô‰µˆ´È™½¹Ðµ‰½±Ñ•áÐµ¹…Ùä´àÀÀˆùíQ=A%}1	1MmÉ½ÕÀ¹Ñ½Á¥uôð½ Ìø(€€€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰ÍÁ…”µä´Ìˆø(€€€€€€€€€€€€€€€€€íÉ½ÕÀ¹¥Ñ•µÌ¹µ…À ¡¥Ñ•´¤€ôø€ (€€€€€€€€€€€€€€ñ…É­•äõí¥Ñ•´¹¥‘ô±…ÍÍ9…µ”ô‰À´Ðˆø(€€€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰™±•à¥Ñ•µÌµÍÑ…ÉÐ©ÕÍÑ¥™äµ‰•ÑÝ••¸…À´Ìˆø(€€€€€€€€€€€€€€€€€€ñ‘¥Øø(€€€€€€€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰™±•à™±•àµÝÉ…À¥Ñ•µÌµ•¹Ñ•È…À´Èˆøñ Ì±…ÍÍ9…µ”ô‰™½¹Ðµ‰½±Ñ•áÐµ¹…Ùä´äÀÀˆùí¥Ñ•´¹¹…µ•ôð½ Ìøñ	…‘”Ñ½¹”ô‰¹•ÕÑÉ…°ˆùÙí¥Ñ•´¹É•Ù¥Í¥½¸ñð€Åôð½	…‘”ùí¥Ñ•´¹…É¡¥Ù•€ü€ñ	…‘”Ñ½¹”ô‰¹•ÕÑÉ…°ˆùÉ¡¥Ù•ð½	…‘”ø€è¹Õ±±õí¥Ñ•´¹¡•­±¥ÍÑY•ÉÍ¥½¹%€ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹Ðˆù¡•­±¥ÍÐð½	…‘”ø€è€ñ	…‘”Ñ½¹”ô‰¹•ÕÑÉ…°ˆùÑÑ•¹‘…¹”ð½	…‘”ùõí¥Ñ•´¹É…‘¥¹½¹™¥œü¹ÝÉ¥ÑÑ•¹Q•ÍÑ¹…‰±•€ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹ÐˆùQ•ÍÐð½	…‘”ø€è¹Õ±±õí¥Ñ•´¹É…‘¥¹½¹™¥œü¹™¹…‰±•€ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹Ðˆùð½	…‘”ø€è¹Õ±±õí¥Ñ•´¹ÕÍÑ½µ¥•±‘Ìü¹±•¹Ñ €ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹ÐˆùÕÍÑ½´É…‘¥¹œð½	…‘”ø€è¹Õ±±õí¥Ñ•´¹É…‘¥¹½¹™¥œü¹ÉµÍ¹ÑÉå…Ñ•½É¥•Ìü¹±•¹Ñ €ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹ÐˆùI5L…Ñ•½É¥•Ìð½	…‘”ø€è¹Õ±±õí¥Ñ•´¹•É•‘¥ÑÌü¹±•¹Ñ €ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹Ðˆùð½	…‘”ø€è¹Õ±±õí¥Ñ•´¹Í•±™I•¥ÍÑÉ…Ñ¥½¸€ü€ñ	…‘”Ñ½¹”ô‰ÕÉÉ•¹ÐˆùEHð½	…‘”ø€è¹Õ±±ôð½‘¥Øø(€€€€€€€€€€€€€€€€€€€€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµÍ´Ñ•áÐµ¹…Ùä´ØÀÀˆùí¥Ñ•´¹‘•™…Õ±ÑQ¥Ñ±”ñð¥Ñ•´¹¹…µ•ôð½Àø(€€€€€€€€€€€€€€€€€€€€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÈÑ•áÐµáÌÑ•áÐµ¹…Ùä´ÔÀÀˆùí¥Ñ•´¹É…‘¥¹½¹™¥œü¹ÕÍÑ½µQ½Á¥1…‰•°ñðQ=A%}1	1Mm¥Ñ•´¹Ñ½Á¥tñð€‰=Ñ¡•È‰ôƒ
+Üí¥Ñ•´¹É•‘¥Ñ!½ÕÉÌ€ü¥Ñ•´¹É•‘¥Ñ!½ÕÉÌ€¬€ˆ¡Èˆ€è€‰ÕÍ•Ì±…ÍÌ‘ÕÉ…Ñ¥½¸‰ôƒ
+Üí¥Ñ•´¹Í•±™I•¥ÍÑÉ…Ñ¥½¸€ü€‰EH•¹…‰±•ˆ€è€‰EH½™˜‰ôð½Àø(€€€€€€€€€€€€€€€€€€€í¥Ñ•´¹•É•‘¥ÑÌü¹±•¹Ñ €ü€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµáÌÑ•áÐµ¹…Ùä´ØÀÀˆùèí¥Ñ•´¹•É•‘¥ÑÌ¹µ…À ¡É•‘¥Ð¤€ôø€‘íÉ•‘¥Ð¹…Ñ•½Éåô€‘íÉ•‘¥Ð¹¡½ÕÉÍô¡É€¤¹©½¥¸ ˆƒ
+Ü€ˆ¥ôð½Àø€è¹Õ±±ô(€€€€€€€€€€€€€€€€€€€í¥Ñ•´¹¡•­±¥ÍÑY•ÉÍ¥½¹%€ü€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµáÌÑ•áÐµ¹…Ùä´ØÀÀˆù¡•­±¥ÍÐ…ÑÑ…¡•ð½Àø€è¹Õ±±ô(€€€€€€€€€€€€€€€€€€€í¥Ñ•´¹É…‘¥¹½¹™¥œü¹ÝÉ¥ÑÑ•¹Q•ÍÑ¹…‰±•€ü€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÄÑ•áÐµáÌÑ•áÐµ¹…Ùä´ØÀÀˆù]É¥ÑÑ•¸Ñ•ÍÐÍ½É•í¥Ñ•´¹É…‘¥¹½¹™¥œ¹ÝÉ¥ÑÑ•¹Q•ÍÑA…ÍÍA•É•¹Ð€„ô¹Õ±°€ü€ƒ
+ÜÁ…ÍÌ€‘í¥Ñ•´¹É…‘¥¹½¹™¥œ¹ÝÉ¥ÑÑ•¹Q•ÍÑA…ÍÍA•É•¹Ñô•€€è€ˆ‰ôð½Àø€è¹Õ±±ô(€€€€€€€€€€€€€€€€€€€í¥Ñ•´¹¹½Ñ•Ì€ü€ñÀ±…ÍÍ9…µ”ô‰µÐ´È±¥¹”µ±…µÀ´ÌÑ•áÐµÍ´Ñ•áÐµ¹…Ùä´ÜÀÀˆùí¥Ñ•´¹¹½Ñ•Íôð½Àø€è¹Õ±±õí¥Ñ•´¹ÕÁ‘…Ñ•‘Ð€ü€ñÀ±…ÍÍ9…µ”ô‰µÐ´ÈÑ•áÐµáÌÑ•áÐµ¹…Ùä´ÔÀÀˆùUÁ‘…Ñ•í¹•Ü…Ñ”¡¥Ñ•´¹ÕÁ‘…Ñ•‘Ð¤¹Ñ½1½…±•…Ñ•MÑÉ¥¹œ ¥ôð½Àø€è¹Õ±±ô(€€€€€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰µÐ´Ì™±•à™±•àµÝÉ…À…À´Èˆø(€€€€€€€€€€€€€€€€€ì…¥Ñ•´¹…É¡¥Ù•€ü€ñ1¥¹¬¡É•˜õí€½±…ÍÍ•ÌýÑ•µÁ±…Ñ”ô‘í•¹½‘•UI%½µÁ½¹•¹Ð¡¥Ñ•´¹¥¥õô±…ÍÍ9…µ”ô‰¥¹±¥¹”µ™±•àµ¥¸µ ´ÄÄ¥Ñ•µÌµ•¹Ñ•ÈÉ½Õ¹‘•µµ‰œµ™¥É”Áà´ÐÁä´ÈÑ•áÐµÍ´™½¹ÐµÍ•µ¥‰½±Ñ•áÐµÝ¡¥Ñ”ˆùUÍ”Ñ•µÁ±…Ñ”ð½1¥¹¬ø€è¹Õ±±ô(€€€€€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôø•‘¥Ð¡¥Ñ•´¥ôù‘¥Ðð½	ÕÑÑ½¸ø(€€€€€€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôø‘ÕÁ±¥…Ñ”¡¥Ñ•´¥ôùÕÁ±¥…Ñ”ð½	ÕÑÑ½¸ø(€€€€€€€€€€€€€€€€€€ñ	ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆÙ…É¥…¹Ðô‰Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøÙ½¥…É¡¥Ù”¡¥Ñ•´¥ôùí¥Ñ•´¹…É¡¥Ù•€ü€‰I•ÍÑ½É”ˆ€è€‰É¡¥Ù”‰ôð½	ÕÑÑ½¸ø(€€€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€€€ð½…Éø(€€€€€€€€€€€€€€€€€€¤¥ô(€€€€€€€€€€€€€€€€ð½‘¥Øø(€€€€€€€€€€€€€€ð½Í•Ñ¥½¸ø(€€€€€€€€€€€€¤¥ô(€€€€€€€€€€ð½‘¥Øø(€€€€€€€€ð½‘¥Øø€è¹Õ±±ô(€€€€€€ð½‘¥Øø(€€€€ð½‘¥Øø(€€¤ì)ô(

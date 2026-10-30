@@ -23,7 +23,7 @@ type Session = {
   enabledFeatures?: string[];
 };
 
-const ADMIN_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/platform-admin", "/enrollment", "/training-expectations"];
+const ADMIN_PATHS = ["/settings", "/department", "/certifications", "/interest-list", "/platform-admin", "/enrollment", "/training-expectations", "/training-cleanup", "/audit-history"];
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
 const NAV_ICONS: Record<PortalNavIcon, LucideIcon> = {
   home: LayoutDashboard,
