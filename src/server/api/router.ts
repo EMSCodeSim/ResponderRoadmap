@@ -482,6 +482,8 @@ export async function handleApi(req: Request, path: string[]) {
     }
     const asg = match(path, "assignments/:id");
     if (method === "GET" && asg) return jsonOk(await assignments.getAssignmentDetail(ctx, asg.id));
+    const taskBookRmsEntered = match(path, "assignments/:id/rms-entered");
+    if (method === "POST" && taskBookRmsEntered) return jsonOk(await assignments.markTaskBookEnteredIntoRms(ctx, taskBookRmsEntered.id, await readBody(req)));
 
     if (method === "GET" && match(path, "sign-offs")) return jsonOk(await assignments.listSignOffQueue(ctx, q));
     const so = match(path, "sign-offs/:id");
