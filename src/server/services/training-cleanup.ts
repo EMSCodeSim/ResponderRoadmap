@@ -35,7 +35,7 @@ export async function listTrainingCleanupItems(ctx: AuthContext) {
       select: { id: true, title: true, startsAt: true, createdAt: true, status: true, roster: { select: { attendance: true, finalResult: true, writtenScore: true, ccfScore: true, skillResults: { select: { id: true } } } } },
     }),
     prisma.taskBookAssignment.findMany({
-      where: { departmentId: ctx.departmentId, status: "NOT_STARTED", completions: { none: {} } },
+      where: { departmentId: ctx.departmentId, status: { in: ["NOT_STARTED", "OVERDUE"] }, completions: { none: {} } },
       orderBy: { assignedDate: "asc" },
       select: { id: true, assignedDate: true, createdAt: true, membership: { select: { user: { select: { name: true } } } }, version: { select: { template: { select: { title: true, templateKind: true } } } } },
     }),
@@ -120,7 +120,7 @@ export async function deleteTrainingCleanupItem(ctx: AuthContext, type: CleanupT
     }
 
     if (type === "ASSIGNMENT") {
-      const assignment = await tx.taskBookAssignment.findFirst({ where: { id, departmentId: ctx.departmentId, status: "NOT_STARTED", completions: { none: {} } }, select: { id: true, version: { select: { template: { select: { title: true } } } } } });
+      const assignment = await tx.taskBookAssignment.findFirst({ where: { id, departmentId: ctx.departmentId, status: { in: ["NOT_STARTED", "OVERDUE"] }, completions: { none: {} } }, select: { id: true, version: { select: { template: { select: { title: true } } } } } });
       if (!assignment) throw new HttpError(409, "Only unstarted assignments with no submitted work can be removed.");
       await tx.auditLog.create({ data: { departmentId: ctx.departmentId, actorId: ctx.userId, action: "training_cleanup.assignment_deleted", entityType: "TaskBookAssignment", entityId: assignment.id, detailsJson: JSON.stringify({ title: assignment.version.template.title }) } });
       await tx.activityEvent.deleteMany({ where: { departmentId: ctx.departmentId, referenceId: assignment.id } });
