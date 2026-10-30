@@ -162,6 +162,9 @@ export async function handleApi(req: Request, path: string[]) {
       const body = await readBody(req);
       return jsonOk(await trainingCleanup.deleteTrainingCleanupItem(ctx, String(body.type || "") as trainingCleanup.CleanupType, String(body.id || "")));
     }
+    if (method === "GET" && match(path, "audit-history")) return jsonOk(await trainingCleanup.listAuditHistory(ctx));
+    const trainingRecovery = match(path, "training-cleanup/restore/:id");
+    if (method === "POST" && trainingRecovery) return jsonOk(await trainingCleanup.restoreTrainingCleanupItem(ctx, trainingRecovery.id));
 
     if (method === "GET" && match(path, "my-credentials")) {
       return jsonOk(await credentials.listMyCredentials(ctx));

@@ -197,6 +197,15 @@ export default function SettingsPage() {
         { key: "interest-list", href: "/interest-list", title: "Interest list", description: "Review department interest inquiries." },
       ],
     },
+    {
+      title: "Oversight & records",
+      items: [
+        { key: "members", href: "/members", title: "Access review", description: "Review member roles, department access, and evaluator permissions." },
+        { key: "department", href: "/audit-history", title: "Audit history", description: "See who changed department records and when." },
+        { key: "reports", href: "/reports?type=training-hours", title: "Export training records", description: "Review and download department training hours and records." },
+        { key: "dashboard", href: "/dashboard", title: "Pending work overview", description: "Open the department’s needs-attention queue for approvals, evaluations, and RMS follow-up." },
+      ],
+    },
   ].map((group) => ({ ...group, items: group.items.filter((item) => nav.includes(item.key)) })).filter((group) => group.items.length > 0);
   const hasAdminTools = toolGroups.length > 0;
 

@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/dates";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { blsAtlasPreparationCsv, downloadBlsCsv } from "@/lib/bls-atlas-export";
 import { ClassRegistrationControls } from "@/components/class-registration-controls";
+import { CustomRosterField, type CustomRosterFieldDefinition } from "@/components/custom-roster-field";
 
 type SkillResult = {
   requirementId: string;
@@ -51,7 +52,7 @@ type Skill = {
   criticalFailures: unknown[];
 };
 
-type CustomField = { id: string; label: string; type: string; required: boolean };
+type CustomField = CustomRosterFieldDefinition;
 type ClassDetail = {
   ceCredits: Array<{ category: string; hours: number }>;
   gradingConfig: { writtenTestEnabled?: boolean; writtenTestPassPercent?: number | null; ccfEnabled?: boolean; ccfPassPercent?: number | null; rmsEntryCategories?: string[] };
@@ -143,6 +144,7 @@ export default function ClassDetailPage() {
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestOrganization, setGuestOrganization] = useState("");
+  const [guestCustomValues, setGuestCustomValues] = useState<Record<string, string | number | boolean | null>>({});
   const [rosterMessage, setRosterMessage] = useState("");
   const [rmsOpen, setRmsOpen] = useState(false);
   const [rmsReference, setRmsReference] = useState("");
@@ -286,8 +288,9 @@ export default function ClassDetailPage() {
     if (!detail) return;
     setBusy(true); setError(null); setRosterMessage("");
     try {
-      await api(`classes/${detail.id}/roster/manual`, { method: "POST", body: JSON.stringify({ name: guestName, email: guestEmail, organization: guestOrganization }) });
+      await api(`classes/${detail.id}/roster/manual`, { method: "POST", body: JSON.stringify({ name: guestName, email: guestEmail, organization: guestOrganization, customValues: guestCustomValues }) });
       setGuestName(""); setGuestEmail(""); setGuestOrganization("");
+      setGuestCustomValues({});
       await load();
       setRosterMessage("Student added to the class roster.");
     } catch (err) { setError(err instanceof Error ? err.message : "Unable to add this student."); }
@@ -445,7 +448,7 @@ export default function ClassDetailPage() {
           {rosterMessage ? <p className="mt-2 rounded-md bg-green-50 p-2 text-sm font-semibold text-green-900">{rosterMessage}</p> : null}
           <div className="mt-4 grid gap-5 lg:grid-cols-2">
             <div><h3 className="font-semibold">Department roster</h3><div className="mt-2 max-h-56 space-y-1 overflow-auto rounded-md border border-navy-200 p-2">{availableMembers.filter((member) => !detail.roster.some((student) => student.membershipId === member.id)).map((member) => <label key={member.id} className="flex min-h-10 items-center gap-2 rounded px-2 hover:bg-navy-50"><input type="checkbox" checked={addMemberIds.includes(member.id)} onChange={() => setAddMemberIds((current) => current.includes(member.id) ? current.filter((id) => id !== member.id) : [...current, member.id])} /><span>{member.name}{member.rank ? " · " + member.rank : ""}</span></label>)}</div><Button className="mt-3" variant="secondary" disabled={busy || !addMemberIds.length} onClick={() => void addDepartmentRosterMembers()}>Add selected members</Button></div>
-            <div><h3 className="font-semibold">Manual student</h3><div className="mt-2 space-y-3"><Field label="Student name"><Input value={guestName} onChange={(event) => setGuestName(event.target.value)} /></Field><Field label="Email"><Input type="email" value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} /></Field><Field label="Organization (optional)"><Input value={guestOrganization} onChange={(event) => setGuestOrganization(event.target.value)} /></Field><Button variant="secondary" disabled={busy || guestName.trim().length < 2 || !guestEmail.includes("@")} onClick={() => void addManualStudent()}>Add student</Button></div></div>
+            <div><h3 className="font-semibold">Manual student</h3><div className="mt-2 space-y-3"><Field label="Student name"><Input value={guestName} onChange={(event) => setGuestName(event.target.value)} /></Field><Field label="Email"><Input type="email" value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} /></Field><Field label="Organization (optional)"><Input value={guestOrganization} onChange={(event) => setGuestOrganization(event.target.value)} /></Field>{detail.customFields.filter((field) => field.appliesTo === "ROSTER").map((field) => <CustomRosterField key={field.id} field={field} value={guestCustomValues[field.id]} onChange={(value) => setGuestCustomValues((current) => ({ ...current, [field.id]: value }))} />)}<Button variant="secondary" disabled={busy || guestName.trim().length < 2 || !guestEmail.includes("@")} onClick={() => void addManualStudent()}>Add student</Button></div></div>
           </div>
         </details>
       </Card> : null}
@@ -555,6 +558,7 @@ export default function ClassDetailPage() {
               <button onClick={() => setStudentId(item.id)} className={`min-h-12 w-full rounded-md border p-3 text-left ${studentId === item.id ? "border-fire bg-fire-soft" : "border-navy-200 bg-white"}`}>
                 <div className="flex items-center justify-between gap-2"><span className="font-semibold">{item.name}{item.isGuest ? <span className="ml-2 text-xs font-normal text-navy-500">Guest</span> : null}</span><Badge tone={tone(item.finalResult)}>{resultLabels[item.finalResult] || item.finalResult}</Badge></div>
                 <p className="mt-1 text-xs text-navy-500">{item.attendance} · {item.results.length} results recorded</p>
+                {detail.customFields.filter((field) => field.appliesTo === "ROSTER" && item.customValues?.[field.id] != null && item.customValues[field.id] !== "").length ? <p className="mt-1 text-xs text-navy-700">{detail.customFields.filter((field) => field.appliesTo === "ROSTER" && item.customValues?.[field.id] != null && item.customValues[field.id] !== "").map((field) => `${field.label}: ${field.type === "LAST4" ? `••${String(item.customValues[field.id]).slice(-2)}` : String(item.customValues[field.id])}`).join(" · ")}</p> : null}
               </button></div>
             ))}
           </div>
@@ -570,25 +574,22 @@ export default function ClassDetailPage() {
             </div>
           </Card>
 
-          {detail.customFields?.length ? <Card className="p-4">
-            <h3 className="mb-3 font-semibold">Template-specific student results</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {detail.customFields.map((field) => (
-                <Field key={field.id} label={`${field.label}${field.required ? " (required)" : ""}`}>
-                  {field.type === "PASS_FAIL" || field.type === "CHECKBOX" ? (
-                    <Select value={String(student.customValues?.[field.id] ?? "")} disabled={busy || detail.status === "COMPLETE"} onChange={(event) => {
-                      const value = field.type === "CHECKBOX" ? event.target.value === "true" : event.target.value;
-                      void updateStudent({ customValues: { ...student.customValues, [field.id]: value } });
-                    }}>
-                      <option value="">Not recorded</option>
-                      {field.type === "PASS_FAIL" ? <><option value="PASS">Pass</option><option value="FAIL">Fail</option></> : <><option value="true">Yes</option><option value="false">No</option></>}
-                    </Select>
-                  ) : (
-                    <Input type={field.type === "NUMBER" || field.type === "PERCENT" ? "number" : field.type === "DATE" ? "date" : "text"} min={field.type === "PERCENT" ? "0" : undefined} max={field.type === "PERCENT" ? "100" : undefined} value={String(student.customValues?.[field.id] ?? "")} disabled={busy || detail.status === "COMPLETE"} onChange={(event) => setDetail((current) => current ? { ...current, roster: current.roster.map((item) => item.id === student.id ? { ...item, customValues: { ...item.customValues, [field.id]: event.target.value } } : item) } : current)} onBlur={(event) => void updateStudent({ customValues: { ...student.customValues, [field.id]: event.target.value } })} />
-                  )}
-                </Field>
-              ))}
-            </div>
+          {detail.customFields.some((field) => field.appliesTo === "ROSTER") ? <Card className="p-4">
+            <h3 className="mb-1 font-semibold">Roster requirements</h3><p className="mb-3 text-sm text-navy-600">Complete department-defined student information required by this template.</p>
+            <div className="grid gap-3 sm:grid-cols-2">{detail.customFields.filter((field) => field.appliesTo === "ROSTER").map((field) => <CustomRosterField key={field.id} field={field} value={student.customValues?.[field.id]} disabled={busy || detail.status === "COMPLETE"} onChange={(value) => {
+              const customValues = { ...student.customValues, [field.id]: value };
+              setDetail((current) => current ? { ...current, roster: current.roster.map((item) => item.id === student.id ? { ...item, customValues } : item) } : current);
+              if (["STATE", "CHECKBOX", "PASS_FAIL"].includes(field.type)) void updateStudent({ customValues });
+            }} onBlur={() => void updateStudent({ customValues: student.customValues })} />)}</div>
+            {detail.customFields.some((field) => field.type === "LAST4" && field.appliesTo === "ROSTER") ? <p className="mt-3 text-xs text-amber-800">Last-four identifier values are masked in the roster list. Limit access to this class roster to authorized instructors.</p> : null}
+          </Card> : null}
+          {detail.customFields.some((field) => field.appliesTo !== "ROSTER") ? <Card className="p-4">
+            <h3 className="mb-3 font-semibold">Additional training results</h3>
+            <div className="grid gap-3 sm:grid-cols-2">{detail.customFields.filter((field) => field.appliesTo !== "ROSTER").map((field) => <CustomRosterField key={field.id} field={field} value={student.customValues?.[field.id]} disabled={busy || detail.status === "COMPLETE"} onChange={(value) => {
+              const customValues = { ...student.customValues, [field.id]: value };
+              setDetail((current) => current ? { ...current, roster: current.roster.map((item) => item.id === student.id ? { ...item, customValues } : item) } : current);
+              if (["STATE", "CHECKBOX", "PASS_FAIL"].includes(field.type)) void updateStudent({ customValues });
+            }} onBlur={() => void updateStudent({ customValues: student.customValues })} />)}</div>
           </Card> : null}
 
           {detail.sections.length === 0 ? <Card className="p-5"><h2 className="font-bold">Attendance-only training</h2><p className="mt-1 text-sm text-navy-600">Mark each member Present, Absent, or Excused. When attendance is complete, choose Complete training. Present department members will receive the training credit in Training Hours.</p></Card> : null}

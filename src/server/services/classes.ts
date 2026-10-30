@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/server/db";
-import { normalizeGuestRegistration } from "@/lib/class-registration";
+import { normalizeGuestRegistration, US_STATES, type RegistrationCustomField } from "@/lib/class-registration";
 import { canViewClassRecord, classListScope } from "@/lib/class-access";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
@@ -72,6 +72,33 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
     throw new HttpError(403, "You are not assigned as a proctor for this class.");
   }
   return row;
+}
+
+function normalizeRosterCustomValues(raw: unknown, rosterFields: RegistrationCustomField[]) {
+  const provided = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  const values: Record<string, string | number | boolean | null> = {};
+  for (const field of rosterFields) {
+    const rawValue = provided[field.id];
+    const value = typeof rawValue === "string" ? rawValue.trim() : rawValue === true ? true : "";
+    if ((value === "" || value === null || (field.type === "CHECKBOX" && value !== true && value !== "true")) && field.required) throw new HttpError(400, field.type === "CHECKBOX" ? `Confirm ${field.label}.` : `Enter ${field.label}.`);
+    if (value === "" || value === null) { values[field.id] = null; continue; }
+    if (field.type === "EMAIL") {
+      if (typeof value !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new HttpError(400, `Enter a valid ${field.label.toLowerCase()}.`);
+      values[field.id] = value.toLowerCase().slice(0, 254);
+    } else if (field.type === "STATE") {
+      if (typeof value !== "string" || !US_STATES.includes(value.toUpperCase() as (typeof US_STATES)[number])) throw new HttpError(400, `Choose a valid state for ${field.label}.`);
+      values[field.id] = value.toUpperCase();
+    } else if (field.type === "LAST4") {
+      if (typeof value !== "string" || !/^\d{4}$/.test(value)) throw new HttpError(400, `${field.label} must contain exactly four digits.`);
+      values[field.id] = value;
+    } else if (field.type === "NUMBER" || field.type === "PERCENT") {
+      const number = Number(value);
+      if (!Number.isFinite(number) || (field.type === "PERCENT" && (number < 0 || number > 100))) throw new HttpError(400, `Enter a valid value for ${field.label}.`);
+      values[field.id] = number;
+    } else if (field.type === "CHECKBOX") values[field.id] = value === true || value === "true";
+    else values[field.id] = String(value).slice(0, 500);
+  }
+  return values;
 }
 
 
@@ -338,6 +365,9 @@ export async function addManualGuestToClass(ctx: AuthContext, classId: string, i
   const name = String(input.name || "").trim().slice(0, 160);
   const email = String(input.email || "").trim().toLowerCase().slice(0, 254);
   const organization = String(input.organization || "").trim().slice(0, 180);
+  const templateFields = JSON.parse(row.customFieldsJson || "[]") as RegistrationCustomField[];
+  const rosterFields = templateFields.filter((field) => field.appliesTo === "ROSTER");
+  const customValues = normalizeRosterCustomValues(input.customValues, rosterFields);
   if (name.length < 2) throw new HttpError(400, "Enter the student's name.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "Enter a valid student email.");
   const existing = await prisma.trainingClassEnrollment.findFirst({
@@ -352,7 +382,7 @@ export async function addManualGuestToClass(ctx: AuthContext, classId: string, i
     select: { id: true },
   });
   const enrolled = await prisma.trainingClassEnrollment.create({
-    data: member ? { classId, membershipId: member.id } : { classId, guestName: name, guestEmail: email, guestOrganization: organization },
+    data: member ? { classId, membershipId: member.id, customValuesJson: JSON.stringify(customValues) } : { classId, guestName: name, guestEmail: email, guestOrganization: organization, customValuesJson: JSON.stringify(customValues) },
   });
   await writeAudit(ctx, "class.roster.manual_added", "TrainingClass", classId,
     { enrollmentId: enrolled.id, existingMember: Boolean(member) });
@@ -523,7 +553,7 @@ async function findRegistrationClass(token: string) {
   if (!/^[a-f0-9]{64}$/.test(token)) throw new HttpError(404, "Registration link not found.");
   const row = await prisma.trainingClass.findUnique({
     where: { registrationToken: token },
-    select: { id: true, departmentId: true, title: true, startsAt: true, location: true, status: true, registrationEnabled: true },
+    select: { id: true, departmentId: true, title: true, startsAt: true, location: true, status: true, registrationEnabled: true, customFieldsJson: true },
   });
   if (!row) throw new HttpError(404, "Registration link not found.");
   return row;
@@ -531,7 +561,8 @@ async function findRegistrationClass(token: string) {
 
 export async function getPublicClassRegistration(token: string) {
   const row = await findRegistrationClass(token);
-  return { title: row.title, startsAt: row.startsAt, location: row.location, open: row.registrationEnabled && ["DRAFT", "ACTIVE"].includes(row.status) };
+  const customFields = (JSON.parse(row.customFieldsJson || "[]") as RegistrationCustomField[]).filter((field) => field.appliesTo === "ROSTER");
+  return { title: row.title, startsAt: row.startsAt, location: row.location, open: row.registrationEnabled && ["DRAFT", "ACTIVE"].includes(row.status), customFields };
 }
 
 async function enforceRegistrationRateLimit(token: string, source: string) {
@@ -546,7 +577,9 @@ async function enforceRegistrationRateLimit(token: string, source: string) {
 
 export async function registerGuestStudent(token: string, raw: unknown, source = "unknown") {
   await enforceRegistrationRateLimit(token, source);
-  const input = normalizeGuestRegistration(raw);
+  const registrationClass = await findRegistrationClass(token);
+  const customFields = (JSON.parse(registrationClass.customFieldsJson || "[]") as RegistrationCustomField[]).filter((field) => field.appliesTo === "ROSTER");
+  const input = normalizeGuestRegistration(raw, customFields);
   const enrollment = await prisma.$transaction(async (tx) => {
     const row = await tx.trainingClass.findUnique({ where: { registrationToken: token }, select: { id: true, departmentId: true, status: true, registrationEnabled: true } });
     if (!row || !/^[a-f0-9]{64}$/.test(token)) throw new HttpError(404, "Registration link not found.");
@@ -563,8 +596,8 @@ export async function registerGuestStudent(token: string, raw: unknown, source =
     });
     const created = await tx.trainingClassEnrollment.create({
       data: departmentMember
-        ? { classId: row.id, membershipId: departmentMember.id }
-        : { classId: row.id, guestName: input.name, guestEmail: input.email, guestOrganization: input.organization },
+        ? { classId: row.id, membershipId: departmentMember.id, customValuesJson: JSON.stringify(input.customValues) }
+        : { classId: row.id, guestName: input.name, guestEmail: input.email, guestOrganization: input.organization, customValuesJson: JSON.stringify(input.customValues) },
     });
     return { id: created.id, classId: row.id, departmentId: row.departmentId, matchedMember: Boolean(departmentMember) };
   }).catch((error: unknown) => {
@@ -840,7 +873,7 @@ export async function updateEnrollment(
     }
   }
   const classRow = await prisma.trainingClass.findUniqueOrThrow({ where: { id: classId }, select: { customFieldsJson: true } });
-  const fields = JSON.parse(classRow.customFieldsJson || "[]") as Array<{ id: string; type: string }>;
+  const fields = JSON.parse(classRow.customFieldsJson || "[]") as Array<{ id: string; label: string; type: string; appliesTo?: string }>;
   const values: Record<string, string | number | boolean | null> = {};
   if (input.customValues !== undefined) {
     if (!input.customValues || typeof input.customValues !== "object" || Array.isArray(input.customValues)) throw new HttpError(400, "Invalid custom values.");
@@ -851,8 +884,20 @@ export async function updateEnrollment(
         const number = Number(value);
         if (!Number.isFinite(number) || (field.type === "PERCENT" && (number < 0 || number > 100))) throw new HttpError(400, "Invalid numeric field value.");
         values[field.id] = number;
-      } else if (field.type === "CHECKBOX") values[field.id] = value === true;
-      else values[field.id] = String(value).slice(0, 500);
+      } else if (field.type === "CHECKBOX") values[field.id] = value === true || value === "true";
+      else if (field.type === "EMAIL") {
+        const email = String(value).trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, `Enter a valid ${field.label.toLowerCase()}.`);
+        values[field.id] = email.slice(0, 254);
+      } else if (field.type === "STATE") {
+        const state = String(value).trim().toUpperCase();
+        if (!US_STATES.includes(state as (typeof US_STATES)[number])) throw new HttpError(400, `Choose a valid state for ${field.label}.`);
+        values[field.id] = state;
+      } else if (field.type === "LAST4") {
+        const last4 = String(value).trim();
+        if (!/^\d{4}$/.test(last4)) throw new HttpError(400, `${field.label} must contain exactly four digits.`);
+        values[field.id] = last4;
+      } else values[field.id] = String(value).slice(0, 500);
     }
   }
   await prisma.trainingClassEnrollment.update({
@@ -905,11 +950,11 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
   if (requiredFields.has("HOURS") && !(row.creditHours > 0 || (row.startsAt && row.endsAt))) {
     add("HOURS", "Training hours are missing.", "Enter credit hours or both start and end times.");
   }
-  const customFields = JSON.parse(row.customFieldsJson || "[]") as Array<{ id: string; label: string; required: boolean }>;
+  const customFields = JSON.parse(row.customFieldsJson || "[]") as Array<{ id: string; label: string; type: string; required: boolean; appliesTo?: string }>;
   for (const field of customFields.filter((item) => item.required)) {
     for (const enrollment of row.roster.filter((item) => item.attendance === "PRESENT")) {
       const values = JSON.parse(enrollment.customValuesJson || "{}") as Record<string, unknown>;
-      if (values[field.id] === undefined || values[field.id] === null || values[field.id] === "") {
+      if (values[field.id] === undefined || values[field.id] === null || values[field.id] === "" || (field.appliesTo === "ROSTER" && field.type === "CHECKBOX" && values[field.id] !== true)) {
         add("CUSTOM_FIELD", `Required field "${field.label}" is missing for a student.`, "Enter the required student result before finalizing.");
       }
     }

@@ -67,6 +67,7 @@ model Department {
   credentialTypes                 CredentialType[]
   activityEvents                  ActivityEvent[]
   auditLogs                       AuditLog[]
+  trainingRecoveryItems           TrainingRecoveryItem[]
   invitations                     Invitation[]
   memberNotes                     MemberNote[]
   inboxNotifications              InboxNotification[]
@@ -623,6 +624,21 @@ model AuditLog {
   detailsJson  String     @default("{}")
 
   @@index([departmentId, timestamp])
+}
+
+/// Short-lived recovery snapshots for eligible cleanup actions.
+model TrainingRecoveryItem {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  entityType   String
+  entityId     String
+  title        String
+  snapshotJson String
+  deletedAt    DateTime   @default(now())
+  expiresAt    DateTime
+
+  @@index([departmentId, expiresAt])
 }
 
 /// Durable, per-user assignment inbox. Reading an item never deletes it.

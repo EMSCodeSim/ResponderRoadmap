@@ -3,8 +3,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
+import { CustomRosterField, type CustomRosterFieldDefinition } from "@/components/custom-roster-field";
 
-type ClassInfo = { title: string; startsAt: string; location: string; open: boolean };
+type ClassInfo = { title: string; startsAt: string; location: string; open: boolean; customFields: CustomRosterFieldDefinition[] };
 
 export default function PublicClassJoinPage() {
   const { token } = useParams<{ token: string }>();
@@ -13,6 +14,7 @@ export default function PublicClassJoinPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [organization, setOrganization] = useState("");
+  const [customValues, setCustomValues] = useState<Record<string, string | number | boolean>>({});
   const [consent, setConsent] = useState(false);
   const [website, setWebsite] = useState("");
   const [done, setDone] = useState(false);
@@ -33,7 +35,7 @@ export default function PublicClassJoinPage() {
     try {
       await api(`public/classes/${encodeURIComponent(token)}`, {
         method: "POST",
-        body: JSON.stringify({ name, email, organization, consent, website }),
+        body: JSON.stringify({ name, email, organization, customValues, consent, website }),
       });
       setDone(true);
     } catch (err) {
@@ -70,12 +72,14 @@ export default function PublicClassJoinPage() {
                 <label className="block text-sm font-semibold">Organization / agency (optional)
                   <input className="mt-1 min-h-11 w-full rounded-lg border border-navy-200 px-3" value={organization} onChange={(event) => setOrganization(event.target.value)} maxLength={180} />
                 </label>
+                {info.customFields.map((field) => <CustomRosterField key={field.id} field={field} value={customValues[field.id]} onChange={(value) => setCustomValues((current) => ({ ...current, [field.id]: value }))} />)}
+                {info.customFields.some((field) => field.type === "LAST4") ? <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">This class requests a four-digit identifier. It will be stored with the class roster and visible to assigned instructors. Provide it only if your department requires it.</p> : null}
                 <div className="absolute -left-[9999px]" aria-hidden="true">
                   <label>Website<input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>
                 </div>
                 <label className="flex gap-3 text-xs leading-5 text-navy-600">
                   <input type="checkbox" className="mt-1" checked={consent} onChange={(event) => setConsent(event.target.checked)} required />
-                  <span>I understand my name, email, and optional organization will be shared with this class’s instructors for the roster, attendance, and evaluation records.</span>
+                  <span>I understand my name, email, organization, and {info.customFields.length ? `template-required information (${info.customFields.map((field) => field.label).join(", ")})` : "any template-required information"} will be shared with this class’s instructors and stored with its training record.</span>
                 </label>
                 {error ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
                 <button type="submit" disabled={busy} className="min-h-12 w-full rounded-lg bg-[#E11D48] px-4 font-bold text-white disabled:opacity-50">{busy ? "Submitting…" : "Join class roster"}</button>

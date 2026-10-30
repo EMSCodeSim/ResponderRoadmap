@@ -8,7 +8,7 @@ import { blsCprClassPreset } from "@/lib/bls-cpr-class-preset";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
 
-type CustomField = { id: string; label: string; type: string; required: boolean };
+type CustomField = { id: string; label: string; type: string; required: boolean; appliesTo?: "ROSTER" | "RESULT" };
 type CEAllocation = { category: string; hours: number };
 type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null; rmsEntryCategories: string[]; customTopicLabel: string; customClassTypeLabel: string; customTrainingCategoryLabel: string };
 const TEMPLATE_TOPICS = ["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"];
@@ -349,7 +349,7 @@ export default function TrainingSheetTemplatesPage() {
               <div className="mt-4 border-t border-navy-100 pt-4">
                 <h4 className="font-semibold">Custom grading</h4>
                 <p className="mt-1 text-xs text-navy-600">Add department-defined grades such as Scenario Performance, Equipment Check or Instructor Sign-off. Choose percent, number, pass/fail or checkbox and make it required when appropriate.</p>
-                <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `grade-${Date.now()}-${current.customFields.length}`, label: "", type: "PASS_FAIL", required: true }] }))} disabled={form.customFields.length >= 20}>+ Add custom grade</Button>
+                <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `grade-${Date.now()}-${current.customFields.length}`, label: "", type: "PASS_FAIL", required: true, appliesTo: "RESULT" }] }))} disabled={form.customFields.length >= 20}>+ Add custom grade</Button>
               </div>
             </section>
             <section className="rounded-lg border border-navy-200 p-4">
@@ -383,19 +383,23 @@ export default function TrainingSheetTemplatesPage() {
               </div>
             </Field>
             <div className="rounded-lg border border-navy-200 p-4">
-              <h3 className="font-semibold">Custom grades and student fields</h3>
-              <p className="mt-1 text-xs text-navy-600">These department-defined results are collected for every student when a class uses this template.</p>
+              <h3 className="font-semibold">Custom roster requirements and results</h3>
+              <p className="mt-1 text-xs text-navy-600">Roster requirements collect information about each student, such as a certification email, state, or required skills-test confirmation. Result fields track performance. Required roster items must be completed before the sheet can be approved.</p>
               {form.customFields.map((field, index) => (
                 <div key={field.id} className="mt-3 grid gap-2 rounded-md border border-navy-100 p-3 sm:grid-cols-2">
                   <Input aria-label={`Field ${index + 1} label`} value={field.label} placeholder="e.g. CCF or Test score" onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, label: e.target.value } : f) }))} />
                   <Select aria-label={`Field ${index + 1} type`} value={field.type} onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, type: e.target.value } : f) }))}>
-                    {["TEXT", "NUMBER", "PERCENT", "DATE", "PASS_FAIL", "CHECKBOX"].map((type) => <option key={type} value={type}>{type.replace("_", " ")}</option>)}
+                    {["TEXT", "EMAIL", "STATE", "LAST4", "NUMBER", "PERCENT", "DATE", "PASS_FAIL", "CHECKBOX"].map((type) => <option key={type} value={type}>{type === "LAST4" ? "Last 4 digits" : type.replace("_", " ")}</option>)}
+                  </Select>
+                  <Select aria-label={`Field ${index + 1} applies to`} value={field.appliesTo || "RESULT"} onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, appliesTo: e.target.value as "ROSTER" | "RESULT" } : f) }))}>
+                    <option value="ROSTER">Roster requirement</option><option value="RESULT">Training result</option>
                   </Select>
                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, required: e.target.checked } : f) }))} />Required</label>
                   <button type="button" className="text-sm text-danger" onClick={() => setForm((current) => ({ ...current, customFields: current.customFields.filter((_, i) => i !== index) }))}>Remove field</button>
                 </div>
               ))}
-              <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `custom-${Date.now()}-${current.customFields.length}`, label: "", type: "TEXT", required: false }] }))} disabled={form.customFields.length >= 20}>+ Add other student field</Button>
+              <div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `roster-${Date.now()}-${current.customFields.length}`, label: "", type: "TEXT", required: true, appliesTo: "ROSTER" }] }))} disabled={form.customFields.length >= 20}>+ Add roster requirement</Button><Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `result-${Date.now()}-${current.customFields.length}`, label: "", type: "TEXT", required: false, appliesTo: "RESULT" }] }))} disabled={form.customFields.length >= 20}>+ Add result field</Button></div>
+              <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">Last four digits of an SSN are still sensitive personal information. Collect them only when your certification or records process requires them; consider using a student or certificate ID instead.</p>
             </div>
             </div>
             <div className={builderStep === 4 ? "space-y-4" : "hidden"}>
@@ -406,7 +410,8 @@ export default function TrainingSheetTemplatesPage() {
                 <p className="mt-3 text-sm"><strong>Checklist:</strong> {selectedChecklist ? selectedChecklist.title + " v" + selectedChecklist.version + " · " + selectedChecklist.skillCount + " skills" : "Attendance only"}</p>
                 <p className="mt-1 text-sm"><strong>Credit:</strong> {form.creditHours ? form.creditHours + " hours" : "Calculated from class duration"}</p>
                 {form.ceCredits.length ? <p className="mt-1 text-sm"><strong>EMS CE:</strong> {form.ceCredits.map((item) => item.hours + " hr " + item.category).join(" · ")}</p> : null}
-                {form.customFields.length ? <p className="mt-1 text-sm"><strong>Custom grades/fields:</strong> {form.customFields.map((item) => item.label || "Untitled").join(" · ")}</p> : null}
+                {form.customFields.some((item) => item.appliesTo === "ROSTER") ? <p className="mt-1 text-sm"><strong>Roster requirements:</strong> {form.customFields.filter((item) => item.appliesTo === "ROSTER").map((item) => item.label || "Untitled").join(" · ")}</p> : null}
+                {form.customFields.some((item) => item.appliesTo !== "ROSTER") ? <p className="mt-1 text-sm"><strong>Training results:</strong> {form.customFields.filter((item) => item.appliesTo !== "ROSTER").map((item) => item.label || "Untitled").join(" · ")}</p> : null}
                 {form.gradingConfig.rmsEntryCategories.length ? <p className="mt-1 text-sm"><strong>RMS categories:</strong> {form.gradingConfig.rmsEntryCategories.filter(Boolean).join(" · ")}</p> : null}
               </div>
               {validationWarnings.length ? <div className="rounded-lg border border-amber-300 bg-amber-50 p-4"><h4 className="font-semibold text-amber-900">Review before saving</h4><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">{validationWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-900">Template is ready to save.</div>}
