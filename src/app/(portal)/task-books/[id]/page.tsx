@@ -102,6 +102,7 @@ type Book = {
   } | null;
   versions: Array<{ id: string; version: string; status: string }>;
   review?: { issues: QualityIssue[]; sectionCount: number; requirementCount: number; ready: boolean };
+  rmsConfig?: { category: string; code: string; defaultHours: number | null; narrative: string; includeSkillDates: boolean };
 };
 
 function uid() {
@@ -189,6 +190,11 @@ export default function TaskBookBuilderPage() {
   const [category, setCategory] = useState("Department Custom");
   const [intendedPosition, setIntendedPosition] = useState("");
   const [estimatedDurationDays, setEstimatedDurationDays] = useState("");
+  const [rmsCategory, setRmsCategory] = useState("");
+  const [rmsCode, setRmsCode] = useState("");
+  const [rmsDefaultHours, setRmsDefaultHours] = useState("");
+  const [rmsNarrative, setRmsNarrative] = useState("");
+  const [rmsIncludeSkillDates, setRmsIncludeSkillDates] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [selectedReq, setSelectedReq] = useState<string | null>(null);
@@ -237,6 +243,11 @@ export default function TaskBookBuilderPage() {
     setCategory(data.category);
     setIntendedPosition(data.intendedPosition || "");
     setEstimatedDurationDays(data.estimatedDurationDays ? String(data.estimatedDurationDays) : "");
+    setRmsCategory(data.rmsConfig?.category || "");
+    setRmsCode(data.rmsConfig?.code || "");
+    setRmsDefaultHours(data.rmsConfig?.defaultHours == null ? "" : String(data.rmsConfig.defaultHours));
+    setRmsNarrative(data.rmsConfig?.narrative || "");
+    setRmsIncludeSkillDates(data.rmsConfig?.includeSkillDates === true);
     const mapped = mapSections(data);
     setSections(mapped);
     setSelectedSection((current) => mapped.some((section) => section.clientId === current) ? current : mapped[0]?.clientId || null);
@@ -306,6 +317,7 @@ export default function TaskBookBuilderPage() {
           category,
           intendedPosition,
           estimatedDurationDays: estimatedDurationDays ? Number(estimatedDurationDays) : null,
+          rmsConfig: { category: rmsCategory, code: rmsCode, defaultHours: rmsDefaultHours ? Number(rmsDefaultHours) : null, narrative: rmsNarrative, includeSkillDates: rmsIncludeSkillDates },
         }),
       });
       await api(`task-books/${params.id}/draft`, {
@@ -682,6 +694,17 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               <TextArea value={description} onChange={(e) => { setDescription(e.target.value); markDirty(); }} disabled={draftLocked} />
             </Field>
           </div>
+          </details>
+          <details className="mt-3 rounded-md border border-navy-200 p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-navy-700">RMS completion setup</summary>
+            <p className="mt-2 text-xs text-navy-500">These defaults create a one-page RMS handoff after the Task Book is fully approved.</p>
+            <div className="mt-3 space-y-3">
+              <Field label="RMS course/category"><Input value={rmsCategory} onChange={(e) => { setRmsCategory(e.target.value); markDirty(); }} disabled={draftLocked} placeholder="Driver Operator Training" /></Field>
+              <Field label="RMS code"><Input value={rmsCode} onChange={(e) => { setRmsCode(e.target.value); markDirty(); }} disabled={draftLocked} placeholder="DO-1" /></Field>
+              <Field label="Default completion hours" hint="Leave blank to total hours logged on requirements."><Input type="number" min="0" max="1000" step="0.25" value={rmsDefaultHours} onChange={(e) => { setRmsDefaultHours(e.target.value); markDirty(); }} disabled={draftLocked} /></Field>
+              <Field label="Standard RMS completion narrative" hint="Leave blank to generate a completion narrative automatically."><TextArea rows={4} value={rmsNarrative} onChange={(e) => { setRmsNarrative(e.target.value); markDirty(); }} disabled={draftLocked} placeholder="Member completed all required Task Book skills and evaluations." /></Field>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={rmsIncludeSkillDates} onChange={(e) => { setRmsIncludeSkillDates(e.target.checked); markDirty(); }} disabled={draftLocked} /> Include individual skill completion dates in the RMS handoff</label>
+            </div>
           </details>
           <div className="kicker mt-4 mb-2">Sections</div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionDrag}>
