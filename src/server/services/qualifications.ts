@@ -119,7 +119,7 @@ async function readinessFor(ctx: AuthContext, membershipId: string) {
     const missingRequirements = requirementIds.filter(id => !approvedRequirements.has(id));
     const requirementsMet = !missingCredentials.length && !missingTaskBooks.length && !missingRequirements.length;
     const authorization = authByRole.get(role.id);
-    const status = authorization?.status === "APPROVED" && requirementsMet ? "APPROVED" : authorization?.status === "APPROVED" ? "RENEWAL_REQUIRED" : authorization?.status || (requirementsMet ? "AWAITING_APPROVAL" : "IN_TRAINING");
+    const status = authorization?.status === "APPROVED" && requirementsMet ? "APPROVED" : authorization?.status === "APPROVED" ? "RENEWAL_REQUIRED" : requirementsMet && authorization?.status !== "RESTRICTED" ? "AWAITING_APPROVAL" : authorization?.status || "IN_TRAINING";
     const evidence: QualificationEvidenceItem[] = [
       ...credentialIds.map(id => {
         const credential = validCreds.find(c => c.credentialTypeId === id);

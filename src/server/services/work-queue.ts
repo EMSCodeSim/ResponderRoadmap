@@ -4,10 +4,11 @@ import { prisma } from "@/server/db";
 import * as assignments from "@/server/services/assignments";
 import * as classes from "@/server/services/classes";
 import * as memberApp from "@/server/services/memberApp";
+import * as qualifications from "@/server/services/qualifications";
 
 export type WorkQueueItem = {
   id: string;
-  kind: "MEMBER_APPROVAL" | "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
+  kind: "MEMBER_APPROVAL" | "ROLE_APPROVAL" | "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
   priority: "URGENT" | "HIGH" | "NORMAL";
   title: string;
   reason: string;
@@ -37,7 +38,8 @@ export async function getWorkQueue(ctx: AuthContext) {
   const canReview = reviewRoles.has(ctx.role);
   const canSeeTraining = instructorRoles.has(ctx.role);
   const canApproveMembers = hasPermission(ctx.role, "invitations.write") && hasPermission(ctx.role, "members.write");
-  const [myAssignments, reviewQueue, instructorData, pendingMembers] = await Promise.all([
+  const canApproveRoles = ["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(ctx.role);
+  const [myAssignments, reviewQueue, instructorData, pendingMembers, roleReviews] = await Promise.all([
     memberApp.listMyAssignments(ctx),
     canReview ? assignments.listSignOffQueue(ctx, { view: "needs_me" }) : Promise.resolve(null),
     canSeeTraining
@@ -51,7 +53,25 @@ export async function getWorkQueue(ctx: AuthContext) {
       select: { id: true, joinedAt: true, user: { select: { name: true, email: true } } },
       orderBy: { joinedAt: "asc" },
     }) : Promise.resolve([]),
+    canApproveRoles ? qualifications.departmentQualificationsForApp(ctx) : Promise.resolve(null),
   ]);
+
+  for (const member of roleReviews?.members ?? []) {
+    for (const role of member.qualifications.filter((item) => item.status === "AWAITING_APPROVAL" && item.requirementsMet && item.evidence.length > 0)) {
+      items.push({
+        id: `role-approval:${member.membershipId}:${role.id}`,
+        kind: "ROLE_APPROVAL",
+        priority: "HIGH",
+        title: role.name,
+        reason: `${member.name} · all qualifications complete`,
+        owner: "Training Officer",
+        actionLabel: "Review role approval",
+        href: `/qualifications?member=${encodeURIComponent(member.membershipId)}&role=${encodeURIComponent(role.id)}`,
+        targetId: `${member.membershipId}:${role.id}`,
+        dueAt: null,
+      });
+    }
+  }
 
   for (const member of pendingMembers) {
     items.push({

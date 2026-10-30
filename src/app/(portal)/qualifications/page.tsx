@@ -47,6 +47,14 @@ export default function QualificationsPage() {
   }
   useEffect(() => { void load(); }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const memberId = params.get("member"); const roleId = params.get("role");
+    if (memberId && roleId && roles.some(role => role.id === roleId) && members.some(member => member.membershipId === memberId)) {
+      setOpenRoleId(roleId); setMemberFilter("all"); setSelectedMemberKey(`${memberId}:${roleId}`);
+    }
+  }, [roles, members]);
+
   async function createRole(event: React.FormEvent) {
     event.preventDefault(); if (!name.trim()) return; setSavingRole(true); setError(null);
     try {
@@ -118,6 +126,7 @@ export default function QualificationsPage() {
                 <div className="rounded bg-white p-2 text-sm"><div className="text-xs font-semibold uppercase tracking-wide text-navy-500">Department authorization</div>{qualification.authorization ? <div className="mt-1 text-navy-700"><div className="font-semibold">{qualification.authorization.approvedByName ? `Authorized by ${qualification.authorization.approvedByName}` : "Authorization recorded"}{formatDate(qualification.authorization.approvedAt) ? ` · ${formatDate(qualification.authorization.approvedAt)}` : ""}</div>{qualification.authorization.restriction ? <div>Restriction: {qualification.authorization.restriction}</div> : null}{qualification.authorization.note ? <div>Note: {qualification.authorization.note}</div> : null}{formatDate(qualification.authorization.reviewDate) ? <div>Review: {formatDate(qualification.authorization.reviewDate)}</div> : null}</div> : <div className="mt-1 text-navy-600">No department authorization recorded yet.</div>}</div>
               </div> : null}
               <div className="mt-3"><Select aria-label={`Set ${qualification.name} status for ${member.name}`} value={qualification.status === "NOT_STARTED" ? "IN_TRAINING" : qualification.status} disabled={savingKey === key} onChange={e => { const next = e.target.value; if (next !== qualification.status && window.confirm(`Change ${member.name} — ${qualification.name} from ${qualification.status.replaceAll("_", " ")} to ${next.replaceAll("_", " ")}? This updates the department authorization record.`)) void setAuthorization(member.membershipId, qualification.id, next); }}>{STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></div>
+              {qualification.status === "AWAITING_APPROVAL" && qualification.requirementsMet ? <Button className="mt-3" disabled={savingKey === key} onClick={() => { if (window.confirm(`Approve ${member.name} for ${qualification.name}?`)) void setAuthorization(member.membershipId, qualification.id, "APPROVED"); }}>{savingKey === key ? "Approving…" : "Approve role"}</Button> : null}
             </div>;
           })}</div> : null}
                 </div>)}
