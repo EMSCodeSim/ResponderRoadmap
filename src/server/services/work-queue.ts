@@ -128,6 +128,22 @@ export async function getWorkQueue(ctx: AuthContext) {
     }
   }
 
+  if (canSeeTraining) {
+    const completedBooks = await prisma.taskBookAssignment.findMany({
+      where: { departmentId: ctx.departmentId, status: "COMPLETE", version: { template: { templateKind: { not: "TRAINING_TASK" } } } },
+      select: { id: true, updatedAt: true, membership: { select: { user: { select: { name: true } } } }, version: { select: { template: { select: { title: true } } } } },
+      orderBy: { updatedAt: "asc" },
+    });
+    const entered = completedBooks.length ? await prisma.activityEvent.findMany({
+      where: { departmentId: ctx.departmentId, type: "TASKBOOK_RMS_ENTERED", referenceId: { in: completedBooks.map((item) => item.id) } },
+      select: { referenceId: true },
+    }) : [];
+    const enteredIds = new Set(entered.map((item) => item.referenceId));
+    for (const item of completedBooks.filter((book) => !enteredIds.has(book.id))) {
+      items.push({ id: `taskbook-rms:${item.id}`, kind: "RMS_ENTRY", priority: "HIGH", title: item.version.template.title, reason: `${item.membership.user.name} completed Task Book · awaiting RMS entry`, owner: "Training Officer", actionLabel: "Open RMS summary", href: `/assignments/${item.id}`, targetId: item.id, dueAt: item.updatedAt });
+    }
+  }
+
   const sorted = sortWorkQueue(items);
   return { items: sorted, count: sorted.length, next: sorted[0] ?? null, serverTime: new Date() };
 }
