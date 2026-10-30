@@ -10,7 +10,7 @@ import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea 
 
 type CustomField = { id: string; label: string; type: string; required: boolean };
 type CEAllocation = { category: string; hours: number };
-type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null; rmsEntryCategories: string[] };
+type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null; rmsEntryCategories: string[]; customTopicLabel: string; customClassTypeLabel: string; customTrainingCategoryLabel: string };
 const TEMPLATE_TOPICS = ["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"];
 const TOPIC_LABELS: Record<string, string> = { EMS: "EMS", FIRE: "Fire", HAZMAT: "HazMat", DRIVER: "Driver Operator", CPR: "CPR", OFFICER: "Officer", FACILITY: "Facility", OTHER: "Other" };
 const TOPIC_ORDER = ["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"];
@@ -46,7 +46,7 @@ const blank = {
   classType: "GENERAL",
   trainingCategory: "COMPANY",
   topic: "FIRE",
-  gradingConfig: { writtenTestEnabled: false, writtenTestPassPercent: null, ccfEnabled: false, ccfPassPercent: null, rmsEntryCategories: [] } as GradingConfig,
+  gradingConfig: { writtenTestEnabled: false, writtenTestPassPercent: null, ccfEnabled: false, ccfPassPercent: null, rmsEntryCategories: [], customTopicLabel: "", customClassTypeLabel: "", customTrainingCategoryLabel: "" } as GradingConfig,
   ceCredits: [] as CEAllocation[],
   creditHours: 0,
   checklistVersionId: "",
@@ -98,9 +98,9 @@ export default function TrainingSheetTemplatesPage() {
     setForm({
       name: item.name,
       defaultTitle: item.defaultTitle,
-      classType: item.classType,
-      trainingCategory: item.trainingCategory,
-      topic: item.topic || "OTHER",
+      classType: item.gradingConfig?.customClassTypeLabel ? "CUSTOM" : item.classType,
+      trainingCategory: item.gradingConfig?.customTrainingCategoryLabel ? "CUSTOM" : item.trainingCategory,
+      topic: item.gradingConfig?.customTopicLabel ? "CUSTOM" : item.topic || "OTHER",
       gradingConfig: { ...blank.gradingConfig, ...(item.gradingConfig || {}) },
       ceCredits: item.ceCredits || [],
       creditHours: item.creditHours,
@@ -140,7 +140,7 @@ export default function TrainingSheetTemplatesPage() {
     try {
       await api("training-sheet-templates" + (editingId ? "/" + editingId : ""), {
         method: editingId ? "PATCH" : "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, topic: form.topic === "CUSTOM" ? "OTHER" : form.topic, classType: form.classType === "CUSTOM" ? "GENERAL" : form.classType, trainingCategory: form.trainingCategory === "CUSTOM" ? "OTHER" : form.trainingCategory }),
       });
       await load();
       setMessage(editingId ? "Template updated." : "Template saved.");
@@ -193,7 +193,7 @@ export default function TrainingSheetTemplatesPage() {
       ...blsCprClassPreset,
       topic: "EMS",
       trainingCategory: "EMS",
-      gradingConfig: { writtenTestEnabled: true, writtenTestPassPercent: 80, ccfEnabled: true, ccfPassPercent: null, rmsEntryCategories: [] },
+      gradingConfig: { ...blank.gradingConfig, writtenTestEnabled: true, writtenTestPassPercent: 80, ccfEnabled: true, ccfPassPercent: null },
       checklistVersionId: selected?.id || "",
     });
     setError(null);
@@ -205,8 +205,8 @@ export default function TrainingSheetTemplatesPage() {
   function duplicate(item: Template) {
     setEditingId(null);
     setForm({
-      name: item.name + " copy", defaultTitle: item.defaultTitle, classType: item.classType,
-      trainingCategory: item.trainingCategory, topic: item.topic || "OTHER",
+      name: item.name + " copy", defaultTitle: item.defaultTitle, classType: item.gradingConfig?.customClassTypeLabel ? "CUSTOM" : item.classType,
+      trainingCategory: item.gradingConfig?.customTrainingCategoryLabel ? "CUSTOM" : item.trainingCategory, topic: item.gradingConfig?.customTopicLabel ? "CUSTOM" : item.topic || "OTHER",
       gradingConfig: { ...blank.gradingConfig, ...(item.gradingConfig || {}) }, ceCredits: item.ceCredits || [],
       creditHours: item.creditHours, checklistVersionId: item.checklistVersionId || "",
       location: item.location, notes: item.notes, customFields: item.customFields || [],
@@ -229,6 +229,9 @@ export default function TrainingSheetTemplatesPage() {
     form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null ? "Set the CCF passing score." : "",
     form.customFields.some((field) => !field.label.trim()) ? "Name every custom grade or student field." : "",
     form.gradingConfig.rmsEntryCategories.some((category) => !category.trim()) ? "Name every RMS entry category or remove the empty row." : "",
+    form.topic === "CUSTOM" && !form.gradingConfig.customTopicLabel.trim() ? "Enter the custom template topic." : "",
+    form.classType === "CUSTOM" && !form.gradingConfig.customClassTypeLabel.trim() ? "Enter the custom training type." : "",
+    form.trainingCategory === "CUSTOM" && !form.gradingConfig.customTrainingCategoryLabel.trim() ? "Enter the custom hours category." : "",
     form.customFields.some((field) => /^(written test|test score|ccf)$/i.test(field.label.trim())) ? "A custom field duplicates the built-in written test or CCF score." : "",
     form.checklistVersionId && !selectedChecklist ? "The selected checklist is no longer published." : "",
     form.proctorUserIds.length === 0 ? "No default proctor is selected; the instructor must choose one when creating a sheet." : "",
@@ -272,24 +275,30 @@ export default function TrainingSheetTemplatesPage() {
               <Field label="Template topic">
                 <Select value={form.topic} onChange={(e) => {
                   const topic = e.target.value;
-                  const category = ({ EMS: "EMS", FIRE: "COMPANY", HAZMAT: "HAZMAT", DRIVER: "DRIVER", CPR: "EMS", OFFICER: "OFFICER", FACILITY: "FACILITY", OTHER: "OTHER" } as Record<string, string>)[topic] || "OTHER";
-                  setForm((current) => ({ ...current, topic, trainingCategory: category, ceCredits: topic === "EMS" ? current.ceCredits : [], creditHours: topic === "EMS" ? current.creditHours : 0 }));
+                  const category = ({ EMS: "EMS", FIRE: "COMPANY", HAZMAT: "HAZMAT", DRIVER: "DRIVER", CPR: "EMS", OFFICER: "OFFICER", FACILITY: "FACILITY", OTHER: "OTHER", CUSTOM: "CUSTOM" } as Record<string, string>)[topic] || "OTHER";
+                  setForm((current) => ({ ...current, topic, trainingCategory: category, gradingConfig: { ...current.gradingConfig, customTopicLabel: topic === "CUSTOM" ? current.gradingConfig.customTopicLabel : "", customTrainingCategoryLabel: topic === "CUSTOM" ? current.gradingConfig.customTrainingCategoryLabel : "" }, ceCredits: topic === "EMS" ? current.ceCredits : [], creditHours: topic === "EMS" ? current.creditHours : 0 }));
                 }}>
                   {TEMPLATE_TOPICS.map((topic) => <option key={topic} value={topic}>{TOPIC_LABELS[topic]}</option>)}
+                  <option value="CUSTOM">Custom…</option>
                 </Select>
+                {form.topic === "CUSTOM" ? <Input className="mt-2" value={form.gradingConfig.customTopicLabel} onChange={(e) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, customTopicLabel: e.target.value } }))} placeholder="Enter custom template topic" /> : null}
               </Field>
               <Field label="Training type">
-                <Select value={form.classType} onChange={(e) => setForm({ ...form, classType: e.target.value })}>
+                <Select value={form.classType} onChange={(e) => setForm((current) => ({ ...current, classType: e.target.value, gradingConfig: { ...current.gradingConfig, customClassTypeLabel: e.target.value === "CUSTOM" ? current.gradingConfig.customClassTypeLabel : "" } }))}>
                   <option value="GENERAL">General training</option>
                   <option value="FIRE_ACADEMY">Fire academy testing</option>
                   <option value="CPR">CPR</option><option value="EMS">EMS skills testing</option>
+                  <option value="CUSTOM">Custom…</option>
                 </Select>
+                {form.classType === "CUSTOM" ? <Input className="mt-2" value={form.gradingConfig.customClassTypeLabel} onChange={(e) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, customClassTypeLabel: e.target.value } }))} placeholder="Enter custom training type" /> : null}
               </Field>
               <Field label="Hours category">
-                <Select value={form.trainingCategory} onChange={(e) => setForm({ ...form, trainingCategory: e.target.value })}>
+                <Select value={form.trainingCategory} onChange={(e) => setForm((current) => ({ ...current, trainingCategory: e.target.value, gradingConfig: { ...current.gradingConfig, customTrainingCategoryLabel: e.target.value === "CUSTOM" ? current.gradingConfig.customTrainingCategoryLabel : "" } }))}>
                   <option value="COMPANY">Company</option><option value="FACILITY">Facility</option><option value="HAZMAT">HazMat</option>
                   <option value="DRIVER">Driver / apparatus</option><option value="OFFICER">Officer development</option><option value="EMS">EMS</option><option value="OTHER">Other</option>
+                  <option value="CUSTOM">Custom…</option>
                 </Select>
+                {form.trainingCategory === "CUSTOM" ? <Input className="mt-2" value={form.gradingConfig.customTrainingCategoryLabel} onChange={(e) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, customTrainingCategoryLabel: e.target.value } }))} placeholder="Enter custom hours/RMS category" /> : null}
               </Field>
               <Field label="Credit hours" hint="Set 0 to use the class start and end times.">
                 <Input type="number" min="0" max="24" step="0.25" value={form.creditHours} onChange={(e) => setForm({ ...form, creditHours: Number(e.target.value) })} />
@@ -392,7 +401,7 @@ export default function TrainingSheetTemplatesPage() {
             <div className={builderStep === 4 ? "space-y-4" : "hidden"}>
               <h3 className="font-bold text-navy-900">Review template</h3>
               <div className="rounded-xl border border-navy-200 bg-navy-50 p-5">
-                <div className="flex flex-wrap gap-2"><Badge tone="neutral">{TOPIC_LABELS[form.topic] || "Other"}</Badge>{form.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance only</Badge>}{form.gradingConfig.writtenTestEnabled ? <Badge tone="current">Written test</Badge> : null}{form.gradingConfig.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{form.ceCredits.length ? <Badge tone="current">EMS CE</Badge> : null}</div>
+                <div className="flex flex-wrap gap-2"><Badge tone="neutral">{form.topic === "CUSTOM" ? form.gradingConfig.customTopicLabel || "Custom topic" : TOPIC_LABELS[form.topic] || "Other"}</Badge>{form.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance only</Badge>}{form.gradingConfig.writtenTestEnabled ? <Badge tone="current">Written test</Badge> : null}{form.gradingConfig.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{form.ceCredits.length ? <Badge tone="current">EMS CE</Badge> : null}</div>
                 <h4 className="mt-3 text-xl font-bold">{form.name || "Untitled template"}</h4><p className="mt-1 text-navy-700">{form.defaultTitle || "No default Training Sheet title"}</p>
                 <p className="mt-3 text-sm"><strong>Checklist:</strong> {selectedChecklist ? selectedChecklist.title + " v" + selectedChecklist.version + " · " + selectedChecklist.skillCount + " skills" : "Attendance only"}</p>
                 <p className="mt-1 text-sm"><strong>Credit:</strong> {form.creditHours ? form.creditHours + " hours" : "Calculated from class duration"}</p>
@@ -463,7 +472,7 @@ export default function TrainingSheetTemplatesPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-navy-900">{item.name}</h3><Badge tone="neutral">v{item.revision || 1}</Badge>{item.archived ? <Badge tone="neutral">Archived</Badge> : null}{item.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance</Badge>}{item.gradingConfig?.writtenTestEnabled ? <Badge tone="current">Test</Badge> : null}{item.gradingConfig?.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{item.customFields?.length ? <Badge tone="current">Custom grading</Badge> : null}{item.gradingConfig?.rmsEntryCategories?.length ? <Badge tone="current">RMS categories</Badge> : null}{item.ceCredits?.length ? <Badge tone="current">CE</Badge> : null}{item.selfRegistration ? <Badge tone="current">QR</Badge> : null}</div>
                     <p className="mt-1 text-sm text-navy-600">{item.defaultTitle || item.name}</p>
-                    <p className="mt-2 text-xs text-navy-500">{TOPIC_LABELS[item.topic] || "Other"} · {item.creditHours ? item.creditHours + " hr" : "uses class duration"} · {item.selfRegistration ? "QR enabled" : "QR off"}</p>
+                    <p className="mt-2 text-xs text-navy-500">{item.gradingConfig?.customTopicLabel || TOPIC_LABELS[item.topic] || "Other"} · {item.creditHours ? item.creditHours + " hr" : "uses class duration"} · {item.selfRegistration ? "QR enabled" : "QR off"}</p>
                     {item.ceCredits?.length ? <p className="mt-1 text-xs text-navy-600">CE: {item.ceCredits.map((credit) => `${credit.category} ${credit.hours} hr`).join(" · ")}</p> : null}
                     {item.checklistVersionId ? <p className="mt-1 text-xs text-navy-600">Checklist attached</p> : null}
                     {item.gradingConfig?.writtenTestEnabled ? <p className="mt-1 text-xs text-navy-600">Written test score{item.gradingConfig.writtenTestPassPercent != null ? ` · pass ${item.gradingConfig.writtenTestPassPercent}%` : ""}</p> : null}

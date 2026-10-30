@@ -51,6 +51,9 @@ function normalizeGradingConfig(value: unknown) {
     ccfEnabled,
     ccfPassPercent: ccfEnabled ? score(item.ccfPassPercent) : null,
     rmsEntryCategories: strings(item.rmsEntryCategories).slice(0, 20).map((category) => category.slice(0, 80)),
+    customTopicLabel: String(item.customTopicLabel || "").trim().slice(0, 80),
+    customClassTypeLabel: String(item.customClassTypeLabel || "").trim().slice(0, 80),
+    customTrainingCategoryLabel: String(item.customTrainingCategoryLabel || "").trim().slice(0, 80),
   };
 }
 
