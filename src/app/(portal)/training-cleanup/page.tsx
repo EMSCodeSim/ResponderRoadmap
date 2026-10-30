@@ -38,7 +38,7 @@ export default function TrainingCleanupPage() {
   if (!data && !error) return <p className="text-navy-500">Loading cleanup records…</p>;
   const sections: Array<{ title: string; description: string; rows: Item[]; type: CleanupType }> = [
     { title: "Unused Task Books", description: "Only books with no member assignments, Training Sheets, or role/expectation links are listed.", rows: data?.taskBooks || [], type: "TASK_BOOK" },
-    { title: "Assignments", description: "Includes unused Assignment templates and member assignments that were never started.", rows: [...(data?.assignments || []), ...(data?.unstartedAssignments || [])], type: "ASSIGNMENT" },
+    { title: "Assignments", description: "Includes unused Assignment templates and unstarted or overdue member assignments with no submitted work.", rows: [...(data?.assignments || []), ...(data?.unstartedAssignments || [])], type: "ASSIGNMENT" },
     { title: "Unfinished Training Sheets", description: "Only draft or active sheets with no recorded attendance, grades, or skill evaluations are listed.", rows: data?.trainingSheets || [], type: "TRAINING_SHEET" },
     { title: "Training Sheet templates", description: "Removing a template does not change past sheets; their settings are saved with each record.", rows: data?.templates || [], type: "TEMPLATE" },
   ];
@@ -46,7 +46,7 @@ export default function TrainingCleanupPage() {
   return <div>
     <PageHeader kicker="Training administration" title="Training record cleanup" description="Remove old items that are no longer used. Training Officers and Department Administrators can manage this page." actions={<Button variant="secondary" onClick={() => void load()} disabled={busy}>Refresh</Button>} />
     <div className="mb-4 space-y-2"><Flash message={error} tone="danger" /><Flash message={notice} tone="current" /></div>
-    <Card className="mb-5 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Completed and in-progress training history is protected.</strong> Records with attendance, evaluation results, sign-offs, member assignments, or qualification links won’t appear here. Each removal is permanent and written to the audit log.</Card>
+    <Card className="mb-5 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Completed and in-progress training history is protected.</strong> Books linked to assignments, classes, role qualifications, or training expectations are kept. Sheets with recorded attendance or evaluation results are kept. Only unstarted assignments with no submitted work appear below. Each removal is permanent and written to the audit log.</Card>
     <div className="space-y-5">
       {sections.map((section) => <Card key={section.title} className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="display text-xl font-bold">{section.title}</h2><p className="mt-1 max-w-3xl text-sm text-navy-500">{section.description}</p></div><Badge>{section.rows.length} available</Badge></div>
