@@ -1,5 +1,5 @@
 import { prisma } from "@/server/db";
-import { writeActivity, writeAudit, HttpError } from "@/server/http";
+import { writeActivity, writeAudit, HttpError, parseMetadata } from "@/server/http";
 import { assertPermission, canOpenAssignmentRecord, type AuthContext } from "@/server/permissions";
 import { computeAssignmentProgress, requirementIsComplete } from "@/lib/progress";
 import { computeUpNext, copyRequirementData, deserializeRequirement, evaluationPasses, nextApprovalLevel } from "@/lib/taskbook";
@@ -1304,6 +1304,23 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
     include: { user: true },
   });
 
+  const [rmsConfigEvent, rmsEntryEvent] = await Promise.all([
+    prisma.activityEvent.findFirst({ where: { departmentId: ctx.departmentId, type: "TASKBOOK_RMS_CONFIG", referenceId: assignment.version.template.id }, orderBy: { timestamp: "desc" } }),
+    prisma.activityEvent.findFirst({ where: { departmentId: ctx.departmentId, type: "TASKBOOK_RMS_ENTERED", referenceId: assignment.id }, orderBy: { timestamp: "desc" }, include: { user: { select: { name: true } } } }),
+  ]);
+  const rmsConfig = rmsConfigEvent ? parseMetadata(rmsConfigEvent.metadataJson) : {};
+  const rmsEntry = rmsEntryEvent ? parseMetadata(rmsEntryEvent.metadataJson) : null;
+  const approvedCompletions = assignment.completions.filter((item) => {
+    const requirement = requirements.find((requirement) => requirement.id === item.requirementId);
+    return requirement ? requirementIsComplete(requirement, item) : false;
+  });
+  const completionDates = approvedCompletions.map((item) => item.completedAt).filter((value): value is Date => Boolean(value));
+  const completedAt = completionDates.length ? new Date(Math.max(...completionDates.map((value) => value.getTime()))) : null;
+  const loggedHours = approvedCompletions.reduce((sum, item) => sum + Number(item.hoursLogged || 0), 0);
+  const configuredHours = rmsConfig.defaultHours == null ? null : Number(rmsConfig.defaultHours);
+  const evaluatorNames = [...new Set(approvedCompletions.flatMap((item) => item.signOffs.filter((sign) => sign.result === "APPROVED").map((sign) => sign.evaluator.name)))];
+  const generatedNarrative = `${assignment.membership.user.name} completed ${assignment.version.template.title}, version ${assignment.version.version}${completedAt ? ` on ${completedAt.toLocaleDateString("en-US")}` : ""}. All ${progress.totalRequired} required items were completed through the department evaluation and approval workflow${evaluatorNames.length ? `. Evaluators: ${evaluatorNames.join(", ")}` : ""}. Total documented training: ${configuredHours ?? loggedHours} hours.`;
+
   return {
     ...toRow(assignment),
     description: assignment.version.template.description,
@@ -1314,7 +1331,34 @@ export async function getAssignmentDetail(ctx: AuthContext, assignmentId: string
     relatedEvidence,
     evaluators: evaluators.map((item) => ({ id: item.userId, name: item.user.name, role: item.role })),
     isComplete: progress.status === "COMPLETE",
+    canConfirmRmsEntry: ["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(ctx.role),
+    rmsHandoff: {
+      status: rmsEntryEvent ? "RMS_ENTERED" : progress.status === "COMPLETE" ? "AWAITING_ENTRY" : "NOT_READY",
+      category: String(rmsConfig.category || ""),
+      code: String(rmsConfig.code || ""),
+      hours: configuredHours ?? loggedHours,
+      narrative: String(rmsConfig.narrative || "").trim() || generatedNarrative,
+      includeSkillDates: rmsConfig.includeSkillDates === true,
+      completedAt,
+      evaluatorNames,
+      enteredAt: rmsEntryEvent?.timestamp || null,
+      enteredBy: rmsEntryEvent?.user?.name || null,
+      reference: rmsEntry ? String(rmsEntry.reference || "") : "",
+      note: rmsEntry ? String(rmsEntry.note || "") : "",
+    },
   };
+}
+
+export async function markTaskBookEnteredIntoRms(ctx: AuthContext, assignmentId: string, input: Record<string, unknown>) {
+  assertPermission(ctx, "taskbooks.write");
+  const detail = await getAssignmentDetail(ctx, assignmentId);
+  if (!detail.isComplete) throw new HttpError(409, "This Task Book is not fully completed and approved.");
+  if (detail.assignmentKind !== "TASK_BOOK") throw new HttpError(400, "Use the Training Sheet RMS workflow for assignments.");
+  if (detail.rmsHandoff.status === "RMS_ENTERED") return detail;
+  const metadata = { reference: String(input.reference || "").trim().slice(0, 180), note: String(input.note || "").trim().slice(0, 1000) };
+  await writeActivity(ctx.departmentId, "TASKBOOK_RMS_ENTERED", { userId: ctx.userId, referenceId: assignmentId, metadata });
+  await writeAudit(ctx, "taskbook.rms_entered", "TaskBookAssignment", assignmentId, metadata);
+  return getAssignmentDetail(ctx, assignmentId);
 }
 
 export async function getPrintRecord(ctx: AuthContext, assignmentId: string) {

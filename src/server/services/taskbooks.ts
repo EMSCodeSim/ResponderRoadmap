@@ -1,5 +1,5 @@
 import { prisma } from "@/server/db";
-import { writeActivity, writeAudit, HttpError } from "@/server/http";
+import { writeActivity, writeAudit, HttpError, parseMetadata } from "@/server/http";
 import { assertPermission, type AuthContext } from "@/server/permissions";
 import { bumpVersion } from "@/lib/constants";
 import { STARTER_TEMPLATES, type StarterTemplate } from "@/server/starters";
@@ -37,6 +37,21 @@ async function getTemplateForDept(ctx: AuthContext, templateId: string) {
   });
   if (!template) throw new HttpError(404, "Task Book not found.");
   return template;
+}
+
+async function getRmsConfig(departmentId: string, templateId: string) {
+  const event = await prisma.activityEvent.findFirst({
+    where: { departmentId, type: "TASKBOOK_RMS_CONFIG", referenceId: templateId },
+    orderBy: { timestamp: "desc" },
+  });
+  const value = event ? parseMetadata(event.metadataJson) : {};
+  return {
+    category: String(value.category || ""),
+    code: String(value.code || ""),
+    defaultHours: value.defaultHours == null ? null : Number(value.defaultHours),
+    narrative: String(value.narrative || ""),
+    includeSkillDates: value.includeSkillDates === true,
+  };
 }
 
 function mapRequirement(requirement: Record<string, unknown>) {
@@ -127,6 +142,7 @@ export async function getTaskBook(ctx: AuthContext, templateId: string) {
   });
   return {
     ...template,
+    rmsConfig: await getRmsConfig(ctx.departmentId, template.id),
     workingVersion: working
       ? {
           ...working,
@@ -149,6 +165,7 @@ export async function createTaskBook(
     templateKind?: "DEPARTMENT" | "TRAINING_TASK";
     starterId?: string;
     sections?: SectionInput[];
+    rmsConfig?: { category?: string; code?: string; defaultHours?: number | null; narrative?: string; includeSkillDates?: boolean };
   },
 ) {
   assertPermission(ctx, "taskbooks.write");
@@ -186,7 +203,22 @@ export async function createTaskBook(
     referenceId: template.id,
     metadata: { title, actorName: ctx.name },
   });
+  if (input.rmsConfig) await saveRmsConfig(ctx, template.id, input.rmsConfig);
   return getTaskBook(ctx, template.id);
+}
+
+async function saveRmsConfig(ctx: AuthContext, templateId: string, input: { category?: string; code?: string; defaultHours?: number | null; narrative?: string; includeSkillDates?: boolean }) {
+  const defaultHours = input.defaultHours == null ? null : Number(input.defaultHours);
+  if (defaultHours != null && (!Number.isFinite(defaultHours) || defaultHours < 0 || defaultHours > 1000)) throw new HttpError(400, "RMS hours must be between 0 and 1,000.");
+  const metadata = {
+    category: String(input.category || "").trim().slice(0, 100),
+    code: String(input.code || "").trim().slice(0, 100),
+    defaultHours,
+    narrative: String(input.narrative || "").trim().slice(0, 4000),
+    includeSkillDates: input.includeSkillDates === true,
+  };
+  await writeActivity(ctx.departmentId, "TASKBOOK_RMS_CONFIG", { userId: ctx.userId, referenceId: templateId, metadata });
+  await writeAudit(ctx, "taskbook.rms_config_updated", "TaskBookTemplate", templateId, metadata);
 }
 
 export async function duplicateTaskBook(ctx: AuthContext, templateId: string) {
@@ -211,6 +243,7 @@ export async function duplicateTaskBook(ctx: AuthContext, templateId: string) {
         sortOrder: rIndex,
       })),
     })),
+    rmsConfig: source.rmsConfig,
   });
 }
 
@@ -225,6 +258,7 @@ export async function updateTaskBookMeta(
     estimatedDurationDays?: number | null;
     dueDateRule?: string | null;
     intendedPosition?: string;
+    rmsConfig?: { category?: string; code?: string; defaultHours?: number | null; narrative?: string; includeSkillDates?: boolean };
   },
 ) {
   assertPermission(ctx, "taskbooks.write");
@@ -241,6 +275,7 @@ export async function updateTaskBookMeta(
       intendedPosition: input.intendedPosition === undefined ? template.intendedPosition : input.intendedPosition.trim(),
     },
   });
+  if (input.rmsConfig !== undefined) await saveRmsConfig(ctx, template.id, input.rmsConfig);
   return updated;
 }
 
