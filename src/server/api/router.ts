@@ -18,6 +18,7 @@ import * as classes from "@/server/services/classes";
 import * as evaluators from "@/server/services/evaluators";
 import * as trainingExpectations from "@/server/services/training-expectations";
 import * as trainingSheetTemplates from "@/server/services/training-sheet-templates";
+import * as trainingCleanup from "@/server/services/training-cleanup";
 import * as mobilePreferences from "@/server/services/mobile-preferences";
 import * as qualifications from "@/server/services/qualifications";
 import * as workQueue from "@/server/services/work-queue";
@@ -153,6 +154,14 @@ export async function handleApi(req: Request, path: string[]) {
     }
 
     const ctx = await requireDepartmentSession(session);
+
+    if (method === "GET" && match(path, "training-cleanup")) {
+      return jsonOk(await trainingCleanup.listTrainingCleanupItems(ctx));
+    }
+    if (method === "DELETE" && match(path, "training-cleanup")) {
+      const body = await readBody(req);
+      return jsonOk(await trainingCleanup.deleteTrainingCleanupItem(ctx, String(body.type || "") as trainingCleanup.CleanupType, String(body.id || "")));
+    }
 
     if (method === "GET" && match(path, "my-credentials")) {
       return jsonOk(await credentials.listMyCredentials(ctx));
