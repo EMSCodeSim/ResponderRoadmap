@@ -10,7 +10,7 @@ import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea 
 
 type CustomField = { id: string; label: string; type: string; required: boolean };
 type CEAllocation = { category: string; hours: number };
-type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null };
+type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null; rmsEntryCategories: string[] };
 const TEMPLATE_TOPICS = ["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"];
 const TOPIC_LABELS: Record<string, string> = { EMS: "EMS", FIRE: "Fire", HAZMAT: "HazMat", DRIVER: "Driver Operator", CPR: "CPR", OFFICER: "Officer", FACILITY: "Facility", OTHER: "Other" };
 const TOPIC_ORDER = ["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"];
@@ -46,7 +46,7 @@ const blank = {
   classType: "GENERAL",
   trainingCategory: "COMPANY",
   topic: "FIRE",
-  gradingConfig: { writtenTestEnabled: false, writtenTestPassPercent: null, ccfEnabled: false, ccfPassPercent: null } as GradingConfig,
+  gradingConfig: { writtenTestEnabled: false, writtenTestPassPercent: null, ccfEnabled: false, ccfPassPercent: null, rmsEntryCategories: [] } as GradingConfig,
   ceCredits: [] as CEAllocation[],
   creditHours: 0,
   checklistVersionId: "",
@@ -101,7 +101,7 @@ export default function TrainingSheetTemplatesPage() {
       classType: item.classType,
       trainingCategory: item.trainingCategory,
       topic: item.topic || "OTHER",
-      gradingConfig: item.gradingConfig || blank.gradingConfig,
+      gradingConfig: { ...blank.gradingConfig, ...(item.gradingConfig || {}) },
       ceCredits: item.ceCredits || [],
       creditHours: item.creditHours,
       checklistVersionId: item.checklistVersionId || "",
@@ -193,7 +193,7 @@ export default function TrainingSheetTemplatesPage() {
       ...blsCprClassPreset,
       topic: "EMS",
       trainingCategory: "EMS",
-      gradingConfig: { writtenTestEnabled: true, writtenTestPassPercent: 80, ccfEnabled: true, ccfPassPercent: null },
+      gradingConfig: { writtenTestEnabled: true, writtenTestPassPercent: 80, ccfEnabled: true, ccfPassPercent: null, rmsEntryCategories: [] },
       checklistVersionId: selected?.id || "",
     });
     setError(null);
@@ -207,7 +207,7 @@ export default function TrainingSheetTemplatesPage() {
     setForm({
       name: item.name + " copy", defaultTitle: item.defaultTitle, classType: item.classType,
       trainingCategory: item.trainingCategory, topic: item.topic || "OTHER",
-      gradingConfig: item.gradingConfig || blank.gradingConfig, ceCredits: item.ceCredits || [],
+      gradingConfig: { ...blank.gradingConfig, ...(item.gradingConfig || {}) }, ceCredits: item.ceCredits || [],
       creditHours: item.creditHours, checklistVersionId: item.checklistVersionId || "",
       location: item.location, notes: item.notes, customFields: item.customFields || [],
       selfRegistration: item.selfRegistration, proctorUserIds: item.proctorUserIds,
@@ -227,6 +227,8 @@ export default function TrainingSheetTemplatesPage() {
     form.classType === "CPR" && !form.checklistVersionId ? "CPR templates require a published checklist." : "",
     form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null ? "Set the written test passing score." : "",
     form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null ? "Set the CCF passing score." : "",
+    form.customFields.some((field) => !field.label.trim()) ? "Name every custom grade or student field." : "",
+    form.gradingConfig.rmsEntryCategories.some((category) => !category.trim()) ? "Name every RMS entry category or remove the empty row." : "",
     form.customFields.some((field) => /^(written test|test score|ccf)$/i.test(field.label.trim())) ? "A custom field duplicates the built-in written test or CCF score." : "",
     form.checklistVersionId && !selectedChecklist ? "The selected checklist is no longer published." : "",
     form.proctorUserIds.length === 0 ? "No default proctor is selected; the instructor must choose one when creating a sheet." : "",
@@ -335,6 +337,22 @@ export default function TrainingSheetTemplatesPage() {
                 Record a CCF score
               </label>
               {form.gradingConfig.ccfEnabled ? <Field label="Optional CCF pass mark (%)"><Input type="number" min="0" max="100" value={form.gradingConfig.ccfPassPercent ?? ""} onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, ccfPassPercent: event.target.value === "" ? null : Number(event.target.value) } }))} /></Field> : null}
+              <div className="mt-4 border-t border-navy-100 pt-4">
+                <h4 className="font-semibold">Custom grading</h4>
+                <p className="mt-1 text-xs text-navy-600">Add department-defined grades such as Scenario Performance, Equipment Check or Instructor Sign-off. Choose percent, number, pass/fail or checkbox and make it required when appropriate.</p>
+                <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `grade-${Date.now()}-${current.customFields.length}`, label: "", type: "PASS_FAIL", required: true }] }))} disabled={form.customFields.length >= 20}>+ Add custom grade</Button>
+              </div>
+            </section>
+            <section className="rounded-lg border border-navy-200 p-4">
+              <h3 className="font-semibold">Custom RMS entry categories</h3>
+              <p className="mt-1 text-xs text-navy-600">List the department RMS categories or codes the instructor should use when entering this Training Sheet.</p>
+              {(form.gradingConfig.rmsEntryCategories || []).map((category, index) => (
+                <div key={index} className="mt-3 flex items-center gap-2">
+                  <Input aria-label={`RMS category ${index + 1}`} value={category} placeholder="e.g. Fire Training — Company Operations" onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, rmsEntryCategories: current.gradingConfig.rmsEntryCategories.map((item, itemIndex) => itemIndex === index ? event.target.value : item) } }))} />
+                  <button type="button" className="min-h-11 rounded border border-navy-200 px-3 text-sm text-danger" onClick={() => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, rmsEntryCategories: current.gradingConfig.rmsEntryCategories.filter((_, itemIndex) => itemIndex !== index) } }))}>Remove</button>
+                </div>
+              ))}
+              <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, rmsEntryCategories: [...(current.gradingConfig.rmsEntryCategories || []), ""] } }))} disabled={(form.gradingConfig.rmsEntryCategories || []).length >= 20}>+ Add RMS category</Button>
             </section>
             <Field label="Training instructions and objectives" hint="Edit one idea at a time. Items remain in order when copied to the training sheet.">
               <div className="space-y-2 rounded-lg border border-navy-200 p-3">
@@ -356,8 +374,8 @@ export default function TrainingSheetTemplatesPage() {
               </div>
             </Field>
             <div className="rounded-lg border border-navy-200 p-4">
-              <h3 className="font-semibold">Custom student fields</h3>
-              <p className="mt-1 text-xs text-navy-600">Only classes created from this template will collect these fields.</p>
+              <h3 className="font-semibold">Custom grades and student fields</h3>
+              <p className="mt-1 text-xs text-navy-600">These department-defined results are collected for every student when a class uses this template.</p>
               {form.customFields.map((field, index) => (
                 <div key={field.id} className="mt-3 grid gap-2 rounded-md border border-navy-100 p-3 sm:grid-cols-2">
                   <Input aria-label={`Field ${index + 1} label`} value={field.label} placeholder="e.g. CCF or Test score" onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, label: e.target.value } : f) }))} />
@@ -368,7 +386,7 @@ export default function TrainingSheetTemplatesPage() {
                   <button type="button" className="text-sm text-danger" onClick={() => setForm((current) => ({ ...current, customFields: current.customFields.filter((_, i) => i !== index) }))}>Remove field</button>
                 </div>
               ))}
-              <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `custom-${Date.now()}-${current.customFields.length}`, label: "", type: "PERCENT", required: false }] }))} disabled={form.customFields.length >= 20}>+ Add custom field</Button>
+              <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `custom-${Date.now()}-${current.customFields.length}`, label: "", type: "TEXT", required: false }] }))} disabled={form.customFields.length >= 20}>+ Add other student field</Button>
             </div>
             </div>
             <div className={builderStep === 4 ? "space-y-4" : "hidden"}>
@@ -379,6 +397,8 @@ export default function TrainingSheetTemplatesPage() {
                 <p className="mt-3 text-sm"><strong>Checklist:</strong> {selectedChecklist ? selectedChecklist.title + " v" + selectedChecklist.version + " · " + selectedChecklist.skillCount + " skills" : "Attendance only"}</p>
                 <p className="mt-1 text-sm"><strong>Credit:</strong> {form.creditHours ? form.creditHours + " hours" : "Calculated from class duration"}</p>
                 {form.ceCredits.length ? <p className="mt-1 text-sm"><strong>EMS CE:</strong> {form.ceCredits.map((item) => item.hours + " hr " + item.category).join(" · ")}</p> : null}
+                {form.customFields.length ? <p className="mt-1 text-sm"><strong>Custom grades/fields:</strong> {form.customFields.map((item) => item.label || "Untitled").join(" · ")}</p> : null}
+                {form.gradingConfig.rmsEntryCategories.length ? <p className="mt-1 text-sm"><strong>RMS categories:</strong> {form.gradingConfig.rmsEntryCategories.filter(Boolean).join(" · ")}</p> : null}
               </div>
               {validationWarnings.length ? <div className="rounded-lg border border-amber-300 bg-amber-50 p-4"><h4 className="font-semibold text-amber-900">Review before saving</h4><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">{validationWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-900">Template is ready to save.</div>}
             <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm font-semibold">
@@ -398,7 +418,7 @@ export default function TrainingSheetTemplatesPage() {
             </div>
             <div className="flex flex-wrap justify-between gap-2 border-t border-navy-100 pt-4">
               <div>{builderStep > 1 ? <Button type="button" variant="secondary" onClick={() => setBuilderStep((step) => step - 1)}>Back</Button> : editingId ? <Button type="button" variant="secondary" onClick={reset}>Cancel edit</Button> : null}</div>
-              <div className="flex gap-2">{builderStep < 4 ? <Button type="button" onClick={() => setBuilderStep((step) => step + 1)}>Continue</Button> : <Button type="submit" disabled={busy || validationWarnings.some((warning) => /require|no longer published/i.test(warning))}>{busy ? "Saving…" : editingId ? "Save changes" : "Save template"}</Button>}{editingId && builderStep > 1 ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
+              <div className="flex gap-2">{builderStep < 4 ? <Button type="button" onClick={() => setBuilderStep((step) => step + 1)}>Continue</Button> : <Button type="submit" disabled={busy || validationWarnings.some((warning) => /require|name every|no longer published/i.test(warning))}>{busy ? "Saving…" : editingId ? "Save changes" : "Save template"}</Button>}{editingId && builderStep > 1 ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
             </div>
           </form>
         </Card> : null}
@@ -441,7 +461,7 @@ export default function TrainingSheetTemplatesPage() {
               <Card key={item.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-navy-900">{item.name}</h3><Badge tone="neutral">v{item.revision || 1}</Badge>{item.archived ? <Badge tone="neutral">Archived</Badge> : null}{item.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance</Badge>}{item.gradingConfig?.writtenTestEnabled ? <Badge tone="current">Test</Badge> : null}{item.gradingConfig?.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{item.ceCredits?.length ? <Badge tone="current">CE</Badge> : null}{item.selfRegistration ? <Badge tone="current">QR</Badge> : null}</div>
+                    <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-navy-900">{item.name}</h3><Badge tone="neutral">v{item.revision || 1}</Badge>{item.archived ? <Badge tone="neutral">Archived</Badge> : null}{item.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance</Badge>}{item.gradingConfig?.writtenTestEnabled ? <Badge tone="current">Test</Badge> : null}{item.gradingConfig?.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{item.customFields?.length ? <Badge tone="current">Custom grading</Badge> : null}{item.gradingConfig?.rmsEntryCategories?.length ? <Badge tone="current">RMS categories</Badge> : null}{item.ceCredits?.length ? <Badge tone="current">CE</Badge> : null}{item.selfRegistration ? <Badge tone="current">QR</Badge> : null}</div>
                     <p className="mt-1 text-sm text-navy-600">{item.defaultTitle || item.name}</p>
                     <p className="mt-2 text-xs text-navy-500">{TOPIC_LABELS[item.topic] || "Other"} · {item.creditHours ? item.creditHours + " hr" : "uses class duration"} · {item.selfRegistration ? "QR enabled" : "QR off"}</p>
                     {item.ceCredits?.length ? <p className="mt-1 text-xs text-navy-600">CE: {item.ceCredits.map((credit) => `${credit.category} ${credit.hours} hr`).join(" · ")}</p> : null}
