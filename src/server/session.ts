@@ -43,7 +43,13 @@ export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return verifySessionToken(token);
+  return verifyCurrentUser(await verifySessionToken(token));
+}
+
+async function verifyCurrentUser(session: SessionPayload | null): Promise<SessionPayload | null> {
+  if (!session) return null;
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { email: true } });
+  return user && user.email.toLowerCase() === session.email.toLowerCase() ? session : null;
 }
 
 /**
@@ -57,7 +63,7 @@ export async function getRequestSession(req: Request): Promise<SessionPayload | 
   if (authorization.toLowerCase().startsWith("bearer ")) {
     const token = authorization.slice(7).trim();
     if (token) {
-      const session = await verifySessionToken(token);
+      const session = await verifyCurrentUser(await verifySessionToken(token));
       if (session) return session;
     }
   }
