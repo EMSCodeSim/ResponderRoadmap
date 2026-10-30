@@ -51,7 +51,7 @@ type WorkItem = {
 
 type WorkQueueItem = {
   id: string;
-  kind: "MEMBER_APPROVAL" | "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
+  kind: "MEMBER_APPROVAL" | "ROLE_APPROVAL" | "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
   priority: "URGENT" | "HIGH" | "NORMAL";
   title: string;
   reason: string;
@@ -256,6 +256,7 @@ function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
   const priorityRank: Record<WorkQueueItem["priority"], number> = { URGENT: 0, HIGH: 1, NORMAL: 2 };
   const categories: Array<{ kind: WorkQueueItem["kind"]; title: string }> = [
     { kind: "MEMBER_APPROVAL", title: "Member approvals" },
+    { kind: "ROLE_APPROVAL", title: "Role approvals" },
     { kind: "EVALUATION", title: "Review now" },
     { kind: "ASSIGNMENT", title: "Follow up" },
     { kind: "TRAINING_SHEET", title: "Training Sheets to complete" },
