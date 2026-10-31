@@ -463,6 +463,7 @@ model TrainingClass {
 
   roster   TrainingClassEnrollment[]
   proctors TrainingClassProctor[]
+  stations TrainingClassStation[]
 
   @@index([departmentId, startsAt])
 }
@@ -477,6 +478,20 @@ model TrainingClassProctor {
 
   @@unique([classId, userId])
   @@index([userId, classId])
+}
+
+model TrainingClassStation {
+  id String @id @default(cuid())
+  classId String
+  class TrainingClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  checklistVersionId String
+  title String
+  proctorUserId String?
+  sortOrder Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([classId, checklistVersionId])
+  @@index([proctorUserId])
 }
 
 model TrainingClassEnrollment {
