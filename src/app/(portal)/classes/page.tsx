@@ -247,7 +247,7 @@ export default function ClassesPage() {
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
-          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Add → Training Sheet</div><p className="mt-1 text-sm text-navy-600">Choose a template, title, date and optional checklist. Add a roster or enable QR sign-in. Finish times, narrative and RMS documentation after teaching.</p></div> : null}
+          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Add → Training Sheet</div><p className="mt-1 text-sm text-navy-600">Choose a template, title, date, location and optional checklist. Add department students now; guests can register by QR or be added manually after creation. Finish times, narrative and RMS documentation after teaching.</p></div> : null}
           {showAdvancedSetup ? <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
             <input type="checkbox" checked={emsCeMode} onChange={(event) => {
               setEmsCeMode(event.target.checked);
@@ -315,7 +315,7 @@ export default function ClassesPage() {
                 {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
             </Field>}
-            {showAdvancedSetup || emsCeMode ? <Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} required={emsCeMode} placeholder="Station, classroom, or training site" /></Field> : null}
+            {<Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Station, classroom, or training site" /></Field> : null}
             <Field label="Training date and start time"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
             {showAdvancedSetup ? <Field label="Ends (finish after teaching)"><Input type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field> : null}
           </div>
@@ -349,7 +349,7 @@ export default function ClassesPage() {
               </div>
             </Field> : null}
           </div>
-          <p className="text-sm text-navy-600">After creation: teach, take attendance and evaluate skills. Finish documentation and explicitly mark Entered into RMS to clear Needs Attention.</p>
+          <p className="text-sm text-navy-600">After creation: display the QR code or add outside students manually to the class roster. Teach, take attendance and evaluate skills. Finish documentation and explicitly mark Entered into RMS to clear Needs Attention.</p>
           <Button type="submit" className={quickMode ? "w-full min-h-12" : undefined} disabled={busy}>{busy ? "Creating…" : form.selfRegistration ? "Create & show QR code" : "Create training sheet"}</Button>
         </form>
       </Modal>
