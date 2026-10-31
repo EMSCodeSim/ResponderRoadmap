@@ -1,4 +1,4 @@
-Warning: truncated output (original token count: 5163)
+Warning: truncated output (original token count: 5172)
 Total output lines: 256
 
 #!/usr/bin/env bash
@@ -40,10 +40,10 @@ expect_page "$BASE/login"
 expect_page "$BASE/pricing"
 expect_page "$BASE/department-interest"
 
-HOME=$(curl -fsS "$BASE/")
-echo "$HOME" | grep -q 'Connect field training to verified department qualifications.' || { echo 'Homepage missing qualification tracking headline'; exit 1; }
-echo "$HOME" | grep -q 'The dashboard and member app share one department training record.' || { echo 'Homepage missing dashboard and app relationship section'; exit 1; }
-echo "$HOME" | grep -q 'See Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
+HOMEPAGE_HTML=$(curl -fsS "$BASE/")
+echo "$HOMEPAGE_HTML" | grep -q 'Connect field training to verified department qualifications.' || { echo 'Homepage missing qualification tracking headline'; exit 1; }
+echo "$HOMEPAGE_HTML" | grep -q 'The dashboard and member app share one department training record.' || { echo 'Homepage missing dashboard and app relationship section'; exit 1; }
+echo "$HOMEPAGE_HTML" | grep -q 'See Demo' || { echo 'Homepage missing demo CTA'; exit 1; }
 ok 'homepage Training Officer positioning without embedded pricing'
 for PAGE in "$BASE/" "$BASE/demo" "$BASE/login" "$BASE/register" "$BASE/department-interest" "$BASE/pricing"; do
   HTML=$(curl -fsS "$PAGE")
@@ -138,7 +138,7 @@ json -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"member"}' | $JQ '.data.
 json "$BASE/api/v1/auth/me" | $JQ '.data.role == "MEMBER"' >/dev/null
 MY_ASSIGNMENTS=$(json "$BASE/api/v1/assignments")
 MEMBER_ASSIGNMENT_ID=$(echo "$MY_ASSIGNMENTS" | jq -r '[.data[] | select(.taskBookTitle | test("Driver"; "i"))][0].id // empty')
-[[ -n "$MEMBER_ASSIGNMENT_ID" ]] || { echo "No seeded member Driv…1163 tokens truncated….data.items[] | select(.assignmentId == $aid and .requirementId == $rid)][0].reviewStage // "EVALUATOR"')
+[[ -n "$MEMBER_ASSIGNMENT_ID"…1172 tokens truncated….data.items[] | select(.assignmentId == $aid and .requirementId == $rid)][0].reviewStage // "EVALUATOR"')
 [[ "$SIGNOFF_ID2" == "$SIGNOFF_ID" ]] || { echo "Completion identity changed across resubmission"; exit 1; }
 APPROVE_BODY=$(jq -nc --arg level "$APPROVE_LEVEL" '{result:"APPROVED",notes:"Meets QA regression standard.",stepResults:[],criticalFailuresTriggered:[],approvalLevel:$level,attested:true}')
 APPROVED=$(json -X POST "$BASE/api/v1/sign-offs/$SIGNOFF_ID2" -d "$APPROVE_BODY")
