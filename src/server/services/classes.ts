@@ -73,6 +73,9 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
   if (!canViewClassRecord(ctx.role, ctx.userId, row.createdById, [...row.proctors.map((item) => item.userId), ...(assignedStations.length ? [ctx.userId] : [])])) {
     throw new HttpError(403, "You are not assigned to this class.");
   }
+  if (write && row.proctors.length === 0 && row.createdById !== ctx.userId && !canOverrideStationProctor(ctx)) {
+    throw new HttpError(403, "Station proctors can submit their assigned skill evaluations but cannot manage the full Training Sheet.");
+  }
   if (write && !hasPermission(ctx.role, "classes.write") && row.proctors.length === 0 && assignedStations.length === 0) {
     throw new HttpError(403, "You are not assigned as a proctor for this class.");
   }
@@ -790,7 +793,7 @@ export async function recordSkillResult(
 ) {
   assertPermission(ctx, "classes.proctor");
   await assertApprovedEvaluator(ctx);
-  const classRow = await canAccessClass(ctx, classId, true);
+  const classRow = await canAccessClass(ctx, classId);
   if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED") {
     throw new HttpError(409, "This class is closed for check-off.");
   }
@@ -856,7 +859,7 @@ export async function recordSkillResultsBatch(
 ) {
   assertPermission(ctx, "classes.proctor");
   await assertApprovedEvaluator(ctx);
-  const classRow = await canAccessClass(ctx, classId, true);
+  const classRow = await canAccessClass(ctx, classId);
   if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED") {
     throw new HttpError(409, "This class is closed for check-off.");
   }
