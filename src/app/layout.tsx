@@ -1,19 +1,6 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
 import "./control-fixes.css";
-
-const ibm = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-ibm",
-});
-
-const barlow = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  variable: "--font-barlow",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://responderroadmap.com"),
@@ -84,7 +71,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 
   return (
     <html lang="en">
-      <body className={`${ibm.variable} ${barlow.variable} antialiased`}>
+      <body className="antialiased">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

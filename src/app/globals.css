@@ -28,6 +28,11 @@
 
 * { box-sizing: border-box; }
 
+:root {
+  --font-ibm: "Segoe UI", Arial, sans-serif;
+  --font-barlow: "Arial Narrow", Impact, sans-serif;
+}
+
 html, body {
   min-height: 100%;
 }
