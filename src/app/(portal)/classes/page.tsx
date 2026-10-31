@@ -65,6 +65,8 @@ export default function ClassesPage() {
   const [emsCeMode, setEmsCeMode] = useState(false);
   const [emsCredits, setEmsCredits] = useState<Record<string, number>>({});
   const [form, setForm] = useState(emptyForm);
+  const [stationChecklistIds, setStationChecklistIds] = useState<string[]>([]);
+  const [stationProctors, setStationProctors] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
   const quickAddOpened = useRef(false);
@@ -137,7 +139,8 @@ export default function ClassesPage() {
         ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: total, ceCredits,
             notes: [emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
         : form;
-      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify({ ...payload, ceCredits, trainingSheetTemplateId: selectedTemplateId || undefined }) });
+      const stations = stationChecklistIds.map((id, index) => ({ checklistVersionId: id, title: setup?.checklists.find((item) => item.id === id)?.title || `Station ${index + 1}`, proctorUserId: stationProctors[id] || form.proctorUserIds[0] || "" }));
+      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify({ ...payload, stations, ceCredits, trainingSheetTemplateId: selectedTemplateId || undefined }) });
       window.location.href = `/classes/${created.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create class.");
@@ -157,6 +160,8 @@ export default function ClassesPage() {
     setEmsCeMode(false);
     setEmsCredits({});
     setSelectedTemplateId("");
+    setStationChecklistIds([]);
+    setStationProctors({});
     setShowAdvancedSetup(false);
     setTemplateCategory("");
     setForm({ ...emptyForm, startsAt: localDateTimeNow(), selfRegistration: true, proctorUserIds: currentUser ? [currentUser.userId] : [] });
@@ -247,7 +252,7 @@ export default function ClassesPage() {
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
-          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Add → Training Sheet</div><p className="mt-1 text-sm text-navy-600">Choose a template, title, date and optional checklist. Add a roster or enable QR sign-in. Finish times, narrative and RMS documentation after teaching.</p></div> : null}
+          {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Add → Training Sheet</div><p className="mt-1 text-sm text-navy-600">Choose a template, title, date, location and optional checklist. Add department students now; guests can register by QR or be added manually after creation. Finish times, narrative and RMS documentation after teaching.</p></div> : null}
           {showAdvancedSetup ? <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
             <input type="checkbox" checked={emsCeMode} onChange={(event) => {
               setEmsCeMode(event.target.checked);
@@ -315,7 +320,7 @@ export default function ClassesPage() {
                 {setup?.checklists.map((item) => <option key={item.id} value={item.id}>{item.title} v{item.version} · {item.skillCount} skills</option>)}
               </Select>
             </Field>}
-            {showAdvancedSetup || emsCeMode ? <Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} required={emsCeMode} placeholder="Station, classroom, or training site" /></Field> : null}
+            <Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Station, classroom, or training site" /></Field>
             <Field label="Training date and start time"><Input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required /></Field>
             {showAdvancedSetup ? <Field label="Ends (finish after teaching)"><Input type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></Field> : null}
           </div>
@@ -338,7 +343,7 @@ export default function ClassesPage() {
                 ))}
               </div>
             </Field>
-            {!quickMode && showAdvancedSetup ? <Field label={`Proctors (${form.proctorUserIds.length})`} hint="Evaluators see only classes to which they are assigned.">
+            {showAdvancedSetup ? <Field label={`Proctors (${form.proctorUserIds.length})`} hint="Evaluators see only classes to which they are assigned.">
               <div className="max-h-64 space-y-1 overflow-auto rounded-md border border-navy-200 p-2">
                 {setup?.proctors.map((proctor) => (
                   <label key={proctor.userId} className="flex min-h-11 items-center gap-3 rounded px-2 hover:bg-navy-50">
@@ -349,7 +354,23 @@ export default function ClassesPage() {
               </div>
             </Field> : null}
           </div>
-          <p className="text-sm text-navy-600">After creation: teach, take attendance and evaluate skills. Finish documentation and explicitly mark Entered into RMS to clear Needs Attention.</p>
+          {showAdvancedSetup ? <section className="rounded-lg border border-navy-200 p-4 space-y-3">
+            <h3 className="font-bold">Stations and assigned proctors</h3>
+            <p className="text-sm text-navy-600">Select checklists for this class and assign an authorized proctor to each station. Each station keeps its own skill results.</p>
+            <div className="max-h-56 space-y-1 overflow-auto rounded-md border border-navy-200 p-2">
+              {setup?.checklists.map((item) => <label key={item.id} className="flex min-h-11 items-center gap-3 px-2">
+                <input type="checkbox" checked={stationChecklistIds.includes(item.id)} onChange={(event) => {
+                  setStationChecklistIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id));
+                  if (event.target.checked && form.proctorUserIds[0]) setStationProctors((current) => ({ ...current, [item.id]: current[item.id] || form.proctorUserIds[0] }));
+                }} />
+                <span className="flex-1">{item.title} v{item.version} · {item.skillCount} skills</span>
+                {stationChecklistIds.includes(item.id) ? <Select aria-label={`Proctor for ${item.title}`} value={stationProctors[item.id] || form.proctorUserIds[0] || ""} onChange={(event) => setStationProctors((current) => ({ ...current, [item.id]: event.target.value }))}>
+                  <option value="">Choose proctor</option>{setup?.proctors.map((person) => <option key={person.userId} value={person.userId}>{person.name}</option>)}
+                </Select> : null}
+              </label>)}
+            </div>
+          </section> : null}
+          <p className="text-sm text-navy-600">After creation: display the QR code or add outside students manually to the class roster. Teach, take attendance and evaluate skills. Finish documentation and explicitly mark Entered into RMS to clear Needs Attention.</p>
           <Button type="submit" className={quickMode ? "w-full min-h-12" : undefined} disabled={busy}>{busy ? "Creating…" : form.selfRegistration ? "Create & show QR code" : "Create training sheet"}</Button>
         </form>
       </Modal>

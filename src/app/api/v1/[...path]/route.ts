@@ -24,6 +24,7 @@ function withCors(response: Response) {
   });
 }
 
+
 async function demoLogin(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));

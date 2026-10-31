@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fixture = vi.hoisted(() => {
   const records = new Map<string, { id: string; updatedAt: Date; result: string; notes: string }>();
+  const stationAssignments: Array<{ checklistVersionId: string; proctorUserId: string; title: string }> = [];
   const revision = new Date("2026-10-18T12:00:00.000Z");
   const key = (enrollmentId: string, requirementId: string) => `${enrollmentId}:${requirementId}`;
   const client = {
@@ -24,11 +25,12 @@ const fixture = vi.hoisted(() => {
     },
   };
   const prisma = {
+    trainingClassStation: { findMany: vi.fn(async () => stationAssignments) },
     trainingClass: {
       findFirst: vi.fn(async () => ({ id: "class-1", status: "ACTIVE", checklistVersionId: "checklist-1", createdById: "evaluator", proctors: [{ userId: "evaluator" }] })),
       findUnique: vi.fn(async () => ({ id: "class-1", title: "Ten member test", status: "ACTIVE", customFieldsJson: "[]", registrationEnabled: false, checklistVersion: { template: { title: "Skills" }, version: "1", sections: [] }, proctors: [], roster: [] })),
     },
-    taskBookRequirement: { findMany: vi.fn(async () => [{ id: "skill-1" }]) },
+    taskBookRequirement: { findMany: vi.fn(async () => [{ id: "skill-1", section: { versionId: stationAssignments[0]?.checklistVersionId || "checklist-1" } }]) },
     trainingClassEnrollment: {
       findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.map((id) => ({ id, attendance: "PRESENT" }))),
       findUnique: vi.fn(async () => null),
@@ -39,12 +41,12 @@ const fixture = vi.hoisted(() => {
       catch (error) { records.clear(); for (const [k, v] of snapshot) records.set(k, v); throw error; }
     }),
   };
-  return { records, revision, prisma, client };
+  return { records, revision, stationAssignments, prisma, client };
 });
 
 vi.mock("@/server/db", () => ({ prisma: fixture.prisma }));
 vi.mock("@/server/services/evaluators", () => ({ assertApprovedEvaluator: vi.fn(async () => {}) }));
-vi.mock("@/server/permissions", () => ({ assertPermission: vi.fn(), hasPermission: vi.fn(() => true) }));
+vi.mock("@/server/permissions", () => ({ assertPermission: vi.fn(), hasPermission: vi.fn((role: string) => role === "TRAINING_OFFICER" || role === "DEPARTMENT_ADMINISTRATOR") }));
 vi.mock("@/server/http", () => ({
   HttpError: class HttpError extends Error { constructor(public status: number, message: string) { super(message); } },
   writeAudit: vi.fn(async () => {}), writeActivity: vi.fn(async () => {}),
@@ -60,7 +62,7 @@ const payload = (expectedUpdatedAt: string | null) => ({
 });
 
 describe("ten-member Training Sheet atomic grading", () => {
-  beforeEach(() => { fixture.records.clear(); vi.clearAllMocks(); });
+  beforeEach(() => { fixture.records.clear(); fixture.stationAssignments.splice(0); vi.clearAllMocks(); });
 
   it("records all ten once and rejects duplicate retry without changing evidence", async () => {
     await recordSkillResultsBatch(ctx, "class-1", payload(null));
@@ -113,5 +115,12 @@ describe("ten-member Training Sheet atomic grading", () => {
     const legacy = { requirementId: "skill-1", results: students.map((enrollmentId) => ({ enrollmentId, result: "FAIL", notes: "old offline data" })) };
     await expect(recordSkillResultsBatch(ctx, "class-1", legacy)).rejects.toThrow(/revision/i);
     expect([...fixture.records.values()].every((record) => record.result === "PASS")).toBe(true);
+  });
+
+  it("rejects an instructor who is not assigned to a station checklist", async () => {
+    fixture.stationAssignments.push({ checklistVersionId: "checklist-2", proctorUserId: "different-proctor", title: "EMS station" });
+    const instructor = { ...ctx, role: "INSTRUCTOR" } as typeof ctx;
+    await expect(recordSkillResultsBatch(instructor, "class-1", payload(null))).rejects.toThrow(/assigned proctor/i);
+    expect(fixture.records.size).toBe(0);
   });
 });

@@ -1,8 +1,10 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, SESSION_MAX_AGE, type Role } from "@/lib/constants";
+import { DEMO_DEPARTMENT_ID, DEMO_WALKS } from "@/lib/demo-accounts";
 import type { AuthContext } from "@/server/permissions";
 import { prisma } from "@/server/db";
+import { demoPrisma } from "@/server/demo-db";
 
 export type SessionPayload = {
   userId: string;
@@ -49,7 +51,19 @@ export async function getSession(): Promise<SessionPayload | null> {
 async function verifyCurrentUser(session: SessionPayload | null): Promise<SessionPayload | null> {
   if (!session) return null;
   const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { email: true } });
-  return user && user.email.toLowerCase() === session.email.toLowerCase() ? session : null;
+  if (user && user.email.toLowerCase() === session.email.toLowerCase()) return session;
+
+  // Demo accounts live in an isolated schema. A valid signed token identifies
+  // that schema before route handlers load the session a second time there.
+  const knownDemoIdentity = session.departmentId === DEMO_DEPARTMENT_ID &&
+    Object.values(DEMO_WALKS).some((account) => account.email.toLowerCase() === session.email.toLowerCase());
+  if (!knownDemoIdentity || !demoPrisma) return null;
+  try {
+    const demoUser = await demoPrisma.user.findUnique({ where: { id: session.userId }, select: { email: true } });
+    return demoUser && demoUser.email.toLowerCase() === session.email.toLowerCase() ? session : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

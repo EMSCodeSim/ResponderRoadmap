@@ -13,6 +13,10 @@ const CLASS_STATUS_VALUES = new Set(["DRAFT", "ACTIVE", "COMPLETE", "CANCELLED"]
 const CLASS_TYPE_VALUES = new Set(["GENERAL", "FIRE_ACADEMY", "CPR", "EMS"]);
 const EMS_CE_GROUPS = new Set(Object.keys(EMS_CE_CATEGORIES));
 
+function canOverrideStationProctor(ctx: AuthContext) {
+  return ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
+}
+
 function normalizeCeCredits(value: unknown) {
   if (!Array.isArray(value)) return [];
   const totals = new Map<string, number>();
@@ -62,13 +66,17 @@ function parseJsonArray(value: string) {
 async function canAccessClass(ctx: AuthContext, classId: string, write = false) {
   const row = await prisma.trainingClass.findFirst({
     where: { id: classId, departmentId: ctx.departmentId },
-    include: { proctors: { where: { userId: ctx.userId } } },
+    include: { proctors: { where: { userId: ctx.userId } }, stations: { where: { proctorUserId: ctx.userId }, select: { id: true } } },
   });
   if (!row) throw new HttpError(404, "Class not found.");
-  if (!canViewClassRecord(ctx.role, ctx.userId, row.createdById, row.proctors.map((item) => item.userId))) {
+  const assignedStations = row.stations || [];
+  if (!canViewClassRecord(ctx.role, ctx.userId, row.createdById, [...row.proctors.map((item) => item.userId), ...(assignedStations.length ? [ctx.userId] : [])])) {
     throw new HttpError(403, "You are not assigned to this class.");
   }
-  if (write && !hasPermission(ctx.role, "classes.write") && row.proctors.length === 0) {
+  if (write && row.proctors.length === 0 && row.createdById !== ctx.userId && !canOverrideStationProctor(ctx)) {
+    throw new HttpError(403, "Station proctors can submit their assigned skill evaluations but cannot manage the full Training Sheet.");
+  }
+  if (write && !hasPermission(ctx.role, "classes.write") && row.proctors.length === 0 && assignedStations.length === 0) {
     throw new HttpError(403, "You are not assigned as a proctor for this class.");
   }
   return row;
@@ -241,6 +249,7 @@ export async function createClass(
     selfRegistration?: boolean;
     trainingSheetTemplateId?: string;
     ceCredits?: Array<{ category: string; hours: number }>;
+    stations?: Array<{ checklistVersionId?: string; title?: string; proctorUserId?: string }>;
   },
 ) {
   assertPermission(ctx, "classes.write");
@@ -274,6 +283,25 @@ export async function createClass(
   });
   if (validMembers.length !== memberIds.length) throw new HttpError(400, "One or more roster members are invalid.");
   if (validProctors.length !== proctorIds.length) throw new HttpError(400, "One or more proctors are invalid.");
+  const stationsInput = Array.isArray(input.stations) ? input.stations : [];
+  const normalizedStations = stationsInput.map((station) => ({
+    checklistVersionId: String(station.checklistVersionId || "").trim(),
+    title: String(station.title || "").trim().slice(0, 160),
+    proctorUserId: String(station.proctorUserId || "").trim(),
+  }));
+  if (normalizedStations.length > 20) throw new HttpError(400, "A Training Sheet can have up to 20 stations.");
+  if (new Set(normalizedStations.map((station) => station.checklistVersionId)).size !== normalizedStations.length) throw new HttpError(400, "A checklist can only be assigned to one station per Training Sheet.");
+  if (normalizedStations.some((station) => !station.checklistVersionId || !station.title || !station.proctorUserId)) throw new HttpError(400, "Each station needs a checklist, a station name, and an authorized proctor.");
+  if (normalizedStations.length) {
+    const stationChecklistIds = [...new Set(normalizedStations.map((station) => station.checklistVersionId))];
+    const stationProctorIds = [...new Set(normalizedStations.map((station) => station.proctorUserId))];
+    const [validVersions, validStationProctors] = await Promise.all([
+      prisma.taskBookVersion.findMany({ where: { id: { in: stationChecklistIds }, status: "PUBLISHED", template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } } }, select: { id: true } }),
+      prisma.departmentMembership.findMany({ where: { ...approvedEvaluatorWhere(ctx.departmentId), userId: { in: stationProctorIds } }, select: { userId: true } }),
+    ]);
+    if (validVersions.length !== stationChecklistIds.length) throw new HttpError(400, "One or more station checklists are not published by this department.");
+    if (validStationProctors.length !== stationProctorIds.length) throw new HttpError(400, "One or more station proctors are not authorized evaluators.");
+  }
   // Department RMS fields are verified at instructor closeout, not at class creation.
   // Instructors must be able to start a training sheet before teaching has finished.
   const startsAt = parseDate(input.startsAt, "Start date", true)!;
@@ -317,6 +345,7 @@ export async function createClass(
       createdById: ctx.userId,
       roster: { create: memberIds.map((membershipId) => ({ membershipId })) },
       proctors: { create: proctorIds.map((userId) => ({ userId })) },
+      stations: { create: normalizedStations.map((station, sortOrder) => ({ ...station, sortOrder })) },
     },
   });
   await writeAudit(ctx, "class.created", "TrainingClass", created.id, {
@@ -324,6 +353,7 @@ export async function createClass(
     rosterCount: memberIds.length,
     proctorCount: proctorIds.length,
     checklistVersionId: version.id,
+    stations: normalizedStations.map((station) => ({ checklistVersionId: station.checklistVersionId, title: station.title, proctorUserId: station.proctorUserId })),
     trainingCategory,
     creditHours,
     ceCredits,
@@ -369,20 +399,28 @@ export async function addManualGuestToClass(ctx: AuthContext, classId: string, i
   const rosterFields = templateFields.filter((field) => field.appliesTo === "ROSTER");
   const customValues = normalizeRosterCustomValues(input.customValues, rosterFields);
   if (name.length < 2) throw new HttpError(400, "Enter the student's name.");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "Enter a valid student email.");
-  const existing = await prisma.trainingClassEnrollment.findFirst({
-    where: { classId, OR: [{ guestEmail: email }, { membership: { user: { email } } }] },
-    select: { id: true },
-  });
-  if (existing) throw new HttpError(409, "This email is already on the class roster.");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "Enter a valid student email.");
+  if (email) {
+    const existing = await prisma.trainingClassEnrollment.findFirst({
+      where: { classId, OR: [{ guestEmail: email }, { membership: { user: { email } } }] },
+      select: { id: true },
+    });
+    if (existing) throw new HttpError(409, "This email is already on the class roster.");
+  } else {
+    const existingGuest = await prisma.trainingClassEnrollment.findFirst({
+      where: { classId, guestEmail: null, guestName: { equals: name, mode: "insensitive" }, guestOrganization: { equals: organization, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (existingGuest) throw new HttpError(409, "This guest name and agency are already on the class roster.");
+  }
   const count = await prisma.trainingClassEnrollment.count({ where: { classId } });
   if (count >= 250) throw new HttpError(409, "Class roster is full.");
-  const member = await prisma.departmentMembership.findFirst({
+  const member = email ? await prisma.departmentMembership.findFirst({
     where: { departmentId: ctx.departmentId, status: "ACTIVE", user: { email } },
     select: { id: true },
-  });
+  }) : null;
   const enrolled = await prisma.trainingClassEnrollment.create({
-    data: member ? { classId, membershipId: member.id, customValuesJson: JSON.stringify(customValues) } : { classId, guestName: name, guestEmail: email, guestOrganization: organization, customValuesJson: JSON.stringify(customValues) },
+    data: member ? { classId, membershipId: member.id, customValuesJson: JSON.stringify(customValues) } : { classId, guestName: name, guestEmail: email || null, guestOrganization: organization, customValuesJson: JSON.stringify(customValues) },
   });
   await writeAudit(ctx, "class.roster.manual_added", "TrainingClass", classId,
     { enrollmentId: enrolled.id, existingMember: Boolean(member) });
@@ -402,6 +440,10 @@ export async function getClass(ctx: AuthContext, classId: string) {
         },
       },
       proctors: { include: { user: true } },
+      stations: {
+        orderBy: { sortOrder: "asc" },
+        include: { proctor: { select: { id: true, name: true } }, checklistVersion: { include: { template: true, sections: { orderBy: { sortOrder: "asc" }, include: { requirements: { orderBy: { sortOrder: "asc" } } } } } } },
+      },
       roster: {
         include: {
           membership: { include: { user: true } },
@@ -440,7 +482,32 @@ export async function getClass(ctx: AuthContext, classId: string) {
     checklistTitle: row.checklistVersion?.template.title || "Attendance-only training",
     checklistVersion: row.checklistVersion?.version || "",
     proctors: row.proctors.map((item) => ({ userId: item.userId, name: item.user.name })),
-    sections: (row.checklistVersion?.sections || []).map((section) => ({
+    stations: (row.stations || []).map((station) => ({
+      id: station.id,
+      checklistVersionId: station.checklistVersionId,
+      title: station.title,
+      sortOrder: station.sortOrder,
+      proctorUserId: station.proctorUserId,
+      proctorName: station.proctor?.name || null,
+      checklistTitle: station.checklistVersion.template.title,
+      checklistVersion: station.checklistVersion.version,
+      sections: station.checklistVersion.sections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        description: section.description,
+        skills: section.requirements.map((requirement) => ({
+          id: requirement.id,
+          title: requirement.title,
+          description: requirement.description,
+          instructions: requirement.instructions,
+          required: requirement.isRequired,
+          evaluationSteps: parseJsonArray(requirement.evaluationStepsJson),
+          criticalFailures: parseJsonArray(requirement.criticalFailuresJson),
+        })),
+      })),
+    })),
+    sections: [
+      ...(row.checklistVersion?.sections || []).map((section) => ({
       id: section.id,
       title: section.title,
       description: section.description,
@@ -453,7 +520,22 @@ export async function getClass(ctx: AuthContext, classId: string) {
         evaluationSteps: parseJsonArray(requirement.evaluationStepsJson),
         criticalFailures: parseJsonArray(requirement.criticalFailuresJson),
       })),
-    })),
+      })),
+      ...(row.stations || []).flatMap((station) => station.checklistVersion.sections.map((section) => ({
+        id: section.id,
+        title: `${station.title} · ${section.title}`,
+        description: [station.proctor?.name ? `Proctor: ${station.proctor.name}` : "", section.description].filter(Boolean).join(" · "),
+        skills: section.requirements.map((requirement) => ({
+          id: requirement.id,
+          title: requirement.title,
+          description: requirement.description,
+          instructions: requirement.instructions,
+          required: requirement.isRequired,
+          evaluationSteps: parseJsonArray(requirement.evaluationStepsJson),
+          criticalFailures: parseJsonArray(requirement.criticalFailuresJson),
+        })),
+      }))),
+    ],
     roster: row.roster.map((enrollment) => ({
       id: enrollment.id,
       membershipId: enrollment.membershipId,
@@ -671,7 +753,14 @@ async function recalculateEnrollment(enrollmentId: string) {
     },
   });
   if (!enrollment) return;
-  const required = enrollment.class.checklistVersion.sections.flatMap((section) => section.requirements).filter((item) => item.isRequired);
+  const stations = await prisma.trainingClassStation.findMany({
+    where: { classId: enrollment.classId },
+    include: { checklistVersion: { include: { sections: { include: { requirements: true } } } } },
+  });
+  const required = [
+    ...enrollment.class.checklistVersion.sections.flatMap((section) => section.requirements),
+    ...stations.flatMap((station) => station.checklistVersion.sections.flatMap((section) => section.requirements)),
+  ].filter((item) => item.isRequired);
   if (required.length === 0) {
     const attended = enrollment.attendance === "PRESENT";
     await prisma.trainingClassEnrollment.update({
@@ -704,7 +793,7 @@ export async function recordSkillResult(
 ) {
   assertPermission(ctx, "classes.proctor");
   await assertApprovedEvaluator(ctx);
-  const classRow = await canAccessClass(ctx, classId, true);
+  const classRow = await canAccessClass(ctx, classId);
   if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED") {
     throw new HttpError(409, "This class is closed for check-off.");
   }
@@ -712,9 +801,12 @@ export async function recordSkillResult(
   if (!enrollment) throw new HttpError(404, "Student is not on this class roster.");
   if (!classRow.checklistVersionId) throw new HttpError(409, "This training record does not use a skills checklist.");
   const requirement = await prisma.taskBookRequirement.findFirst({
-    where: { id: requirementId, section: { versionId: classRow.checklistVersionId } },
+    where: { id: requirementId, section: { versionId: { in: [classRow.checklistVersionId, ...(await prisma.trainingClassStation.findMany({ where: { classId }, select: { checklistVersionId: true } })).map((station) => station.checklistVersionId)] } } },
+    select: { id: true, section: { select: { versionId: true } } },
   });
   if (!requirement) throw new HttpError(404, "Skill is not part of this class checklist.");
+  const station = await prisma.trainingClassStation.findFirst({ where: { classId, checklistVersionId: requirement.section.versionId }, select: { proctorUserId: true, title: true } });
+  if (station?.proctorUserId && station.proctorUserId !== ctx.userId && !canOverrideStationProctor(ctx)) throw new HttpError(403, `Only the assigned proctor for ${station.title} can grade this station.`);
   const result = input.result?.trim().toUpperCase() || "NOT_EVALUATED";
   if (!RESULT_VALUES.has(result)) throw new HttpError(400, "Invalid skill result.");
   if ((result === "NEEDS_REMEDIATION" || result === "FAIL") && !input.notes?.trim()) {
@@ -723,6 +815,10 @@ export async function recordSkillResult(
   if (input.numericScore != null && (!Number.isFinite(input.numericScore) || input.numericScore < 0 || input.numericScore > 100)) {
     throw new HttpError(400, "Skill score must be between 0 and 100.");
   }
+  const previousResult = await prisma.trainingClassSkillResult.findUnique({
+    where: { enrollmentId_requirementId: { enrollmentId, requirementId } },
+    select: { result: true },
+  });
   const recorded = await prisma.trainingClassSkillResult.upsert({
     where: { enrollmentId_requirementId: { enrollmentId, requirementId } },
     create: {
@@ -750,6 +846,7 @@ export async function recordSkillResult(
     requirementId,
     result,
     numericScore: input.numericScore ?? null,
+    priorResult: previousResult?.result || null,
   });
   return getClass(ctx, classId);
 }
@@ -762,7 +859,7 @@ export async function recordSkillResultsBatch(
 ) {
   assertPermission(ctx, "classes.proctor");
   await assertApprovedEvaluator(ctx);
-  const classRow = await canAccessClass(ctx, classId, true);
+  const classRow = await canAccessClass(ctx, classId);
   if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED") {
     throw new HttpError(409, "This class is closed for check-off.");
   }
@@ -788,11 +885,17 @@ export async function recordSkillResultsBatch(
   if (new Set(resultKeys).size !== resultKeys.length) throw new HttpError(400, "A student and skill can appear only once in this submission.");
   const enrollmentIds = [...new Set(rows.map((item) => item.enrollmentId))];
   const requirementIds = [...new Set(rows.map((item) => item.requirementId))];
+  const stationVersions = await prisma.trainingClassStation.findMany({ where: { classId }, select: { checklistVersionId: true, proctorUserId: true, title: true } });
+  const allowedVersionIds = [classRow.checklistVersionId, ...stationVersions.map((station) => station.checklistVersionId)];
   const requirements = await prisma.taskBookRequirement.findMany({
-    where: { id: { in: requirementIds }, section: { versionId: classRow.checklistVersionId } },
-    select: { id: true },
+    where: { id: { in: requirementIds }, section: { versionId: { in: allowedVersionIds } } },
+    select: { id: true, section: { select: { versionId: true } } },
   });
   if (requirements.length !== requirementIds.length) throw new HttpError(404, "One or more skills are not part of this class checklist.");
+  for (const requirement of requirements) {
+    const station = stationVersions.find((item) => item.checklistVersionId === requirement.section.versionId);
+    if (station?.proctorUserId && station.proctorUserId !== ctx.userId && !canOverrideStationProctor(ctx)) throw new HttpError(403, `Only the assigned proctor for ${station.title} can grade this station.`);
+  }
   const enrollments = await prisma.trainingClassEnrollment.findMany({
     where: { id: { in: enrollmentIds }, classId },
     select: { id: true, attendance: true },
@@ -929,6 +1032,7 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
     include: {
       department: { select: { trainingSheetRequiredFieldsJson: true } },
       checklistVersion: { include: { sections: { include: { requirements: true } } } },
+      stations: { include: { checklistVersion: { include: { sections: { include: { requirements: true } } } } } },
       roster: { include: { skillResults: true } },
       proctors: true,
     },
@@ -977,9 +1081,10 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
     }
   }
 
-  const requiredIds = row.checklistVersion?.sections.flatMap((section) =>
-    section.requirements.filter((item) => item.isRequired).map((item) => item.id),
-  ) || [];
+  const requiredIds = [
+    ...(row.checklistVersion?.sections.flatMap((section) => section.requirements.filter((item) => item.isRequired).map((item) => item.id)) || []),
+    ...row.stations.flatMap((station) => station.checklistVersion.sections.flatMap((section) => section.requirements.filter((item) => item.isRequired).map((item) => item.id))),
+  ];
   const incompleteSkills = row.roster.filter((item) =>
     item.attendance === "PRESENT" &&
     requiredIds.some((id) => !item.skillResults.some((result) => result.requirementId === id && result.result !== "NOT_EVALUATED")),
