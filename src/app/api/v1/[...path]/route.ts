@@ -1,10 +1,11 @@
 import { handleApi } from "@/server/api/router";
-import { getRequestSession } from "@/server/session";
+import { getRequestSession, verifySessionToken } from "@/server/session";
 import { handleError, jsonOk } from "@/server/http";
 import * as auth from "@/server/services/auth";
 import { withDemoDatabase } from "@/server/db";
 import { demoPrisma } from "@/server/demo-db";
 import { DEMO_DEPARTMENT_ID, DEMO_WALKS, type DemoWalkKey } from "@/lib/demo-accounts";
+import { SESSION_COOKIE } from "@/lib/constants";
 import { recordPublicMarketingEvent } from "@/server/services/public-events";
 
 const corsHeaders = {
@@ -22,6 +23,22 @@ function withCors(response: Response) {
     statusText: response.statusText,
     headers,
   });
+}
+
+async function hasKnownDemoSession(req: Request) {
+  if (!demoPrisma) return false;
+  const authorization = req.headers.get("authorization")?.trim() || "";
+  const bearer = authorization.toLowerCase().startsWith("bearer ") ? authorization.slice(7).trim() : "";
+  const cookie = (req.headers.get("cookie") || "").split(";").map((part) => part.trim()).find((part) => part.startsWith(`${SESSION_COOKIE}=`));
+  let cookieToken = "";
+  try {
+    cookieToken = cookie ? decodeURIComponent(cookie.slice(SESSION_COOKIE.length + 1)) : "";
+  } catch {
+    return false;
+  }
+  const signed = await verifySessionToken(bearer || cookieToken);
+  if (!signed || signed.departmentId !== DEMO_DEPARTMENT_ID) return false;
+  return Object.values(DEMO_WALKS).some((account) => account.email.toLowerCase() === signed.email.toLowerCase());
 }
 
 async function demoLogin(req: Request) {
@@ -85,6 +102,13 @@ async function dispatch(req: Request, params: Promise<{ path: string[] }>) {
       // An unavailable optional demo database must not break real registrations.
       console.error("Unable to resolve a public demo registration token", error);
     }
+  }
+
+  // Select the isolated demo schema from a valid server-signed token for a known
+  // demo identity. The request handler validates that session against the demo
+  // schema before granting access; caller-supplied flags never choose a database.
+  if (await hasKnownDemoSession(req)) {
+    return withCors(await withDemoDatabase(() => handleApi(req, path)));
   }
 
   const session = await getRequestSession(req);
