@@ -34,6 +34,7 @@ model User {
   pushDevices                   PushDevice[]
   classesCreated                TrainingClass[]            @relation("ClassCreator")
   classProctorLinks             TrainingClassProctor[]
+  classStationProctors          TrainingClassStation[] @relation("ClassStationProctor")
   classSkillResults             TrainingClassSkillResult[] @relation("ClassEvaluator")
   mobileNotificationPreferences NotificationPreference[]
 }
@@ -194,6 +195,7 @@ model TaskBookVersion {
   sections        TaskBookSection[]
   assignments     TaskBookAssignment[]
   trainingClasses TrainingClass[]
+  trainingStations TrainingClassStation[]
 
   @@unique([templateId, version])
 }
@@ -485,8 +487,10 @@ model TrainingClassStation {
   classId String
   class TrainingClass @relation(fields: [classId], references: [id], onDelete: Cascade)
   checklistVersionId String
+  checklistVersion TaskBookVersion @relation(fields: [checklistVersionId], references: [id], onDelete: Restrict)
   title String
   proctorUserId String?
+  proctor User? @relation("ClassStationProctor", fields: [proctorUserId], references: [id], onDelete: SetNull)
   sortOrder Int @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
