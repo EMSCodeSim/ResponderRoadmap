@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 5163)
-Total output lines: 256
-
 #!/usr/bin/env bash
 set -euo pipefail
 BASE="${BASE_URL:-http://127.0.0.1:3000}"
