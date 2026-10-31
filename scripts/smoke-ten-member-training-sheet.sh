@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 2649)
-Total output lines: 115
-
 #!/usr/bin/env bash
 # Ten-member API acceptance test. Refuses any target outside isolated localhost CI.
 set -euo pipefail
@@ -51,7 +48,36 @@ echo "$DETAIL" | jq -e '.data.roster | length == 10' >/dev/null
 echo "$DETAIL" | jq -e '.data.roster | any(.name == "Manual Guest No Email" and .isGuest == true and .email == "")' >/dev/null
 echo "$DETAIL" | jq -e --arg p1 "$PROCTOR" --arg p2 "$PROCTOR_EMS" '.data.stations | length == 2 and .[0].proctorUserId == $p1 and .[1].proctorUserId == $p2 and .[0].checklistVersionId != .[1].checklistVersionId' >/dev/null
 STATION1_SKILLS=$(echo "$DETAIL" | jq -c '[.data.stations[0].sections[].skills[] | select(.required == true) | .id] | unique')
-STATION2_SKILLS=$(echo "$DETAIL" | jq -c '[.data.stations[1].sections[].skills…649 tokens truncated…$STATION2_SKILL" --arg id "$FIRST_ID" --arg rev "$OLD_REV" '{requirementId:$skill,results:[{enrollmentId:$id,result:"FAIL",notes:"Web instructor observed failure",expectedUpdatedAt:$rev}]}')
+STATION2_SKILLS=$(echo "$DETAIL" | jq -c '[.data.stations[1].sections[].skills[] | select(.required == true) | .id] | unique')
+[[ "$(echo "$STATION1_SKILLS" | jq 'length')" -ge 1 && "$(echo "$STATION2_SKILLS" | jq 'length')" -ge 1 ]] || { echo "Both stations must have required checklist skills" >&2; exit 1; }
+
+# Ten independent attendance confirmations. No blanket skill passing.
+for id in $(echo "$DETAIL" | jq -r '.data.roster[].id'); do
+  api -X POST "$BASE/api/v1/classes/$CLASS_ID/roster/$id" -d '{"attendance":"PRESENT"}' >/dev/null
+done
+DETAIL=$(api "$BASE/api/v1/classes/$CLASS_ID")
+echo "$DETAIL" | jq -e '[.data.roster[] | select(.attendance == "PRESENT")] | length == 10' >/dev/null
+ROSTER=$(echo "$DETAIL" | jq -c '[.data.roster[].id]')
+STATION1_SKILL=$(echo "$STATION1_SKILLS" | jq -r '.[0]')
+STATION2_SKILL=$(echo "$STATION2_SKILLS" | jq -r '.[0]')
+
+# The assigned EMS proctor can grade that station and cannot grade the Firefighter II station.
+api -X POST "$BASE/api/v1/auth/demo-login" -d '{"walk":"evaluator"}' | jq -e '.data.session.role == "EVALUATOR"' >/dev/null
+FIRST_ID=$(echo "$ROSTER" | jq -r '.[0]')
+UNAUTHORIZED=$(jq -nc --arg skill "$STATION1_SKILL" --arg id "$FIRST_ID" '{requirementId:$skill,results:[{enrollmentId:$id,result:"PASS",notes:"",expectedUpdatedAt:null}]}')
+assert_status 403 -X POST "$BASE/api/v1/classes/$CLASS_ID/skills/batch" -d "$UNAUTHORIZED"
+
+# Simulate ten observed mobile results submitted for the EMS station as one atomic batch.
+BATCH=$(jq -nc --arg skill "$STATION2_SKILL" --argjson ids "$ROSTER" '{requirementId:$skill,results:[$ids | to_entries[] | {enrollmentId:.value,result:(if .key == 8 then "FAIL" elif .key == 9 then "NEEDS_REMEDIATION" else "PASS" end),notes:(if .key >= 8 then "Individual remediation recorded" else "" end),expectedUpdatedAt:null}]}')
+api -X POST "$BASE/api/v1/classes/$CLASS_ID/skills/batch" -d "$BATCH" | jq -e --arg skill "$STATION2_SKILL" '[.data.roster[].results[] | select(.requirementId == $skill)] | length == 10' >/dev/null
+# Replaying an old offline payload must reject the entire batch.
+assert_status 409 -X POST "$BASE/api/v1/classes/$CLASS_ID/skills/batch" -d "$BATCH"
+DETAIL=$(api "$BASE/api/v1/classes/$CLASS_ID")
+echo "$DETAIL" | jq -e --arg skill "$STATION2_SKILL" '[.data.roster[].results[] | select(.requirementId == $skill and .result == "PASS")] | length == 8' >/dev/null
+
+# Simulate web grading one member while a mobile client holds an old revision.
+OLD_REV=$(echo "$DETAIL" | jq -r --arg id "$FIRST_ID" --arg skill "$STATION2_SKILL" '.data.roster[] | select(.id == $id) | .results[] | select(.requirementId == $skill) | .updatedAt')
+WEB_CHANGE=$(jq -nc --arg skill "$STATION2_SKILL" --arg id "$FIRST_ID" --arg rev "$OLD_REV" '{requirementId:$skill,results:[{enrollmentId:$id,result:"FAIL",notes:"Web instructor observed failure",expectedUpdatedAt:$rev}]}')
 api -X POST "$BASE/api/v1/classes/$CLASS_ID/skills/batch" -d "$WEB_CHANGE" | jq -e --arg id "$FIRST_ID" --arg skill "$STATION2_SKILL" '.data.roster | any(.id == $id and (.results | any(.requirementId == $skill and .result == "FAIL")))' >/dev/null
 STALE=$(jq -nc --arg skill "$STATION2_SKILL" --arg id "$FIRST_ID" --arg rev "$OLD_REV" '{requirementId:$skill,results:[{enrollmentId:$id,result:"PASS",notes:"",expectedUpdatedAt:$rev}]}')
 assert_status 409 -X POST "$BASE/api/v1/classes/$CLASS_ID/skills/batch" -d "$STALE"
