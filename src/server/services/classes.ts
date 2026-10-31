@@ -369,20 +369,28 @@ export async function addManualGuestToClass(ctx: AuthContext, classId: string, i
   const rosterFields = templateFields.filter((field) => field.appliesTo === "ROSTER");
   const customValues = normalizeRosterCustomValues(input.customValues, rosterFields);
   if (name.length < 2) throw new HttpError(400, "Enter the student's name.");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "Enter a valid student email.");
-  const existing = await prisma.trainingClassEnrollment.findFirst({
-    where: { classId, OR: [{ guestEmail: email }, { membership: { user: { email } } }] },
-    select: { id: true },
-  });
-  if (existing) throw new HttpError(409, "This email is already on the class roster.");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "Enter a valid student email.");
+  if (email) {
+    const existing = await prisma.trainingClassEnrollment.findFirst({
+      where: { classId, OR: [{ guestEmail: email }, { membership: { user: { email } } }] },
+      select: { id: true },
+    });
+    if (existing) throw new HttpError(409, "This email is already on the class roster.");
+  } else {
+    const existingGuest = await prisma.trainingClassEnrollment.findFirst({
+      where: { classId, guestEmail: null, guestName: { equals: name, mode: "insensitive" }, guestOrganization: { equals: organization, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (existingGuest) throw new HttpError(409, "This guest name and agency are already on the class roster.");
+  }
   const count = await prisma.trainingClassEnrollment.count({ where: { classId } });
   if (count >= 250) throw new HttpError(409, "Class roster is full.");
-  const member = await prisma.departmentMembership.findFirst({
+  const member = email ? await prisma.departmentMembership.findFirst({
     where: { departmentId: ctx.departmentId, status: "ACTIVE", user: { email } },
     select: { id: true },
-  });
+  }) : null;
   const enrolled = await prisma.trainingClassEnrollment.create({
-    data: member ? { classId, membershipId: member.id, customValuesJson: JSON.stringify(customValues) } : { classId, guestName: name, guestEmail: email, guestOrganization: organization, customValuesJson: JSON.stringify(customValues) },
+    data: member ? { classId, membershipId: member.id, customValuesJson: JSON.stringify(customValues) } : { classId, guestName: name, guestEmail: email || null, guestOrganization: organization, customValuesJson: JSON.stringify(customValues) },
   });
   await writeAudit(ctx, "class.roster.manual_added", "TrainingClass", classId,
     { enrollmentId: enrolled.id, existingMember: Boolean(member) });
