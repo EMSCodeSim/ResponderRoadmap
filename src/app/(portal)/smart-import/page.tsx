@@ -28,6 +28,7 @@ export default function SmartImportPage() {
   const router = useRouter();
   const [destination, setDestination] = useState<"taskbook" | "roster">("taskbook");
   const [file, setFile] = useState<File | null>(null);
+  const [scanPages, setScanPages] = useState<File[]>([]);
   const [pasted, setPasted] = useState("");
   const [instructions, setInstructions] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -53,7 +54,9 @@ export default function SmartImportPage() {
   const selected = matched.filter((row) => row.member && selectedIds.includes(row.member.id));
 
   async function convert(): Promise<void> {
-    if (!file && !pasted.trim()) throw new Error("Choose a file or paste text first.");
+    if (!file && !scanPages.length && !pasted.trim()) throw new Error("Choose a file, scan photos, or paste text first.");
+    if (scanPages.length && (file || pasted.trim())) throw new Error("Choose scan photos, a file, or pasted text.");
+    if (scanPages.length > 5 || scanPages.reduce((total, page) => total + page.size, 0) > LIMIT) throw new Error("Choose up to 5 photos, 4 MB combined.");
     if (file && file.size > LIMIT) throw new Error("Files must be no larger than 4 MB.");
     if (file && pasted.trim()) throw new Error("Choose either a file or pasted text, not both.");
     if (destination === "roster") {
@@ -67,9 +70,16 @@ export default function SmartImportPage() {
       setSelectedIds([]);
       return;
     }
-    if (file && ![".pdf", ".docx", ".xlsx", ".csv", ".txt", ".md"].some((ext) => file.name.toLowerCase().endsWith(ext)))
-      throw new Error("Task Books support PDF, DOCX, XLSX, CSV, TXT, and Markdown files.");
-    const response = file
+    if (file && ![".pdf", ".docx", ".xlsx", ".csv", ".txt", ".md", ".jpg", ".jpeg", ".png", ".webp"].some((ext) => file.name.toLowerCase().endsWith(ext)))
+      throw new Error("Task Books support PDF, DOCX, XLSX, CSV, TXT, Markdown, JPEG, PNG, and WebP files.");
+    const response = scanPages.length
+      ? await api<ImportResponse>("task-books/ai/import-pdf", {
+          method: "POST", body: JSON.stringify({
+            pages: await Promise.all(scanPages.map(async (page) => ({ filename: page.name, fileData: await toBase64(page) }))),
+            notes: instructions,
+          }),
+        })
+      : file
       ? await api<ImportResponse>("task-books/ai/import-pdf", {
           method: "POST", body: JSON.stringify({ filename: file.name, fileData: await toBase64(file), notes: instructions }),
         })
@@ -113,7 +123,7 @@ export default function SmartImportPage() {
     finally { setBusy(false); }
   }
   function chooseFile(event: ChangeEvent<HTMLInputElement>) {
-    setFile(event.target.files?.[0] || null); setPasted(""); setDraft(null); setRosterRows([]); setError(null);
+    setFile(event.target.files?.[0] || null); setScanPages([]); setPasted(""); setDraft(null); setRosterRows([]); setError(null);
   }
   return <div className="space-y-5">
     <PageHeader kicker="Quick Add" title="Smart Import" description="Upload or paste information, review what was recognized, then choose where to save it. Nothing is published or assigned automatically." />
@@ -121,18 +131,29 @@ export default function SmartImportPage() {
     {message ? <p role="status" className="rounded-lg border border-navy-200 bg-white p-3 text-sm">{message} <Link className="font-bold text-fire underline" href={`/classes/${classId}`}>Open class roster</Link></p> : null}
     <Card className="space-y-4 p-5">
       <div className="flex flex-wrap gap-2">
-        <Button variant={destination === "taskbook" ? "primary" : "secondary"} onClick={() => { setDestination("taskbook"); setDraft(null); setRosterRows([]); setFile(null); }}>Task Book / checklist</Button>
-        <Button variant={destination === "roster" ? "primary" : "secondary"} onClick={() => { setDestination("roster"); setDraft(null); setRosterRows([]); setFile(null); }}>Class roster</Button>
+        <Button variant={destination === "taskbook" ? "primary" : "secondary"} onClick={() => { setDestination("taskbook"); setDraft(null); setRosterRows([]); setFile(null); setScanPages([]); }}>Task Book / checklist</Button>
+        <Button variant={destination === "roster" ? "primary" : "secondary"} onClick={() => { setDestination("roster"); setDraft(null); setRosterRows([]); setFile(null); setScanPages([]); }}>Class roster</Button>
       </div>
-      <Field label="1. Upload a file" hint={destination === "taskbook" ? "PDF, DOCX, XLSX, CSV, TXT, or MD · 4 MB maximum" : "CSV or TXT · 4 MB maximum; paste Excel rows below"}>
-        <Input type="file" accept={destination === "taskbook" ? ".pdf,.docx,.xlsx,.csv,.txt,.md" : ".csv,.txt"} onChange={chooseFile} />
+      <Field label="1. Upload a file" hint={destination === "taskbook" ? "PDF, DOCX, XLSX, CSV, TXT, MD, JPG, PNG, or WebP · 4 MB maximum" : "CSV or TXT · 4 MB maximum; paste Excel rows below"}>
+        <Input type="file" accept={destination === "taskbook" ? ".pdf,.docx,.xlsx,.csv,.txt,.md,.jpg,.jpeg,.png,.webp" : ".csv,.txt"} onChange={chooseFile} />
       </Field>
+      {destination === "taskbook" ? <div className="space-y-2 rounded-lg border border-navy-200 p-3">
+        <label className="block text-sm font-semibold text-navy-800" htmlFor="scan-checklist-photo">Scan multiple checklist pages</label>
+        <p className="text-xs text-navy-600">Take or choose 1–5 photos in page order (4 MB combined). Each photo is processed together into one editable draft. Review all extracted details; scans do not count as verified sign-offs.</p>
+        <Input id="scan-checklist-photo" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => {
+          const chosen = Array.from(event.target.files || []);
+          setScanPages(chosen); setFile(null); setPasted(""); setDraft(null); setError(null);
+        }} />
+        {scanPages.length ? <div className="space-y-1 text-sm"><p className="font-semibold">{scanPages.length} page(s) selected · {(scanPages.reduce((sum, page) => sum + page.size, 0) / 1024 / 1024).toFixed(2)} MB</p>
+          {scanPages.map((page, index) => <div className="flex items-center justify-between gap-2" key={index}><span className="truncate">{index + 1}. {page.name}</span><Button type="button" variant="ghost" onClick={() => setScanPages((pages) => pages.filter((_, i) => i !== index))}>Remove</Button></div>)}
+        </div> : null}
+      </div> : null}
       <p className="text-center text-sm text-navy-500">or paste information</p>
       <Field label={destination === "taskbook" ? "Paste task book or checklist text" : "Paste roster names or CSV rows"}>
-        <TextArea rows={6} value={pasted} onChange={(event) => { setPasted(event.target.value); setFile(null); setDraft(null); setRosterRows([]); }} placeholder={destination === "roster" ? "Name,Email\nJane Smith,jane@example.org\nJohn Doe,john@example.org" : "Paste skills, sections, and evaluation requirements here…"} />
+        <TextArea rows={6} value={pasted} onChange={(event) => { setPasted(event.target.value); setFile(null); setScanPages([]); setDraft(null); setRosterRows([]); }} placeholder={destination === "roster" ? "Name,Email\nJane Smith,jane@example.org\nJohn Doe,john@example.org" : "Paste skills, sections, and evaluation requirements here…"} />
       </Field>
       {destination === "taskbook" ? <Field label="Additional instructions (optional)"><TextArea rows={2} value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder="Preserve exact requirements and sign-off criteria." /></Field> : null}
-      <Button disabled={busy || (!file && !pasted.trim())} onClick={() => void review()}>{busy ? "Preparing preview…" : "2. Review import"}</Button>
+      <Button disabled={busy || (!file && !scanPages.length && !pasted.trim())} onClick={() => void review()}>{busy ? "Preparing preview…" : "2. Review import"}</Button>
       <p className="text-xs text-navy-500">AI extraction can make mistakes. Compare the preview against the original before saving. Roster matching is exact and never creates new member accounts.</p>
     </Card>
     {draft && destination === "taskbook" ? <Card className="space-y-3 p-5">
