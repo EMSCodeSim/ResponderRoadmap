@@ -56,6 +56,119 @@ function section(title: string, description: string, requirements: Array<Omit<St
 
 export const STARTER_TEMPLATES: StarterTemplate[] = [
   {
+    id: "ems-skills-lab",
+    title: "EMS Skills Lab Checklist",
+    description: "Editable practical-station checklist for a recurring EMT or paramedic skills lab. Adapt each station to local protocols and scope of practice before publishing.",
+    category: "EMS Training",
+    estimatedDurationDays: 1,
+    sections: [
+      section("Patient Assessment", "Primary and focused assessment station.", [
+        req("Medical patient assessment", { estimatedMinutes: 15, objectives: ["Scene safety and PPE", "Primary assessment", "Focused history and exam", "Treatment and reassessment"] }),
+        req("Trauma patient assessment", { estimatedMinutes: 15, objectives: ["Identify life threats", "Perform rapid trauma assessment", "Prioritize transport", "Reassess interventions"] }),
+      ], 0),
+      section("Airway and Ventilation", "Core airway stations using department-approved equipment.", [
+        req("BVM ventilation with airway adjunct", { estimatedMinutes: 12, objectives: ["Select adjunct", "Open airway", "Confirm effective ventilation", "Use supplemental oxygen"] }),
+        req("Supraglottic airway placement", { estimatedMinutes: 12, objectives: ["Prepare equipment", "Place device", "Confirm placement", "Secure and monitor"] }),
+      ], 1),
+      section("Medical and Trauma Skills", "Frequently practiced treatment stations.", [
+        req("Cardiac arrest team role", { estimatedMinutes: 15, objectives: ["High-quality CPR", "AED or monitor safety", "Closed-loop communication", "Minimize pauses"] }),
+        req("Hemorrhage control and shock care", { estimatedMinutes: 12, objectives: ["Direct pressure", "Tourniquet or wound packing", "Shock management", "Transport decision"] }),
+        req("Medication administration verification", { estimatedMinutes: 10, objectives: ["Indication", "Contraindications", "Dose and route", "Reassessment and documentation"] }),
+      ], 2),
+    ],
+  },
+  {
+    id: "company-fire-drill",
+    title: "Company Fire Training Checklist",
+    description: "Editable company-drill checklist for PPE, hose, ladders, tools, communications, accountability, and after-action documentation.",
+    category: "Fire Training",
+    estimatedDurationDays: 1,
+    sections: [
+      section("Safety and Readiness", "Briefing and individual readiness before the evolution.", [
+        req("Complete drill safety briefing", { evidenceType: "TRAINING_ATTENDANCE", estimatedMinutes: 10, objectives: ["Identify hazards", "Review stop signal", "Confirm rehab and accountability"] }),
+        req("Inspect PPE and SCBA", { estimatedMinutes: 10, objectives: ["Inspect PPE", "Complete SCBA check", "Verify radio and PASS"] }),
+      ], 0),
+      section("Company Evolution", "Select the skills that apply to the local drill plan.", [
+        req("Deploy and advance attack line", { estimatedMinutes: 20, objectives: ["Correct line selection", "Flake and charge", "Nozzle control", "Crew communication"] }),
+        req("Raise and work from ground ladder", { estimatedMinutes: 20, objectives: ["Select ladder", "Safe carry and raise", "Correct climbing angle", "Secure ladder"] }),
+        req("Forcible entry or search evolution", { estimatedMinutes: 20, objectives: ["Tool selection", "Team coordination", "Maintain orientation", "Control hazards"] }),
+      ], 1),
+      section("Closeout", "Accountability and documentation after the drill.", [
+        req("Complete personnel accountability report", { evidenceType: "SUPERVISOR_OBSERVATION", estimatedMinutes: 5 }),
+        req("Participate in after-action review", { evidenceType: "TRAINING_ATTENDANCE", estimatedMinutes: 15, objectives: ["Identify strengths", "Identify improvement item", "Document equipment or safety issue"] }),
+      ], 2),
+    ],
+  },
+  {
+    id: "bls-cpr-adult-infant",
+    title: "BLS CPR Adult & Infant Skills Checklist",
+    description: "Editable CPR/AED practice checklist for adult and infant skills. Verify every item against the current materials authorized by your Training Center before publishing or issuing credentials.",
+    category: "CPR",
+    estimatedDurationDays: 1,
+    sections: [
+      section("Adult CPR and AED", "Adult single-rescuer CPR and AED skills.", [
+        req("Assessment and emergency response activation", { estimatedMinutes: 5, objectives: ["Verify scene safety", "Check responsiveness", "Activate response and obtain AED", "Check breathing and pulse"] }),
+        req("Adult high-quality CPR cycles", { estimatedMinutes: 8, objectives: ["Correct hand position", "Appropriate rate and depth", "Full recoil", "30:2 cycles with minimal interruptions"] }),
+        req("Adult AED operation", { estimatedMinutes: 7, objectives: ["Power on AED", "Apply pads", "Clear for analysis and shock", "Resume compressions immediately"] }),
+      ], 0),
+      section("Infant CPR", "Infant single- and two-rescuer skills.", [
+        req("Infant assessment and activation", { estimatedMinutes: 5, objectives: ["Check responsiveness", "Check breathing and pulse", "Activate response appropriately"] }),
+        req("Infant single-rescuer CPR", { estimatedMinutes: 8, objectives: ["Correct compression technique", "Appropriate rate and depth", "30:2 cycles", "Effective breaths"] }),
+        req("Infant two-rescuer CPR and bag-mask ventilation", { estimatedMinutes: 10, objectives: ["Two-thumb encircling technique", "15:2 cycles", "Effective bag-mask seal", "Coordinate role changes"] }),
+      ], 1),
+      section("Completion", "Remediation and final instructor decision.", [
+        req("Complete remediation when indicated", { isRequired: false, evidenceType: "WRITTEN_NOTE", estimatedMinutes: 10 }),
+        req("Instructor final skills sign-off", { evidenceType: "SUPERVISOR_OBSERVATION", estimatedMinutes: 5 }),
+      ], 2),
+    ],
+  },
+  {
+    id: "firefighter-i-practice",
+    title: "Firefighter I Practice Stations",
+    description: "Editable Firefighter I practice stations covering common structural firefighting skills. Align selections and evaluation criteria with the certification standard and authority having jurisdiction before publishing.",
+    category: "Firefighter I",
+    estimatedDurationDays: 1,
+    sections: [
+      section("PPE, SCBA, and Survival", "Individual readiness and emergency procedures.", [
+        req("Don structural PPE and SCBA", { estimatedMinutes: 12, objectives: ["Inspect PPE", "Don complete ensemble", "Complete SCBA function check", "Confirm readiness"] }),
+        req("SCBA emergency and Mayday procedures", { estimatedMinutes: 15, objectives: ["Recognize emergency", "Transmit Mayday", "Activate PASS", "Conserve air and maintain orientation"] }),
+      ], 0),
+      section("Fireground Operations", "Core company skills practice.", [
+        req("Ground ladder raise and climb", { estimatedMinutes: 20, objectives: ["Select ladder", "Carry and raise safely", "Set climbing angle", "Secure and climb"] }),
+        req("Forcible entry", { estimatedMinutes: 15, objectives: ["Size up door", "Select tools", "Coordinate team", "Control entry"] }),
+        req("Advance charged attack line", { estimatedMinutes: 20, objectives: ["Deploy line", "Bleed and pattern nozzle", "Advance safely", "Communicate water application"] }),
+        req("Primary search", { estimatedMinutes: 20, objectives: ["Maintain team integrity", "Search systematically", "Communicate conditions", "Remove victim"] }),
+      ], 1),
+      section("Support Skills", "Tools, ventilation, salvage, and overhaul.", [
+        req("Ropes, knots, and tool hoist", { estimatedMinutes: 15 }),
+        req("Horizontal or vertical ventilation", { estimatedMinutes: 20 }),
+        req("Salvage and overhaul evolution", { estimatedMinutes: 20 }),
+      ], 2),
+    ],
+  },
+  {
+    id: "hazmat-operations-refresher",
+    title: "HazMat Operations Refresher Checklist",
+    description: "Editable operations-level HazMat practical checklist. Adapt zones, PPE, monitoring, decontamination, and emergency procedures to local policy and current standards.",
+    category: "HazMat",
+    estimatedDurationDays: 1,
+    sections: [
+      section("Recognition and Initial Actions", "Identify the hazard and establish a safe initial posture.", [
+        req("Recognize and identify hazardous materials", { estimatedMinutes: 15, objectives: ["Use placards and references", "Identify container clues", "Predict likely behavior", "Communicate findings"] }),
+        req("Establish isolation, zones, and command notifications", { estimatedMinutes: 15, objectives: ["Approach safely", "Recommend isolation", "Establish control zones", "Request appropriate resources"] }),
+      ], 0),
+      section("Protective Actions", "Operations-level defensive actions.", [
+        req("Select PPE for assigned defensive action", { estimatedMinutes: 15, objectives: ["Identify exposure route", "Explain PPE limits", "Complete buddy check", "Plan emergency withdrawal"] }),
+        req("Perform defensive control evolution", { estimatedMinutes: 20, objectives: ["Work within operations scope", "Use remote or defensive tactics", "Maintain accountability", "Monitor conditions"] }),
+        req("Establish emergency decontamination", { estimatedMinutes: 20, objectives: ["Select location", "Protect responders", "Control runoff when feasible", "Manage victims and responders"] }),
+      ], 1),
+      section("Termination", "Transfer information and document the exercise.", [
+        req("Conduct debrief and exposure documentation", { evidenceType: "WRITTEN_NOTE", estimatedMinutes: 15 }),
+        req("Complete after-action review", { evidenceType: "TRAINING_ATTENDANCE", estimatedMinutes: 15 }),
+      ], 2),
+    ],
+  },
+  {
     id: "probationary-firefighter",
     title: "Probationary Firefighter",
     description:
