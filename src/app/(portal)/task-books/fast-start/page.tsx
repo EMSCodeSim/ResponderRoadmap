@@ -46,7 +46,19 @@ export default function FastStartPage() {
 
   useEffect(() => {
     Promise.all([api<Starter[]>("task-books/starters"), api<Book[]>("task-books")])
-      .then(([available, department]) => { setStarters(available); setBooks(department); })
+      .then(([available, department]) => {
+        setStarters(available);
+        setBooks(department);
+        const requestedId = new URLSearchParams(window.location.search).get("starter") || "";
+        const requested = available.find((item) => item.id === requestedId);
+        if (requested) {
+          setSource("template");
+          setStarterId(requested.id);
+          setTitle(requested.title);
+          setDescription(requested.description);
+          setCategory(requested.category);
+        }
+      })
       .catch((err: unknown) => setLoadingError(err instanceof Error ? err.message : "Unable to load your available templates."));
   }, []);
 
