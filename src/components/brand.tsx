@@ -25,22 +25,25 @@ export function BrandLockup({
   size = 40,
   subtitle,
   invert = true,
+  compactOnMobile = false,
 }: {
   size?: number;
   subtitle?: string;
   invert?: boolean;
+  compactOnMobile?: boolean;
 }) {
   return (
-    <span className="flex items-center gap-3">
+    <span className="flex min-w-0 items-center gap-3">
       <BrandMark size={size} alt="" />
       <span className="min-w-0">
-        <span className={clsx("display block font-bold leading-none", invert ? "text-white" : "text-navy-900", size >= 48 ? "text-3xl" : "text-xl")}>
+        <span className={clsx("display block truncate font-bold leading-none", invert ? "text-white" : "text-navy-900", compactOnMobile ? "text-base sm:text-xl" : size >= 48 ? "text-3xl" : "text-xl")}>
           ResponderRoadmap
         </span>
         {subtitle ? (
           <span
             className={clsx(
               "mt-1 block text-[11px] font-semibold uppercase tracking-[0.14em]",
+              compactOnMobile && "hidden sm:block",
               invert ? "text-white/50" : "text-navy-400",
             )}
           >
