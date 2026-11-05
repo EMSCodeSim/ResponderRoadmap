@@ -179,7 +179,7 @@ export function LandingPage() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[.86fr_1.14fr] lg:gap-14 lg:pb-20 lg:pt-16">
+        <section className="relative isolate overflow-hidden border-b border-white/10 bg-[#081827]"><div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[url('/images/roadmap-hero-landscape.svg')] bg-cover bg-center opacity-90" /><div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-[#081321]/95 via-[#081321]/85 to-[#081321]/55" /><div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[.86fr_1.14fr] lg:gap-14 lg:pb-20 lg:pt-16">
           <div>
             <p className={kicker}>Qualification and competency tracking for Fire & EMS</p>
             <h1 className="mt-4 max-w-xl text-[2.5rem] font-semibold leading-[1.1] tracking-tight sm:text-5xl">
@@ -195,7 +195,7 @@ export function LandingPage() {
             </div>
           </div>
           <DashboardVisual />
-        </section>
+        </div></section>
 
         <section className="border-y border-white/[0.08] bg-[#0E1624] px-5 py-16 sm:px-8 lg:py-20">
           <div className="mx-auto max-w-6xl">
