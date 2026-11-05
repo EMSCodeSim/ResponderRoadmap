@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Award, BookOpen, CalendarDays, ClipboardCheck, ClipboardList, GraduationCap, Layers, Users } from "lucide-react";
 import { BrandLockup } from "@/components/brand";
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/responder-roadmap/id6800092347";
@@ -20,6 +21,13 @@ const workflow = [
   ["Complete", "Members perform assigned work and document training from the app."],
   ["Review", "Evaluators examine evidence and sign each required performance."],
   ["Follow", "The dashboard shows approved progress and the work that still needs attention."],
+];
+
+const heroCapabilities = [
+  { label: "Task Books", icon: BookOpen },
+  { label: "Assignments", icon: ClipboardList },
+  { label: "Training Sheets", icon: Layers },
+  { label: "Qualifications", icon: Award },
 ];
 
 function DashboardVisual() {
@@ -104,6 +112,119 @@ function DashboardVisual() {
   );
 }
 
+function HeroDashboardPreview() {
+  const metrics = [
+    { label: "Members", value: "75", icon: Users, color: "text-sky-300" },
+    { label: "In review", value: "6", icon: ClipboardCheck, color: "text-rose-300" },
+    { label: "Follow-ups", value: "2", icon: CalendarDays, color: "text-amber-300" },
+    { label: "Qualifications", value: "36", icon: GraduationCap, color: "text-emerald-300" },
+  ];
+  const reviews = ["FF Task Book · Johnson, A.", "EMT Skills · Miller, C.", "Driver/Operator · Reyes, D."];
+  const followUps = ["Annual Skills Check · Smith, R.", "PPE Competency · Carter, M.", "EMS Protocol Update · Nguyen, T."];
+  const sheets = ["SCBA Donning & Doffing", "Ladder Operations", "Patient Assessment (BLS)"];
+  const qualifications = [
+    ["Firefighter II", 76],
+    ["EMT · Basic", 90],
+    ["Driver/Operator", 62],
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/20 bg-[#081321]/95 text-white shadow-2xl shadow-black/50 ring-1 ring-white/10 backdrop-blur-sm">
+      <div className="flex min-w-0">
+        <aside className="hidden w-[132px] shrink-0 flex-col border-r border-white/[0.08] bg-[#091321]/90 p-3 md:flex">
+          <div className="mb-5 border-b border-white/[0.08] pb-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/75">Responder</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/75">Roadmap</p>
+          </div>
+          {[
+            ["Dashboard", true],
+            ["Members", false],
+            ["Qualifications", false],
+            ["Task Books", false],
+            ["Training Sheets", false],
+            ["Assignments", false],
+            ["Reports", false],
+          ].map(([label, active]) => (
+            <div key={String(label)} className={active ? "mb-1 rounded-lg bg-[#C8102E] px-2.5 py-2 text-[10px] font-semibold text-white" : "mb-1 rounded-lg px-2.5 py-2 text-[10px] font-medium text-white/55"}>
+              {String(label)}
+            </div>
+          ))}
+        </aside>
+
+        <div className="min-w-0 flex-1 p-3 sm:p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-sky-200/60">Example department view</p>
+              <h2 className="mt-1 truncate text-sm font-semibold sm:text-base">Department Dashboard</h2>
+              <p className="mt-1 hidden text-[10px] text-white/45 sm:block">Training, qualifications and competency tracking</p>
+            </div>
+            <span className="shrink-0 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[9px] font-medium text-white/65">All members⌄</span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+            {metrics.map(({ label, value, icon: Icon, color }) => (
+              <div key={label} className="rounded-lg border border-white/[0.08] bg-white/[0.04] p-2 sm:p-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Icon aria-hidden="true" className={`h-3.5 w-3.5 ${color}`} strokeWidth={2} />
+                  <span className="truncate text-[9px] font-semibold text-white/50">{label}</span>
+                </div>
+                <p className="mt-1 text-lg font-bold leading-none sm:text-xl">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+            <section className="min-w-0 rounded-lg border border-white/[0.08] bg-[#0E1A2B] p-2.5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-1.5 text-[10px] font-semibold"><ClipboardList aria-hidden="true" className="h-3.5 w-3.5 text-rose-300" />Review Queue</h3>
+                <span className="text-[9px] text-white/40">6 items</span>
+              </div>
+              <ul className="space-y-1.5">
+                {reviews.map((item) => <li key={item} className="flex min-w-0 items-center justify-between gap-2 text-[9px] text-white/65"><span className="truncate">{item}</span><span className="shrink-0 rounded-full bg-[#C8102E]/20 px-1.5 py-0.5 font-semibold text-rose-200">Review</span></li>)}
+              </ul>
+            </section>
+            <section className="min-w-0 rounded-lg border border-white/[0.08] bg-[#0E1A2B] p-2.5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-1.5 text-[10px] font-semibold"><CalendarDays aria-hidden="true" className="h-3.5 w-3.5 text-amber-300" />Follow-Ups</h3>
+                <span className="text-[9px] text-white/40">2 items</span>
+              </div>
+              <ul className="space-y-1.5">
+                {followUps.map((item) => <li key={item} className="flex min-w-0 items-center justify-between gap-2 text-[9px] text-white/65"><span className="truncate">{item}</span><span className="shrink-0 rounded-full bg-white/[0.08] px-1.5 py-0.5 text-white/55">Due soon</span></li>)}
+              </ul>
+            </section>
+          </div>
+
+          <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+            <section className="min-w-0 rounded-lg border border-white/[0.08] bg-[#0E1A2B] p-2.5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-1.5 text-[10px] font-semibold"><Layers aria-hidden="true" className="h-3.5 w-3.5 text-rose-300" />Training Sheets</h3>
+                <span className="text-[9px] text-white/40">14 to finish</span>
+              </div>
+              <ul className="space-y-1.5">
+                {sheets.map((item) => <li key={item} className="flex min-w-0 items-center justify-between gap-2 text-[9px] text-white/65"><span className="truncate">{item}</span><span className="shrink-0 rounded-full bg-emerald-300/10 px-1.5 py-0.5 text-emerald-200">Active</span></li>)}
+              </ul>
+            </section>
+            <section className="min-w-0 rounded-lg border border-white/[0.08] bg-[#0E1A2B] p-2.5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-1.5 text-[10px] font-semibold"><Award aria-hidden="true" className="h-3.5 w-3.5 text-emerald-300" />Qualification Progress</h3>
+              </div>
+              <ul className="space-y-2">
+                {qualifications.map(([label, progress]) => (
+                  <li key={String(label)} className="grid grid-cols-[82px_1fr_25px] items-center gap-1.5 text-[9px] text-white/65">
+                    <span className="truncate">{String(label)}</span>
+                    <span className="h-1.5 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full bg-emerald-300" style={{ width: `${progress}%` }} /></span>
+                    <span className="text-right text-white/75">{progress}%</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MemberAppVisual() {
   return (
     <div className="mx-auto w-full max-w-[330px] rounded-[2.4rem] border-[7px] border-[#05080E] bg-[#07111F] p-2 shadow-2xl shadow-black/45">
@@ -179,23 +300,31 @@ export function LandingPage() {
       </header>
 
       <main>
-        <section className="relative isolate overflow-hidden border-b border-white/10 bg-[#081827]"><div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[url('/images/roadmap-hero-landscape.svg')] bg-cover bg-center opacity-90" /><div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-[#081321]/95 via-[#081321]/85 to-[#081321]/55" /><div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[.86fr_1.14fr] lg:gap-14 lg:pb-20 lg:pt-16">
+        <section className="relative isolate overflow-hidden border-b border-white/10 bg-[#081321]">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[url('/images/roadmap-homepage-bg.webp')] bg-cover bg-[position:48%_center] md:bg-center" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-[#07111f]/75 via-[#07111f]/55 to-[#07111f]/90 md:bg-gradient-to-r md:from-[#07111f]/40 md:via-[#07111f]/70 md:to-[#07111f]/80" />
+          <div className="mx-auto grid max-w-6xl items-center gap-8 px-5 pb-12 pt-10 sm:px-8 sm:pb-16 sm:pt-12 lg:grid-cols-[.86fr_1.14fr] lg:gap-12 lg:pb-16 lg:pt-14">
           <div>
             <p className={kicker}>Qualification and competency tracking for Fire & EMS</p>
             <h1 className="mt-4 max-w-xl text-[2.5rem] font-semibold leading-[1.1] tracking-tight sm:text-5xl">
               Connect field training to verified department qualifications.
             </h1>
-            <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/68">
-              Build department requirements, assign Task Books and development work, capture Training Sheets in the field, and keep every approval connected to the member record.
+            <span aria-hidden="true" className="mt-6 block h-1 w-20 rounded-full bg-[#C8102E]" />
+            <p className="mt-5 max-w-xl text-[16px] leading-7 text-white/80">
+              Manage department requirements, Task Books, Training Sheets and approvals in one connected platform.
             </p>
-            <div className="mt-7 grid max-w-xl grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-              {["Task Books", "Assignments", "Training Sheets", "Qualifications"].map((item) => (
-                <span key={item} className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-3 text-center font-medium text-white/70">{item}</span>
+            <div className="mt-7 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
+              {heroCapabilities.map(({ label, icon: Icon }) => (
+                <div key={label} className="flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-xl border border-white/20 bg-[#081321]/55 px-2 py-3 text-center text-[12px] font-semibold text-white shadow-lg shadow-black/10 backdrop-blur-sm sm:text-[13px]">
+                  <Icon aria-hidden="true" className="h-5 w-5 text-rose-400" strokeWidth={1.8} />
+                  <span>{label}</span>
+                </div>
               ))}
             </div>
           </div>
-          <DashboardVisual />
-        </div></section>
+          <HeroDashboardPreview />
+          </div>
+        </section>
 
         <section className="border-y border-white/[0.08] bg-[#0E1624] px-5 py-16 sm:px-8 lg:py-20">
           <div className="mx-auto max-w-6xl">
