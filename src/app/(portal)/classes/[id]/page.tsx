@@ -149,15 +149,6 @@ function serializeTrainingForm(fields: TrainingFormFields, legacy: string) {
   return [legacy.trim(), trainingFormStart, JSON.stringify(fields, null, 2), trainingFormEnd].filter(Boolean).join("\n");
 }
 
-export default function ClassDetailPage() {") + ": ([\\s\\S]*?)(?=^(" + Object.values(trainingFormLabels).map((v) => v.replace(/[.*+?^\x24{}()|[\]\\]/g, "\\export default function ClassDetailPage() {")).join("|") + "): |$)", "m"));
-    if (match) fields[key] = match[1].trim();
-  }
-  return { fields, legacy: [notes.slice(0, start), notes.slice(end + trainingFormEnd.length)].filter(Boolean).join("\\n").trim() };
-}
-function serializeTrainingForm(fields: TrainingFormFields, legacy: string) {
-  return [legacy.trim(), trainingFormStart, ...(Object.keys(fields) as Array<keyof TrainingFormFields>).map((key) => trainingFormLabels[key] + ": " + fields[key].trim().replace(/\\n/g, "\\n  ")), trainingFormEnd].filter(Boolean).join("\\n");
-}
-
 export default function ClassDetailPage() {
   const params = useParams<{ id: string }>();
   const [detail, setDetail] = useState<ClassDetail | null>(null);
