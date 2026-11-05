@@ -132,11 +132,24 @@ function parseTrainingForm(notes: string): { fields: TrainingFormFields; legacy:
   const start = notes.indexOf(trainingFormStart);
   const end = notes.indexOf(trainingFormEnd, start + trainingFormStart.length);
   if (start < 0 || end < 0) return { fields: { ...blankTrainingForm, narrative: notes }, legacy: "" };
-  const raw = notes.slice(start + trainingFormStart.length, end).trim();
-  const fields = { ...blankTrainingForm };
-  for (const key of Object.keys(fields) as Array<keyof TrainingFormFields>) {
-    const label = trainingFormLabels[key];
-    const match = raw.match(new RegExp("^" + label.replace(/[.*+?^\x24{}()|[\]\\]/g, "\\export default function ClassDetailPage() {") + ": ([\\s\\S]*?)(?=^(" + Object.values(trainingFormLabels).map((v) => v.replace(/[.*+?^\x24{}()|[\]\\]/g, "\\export default function ClassDetailPage() {")).join("|") + "): |$)", "m"));
+  try {
+    const parsed: unknown = JSON.parse(notes.slice(start + trainingFormStart.length, end).trim());
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid fields");
+    const values = parsed as Record<string, unknown>;
+    const fields = { ...blankTrainingForm };
+    for (const key of Object.keys(fields) as Array<keyof TrainingFormFields>) {
+      if (typeof values[key] === "string") fields[key] = values[key] as string;
+    }
+    return { fields, legacy: [notes.slice(0, start), notes.slice(end + trainingFormEnd.length)].filter(Boolean).join("\n").trim() };
+  } catch {
+    return { fields: { ...blankTrainingForm, narrative: notes }, legacy: "" };
+  }
+}
+function serializeTrainingForm(fields: TrainingFormFields, legacy: string) {
+  return [legacy.trim(), trainingFormStart, JSON.stringify(fields, null, 2), trainingFormEnd].filter(Boolean).join("\n");
+}
+
+export default function ClassDetailPage() {") + ": ([\\s\\S]*?)(?=^(" + Object.values(trainingFormLabels).map((v) => v.replace(/[.*+?^\x24{}()|[\]\\]/g, "\\export default function ClassDetailPage() {")).join("|") + "): |$)", "m"));
     if (match) fields[key] = match[1].trim();
   }
   return { fields, legacy: [notes.slice(0, start), notes.slice(end + trainingFormEnd.length)].filter(Boolean).join("\\n").trim() };
