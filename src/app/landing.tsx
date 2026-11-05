@@ -117,7 +117,7 @@ function HeroDashboardPreview() {
     { label: "Members", value: "75", icon: Users, color: "text-sky-300" },
     { label: "In review", value: "6", icon: ClipboardCheck, color: "text-rose-300" },
     { label: "Follow-ups", value: "2", icon: CalendarDays, color: "text-amber-300" },
-    { label: "Qualifications", value: "36", icon: GraduationCap, color: "text-emerald-300" },
+    { label: "Qualified", value: "36", icon: GraduationCap, color: "text-emerald-300" },
   ];
   const reviews = ["FF Task Book · Johnson, A.", "EMT Skills · Miller, C.", "Driver/Operator · Reyes, D."];
   const followUps = ["Annual Skills Check · Smith, R.", "PPE Competency · Carter, M.", "EMS Protocol Update · Nguyen, T."];
