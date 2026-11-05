@@ -123,6 +123,28 @@ function SectionReport({ title, sections, roster }: { title: string; sections: C
   );
 }
 
+type TrainingFormFields = { station: string; shift: string; apparatus: string; method: string; evaluation: string; dayNight: string; objectives: string; instructors: string; resources: string; isoStandards: string; narrative: string };
+const blankTrainingForm: TrainingFormFields = { station: "", shift: "", apparatus: "", method: "", evaluation: "", dayNight: "", objectives: "", instructors: "", resources: "", isoStandards: "", narrative: "" };
+const trainingFormLabels: Record<keyof TrainingFormFields, string> = { station: "Station", shift: "Shift", apparatus: "Apparatus used", method: "Training method", evaluation: "Evaluation method", dayNight: "Day / Night", objectives: "Objectives", instructors: "Instructors", resources: "Resources / links", isoStandards: "ISO standards", narrative: "Narrative" };
+const trainingFormStart = "[TRAINING SHEET DETAILS]";
+const trainingFormEnd = "[END TRAINING SHEET DETAILS]";
+function parseTrainingForm(notes: string): { fields: TrainingFormFields; legacy: string } {
+  const start = notes.indexOf(trainingFormStart);
+  const end = notes.indexOf(trainingFormEnd, start + trainingFormStart.length);
+  if (start < 0 || end < 0) return { fields: { ...blankTrainingForm, narrative: notes }, legacy: "" };
+  const raw = notes.slice(start + trainingFormStart.length, end).trim();
+  const fields = { ...blankTrainingForm };
+  for (const key of Object.keys(fields) as Array<keyof TrainingFormFields>) {
+    const label = trainingFormLabels[key];
+    const match = raw.match(new RegExp("^" + label.replace(/[.*+?^\x24{}()|[\]\\]/g, "\\export default function ClassDetailPage() {") + ": ([\\s\\S]*?)(?=^(" + Object.values(trainingFormLabels).map((v) => v.replace(/[.*+?^\x24{}()|[\]\\]/g, "\\export default function ClassDetailPage() {")).join("|") + "): |$)", "m"));
+    if (match) fields[key] = match[1].trim();
+  }
+  return { fields, legacy: [notes.slice(0, start), notes.slice(end + trainingFormEnd.length)].filter(Boolean).join("\\n").trim() };
+}
+function serializeTrainingForm(fields: TrainingFormFields, legacy: string) {
+  return [legacy.trim(), trainingFormStart, ...(Object.keys(fields) as Array<keyof TrainingFormFields>).map((key) => trainingFormLabels[key] + ": " + fields[key].trim().replace(/\\n/g, "\\n  ")), trainingFormEnd].filter(Boolean).join("\\n");
+}
+
 export default function ClassDetailPage() {
   const params = useParams<{ id: string }>();
   const [detail, setDetail] = useState<ClassDetail | null>(null);
@@ -136,6 +158,8 @@ export default function ClassDetailPage() {
   const [docStart, setDocStart] = useState("");
   const [docEnd, setDocEnd] = useState("");
   const [docNotes, setDocNotes] = useState("");
+  const [trainingForm, setTrainingForm] = useState<TrainingFormFields>({ ...blankTrainingForm });
+  const [legacyTrainingNotes, setLegacyTrainingNotes] = useState("");
   const [docLocation, setDocLocation] = useState("");
   const [docHours, setDocHours] = useState("");
   const [docCeCredits, setDocCeCredits] = useState<Record<string, number>>({});
@@ -341,6 +365,9 @@ export default function ClassDetailPage() {
     if (!detail) return;
     setDocStart(dateTimeLocal(detail.startsAt));
     setDocEnd(dateTimeLocal(detail.endsAt));
+    const parsed = parseTrainingForm(detail.notes);
+    setTrainingForm(parsed.fields);
+    setLegacyTrainingNotes(parsed.legacy);
     setDocNotes(detail.notes);
     setDocLocation(detail.location);
     setDocHours(detail.creditHours > 0 ? String(detail.creditHours) : "");
@@ -354,7 +381,7 @@ export default function ClassDetailPage() {
       setError("Enter a valid start time and an end time after the start.");
       return;
     }
-    if (approve && detail.trainingCategory === "EMS" && !docNotes.trim()) {
+    if (approve && detail.trainingCategory === "EMS" && (!trainingForm.objectives.trim() || !trainingForm.narrative.trim())) {
       setError("Enter the class objectives and training narrative before approving this EMS Training Sheet.");
       return;
     }
@@ -366,7 +393,7 @@ export default function ClassDetailPage() {
         body: JSON.stringify({
           startsAt: new Date(docStart).toISOString(),
           endsAt: docEnd ? new Date(docEnd).toISOString() : null,
-          notes: docNotes,
+          notes: serializeTrainingForm(trainingForm, legacyTrainingNotes),
           location: docLocation,
           creditHours: docHours ? Number(docHours) : 0,
           ceCredits: detail.trainingCategory === "EMS" ? Object.entries(docCeCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours })) : undefined,
@@ -609,7 +636,15 @@ export default function ClassDetailPage() {
           <Field label="Credit hours (optional if times provided)"><Input type="number" min="0" max="24" step="0.25" value={docHours} onChange={(event) => setDocHours(event.target.value)} /></Field>
         </div>
         {detail.trainingCategory === "EMS" ? <section className="mt-4 rounded-lg border border-navy-200 p-4"><h3 className="font-bold">EMS CE categories</h3><p className="mt-1 text-sm text-navy-600">Confirm the credit earned in each category. Example: 0.5 Medical and 0.5 Airway.</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{Object.keys(EMS_CE_CATEGORIES).map((category) => <Field key={category} label={category}><Input type="number" min="0" max="24" step="0.25" value={docCeCredits[category] ?? ""} placeholder="0" onChange={(event) => { const hours = event.target.value === "" ? 0 : Number(event.target.value); setDocCeCredits((current) => ({ ...current, [category]: Number.isFinite(hours) && hours >= 0 ? hours : 0 })); }} /></Field>)}</div><p className="mt-3 font-semibold">Total CE credit: {Object.values(docCeCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</p></section> : null}
-        <div className="mt-3"><Field label={detail.trainingCategory === "EMS" ? "Class objectives and training narrative" : "Training narrative and department RMS codes"} hint="Include objectives, subjects covered, and any department RMS codes. These notes appear in the RMS export."><TextArea rows={5} value={docNotes} onChange={(event) => setDocNotes(event.target.value)} /></Field></div>
+        <section className="mt-4 space-y-3 rounded-lg border border-navy-200 p-4">
+          <h3 className="font-bold">Department Training Sheet information</h3>
+          <p className="text-sm text-navy-600">Complete these fields after class. They are preserved in the training narrative and RMS export; department-specific choices can be entered as text.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(["station", "shift", "apparatus", "method", "evaluation", "dayNight", "instructors", "resources", "isoStandards"] as const).map((key) => <Field key={key} label={trainingFormLabels[key]}><Input value={trainingForm[key]} onChange={(event) => setTrainingForm((current) => ({ ...current, [key]: event.target.value }))} placeholder={key === "station" ? "181, 182, 183, 184" : key === "shift" ? "A, B, C" : key === "method" ? "Lecture, Skills, Online, Drill" : key === "evaluation" ? "Written, Manipulative, None" : key === "dayNight" ? "Day, Night" : ""} /></Field>)}
+          </div>
+          <Field label="Training objectives (EMS: four objectives on Franktown form)"><TextArea rows={4} value={trainingForm.objectives} onChange={(event) => setTrainingForm((current) => ({ ...current, objectives: event.target.value }))} /></Field>
+          <Field label="Training narrative and RMS codes"><TextArea rows={5} value={trainingForm.narrative} onChange={(event) => setTrainingForm((current) => ({ ...current, narrative: event.target.value }))} /></Field>
+        </section>
         <div className="mt-4 rounded-md border border-navy-200 p-3 text-sm">
           <div>Roster: <strong>{detail.roster.length}</strong></div>
           <div>Attendance confirmed: <strong>{detail.roster.filter((item) => item.attendance !== "REGISTERED").length}/{detail.roster.length}</strong></div>
