@@ -166,8 +166,39 @@ export async function listMembers(
   });
   const lastByUser = new Map(activity.map((item) => [item.userId, item._max.timestamp]));
 
+  // Match the Training Hours report: completed classes, present members, credited hours or elapsed duration.
+  const year = new Date().getUTCFullYear();
+  const trainingClasses = await prisma.trainingClass.findMany({
+    where: {
+      departmentId: ctx.departmentId,
+      status: "COMPLETE",
+      startsAt: { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) },
+    },
+    select: {
+      startsAt: true,
+      endsAt: true,
+      creditHours: true,
+      roster: {
+        where: { attendance: "PRESENT", membershipId: { not: null } },
+        select: { membershipId: true },
+      },
+    },
+  });
+  const hoursByMember = new Map<string, number>();
+  for (const training of trainingClasses) {
+    const elapsed = training.endsAt
+      ? Math.max(0, (training.endsAt.getTime() - training.startsAt.getTime()) / 3_600_000)
+      : 0;
+    const hours = training.creditHours > 0 ? training.creditHours : Math.round(elapsed * 100) / 100;
+    if (hours <= 0) continue;
+    for (const attendee of training.roster) {
+      if (!attendee.membershipId) continue;
+      hoursByMember.set(attendee.membershipId, (hoursByMember.get(attendee.membershipId) ?? 0) + hours);
+    }
+  }
+
   let rows = memberships.map((membership) =>
-    summarizeMember(membership, lastByUser.get(membership.userId) ?? null),
+    {\n      ...summarizeMember(membership, lastByUser.get(membership.userId) ?? null),\n      trainingHoursYear: year,\n      trainingHours: Math.round((hoursByMember.get(membership.id) ?? 0) * 100) / 100,\n    },
   );
 
   if (filters.query) {
