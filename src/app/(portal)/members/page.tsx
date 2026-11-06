@@ -16,7 +16,9 @@ type MemberRow = {
   station: string | null;
   shift: string | null;
   status: string;
-  lastActivity: string | null;\n  trainingHours: number;\n  trainingHoursYear: number;
+  lastActivity: string | null;
+  trainingHours: number;
+  trainingHoursYear: number;
   overallProgress: number | null;
   currentWork?: string;
   dueDate?: string | null;
@@ -177,7 +179,8 @@ export default function MembersPage() {
                     <th>Member</th>
                   <th>Current Work</th>
                   <th>Progress</th>
-                  <th>Training Hours (YTD)</th>\n                  <th>Last Activity</th>
+                  <th>Training Hours (YTD)</th>
+                  <th>Last Activity</th>
                   <th>Due Date</th>
                   <th>Status</th>
                   {canRemoveMembers ? <th>Manage</th> : null}
@@ -197,7 +200,8 @@ export default function MembersPage() {
                         : member.activeTaskBooks.map((item) => `${item.taskBookTitle} (${item.percent}%)`).join("; "))}
                     </td>
                     <td>{member.overallProgress == null ? "—" : <ProgressBar value={member.overallProgress} />}</td>
-                    <td className="whitespace-nowrap font-semibold tabular-nums">{member.trainingHours.toLocaleString(undefined, { maximumFractionDigits: 2 })} hrs</td>\n                    <td>{relativeTime(member.lastActivity)}</td>
+                    <td className="whitespace-nowrap font-semibold tabular-nums">{member.trainingHours.toLocaleString(undefined, { maximumFractionDigits: 2 })} hrs</td>
+                    <td>{relativeTime(member.lastActivity)}</td>
                     <td>{member.dueDate ? formatDate(member.dueDate) : "—"}</td>
                     <td>
                       <Badge tone={member.operationalStatus ? operationalStatusTone(member.operationalStatus) : member.status === "ACTIVE" ? "current" : member.status === "PENDING" ? "warn" : "neutral"}>
@@ -237,7 +241,8 @@ export default function MembersPage() {
                   </div>
                   <p className="mt-1 text-sm text-navy-600">{member.currentWork || "No active work"}</p>
                   <div className="mt-3">{member.overallProgress == null ? null : <ProgressBar value={member.overallProgress} />}</div>
-                  <p className="mt-2 text-sm font-semibold text-navy-800">Training this year: {member.trainingHours.toLocaleString(undefined, { maximumFractionDigits: 2 })} hrs</p>\n                  <p className="mt-2 text-xs text-navy-500">{relativeTime(member.lastActivity)}{member.dueDate ? ` · Due ${formatDate(member.dueDate)}` : ""}</p>
+                  <p className="mt-2 text-sm font-semibold text-navy-800">Training this year: {member.trainingHours.toLocaleString(undefined, { maximumFractionDigits: 2 })} hrs</p>
+                  <p className="mt-2 text-xs text-navy-500">{relativeTime(member.lastActivity)}{member.dueDate ? ` · Due ${formatDate(member.dueDate)}` : ""}</p>
                 </Link>
               </li>
             ))}
