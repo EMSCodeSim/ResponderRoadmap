@@ -198,7 +198,11 @@ export async function listMembers(
   }
 
   let rows = memberships.map((membership) =>
-    {\n      ...summarizeMember(membership, lastByUser.get(membership.userId) ?? null),\n      trainingHoursYear: year,\n      trainingHours: Math.round((hoursByMember.get(membership.id) ?? 0) * 100) / 100,\n    },
+    {
+      ...summarizeMember(membership, lastByUser.get(membership.userId) ?? null),
+      trainingHoursYear: year,
+      trainingHours: Math.round((hoursByMember.get(membership.id) ?? 0) * 100) / 100,
+    },
   );
 
   if (filters.query) {
