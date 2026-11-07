@@ -619,7 +619,11 @@ export default function ClassDetailPage() {
                 <div className="flex items-center justify-between gap-2"><span className="font-semibold">{item.name}{item.isGuest ? <span className="ml-2 text-xs font-normal text-navy-500">Guest</span> : null}</span><Badge tone={tone(item.finalResult)}>{resultLabels[item.finalResult] || item.finalResult}</Badge></div>
                 <p className="mt-1 text-xs text-navy-500">{item.attendance} · {item.results.length} results recorded</p>
                 {detail.customFields.filter((field) => field.appliesTo === "ROSTER" && item.customValues?.[field.id] != null && item.customValues[field.id] !== "").length ? <p className="mt-1 text-xs text-navy-700">{detail.customFields.filter((field) => field.appliesTo === "ROSTER" && item.customValues?.[field.id] != null && item.customValues[field.id] !== "").map((field) => `${field.label}: ${field.type === "LAST4" ? `••${String(item.customValues[field.id]).slice(-2)}` : String(item.customValues[field.id])}`).join(" · ")}</p> : null}
-              </button></div>
+              </button>
+              {detail.status !== "COMPLETE" ? <div className="flex shrink-0 gap-1">
+                <button type="button" aria-label={`Mark ${item.name} present`} disabled={busy} onClick={() => void markAttendance([item.id], "PRESENT")} className={`min-h-11 min-w-11 rounded-md border px-2 font-bold ${item.attendance === "PRESENT" ? "border-green-700 bg-green-100 text-green-900" : "border-navy-200 bg-white text-navy-900"}`}>✓</button>
+                <button type="button" aria-label={`Mark ${item.name} absent`} disabled={busy} onClick={() => void markAttendance([item.id], "ABSENT")} className={`min-h-11 min-w-11 rounded-md border px-2 font-bold ${item.attendance === "ABSENT" ? "border-red-700 bg-red-100 text-red-900" : "border-navy-200 bg-white text-navy-900"}`}>×</button>
+              </div> : null}</div>
             ))}
           </div>
         </Card>
