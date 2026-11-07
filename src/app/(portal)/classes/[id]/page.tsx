@@ -443,6 +443,14 @@ export default function ClassDetailPage() {
   const hasGradingConfig = Object.keys(detail.gradingConfig || {}).length > 0;
   const showWrittenScore = hasGradingConfig ? detail.gradingConfig.writtenTestEnabled === true : true;
   const showCcfScore = hasGradingConfig ? detail.gradingConfig.ccfEnabled === true : true;
+  const pendingAttendance = detail.roster.filter((member) => member.attendance === "REGISTERED").length;
+  const requiredSkills = detail.sections.flatMap((section) => section.skills).filter((skill) => skill.required);
+  const pendingEvaluations = detail.roster.filter((member) => member.attendance === "PRESENT").reduce((count, member) =>
+    count + requiredSkills.filter((skill) => !member.results.some((result) => result.requirementId === skill.id && result.result !== "NOT_EVALUATED")).length, 0);
+  const nextAction = detail.rmsStatus === "RMS_ENTERED" ? "done" : detail.rmsStatus === "AWAITING_ENTRY" ? "rms" :
+    detail.status === "DRAFT" ? "start" : pendingAttendance > 0 ? "attendance" : pendingEvaluations > 0 ? "skills" :
+    detail.status === "COMPLETE" ? "approve" : "documentation";
+
 
   return (
     <div>
@@ -466,33 +474,27 @@ export default function ClassDetailPage() {
           Confirm course and student details with your Training Center.
         </div>
       ) : null}
-      <div className="no-print mb-4 rounded-lg border border-navy-200 bg-white p-4">
-        <h2 className="text-sm font-bold text-navy-900">Training sheet workflow</h2>
-        <p className="mt-2 text-sm text-navy-600">Follow the steps below after teaching. You can save documentation without approving it; the sheet stays in Needs Attention until RMS entry is confirmed.</p>
-        <ol className="mt-3 grid gap-2 md:grid-cols-2" aria-label="Training sheet completion steps">
-          <li className="rounded-lg border border-navy-200 p-3">
-            <div className="font-semibold">1. Start training</div>
-            <p className="mt-1 text-sm text-navy-600">{detail.status === "DRAFT" ? "Ready to start. QR registration is available below." : "Training has been started or completed."}</p>
-            {detail.status === "DRAFT" ? <Button disabled={busy} onClick={() => updateStatus("ACTIVE")}>Start training</Button> : <Badge tone="current">Started</Badge>}
-          </li>
-          <li className="rounded-lg border border-navy-200 p-3">
-            <div className="font-semibold">2. Confirm roster and evaluations</div>
-            <p className="mt-1 text-sm text-navy-600">{detail.roster.filter((student) => student.attendance !== "REGISTERED").length} of {detail.roster.length} attendance entries confirmed. Review skills and results below.</p>
-            <a href="#training-roster" className="inline-flex min-h-10 items-center text-sm font-semibold text-fire underline">Review roster and skills</a>
-          </li>
-          <li className="rounded-lg border border-navy-200 p-3">
-            <div className="font-semibold">3. Complete documentation and approval</div>
-            <p className="mt-1 text-sm text-navy-600">{detail.instructorApprovedAt ? "Instructor approved." : "Enter actual end time, objectives, narrative, hours and department details."}</p>
-            {detail.instructorApprovedAt ? <Badge tone="current">Approved</Badge> : ["DRAFT", "ACTIVE"].includes(detail.status) ? <Button disabled={busy} onClick={openDocumentation}>Finish documentation</Button> : detail.status === "COMPLETE" && detail.rmsStatus === "NOT_READY" ? <Button disabled={busy} onClick={approveExisting}>Approve training sheet</Button> : <Badge tone="warn">Review required</Badge>}
-          </li>
-          <li className="rounded-lg border border-navy-200 p-3">
-            <div className="font-semibold">4. Record RMS entry</div>
-            <p className="mt-1 text-sm text-navy-600">Only mark entered after the official department RMS entry is completed.</p>
-            {detail.rmsStatus === "RMS_ENTERED" ? <Badge tone="current">Entered into RMS</Badge> : detail.rmsStatus === "AWAITING_ENTRY" ? <Button disabled={busy} onClick={() => { setRmsReference(detail.rmsReference || ""); setRmsNote(detail.rmsEntryNote || ""); setRmsOpen(true); }}>Confirm RMS entry</Button> : <Badge tone="warn">Waiting for approval</Badge>}
-          </li>
-        </ol>
-        <div className="mt-2 text-sm font-semibold text-navy-900">RMS: {detail.rmsStatus === "RMS_ENTERED" ? "Entered" : detail.rmsStatus === "AWAITING_ENTRY" ? "Awaiting entry — still needs attention" : "Not yet entered — still needs attention"}</div>
-      </div>
+      <section className="no-print mb-4 rounded-xl border border-navy-200 bg-white p-4" aria-label="Next training action">
+        <h2 className="text-lg font-bold text-navy-900">Next action</h2>
+        <p className="mt-2 text-sm text-navy-600">{nextAction === "done" ? "Training approved and entered into RMS." : nextAction === "rms" ? "Enter the approved record in your department RMS, then confirm." : nextAction === "start" ? "Begin the training session." : nextAction === "attendance" ? `${pendingAttendance} members need attendance confirmed.` : nextAction === "skills" ? `${pendingEvaluations} required skill results need recording.` : nextAction === "approve" ? "Review and approve the saved training record." : "Enter the finish time, objectives, narrative and hours."}</p>
+        <div className="mt-3">
+          {nextAction === "start" ? <Button disabled={busy} onClick={() => updateStatus("ACTIVE")}>Start training</Button> : null}
+          {["attendance", "skills"].includes(nextAction) ? <a href="#training-roster" className="inline-flex min-h-12 items-center rounded-md bg-navy-900 px-4 py-2 font-semibold text-white">Review attendance and skills →</a> : null}
+          {nextAction === "documentation" ? <Button disabled={busy} onClick={openDocumentation}>Finish documentation</Button> : null}
+          {nextAction === "approve" ? <Button disabled={busy} onClick={approveExisting}>Approve training sheet</Button> : null}
+          {nextAction === "rms" ? <Button disabled={busy} onClick={() => { setRmsReference(detail.rmsReference || ""); setRmsNote(detail.rmsEntryNote || ""); setRmsOpen(true); }}>Confirm RMS entry</Button> : null}
+          {nextAction === "done" ? <Badge tone="current">Complete</Badge> : null}
+        </div>
+        <details className="mt-4 border-t border-navy-200 pt-3">
+          <summary className="cursor-pointer text-sm font-semibold">Other actions — work in any order</summary>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <a href="#training-roster" className="inline-flex min-h-11 items-center text-sm font-semibold text-fire underline">Attendance and evaluations</a>
+            {["DRAFT", "ACTIVE"].includes(detail.status) ? <Button variant="secondary" disabled={busy} onClick={openDocumentation}>Save documentation</Button> : null}
+            <Link href={`/reports/class-training-sheet/${detail.id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-fire underline">RMS export</Link>
+          </div>
+          <p className="mt-2 text-xs text-navy-600">Complete tasks in any practical order. Final approval still checks required fields, attendance and evaluations; RMS confirmation stays separate.</p>
+        </details>
+      </section>
       <div id="training-roster" className="scroll-mt-24" />
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
 
