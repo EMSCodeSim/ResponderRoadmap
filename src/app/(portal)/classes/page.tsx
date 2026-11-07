@@ -85,12 +85,15 @@ export default function ClassesPage() {
 
   useEffect(() => {
     load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load classes."));
+    if (new URLSearchParams(window.location.search).get("status") === "complete") setSheetFilter("complete");
   }, []);
 
   useEffect(() => {
-    if (!setup || quickAddOpened.current || new URLSearchParams(window.location.search).get("quick") !== "1") return;
+    if (!setup || quickAddOpened.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("quick") !== "1" && params.get("mode") !== "class") return;
     quickAddOpened.current = true;
-    openTraining(true);
+    openTraining(params.get("quick") === "1");
   }, [setup]);
 
   useEffect(() => {
