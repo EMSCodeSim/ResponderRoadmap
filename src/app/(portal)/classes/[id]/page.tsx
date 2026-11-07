@@ -325,24 +325,23 @@ export default function ClassDetailPage() {
     finally { setBusy(false); }
   }
 
-  async function markSelectedPresent() {
-    if (!detail || busy || !groupSelection.length || detail.status === "COMPLETE") return;
-    if (!window.confirm(`Confirm attendance for ${groupSelection.length} selected members? This records attendance only, not skill competency.`)) return;
-    setBusy(true);
-    setError(null);
-    setGroupMessage("");
+  async function markAttendance(ids: string[], attendance: "PRESENT" | "ABSENT") {
+    if (!detail || busy || !ids.length || detail.status === "COMPLETE") return;
+    const targets = detail.roster.filter((member) => ids.includes(member.id) && member.attendance !== attendance);
+    if (!targets.length) return;
+    setBusy(true); setError(null); setGroupMessage("");
     let completed = 0;
     try {
-      for (const id of groupSelection) {
-        await api(`classes/${detail.id}/roster/${id}`, { method: "POST", body: JSON.stringify({ attendance: "PRESENT" }) });
+      for (const member of targets) {
+        await api(`classes/${detail.id}/roster/${member.id}`, { method: "POST", body: JSON.stringify({ attendance }) });
         completed++;
       }
       setGroupSelection([]);
-      setGroupMessage(`Attendance confirmed for ${completed} members. Skill grading and sign-offs remain separate.`);
+      setGroupMessage(`${completed} members marked ${attendance.toLowerCase()}. Skills remain unchanged.`);
     } catch (err) {
-      setError(`Attendance saved for ${completed} of ${groupSelection.length} selected members. ${err instanceof Error ? err.message : "Please retry remaining members."} Refresh the roster before continuing.`);
+      setError(`Saved ${completed} of ${targets.length}. ${err instanceof Error ? err.message : "Retry remaining members."}`);
     } finally {
-      try { await load(); } catch { setError("Unable to refresh the roster after saving attendance."); }
+      try { await load(); } catch { setError("Unable to refresh attendance."); }
       setBusy(false);
     }
   }
@@ -443,6 +442,14 @@ export default function ClassDetailPage() {
   const hasGradingConfig = Object.keys(detail.gradingConfig || {}).length > 0;
   const showWrittenScore = hasGradingConfig ? detail.gradingConfig.writtenTestEnabled === true : true;
   const showCcfScore = hasGradingConfig ? detail.gradingConfig.ccfEnabled === true : true;
+  const pendingAttendance = detail.roster.filter((member) => member.attendance === "REGISTERED").length;
+  const requiredSkills = detail.sections.flatMap((section) => section.skills).filter((skill) => skill.required);
+  const pendingEvaluations = detail.roster.filter((member) => member.attendance === "PRESENT").reduce((count, member) =>
+    count + requiredSkills.filter((skill) => !member.results.some((result) => result.requirementId === skill.id && result.result !== "NOT_EVALUATED")).length, 0);
+  const nextAction = detail.rmsStatus === "RMS_ENTERED" ? "done" : detail.rmsStatus === "AWAITING_ENTRY" ? "rms" :
+    detail.status === "DRAFT" ? "start" : pendingAttendance > 0 ? "attendance" : pendingEvaluations > 0 ? "skills" :
+    detail.status === "COMPLETE" ? "approve" : "documentation";
+
 
   return (
     <div>
@@ -466,11 +473,28 @@ export default function ClassDetailPage() {
           Confirm course and student details with your Training Center.
         </div>
       ) : null}
-      <div className="no-print mb-4 rounded-lg border border-navy-200 bg-white p-4">
-        <h2 className="text-sm font-bold text-navy-900">Training sheet workflow</h2>
-        <p className="mt-2 text-sm text-navy-600">1. Display or print the QR code and start training. 2. Confirm the roster, attendance, and skill results. 3. Enter the finish time, objectives, and CE categories, then approve the Training Sheet. 4. Enter the export into your department RMS and mark Entered into RMS. This sheet stays in Needs Attention until then.</p>
-        <div className="mt-2 text-sm font-semibold text-navy-900">RMS: {detail.rmsStatus === "RMS_ENTERED" ? "Entered" : detail.rmsStatus === "AWAITING_ENTRY" ? "Awaiting entry — still needs attention" : "Not yet entered — still needs attention"}</div>
-      </div>
+      <section className="no-print mb-4 rounded-xl border border-navy-200 bg-white p-4" aria-label="Next training action">
+        <h2 className="text-lg font-bold text-navy-900">Next action</h2>
+        <p className="mt-2 text-sm text-navy-600">{nextAction === "done" ? "Training approved and entered into RMS." : nextAction === "rms" ? "Enter the approved record in your department RMS, then confirm." : nextAction === "start" ? "Begin the training session." : nextAction === "attendance" ? `${pendingAttendance} members need attendance confirmed.` : nextAction === "skills" ? `${pendingEvaluations} required skill results need recording.` : nextAction === "approve" ? "Review and approve the saved training record." : "Enter the finish time, objectives, narrative and hours."}</p>
+        <div className="mt-3">
+          {nextAction === "start" ? <Button disabled={busy} onClick={() => updateStatus("ACTIVE")}>Start training</Button> : null}
+          {["attendance", "skills"].includes(nextAction) ? <a href="#training-roster" className="inline-flex min-h-12 items-center rounded-md bg-navy-900 px-4 py-2 font-semibold text-white">Review attendance and skills →</a> : null}
+          {nextAction === "documentation" ? <Button disabled={busy} onClick={openDocumentation}>Finish documentation</Button> : null}
+          {nextAction === "approve" ? <Button disabled={busy} onClick={approveExisting}>Approve training sheet</Button> : null}
+          {nextAction === "rms" ? <Button disabled={busy} onClick={() => { setRmsReference(detail.rmsReference || ""); setRmsNote(detail.rmsEntryNote || ""); setRmsOpen(true); }}>Confirm RMS entry</Button> : null}
+          {nextAction === "done" ? <Badge tone="current">Complete</Badge> : null}
+        </div>
+        <details className="mt-4 border-t border-navy-200 pt-3">
+          <summary className="cursor-pointer text-sm font-semibold">Other actions — work in any order</summary>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <a href="#training-roster" className="inline-flex min-h-11 items-center text-sm font-semibold text-fire underline">Attendance and evaluations</a>
+            {["DRAFT", "ACTIVE"].includes(detail.status) ? <Button variant="secondary" disabled={busy} onClick={openDocumentation}>Save documentation</Button> : null}
+            <Link href={`/reports/class-training-sheet/${detail.id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-fire underline">RMS export</Link>
+          </div>
+          <p className="mt-2 text-xs text-navy-600">Complete tasks in any practical order. Final approval still checks required fields, attendance and evaluations; RMS confirmation stays separate.</p>
+        </details>
+      </section>
+      <div id="training-roster" className="scroll-mt-24" />
       <ClassRegistrationControls classId={detail.id} token={detail.registrationToken} enabled={detail.registrationEnabled} status={detail.status} onChange={(updated) => setDetail(updated as ClassDetail)} />
 
       {["DRAFT", "ACTIVE"].includes(detail.status) ? <Card className="no-print mb-4 p-4">
@@ -573,13 +597,18 @@ export default function ClassDetailPage() {
         <Card className="h-fit p-4">
           <div className="flex items-center justify-between"><h2 className="font-semibold">Class roster</h2><Badge tone={detail.status === "ACTIVE" ? "info" : detail.status === "COMPLETE" ? "current" : "neutral"}>{detail.status}</Badge></div>
           {detail.status !== "COMPLETE" ? <div className="mt-3 rounded-md border border-navy-200 p-3">
-            <p className="text-sm font-semibold">Group attendance</p>
-            <p className="mt-1 text-xs text-navy-600">Select members to confirm attendance. Each member is saved individually; this does not pass skills or approve qualifications.</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Button variant="secondary" disabled={busy} onClick={() => setGroupSelection(detail.roster.filter((item) => item.attendance === "REGISTERED").map((item) => item.id))}>Select unchecked</Button>
+            <h3 className="font-semibold">Attendance</h3>
+            <p className="mt-1 text-sm text-navy-600">{detail.roster.filter((item) => item.attendance === "PRESENT").length} present · {detail.roster.filter((item) => item.attendance === "ABSENT").length} absent · {detail.roster.filter((item) => item.attendance === "REGISTERED").length} unmarked</p>
+            <Button className="mt-3 min-h-12 w-full" disabled={busy || !detail.roster.some((item) => item.attendance === "REGISTERED")} onClick={() => void markAttendance(detail.roster.filter((item) => item.attendance === "REGISTERED").map((item) => item.id), "PRESENT")}>Mark all remaining present</Button>
+            <p className="mt-2 text-xs text-navy-600">Only unmarked members change; existing decisions are preserved.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="secondary" disabled={busy} onClick={() => setGroupSelection(detail.roster.filter((item) => item.attendance === "REGISTERED").map((item) => item.id))}>Select unmarked</Button>
               <Button variant="secondary" disabled={busy} onClick={() => setGroupSelection([])}>Clear</Button>
             </div>
-            <Button className="mt-3 min-h-12 w-full" disabled={busy || groupSelection.length === 0} onClick={() => void markSelectedPresent()}>Confirm present ({groupSelection.length})</Button>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Button disabled={busy || !groupSelection.length} onClick={() => void markAttendance(groupSelection, "PRESENT")}>Present ({groupSelection.length})</Button>
+              <Button variant="secondary" disabled={busy || !groupSelection.length} onClick={() => void markAttendance(groupSelection, "ABSENT")}>Absent ({groupSelection.length})</Button>
+            </div>
             {groupMessage ? <p role="status" className="mt-2 text-sm text-navy-700">{groupMessage}</p> : null}
           </div> : null}
           <div className="mt-3 space-y-2">
@@ -590,7 +619,11 @@ export default function ClassDetailPage() {
                 <div className="flex items-center justify-between gap-2"><span className="font-semibold">{item.name}{item.isGuest ? <span className="ml-2 text-xs font-normal text-navy-500">Guest</span> : null}</span><Badge tone={tone(item.finalResult)}>{resultLabels[item.finalResult] || item.finalResult}</Badge></div>
                 <p className="mt-1 text-xs text-navy-500">{item.attendance} · {item.results.length} results recorded</p>
                 {detail.customFields.filter((field) => field.appliesTo === "ROSTER" && item.customValues?.[field.id] != null && item.customValues[field.id] !== "").length ? <p className="mt-1 text-xs text-navy-700">{detail.customFields.filter((field) => field.appliesTo === "ROSTER" && item.customValues?.[field.id] != null && item.customValues[field.id] !== "").map((field) => `${field.label}: ${field.type === "LAST4" ? `••${String(item.customValues[field.id]).slice(-2)}` : String(item.customValues[field.id])}`).join(" · ")}</p> : null}
-              </button></div>
+              </button>
+              {detail.status !== "COMPLETE" ? <div className="flex shrink-0 gap-1">
+                <button type="button" aria-label={`Mark ${item.name} present`} disabled={busy} onClick={() => void markAttendance([item.id], "PRESENT")} className={`min-h-11 min-w-11 rounded-md border px-2 font-bold ${item.attendance === "PRESENT" ? "border-green-700 bg-green-100 text-green-900" : "border-navy-200 bg-white text-navy-900"}`}>✓</button>
+                <button type="button" aria-label={`Mark ${item.name} absent`} disabled={busy} onClick={() => void markAttendance([item.id], "ABSENT")} className={`min-h-11 min-w-11 rounded-md border px-2 font-bold ${item.attendance === "ABSENT" ? "border-red-700 bg-red-100 text-red-900" : "border-navy-200 bg-white text-navy-900"}`}>×</button>
+              </div> : null}</div>
             ))}
           </div>
         </Card>
