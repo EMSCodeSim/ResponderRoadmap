@@ -325,24 +325,23 @@ export default function ClassDetailPage() {
     finally { setBusy(false); }
   }
 
-  async function markSelectedPresent() {
-    if (!detail || busy || !groupSelection.length || detail.status === "COMPLETE") return;
-    if (!window.confirm(`Confirm attendance for ${groupSelection.length} selected members? This records attendance only, not skill competency.`)) return;
-    setBusy(true);
-    setError(null);
-    setGroupMessage("");
+  async function markAttendance(ids: string[], attendance: "PRESENT" | "ABSENT") {
+    if (!detail || busy || !ids.length || detail.status === "COMPLETE") return;
+    const targets = detail.roster.filter((member) => ids.includes(member.id) && member.attendance !== attendance);
+    if (!targets.length) return;
+    setBusy(true); setError(null); setGroupMessage("");
     let completed = 0;
     try {
-      for (const id of groupSelection) {
-        await api(`classes/${detail.id}/roster/${id}`, { method: "POST", body: JSON.stringify({ attendance: "PRESENT" }) });
+      for (const member of targets) {
+        await api(`classes/${detail.id}/roster/${member.id}`, { method: "POST", body: JSON.stringify({ attendance }) });
         completed++;
       }
       setGroupSelection([]);
-      setGroupMessage(`Attendance confirmed for ${completed} members. Skill grading and sign-offs remain separate.`);
+      setGroupMessage(`${completed} members marked ${attendance.toLowerCase()}. Skills remain unchanged.`);
     } catch (err) {
-      setError(`Attendance saved for ${completed} of ${groupSelection.length} selected members. ${err instanceof Error ? err.message : "Please retry remaining members."} Refresh the roster before continuing.`);
+      setError(`Saved ${completed} of ${targets.length}. ${err instanceof Error ? err.message : "Retry remaining members."}`);
     } finally {
-      try { await load(); } catch { setError("Unable to refresh the roster after saving attendance."); }
+      try { await load(); } catch { setError("Unable to refresh attendance."); }
       setBusy(false);
     }
   }
@@ -598,13 +597,18 @@ export default function ClassDetailPage() {
         <Card className="h-fit p-4">
           <div className="flex items-center justify-between"><h2 className="font-semibold">Class roster</h2><Badge tone={detail.status === "ACTIVE" ? "info" : detail.status === "COMPLETE" ? "current" : "neutral"}>{detail.status}</Badge></div>
           {detail.status !== "COMPLETE" ? <div className="mt-3 rounded-md border border-navy-200 p-3">
-            <p className="text-sm font-semibold">Group attendance</p>
-            <p className="mt-1 text-xs text-navy-600">Select members to confirm attendance. Each member is saved individually; this does not pass skills or approve qualifications.</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Button variant="secondary" disabled={busy} onClick={() => setGroupSelection(detail.roster.filter((item) => item.attendance === "REGISTERED").map((item) => item.id))}>Select unchecked</Button>
+            <h3 className="font-semibold">Attendance</h3>
+            <p className="mt-1 text-sm text-navy-600">{detail.roster.filter((item) => item.attendance === "PRESENT").length} present · {detail.roster.filter((item) => item.attendance === "ABSENT").length} absent · {detail.roster.filter((item) => item.attendance === "REGISTERED").length} unmarked</p>
+            <Button className="mt-3 min-h-12 w-full" disabled={busy || !detail.roster.some((item) => item.attendance === "REGISTERED")} onClick={() => void markAttendance(detail.roster.filter((item) => item.attendance === "REGISTERED").map((item) => item.id), "PRESENT")}>Mark all remaining present</Button>
+            <p className="mt-2 text-xs text-navy-600">Only unmarked members change; existing decisions are preserved.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="secondary" disabled={busy} onClick={() => setGroupSelection(detail.roster.filter((item) => item.attendance === "REGISTERED").map((item) => item.id))}>Select unmarked</Button>
               <Button variant="secondary" disabled={busy} onClick={() => setGroupSelection([])}>Clear</Button>
             </div>
-            <Button className="mt-3 min-h-12 w-full" disabled={busy || groupSelection.length === 0} onClick={() => void markSelectedPresent()}>Confirm present ({groupSelection.length})</Button>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Button disabled={busy || !groupSelection.length} onClick={() => void markAttendance(groupSelection, "PRESENT")}>Present ({groupSelection.length})</Button>
+              <Button variant="secondary" disabled={busy || !groupSelection.length} onClick={() => void markAttendance(groupSelection, "ABSENT")}>Absent ({groupSelection.length})</Button>
+            </div>
             {groupMessage ? <p role="status" className="mt-2 text-sm text-navy-700">{groupMessage}</p> : null}
           </div> : null}
           <div className="mt-3 space-y-2">
