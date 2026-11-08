@@ -632,6 +632,13 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
           </>
         }
       />
+      {!isAssignment && book.status === "ACTIVE" ? (
+        <div className="mb-4 rounded-lg border border-navy-200 bg-navy-50 p-4">
+          <h2 className="font-semibold text-navy-900">Record this Task Book work as training</h2>
+          <p className="mt-1 text-sm text-navy-600">Start a Training Sheet with the Task Book title and reference already filled in. Review attendance, evaluations, and hours before giving credit.</p>
+          <Link className="mt-3 inline-flex min-h-11 items-center rounded-md bg-navy-900 px-4 text-sm font-semibold text-white" href={`/classes?quick=1&sourceTaskBookId=${encodeURIComponent(book.id)}&sourceTaskBookTitle=${encodeURIComponent(title)}`}>Create Training Sheet from Task Book</Link>
+        </div>
+      ) : null}
       {dirty ? <p className="mb-3 text-sm font-semibold text-warn">Unsaved changes. Save before leaving this page.</p> : null}
       <Flash message={error} tone="danger" />
       <div className="mb-3">
