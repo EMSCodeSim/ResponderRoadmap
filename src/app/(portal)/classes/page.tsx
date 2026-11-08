@@ -26,6 +26,9 @@ type ClassRow = {
   proctors: string[];
 };
 
+type SignedRequirement = { id: string; title: string; completion?: { status: string; completedAt?: string | null; evidence?: Array<{ id: string }>; signOffs?: Array<{ id: string; result: string; evaluatorName: string; signedAt: string; approvalLevel: string }> } | null };
+type SourceDetail = { sections: Array<{ title: string; requirements: SignedRequirement[] }> };
+type SourceAssignment = { id: string; templateId: string; memberName: string; progress: number; status: string; complete: number; totalRequired: number; pendingApproval: number }; 
 type CEAllocation = { category: string; hours: number };
 type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null };
 type TrainingSheetTemplate = { id: string; name: string; defaultTitle: string; classType: string; trainingCategory: string; topic: string; creditHours: number; checklistVersionId: string | null; location: string; notes: string; selfRegistration: boolean; proctorUserIds: string[]; ceCredits: CEAllocation[]; gradingConfig: GradingConfig; };
@@ -54,6 +57,21 @@ const emptyForm = {
 
 export default function ClassesPage() {
   const [rows, setRows] = useState<ClassRow[]>([]);
+  const [sourceAssignments, setSourceAssignments] = useState<SourceAssignment[] | null>(null);
+  const [sourceAssignmentError, setSourceAssignmentError] = useState("");
+  const [selectedSourceMember, setSelectedSourceMember] = useState("");
+  const [selectedSourceDetail, setSelectedSourceDetail] = useState<SourceDetail | null>(null);
+  const [sourceDetailBusy, setSourceDetailBusy] = useState(false);
+  const [sourceDetailError, setSourceDetailError] = useState("");
+  async function reviewSourceMember(id: string) {
+    setSelectedSourceMember(id);
+    setSelectedSourceDetail(null);
+    setSourceDetailError("");
+    setSourceDetailBusy(true);
+    try { setSelectedSourceDetail(await api<SourceDetail>(`assignments/${encodeURIComponent(id)}`)); }
+    catch { setSourceDetailError("Unable to read signed evaluation details for this member."); }
+    finally { setSourceDetailBusy(false); }
+  }
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [sheetFilter, setSheetFilter] = useState("all");
@@ -119,6 +137,16 @@ export default function ClassesPage() {
       .catch(() => { if (!cancelled) setError("Unable to verify the source Task Book. Start from a published Task Book you can access."); });
     return () => { cancelled = true; };
   }, [setup]);
+
+  useEffect(() => {
+    const sourceId = new URLSearchParams(window.location.search).get("sourceTaskBookId");
+    if (!sourceId) return;
+    let cancelled = false;
+    api<SourceAssignment[]>("assignments")
+      .then((items) => { if (!cancelled) setSourceAssignments(items.filter((item) => item.templateId === sourceId)); })
+      .catch(() => { if (!cancelled) setSourceAssignmentError("Assignment summary unavailable. Review Task Book records before awarding credit."); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (templateOpened.current || !setup || !templates.length) return;
@@ -287,6 +315,29 @@ export default function ClassesPage() {
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
+          {sourceAssignments ? (
+            <div className="rounded-lg border border-navy-200 bg-white p-3" aria-label="Source Task Book assignment review">
+              <h3 className="font-semibold text-navy-900">Source Task Book progress</h3>
+              <p className="mt-1 text-sm text-navy-600">{sourceAssignments.length} assigned member records · {sourceAssignments.filter((item) => item.status === "COMPLETE").length} complete. Progress is for reference only, not imported evaluations or attendance.</p>
+              <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-sm">
+                {sourceAssignments.slice(0, 25).map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-navy-100 py-1"><span>{item.memberName}</span><span>{item.complete}/{item.totalRequired} requirements · {item.pendingApproval} awaiting approval <button type="button" className="ml-2 font-semibold text-fire underline" onClick={() => reviewSourceMember(item.id)} aria-label={`Review signed evaluations for ${item.memberName}`}>Review sign-offs</button></span></li>)}
+              </ul>
+              {sourceDetailBusy ? <p className="mt-2 text-sm">Loading signed evaluations…</p> : null}
+              {sourceDetailError ? <p role="alert" className="mt-2 text-sm text-warn">{sourceDetailError}</p> : null}
+              {selectedSourceDetail ? <div className="mt-3 rounded-md border border-navy-200 p-3">
+                <h4 className="font-semibold">Signed evaluation records</h4>
+                <p className="text-xs text-navy-500">Read-only source evidence for {sourceAssignments.find((item) => item.id === selectedSourceMember)?.memberName}. These records are not yet imported into the Training Sheet.</p>
+                <ul className="mt-2 max-h-48 space-y-2 overflow-y-auto">
+                  {selectedSourceDetail.sections.flatMap((section) => section.requirements).filter((req) => req.completion?.signOffs?.length).map((req) =>
+                    <li key={req.id} className="border-b border-navy-100 pb-2"><span className="font-medium">{req.title}</span>
+                      {req.completion?.signOffs?.map((sign) => <div key={sign.id} className="text-xs text-navy-600">{sign.result} · {sign.evaluatorName} · {new Date(sign.signedAt).toLocaleDateString()} · {sign.approvalLevel}</div>)}
+                    </li>)}
+                </ul>
+              </div> : null}
+              {sourceAssignments.length > 25 ? <p className="mt-2 text-xs text-navy-500">Showing first 25 members.</p> : null}
+            </div>
+          ) : null}
+          {sourceAssignmentError ? <p role="alert" className="text-sm text-warn">{sourceAssignmentError}</p> : null}
           {new URLSearchParams(typeof window === "undefined" ? "" : window.location.search).has("sourceTaskBookId") ? (
             <div className="rounded-lg border border-navy-200 bg-navy-50 p-3 text-sm text-navy-800" role="note">Linked Task Book reference. This pre-fills the title and source reference only. Attendance, signed evaluations, and hours are not automatically transferred; verify them before saving.</div>
           ) : null}
