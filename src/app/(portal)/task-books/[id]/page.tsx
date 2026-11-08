@@ -632,6 +632,22 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
           </>
         }
       />
+      {!isAssignment ? (
+        <div className="mb-4 rounded-xl border border-navy-200 bg-white p-4" aria-label="Task Book workflow shortcuts">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-bold text-navy-900">Task Book workflow</h2>
+              <p className="mt-1 text-sm text-navy-600">Build requirements, assign members, and check how evaluators will review each task.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => setPreview("evaluator")}>Evaluator preview</Button>
+              <Button variant="secondary" onClick={() => setPreview("member")}>Member preview</Button>
+              {book.status === "ACTIVE" ? <Button onClick={() => setAssignOpen(true)}>Assign members</Button> : null}
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-navy-500">Previews do not record sign-offs. Evaluations must be completed on assigned member records by authorized evaluators.</p>
+        </div>
+      ) : null}
       {dirty ? <p className="mb-3 text-sm font-semibold text-warn">Unsaved changes. Save before leaving this page.</p> : null}
       <Flash message={error} tone="danger" />
       <div className="mb-3">
