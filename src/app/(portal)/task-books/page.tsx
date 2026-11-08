@@ -34,6 +34,7 @@ export default function TaskBooksPage() {
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
+  const [sort, setSort] = useState("assigned");
 
   // Fetch once: text/status filters are local so typing does not repeatedly reload the library.
   useEffect(() => {
@@ -46,7 +47,9 @@ export default function TaskBooksPage() {
     const term = q.trim().toLowerCase();
     return (!status || book.status === status) && (!term ||
       [book.title, book.category, book.intendedPosition || ""].some((value) => value.toLowerCase().includes(term)));
-  }), [books, q, status]);
+  }).sort((a, b) => sort === "name" ? a.title.localeCompare(b.title) : sort === "updated" ? b.version.localeCompare(a.version, undefined, { numeric: true }) : b.assignedMembers - a.assignedMembers || a.title.localeCompare(b.title)), [books, q, status, sort]);
+  const publishedCount = (books ?? []).filter((book) => book.status === "ACTIVE").length;
+  const assignedCount = (books ?? []).reduce((total, book) => total + book.assignedMembers, 0);
 
   return (
     <div>
@@ -57,6 +60,12 @@ export default function TaskBooksPage() {
         description="Task Books define what the department requires. Assignments record who is expected to complete a Task Book or requirement."
 
       />
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Task Book library summary">
+        <div className="rounded-lg border border-navy-200 bg-white p-3"><div className="text-xs text-navy-600">Task Books</div><div className="text-xl font-bold text-navy-900">{books?.length ?? "—"}</div></div>
+        <div className="rounded-lg border border-navy-200 bg-white p-3"><div className="text-xs text-navy-600">Published</div><div className="text-xl font-bold text-navy-900">{books ? publishedCount : "—"}</div></div>
+        <div className="col-span-2 rounded-lg border border-navy-200 bg-white p-3 sm:col-span-1"><div className="text-xs text-navy-600">Assigned members</div><div className="text-xl font-bold text-navy-900">{books ? assignedCount : "—"}</div><div className="text-xs text-navy-500">Across books; a member may appear more than once</div></div>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2"><Link href="/task-books/fast-start"><Button>Create Task Book</Button></Link><Link href="/assignments" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 px-4 text-sm font-semibold text-navy-900">Manage assignments</Link></div>
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <Input className="min-w-52 flex-1" aria-label="Search Task Books" placeholder="Search Task Books" value={q} onChange={(event) => setQ(event.target.value)} />
         <Select className="w-full sm:w-44" aria-label="Filter Task Books by status" value={status} onChange={(event) => setStatus(event.target.value)}>
@@ -65,7 +74,11 @@ export default function TaskBooksPage() {
           <option value="DRAFT">Drafts</option>
           <option value="ARCHIVED">Archived</option>
         </Select>
+        <Select className="w-full sm:w-48" aria-label="Sort Task Books" value={sort} onChange={(event) => setSort(event.target.value)}>
+          <option value="assigned">Most assigned</option><option value="name">Name A–Z</option><option value="updated">Highest version</option>
+        </Select>
       </div>
+      {books && books.length > 0 ? <p className="mb-2 text-xs text-navy-600" aria-live="polite">Showing {visible.length} of {books.length} Task Books</p> : null}
       {error ? <p role="alert" className="mb-4 text-sm text-danger">{error}</p> : null}
       {!books && !error ? <p className="text-navy-500">Loading library…</p> : null}
       {books && books.length === 0 ? (
