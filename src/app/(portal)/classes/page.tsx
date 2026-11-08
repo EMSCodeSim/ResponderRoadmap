@@ -101,12 +101,23 @@ export default function ClassesPage() {
     const params = new URLSearchParams(window.location.search);
     const sourceId = params.get("sourceTaskBookId");
     if (!sourceId || params.get("quick") !== "1") return;
-    const sourceTitle = params.get("sourceTaskBookTitle")?.trim().slice(0, 160) || "Task Book skills training";
-    setForm((previous) => ({
-      ...previous,
-      title: sourceTitle,
-      notes: `Source Task Book: ${sourceTitle} (ID: ${sourceId}). Verify attendance and evaluation evidence before awarding credit. Do not count previously recorded training hours twice.`,
-    }));
+    let cancelled = false;
+    api<{ id: string; title: string; status: string; templateKind?: string }>(`task-books/${encodeURIComponent(sourceId)}`)
+      .then((source) => {
+        if (cancelled) return;
+        if (source.id !== sourceId || source.status !== "ACTIVE" || source.templateKind === "TRAINING_TASK") {
+          setError("Only published Task Books can be used as a Training Sheet source.");
+          return;
+        }
+        const sourceTitle = source.title.trim().slice(0, 160) || "Task Book skills training";
+        setForm((previous) => ({
+          ...previous,
+          title: sourceTitle,
+          notes: `Source Task Book: ${sourceTitle} (ID: ${source.id}). Verify attendance and evaluation evidence before awarding credit. Do not count previously recorded training hours twice.`,
+        }));
+      })
+      .catch(() => { if (!cancelled) setError("Unable to verify the source Task Book. Start from a published Task Book you can access."); });
+    return () => { cancelled = true; };
   }, [setup]);
 
   useEffect(() => {
