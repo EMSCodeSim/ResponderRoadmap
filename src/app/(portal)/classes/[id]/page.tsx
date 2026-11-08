@@ -442,14 +442,25 @@ export default function ClassDetailPage() {
   const hasGradingConfig = Object.keys(detail.gradingConfig || {}).length > 0;
   const showWrittenScore = hasGradingConfig ? detail.gradingConfig.writtenTestEnabled === true : true;
   const showCcfScore = hasGradingConfig ? detail.gradingConfig.ccfEnabled === true : true;
-  const pendingAttendance = detail.roster.filter((member) => member.attendance === "REGISTERED").length;
+  const unmarkedMembers = detail.roster.filter((member) => member.attendance === "REGISTERED");
+  const pendingAttendance = unmarkedMembers.length;
   const requiredSkills = detail.sections.flatMap((section) => section.skills).filter((skill) => skill.required);
-  const pendingEvaluations = detail.roster.filter((member) => member.attendance === "PRESENT").reduce((count, member) =>
-    count + requiredSkills.filter((skill) => !member.results.some((result) => result.requirementId === skill.id && result.result !== "NOT_EVALUATED")).length, 0);
+  const pendingSkillMembers = detail.roster.filter((member) => member.attendance === "PRESENT").map((member) => ({
+    name: member.name,
+    missing: requiredSkills.filter((skill) => !member.results.some((result) => result.requirementId === skill.id && (result.result === "PASS" || result.result === "FAIL"))).length,
+  })).filter((member) => member.missing > 0);
+  const pendingEvaluations = pendingSkillMembers.reduce((total, member) => total + member.missing, 0);
+  const savedTrainingForm = parseTrainingForm(detail.notes).fields;
+  const missingDocumentation = [
+    !detail.endsAt ? "End time" : null,
+    !detail.creditHours || detail.creditHours <= 0 ? "Training hours" : null,
+    !savedTrainingForm.objectives?.trim() ? "Objectives" : null,
+    !savedTrainingForm.narrative?.trim() ? "Narrative" : null,
+  ].filter((value): value is string => Boolean(value));
   const nextAction = detail.rmsStatus === "RMS_ENTERED" ? "done" : detail.rmsStatus === "AWAITING_ENTRY" ? "rms" :
-    detail.status === "DRAFT" ? "start" : pendingAttendance > 0 ? "attendance" : pendingEvaluations > 0 ? "skills" :
-    detail.status === "COMPLETE" ? "approve" : "documentation";
-
+    detail.status === "COMPLETE" ? "approval" : detail.status === "DRAFT" ? "start" :
+    pendingAttendance > 0 ? "attendance" : pendingEvaluations > 0 ? "skills" :
+    missingDocumentation.length > 0 ? "documentation" : "approve";
 
   return (
     <div>
@@ -475,7 +486,7 @@ export default function ClassDetailPage() {
       ) : null}
       <section className="no-print mb-4 rounded-xl border border-navy-200 bg-white p-4" aria-label="Next training action">
         <h2 className="text-lg font-bold text-navy-900">Next action</h2>
-        <p className="mt-2 text-sm text-navy-600">{nextAction === "done" ? "Training approved and entered into RMS." : nextAction === "rms" ? "Enter the approved record in your department RMS, then confirm." : nextAction === "start" ? "Begin the training session." : nextAction === "attendance" ? `${pendingAttendance} members need attendance confirmed.` : nextAction === "skills" ? `${pendingEvaluations} required skill results need recording.` : nextAction === "approve" ? "Review and approve the saved training record." : "Enter the finish time, objectives, narrative and hours."}</p>
+        <p className="mt-2 text-sm text-navy-600">{nextAction === "done" ? "Training approved and entered into RMS." : nextAction === "rms" ? "Enter the approved record in your department RMS, then confirm." : nextAction === "start" ? "Begin the training session." : nextAction === "attendance" ? `${pendingAttendance} members need attendance confirmed.` : nextAction === "skills" ? `${pendingEvaluations} required skill results need recording.` : nextAction === "approval" ? "Training is closed. Review the approval status below." : nextAction === "approve" ? "Review and approve the saved training record." : `Complete: ${missingDocumentation.join(", ")}.`}</p>
         <div className="mt-3">
           {nextAction === "start" ? <Button disabled={busy} onClick={() => updateStatus("ACTIVE")}>Start training</Button> : null}
           {["attendance", "skills"].includes(nextAction) ? <a href="#training-roster" className="inline-flex min-h-12 items-center rounded-md bg-navy-900 px-4 py-2 font-semibold text-white">Review attendance and skills →</a> : null}
@@ -483,6 +494,7 @@ export default function ClassDetailPage() {
           {nextAction === "approve" ? <Button disabled={busy} onClick={approveExisting}>Approve training sheet</Button> : null}
           {nextAction === "rms" ? <Button disabled={busy} onClick={() => { setRmsReference(detail.rmsReference || ""); setRmsNote(detail.rmsEntryNote || ""); setRmsOpen(true); }}>Confirm RMS entry</Button> : null}
           {nextAction === "done" ? <Badge tone="current">Complete</Badge> : null}
+          {nextAction === "approval" ? <Badge tone="current">Closed — review approval</Badge> : null}
         </div>
         <details className="mt-4 border-t border-navy-200 pt-3">
           <summary className="cursor-pointer text-sm font-semibold">Other actions — work in any order</summary>
