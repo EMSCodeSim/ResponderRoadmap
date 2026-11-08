@@ -97,6 +97,19 @@ export default function ClassesPage() {
   }, [setup]);
 
   useEffect(() => {
+    if (!setup) return;
+    const params = new URLSearchParams(window.location.search);
+    const sourceId = params.get("sourceTaskBookId");
+    if (!sourceId || params.get("quick") !== "1") return;
+    const sourceTitle = params.get("sourceTaskBookTitle")?.trim().slice(0, 160) || "Task Book skills training";
+    setForm((previous) => ({
+      ...previous,
+      title: sourceTitle,
+      notes: `Source Task Book: ${sourceTitle} (ID: ${sourceId}). Verify attendance and evaluation evidence before awarding credit. Do not count previously recorded training hours twice.`,
+    }));
+  }, [setup]);
+
+  useEffect(() => {
     if (templateOpened.current || !setup || !templates.length) return;
     const id = new URLSearchParams(window.location.search).get("template");
     if (!id) return;
@@ -263,6 +276,9 @@ export default function ClassesPage() {
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
+          {new URLSearchParams(typeof window === "undefined" ? "" : window.location.search).has("sourceTaskBookId") ? (
+            <div className="rounded-lg border border-navy-200 bg-navy-50 p-3 text-sm text-navy-800" role="note">Linked Task Book reference. This pre-fills the title and source reference only. Attendance, signed evaluations, and hours are not automatically transferred; verify them before saving.</div>
+          ) : null}
           {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Training Sheet</div><p className="mt-1 text-sm text-navy-600">Enter a title and start time to begin. Templates, checklists, roster selection, hours, end time and RMS documentation can be completed later.</p></div> : null}
           {showAdvancedSetup ? <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
             <input type="checkbox" checked={emsCeMode} onChange={(event) => {
