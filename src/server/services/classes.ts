@@ -243,6 +243,8 @@ export async function createClass(
     startsAt?: string;
     endsAt?: string | null;
     location?: string;
+    station?: string;
+    shift?: string;
     notes?: string;
     membershipIds?: string[];
     proctorUserIds?: string[];
@@ -338,6 +340,8 @@ export async function createClass(
       startsAt,
       endsAt,
       location: input.location?.trim().slice(0, 180) || "",
+      station: input.station?.trim().slice(0, 80) || "",
+      shift: input.shift?.trim().slice(0, 40) || "",
       notes,
       registrationToken: input.selfRegistration ? randomBytes(32).toString("hex") : null,
       registrationEnabled: input.selfRegistration === true,
@@ -467,6 +471,8 @@ export async function getClass(ctx: AuthContext, classId: string) {
     startsAt: row.startsAt,
     endsAt: row.endsAt,
     location: row.location,
+    station: row.station,
+    shift: row.shift,
     status: row.status,
     rmsStatus: row.rmsStatus,
     instructorApprovedAt: row.instructorApprovedAt,
@@ -1121,6 +1127,8 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
   if (requiredFields.has("INSTRUCTOR") && row.proctors.length === 0) add("INSTRUCTOR", "No instructor/proctor is assigned.", "Assign at least one approved instructor or proctor.");
   if (requiredFields.has("CATEGORY") && !row.trainingCategory.trim()) add("CATEGORY", "Training category is missing.", "Choose a training category.");
   if (requiredFields.has("LOCATION") && !row.location.trim()) add("LOCATION", "Training location is missing.", "Enter the training location.");
+  if (requiredFields.has("STATION") && !row.station.trim()) add("STATION", "Training station is missing.", "Choose or enter the station.");
+  if (requiredFields.has("SHIFT") && !row.shift.trim()) add("SHIFT", "Training shift is missing.", "Choose the department shift.");
   if (requiredFields.has("DESCRIPTION") && !row.notes.trim()) add("DESCRIPTION", "Training description / notes are missing.", "Enter the required training description or notes.");
   if (requiredFields.has("HOURS") && !(row.creditHours > 0 || (row.startsAt && row.endsAt))) {
     add("HOURS", "Training hours are missing.", "Enter credit hours or both start and end times.");
@@ -1175,7 +1183,7 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
 export async function updateClassDocumentation(
   ctx: AuthContext,
   classId: string,
-  input: { startsAt?: string; endsAt?: string | null; notes?: string; location?: string; creditHours?: number; ceCredits?: unknown },
+  input: { startsAt?: string; endsAt?: string | null; notes?: string; location?: string; station?: string; shift?: string; trainingCategory?: string; creditHours?: number; ceCredits?: unknown },
 ) {
   assertPermission(ctx, "classes.write");
   const row = await canAccessClass(ctx, classId, true);
@@ -1185,8 +1193,10 @@ export async function updateClassDocumentation(
   const startsAt = input.startsAt === undefined ? row.startsAt : parseDate(input.startsAt, "Training start time", true)!;
   const endsAt = input.endsAt === undefined ? row.endsAt : parseDate(input.endsAt, "Training end time");
   if (endsAt && endsAt < startsAt) throw new HttpError(400, "Training end time cannot be before the start time.");
+  const trainingCategory = input.trainingCategory === undefined ? row.trainingCategory : String(input.trainingCategory).trim().toUpperCase();
+  if (!TRAINING_CATEGORY_VALUES.has(trainingCategory)) throw new HttpError(400, "Choose a valid training category.");
   const ceCredits = input.ceCredits === undefined ? normalizeCeCredits(JSON.parse(row.ceCreditsJson || "[]")) : normalizeCeCredits(input.ceCredits);
-  if (ceCredits.length && row.trainingCategory !== "EMS") throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
+  if (ceCredits.length && trainingCategory !== "EMS") throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
   const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const creditHours = allocatedHours > 0 ? allocatedHours : input.creditHours === undefined ? row.creditHours : Number(input.creditHours);
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) {
@@ -1195,8 +1205,10 @@ export async function updateClassDocumentation(
   await prisma.trainingClass.update({
     where: { id: classId },
     data: {
-      startsAt, endsAt, creditHours, ceCreditsJson: JSON.stringify(ceCredits),
+      startsAt, endsAt, creditHours, trainingCategory, ceCreditsJson: JSON.stringify(ceCredits),
       ...(input.location === undefined ? {} : { location: String(input.location).trim().slice(0, 180) }),
+      ...(input.station === undefined ? {} : { station: String(input.station).trim().slice(0, 80) }),
+      ...(input.shift === undefined ? {} : { shift: String(input.shift).trim().slice(0, 40) }),
       ...(input.notes === undefined ? {} : { notes: String(input.notes).trim().slice(0, 4000) }),
     },
   });
