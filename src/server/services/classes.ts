@@ -957,6 +957,77 @@ export async function recordSkillResultsBatch(
   return getClass(ctx, classId);
 }
 
+/**
+ * Attach a published department checklist and/or grading setup to an open
+ * Training Sheet. Templates are copied onto the class so later template edits
+ * cannot change the official class record.
+ */
+export async function updateClassEvaluationSetup(
+  ctx: AuthContext,
+  classId: string,
+  input: { trainingSheetTemplateId?: string; checklistVersionId?: string },
+) {
+  assertPermission(ctx, "classes.write");
+  const classRow = await canAccessClass(ctx, classId, true);
+  if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED" || classRow.rmsStatus !== "NOT_READY") {
+    throw new HttpError(409, "This Training Sheet is already closed. Use the authorized correction process.");
+  }
+
+  const templateId = String(input.trainingSheetTemplateId || "").trim();
+  const requestedChecklistId = String(input.checklistVersionId || "").trim();
+  if (!templateId && !requestedChecklistId) {
+    throw new HttpError(400, "Choose a checklist or Training Sheet template.");
+  }
+
+  const template = templateId
+    ? await prisma.trainingSheetTemplate.findFirst({
+        where: { id: templateId, departmentId: ctx.departmentId, archived: false },
+      })
+    : null;
+  if (templateId && !template) throw new HttpError(404, "Training Sheet template not found.");
+
+  const checklistVersionId = requestedChecklistId || template?.checklistVersionId || "";
+  if (checklistVersionId) {
+    const checklist = await prisma.taskBookVersion.findFirst({
+      where: {
+        id: checklistVersionId,
+        status: "PUBLISHED",
+        template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } },
+      },
+      select: { id: true },
+    });
+    if (!checklist) throw new HttpError(404, "Published department checklist not found.");
+  }
+
+  if (checklistVersionId && checklistVersionId !== classRow.checklistVersionId) {
+    const existingResults = await prisma.trainingClassSkillResult.count({
+      where: { enrollment: { classId } },
+    });
+    if (existingResults > 0) {
+      throw new HttpError(409, "This checklist already has recorded evaluations and cannot be replaced.");
+    }
+  }
+
+  await prisma.trainingClass.update({
+    where: { id: classId },
+    data: {
+      ...(checklistVersionId ? { checklistVersionId } : {}),
+      ...(template ? {
+        gradingConfigJson: template.gradingConfigJson,
+        customFieldsJson: template.customFieldsJson,
+        templateName: template.name,
+        templateRevision: template.revision,
+      } : {}),
+    },
+  });
+  await writeAudit(ctx, "training_sheet.evaluation_setup.updated", "TrainingClass", classId, {
+    trainingSheetTemplateId: template?.id || null,
+    checklistVersionId: checklistVersionId || classRow.checklistVersionId,
+    templateName: template?.name || null,
+  });
+  return getClass(ctx, classId);
+}
+
 export async function updateEnrollment(
   ctx: AuthContext,
   classId: string,
