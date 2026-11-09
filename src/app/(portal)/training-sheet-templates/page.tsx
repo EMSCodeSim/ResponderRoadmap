@@ -254,7 +254,7 @@ export default function TrainingSheetTemplatesPage() {
         kicker="Training delivery"
         title="Training Sheet Library"
         description="Build reusable EMS, fire, and department training sheets once. Select one when creating training to prefill the details, checklist, hours, QR setting, and proctors."
-        actions={<Link href="/classes" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Back to training</Link>}
+        actions={<div className="flex flex-wrap gap-2"><Link href="/training-sheet-templates/components" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Reusable components</Link><Link href="/classes" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Back to training</Link></div>}
       />
       <Flash message={error} tone="danger" />
       <Flash message={message} tone="current" />
