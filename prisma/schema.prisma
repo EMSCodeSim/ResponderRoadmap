@@ -78,6 +78,7 @@ model Department {
   skillReassessmentDays           Int                              @default(180)
   trainingClasses                 TrainingClass[]
   trainingSheetTemplates          TrainingSheetTemplate[]
+  trainingSheetComponents         TrainingSheetComponentTemplate[]
   trainingExpectations            TrainingExpectation[]
   trainingSheetRequiredFieldsJson String                           @default("[\"TITLE\",\"DATE\",\"INSTRUCTOR\",\"CATEGORY\",\"HOURS\",\"ATTENDANCE\"]")
   agencyType                      String                           @default("FIRE_EMS")
@@ -422,6 +423,24 @@ model TrainingSheetTemplate {
 
   @@unique([departmentId, name])
   @@index([departmentId, archived])
+}
+
+/// Reusable building blocks that can be copied into a new Training Sheet.
+model TrainingSheetComponentTemplate {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  kind         String     // GRADING or EMS_CE_LIST
+  name         String
+  dataJson     String     @default("{}")
+  archived     Boolean    @default(false)
+  revision     Int        @default(1)
+  createdById  String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([departmentId, kind, name])
+  @@index([departmentId, kind, archived])
 }
 
 /// A scheduled class or skills-testing event using a published checklist.

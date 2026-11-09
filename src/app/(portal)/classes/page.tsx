@@ -32,6 +32,7 @@ type SourceAssignment = { id: string; templateId: string; memberName: string; pr
 type CEAllocation = { category: string; hours: number };
 type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null };
 type TrainingSheetTemplate = { id: string; name: string; defaultTitle: string; classType: string; trainingCategory: string; topic: string; creditHours: number; checklistVersionId: string | null; location: string; notes: string; selfRegistration: boolean; proctorUserIds: string[]; ceCredits: CEAllocation[]; gradingConfig: GradingConfig; };
+type TrainingComponent = { id: string; kind: "GRADING" | "EMS_CE_LIST"; name: string; data: { ceCredits?: CEAllocation[] } };
 
 type Setup = {
   checklists: Array<{ id: string; title: string; version: string; skillCount: number }>;
@@ -77,7 +78,10 @@ export default function ClassesPage() {
   const [sheetFilter, setSheetFilter] = useState("all");
   const [setup, setSetup] = useState<Setup | null>(null);
   const [templates, setTemplates] = useState<TrainingSheetTemplate[]>([]);
+  const [components, setComponents] = useState<TrainingComponent[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [selectedGradingComponentId, setSelectedGradingComponentId] = useState("");
+  const [selectedCeComponentId, setSelectedCeComponentId] = useState("");
   const [showAdvancedSetup, setShowAdvancedSetup] = useState(false);
   const [showRosterSetup, setShowRosterSetup] = useState(false);
   const [showChecklistSetup, setShowChecklistSetup] = useState(false);
@@ -99,6 +103,7 @@ export default function ClassesPage() {
     setRows(await api<ClassRow[]>("classes"));
     api<Setup>("classes/setup").then(setSetup).catch(() => setSetup(null));
     api<TrainingSheetTemplate[]>("training-sheet-templates").then(setTemplates).catch(() => setTemplates([]));
+    api<TrainingComponent[]>("training-sheet-components").then(setComponents).catch(() => setComponents([]));
   }
 
   useEffect(() => {
@@ -200,7 +205,7 @@ export default function ClassesPage() {
             notes: [emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
         : form;
       const stations = stationChecklistIds.map((id, index) => ({ checklistVersionId: id, title: setup?.checklists.find((item) => item.id === id)?.title || `Station ${index + 1}`, proctorUserId: stationProctors[id] || form.proctorUserIds[0] || "" }));
-      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify({ ...payload, stations, ceCredits, trainingSheetTemplateId: selectedTemplateId || undefined }) });
+      const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify({ ...payload, stations, ceCredits, trainingSheetTemplateId: selectedTemplateId || undefined, gradingComponentId: selectedGradingComponentId || undefined, ceComponentId: selectedCeComponentId || undefined }) });
       window.location.href = `/classes/${created.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create class.");
@@ -220,6 +225,8 @@ export default function ClassesPage() {
     setEmsCeMode(false);
     setEmsCredits({});
     setSelectedTemplateId("");
+    setSelectedGradingComponentId("");
+    setSelectedCeComponentId("");
     setStationChecklistIds([]);
     setStationProctors({});
     setShowAdvancedSetup(false);
@@ -233,6 +240,8 @@ export default function ClassesPage() {
 
   function applyTemplate(id: string) {
     setSelectedTemplateId(id);
+    setSelectedGradingComponentId("");
+    setSelectedCeComponentId("");
     const template = templates.find((item) => item.id === id);
     if (!template) return;
     setTemplateCategory(template.topic || "OTHER");
@@ -240,6 +249,21 @@ export default function ClassesPage() {
     setEmsCeMode(allocations.length > 0);
     setEmsCredits(Object.fromEntries(allocations.map((item) => [item.category, item.hours])));
     setForm((current) => ({ ...current, title: allocations.length ? "" : template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
+  }
+
+  function applyCeComponent(id: string) {
+    setSelectedCeComponentId(id);
+    const component = components.find((item) => item.id === id && item.kind === "EMS_CE_LIST");
+    if (!component) {
+      setEmsCeMode(false);
+      setEmsCredits({});
+      setForm((current) => ({ ...current, creditHours: "" }));
+      return;
+    }
+    const allocations = component.data.ceCredits || [];
+    setEmsCeMode(true);
+    setEmsCredits(Object.fromEntries(allocations.map((item) => [item.category, item.hours])));
+    setForm((current) => ({ ...current, trainingCategory: "EMS", classType: "EMS", creditHours: String(allocations.reduce((sum, item) => sum + item.hours, 0)) }));
   }
 
   const visibleRows = useMemo(() => rows.filter((row) => {
@@ -369,7 +393,7 @@ export default function ClassesPage() {
             <Field label="Topic"><Select value={templateCategory} onChange={(event) => {
               const topic = event.target.value;
               const category = ({ EMS: "EMS", FIRE: "COMPANY", HAZMAT: "HAZMAT", DRIVER: "DRIVER", CPR: "EMS", OFFICER: "OFFICER", FACILITY: "FACILITY", OTHER: "OTHER" } as Record<string, string>)[topic] || "COMPANY";
-              setTemplateCategory(topic); setSelectedTemplateId("");
+              setTemplateCategory(topic); setSelectedTemplateId(""); setSelectedGradingComponentId(""); setSelectedCeComponentId("");
               setForm((current) => ({ ...current, trainingCategory: category, checklistVersionId: "" }));
               setEmsCeMode(false); setEmsCredits({});
             }}>
@@ -377,8 +401,16 @@ export default function ClassesPage() {
               <option value="EMS">EMS</option><option value="FIRE">Fire</option><option value="HAZMAT">HazMat</option><option value="DRIVER">Driver Operator</option><option value="CPR">CPR</option><option value="OFFICER">Officer</option><option value="FACILITY">Facility</option><option value="OTHER">Other</option>
             </Select></Field>
             <Field label="Department training template"><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Blank sheet</option>{templates.filter((item) => !templateCategory || (item.topic || "OTHER") === templateCategory).sort((a, b) => a.name.localeCompare(b.name)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
-            <p className="text-xs text-navy-600">Templates prefill class details, skills checklist and any custom student results. You can add students now or let them scan the QR code after creation.</p>
+            <p className="text-xs text-navy-600">A class package can prefill the complete setup. You can add students now or let them scan the QR code after creation.</p>
             </> : null}
+          </section>
+          <section className="rounded-lg border border-navy-200 p-4 space-y-3">
+            <h3 className="font-semibold">Add reusable components (optional)</h3>
+            <p className="text-xs text-navy-600">Choose saved scoring rules or EMS CE hours for this sheet. Published skill checklists can be selected in the checklist section. These selections are copied into the new training record.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Grading system"><Select value={selectedGradingComponentId} onChange={(event) => setSelectedGradingComponentId(event.target.value)}><option value="">Use class package or sheet settings</option>{components.filter((item) => item.kind === "GRADING").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+              <Field label="EMS CE category list"><Select value={selectedCeComponentId} onChange={(event) => applyCeComponent(event.target.value)}><option value="">No saved CE allocation</option>{components.filter((item) => item.kind === "EMS_CE_LIST").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+            </div>
           </section>
           <button type="button" className="w-full rounded-lg border border-navy-200 p-3 text-left text-sm font-semibold" onClick={() => setShowAdvancedSetup((value) => !value)}>{showAdvancedSetup ? "− Hide" : "+ Show"} advanced setup (codes, hours, proctors and objectives)</button>
           {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> department-required RMS fields are validated when the instructor finishes the training sheet, not before teaching.</div> : null}

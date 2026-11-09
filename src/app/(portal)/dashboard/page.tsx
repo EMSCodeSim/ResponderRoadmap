@@ -198,8 +198,9 @@ export default function DashboardPage() {
               : "Review what needs attention and follow up on department training below."
         }
         actions={
-          data.instructor ? <Link href="/classes"><Button>Create Class</Button></Link> : data.personal ? undefined : (
+          data.instructor ? <Link href="/classes?quick=1"><Button>Create Training</Button></Link> : data.personal ? undefined : (
             <>
+              <Link href="/training"><Button variant="secondary">Training & Classes</Button></Link>
               <Link href={createTaskBookPath()}><Button>Create Task Book</Button></Link>
               <Link href={createAssignmentPath()}><Button variant="secondary">Create Assignment</Button></Link>
             </>

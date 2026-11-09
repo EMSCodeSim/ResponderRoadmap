@@ -18,6 +18,7 @@ import * as classes from "@/server/services/classes";
 import * as evaluators from "@/server/services/evaluators";
 import * as trainingExpectations from "@/server/services/training-expectations";
 import * as trainingSheetTemplates from "@/server/services/training-sheet-templates";
+import * as trainingSheetComponents from "@/server/services/training-sheet-components";
 import * as trainingCleanup from "@/server/services/training-cleanup";
 import * as mobilePreferences from "@/server/services/mobile-preferences";
 import * as qualifications from "@/server/services/qualifications";
@@ -297,6 +298,7 @@ export async function handleApi(req: Request, path: string[]) {
       return jsonOk(await classes.updateClassEvaluationSetup(ctx, appEvaluationSetup.id, await readBody(req)));
     }
     if (method === "GET" && match(path, "app/training-sheet-templates")) return jsonOk(await trainingSheetTemplates.listTrainingSheetTemplates(ctx, false));
+    if (method === "GET" && match(path, "app/training-sheet-components")) return jsonOk(await trainingSheetComponents.listTrainingSheetComponents(ctx, false));
     if (method === "GET" && match(path, "app/training-sheets/my-attention")) return jsonOk(await classes.listInstructorTrainingAttention(ctx));
     if (method === "GET" && match(path, "app/training-sheets/rms-actions")) return jsonOk(await classes.listRmsActionQueue(ctx));
     const appTrainingSheet = match(path, "app/training-sheets/:id");
@@ -344,6 +346,20 @@ export async function handleApi(req: Request, path: string[]) {
 
     if (method === "GET" && match(path, "training-sheet-templates")) {
       return jsonOk(await trainingSheetTemplates.listTrainingSheetTemplates(ctx, q.archived === "all"));
+    }
+    if (method === "GET" && match(path, "training-sheet-components")) {
+      return jsonOk(await trainingSheetComponents.listTrainingSheetComponents(ctx, q.archived === "all"));
+    }
+    if (method === "POST" && match(path, "training-sheet-components")) {
+      return jsonOk(await trainingSheetComponents.saveTrainingSheetComponent(ctx, await readBody(req)), 201);
+    }
+    const trainingSheetComponent = match(path, "training-sheet-components/:id");
+    if (method === "PATCH" && trainingSheetComponent) {
+      return jsonOk(await trainingSheetComponents.saveTrainingSheetComponent(ctx, await readBody(req), trainingSheetComponent.id));
+    }
+    const archiveTrainingSheetComponent = match(path, "training-sheet-components/:id/archive");
+    if (method === "POST" && archiveTrainingSheetComponent) {
+      return jsonOk(await trainingSheetComponents.archiveTrainingSheetComponent(ctx, archiveTrainingSheetComponent.id));
     }
     if (method === "POST" && match(path, "training-sheet-templates")) {
       return jsonOk(await trainingSheetTemplates.createTrainingSheetTemplate(ctx, await readBody(req)), 201);

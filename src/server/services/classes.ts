@@ -250,6 +250,8 @@ export async function createClass(
     proctorUserIds?: string[];
     selfRegistration?: boolean;
     trainingSheetTemplateId?: string;
+    gradingComponentId?: string;
+    ceComponentId?: string;
     ceCredits?: Array<{ category: string; hours: number }>;
     stations?: Array<{ checklistVersionId?: string; title?: string; proctorUserId?: string }>;
   },
@@ -312,14 +314,27 @@ export async function createClass(
 
   const template = input.trainingSheetTemplateId ? await prisma.trainingSheetTemplate.findFirst({ where: { id: input.trainingSheetTemplateId, departmentId: ctx.departmentId, archived: false } }) : null;
   if (input.trainingSheetTemplateId && !template) throw new HttpError(404, "Training sheet template not found.");
+  const [gradingComponent, ceComponent] = await Promise.all([
+    input.gradingComponentId ? prisma.trainingSheetComponentTemplate.findFirst({ where: { id: input.gradingComponentId, departmentId: ctx.departmentId, kind: "GRADING", archived: false } }) : null,
+    input.ceComponentId ? prisma.trainingSheetComponentTemplate.findFirst({ where: { id: input.ceComponentId, departmentId: ctx.departmentId, kind: "EMS_CE_LIST", archived: false } }) : null,
+  ]);
+  if (input.gradingComponentId && !gradingComponent) throw new HttpError(404, "Saved grading system not found.");
+  if (input.ceComponentId && !ceComponent) throw new HttpError(404, "Saved EMS CE list not found.");
+  const ceComponentData = ceComponent ? parseJsonObject(ceComponent.dataJson) : {};
   const ceCredits = input.ceCredits === undefined
-    ? normalizeCeCredits(JSON.parse(template?.ceCreditsJson || "[]"))
+    ? normalizeCeCredits(ceComponentData.ceCredits ?? JSON.parse(template?.ceCreditsJson || "[]"))
     : normalizeCeCredits(input.ceCredits);
   if (ceCredits.length && trainingCategory !== "EMS") throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
   const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const creditHours = allocatedHours > 0 ? allocatedHours : requestedCreditHours || template?.creditHours || 0;
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
-  const gradingConfig = parseJsonObject(template?.gradingConfigJson);
+  const gradingComponentData = gradingComponent ? parseJsonObject(gradingComponent.dataJson) : {};
+  const gradingConfig = gradingComponent
+    ? parseJsonObject(JSON.stringify(gradingComponentData.gradingConfig || {}))
+    : parseJsonObject(template?.gradingConfigJson);
+  const customFieldsJson = gradingComponent && Array.isArray(gradingComponentData.customFields)
+    ? JSON.stringify(gradingComponentData.customFields)
+    : template?.customFieldsJson || "[]";
   const suppliedNotes = input.notes?.trim().slice(0, 3600) || "";
   const creditNote = ceCreditNote(ceCredits);
   const notes = creditNote && !suppliedNotes.includes("EMS CE CREDIT BREAKDOWN")
@@ -345,7 +360,7 @@ export async function createClass(
       notes,
       registrationToken: input.selfRegistration ? randomBytes(32).toString("hex") : null,
       registrationEnabled: input.selfRegistration === true,
-      customFieldsJson: template?.customFieldsJson || "[]",
+      customFieldsJson,
       createdById: ctx.userId,
       roster: { create: memberIds.map((membershipId) => ({ membershipId })) },
       proctors: { create: proctorIds.map((userId) => ({ userId })) },
