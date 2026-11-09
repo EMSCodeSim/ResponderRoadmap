@@ -446,6 +446,10 @@ model TrainingClass {
   startsAt               DateTime
   endsAt                 DateTime?
   location               String          @default("")
+  /// Structured station/apparatus location used by department training reports.
+  station                String          @default("")
+  /// Department shift or platoon responsible for the training record.
+  shift                  String          @default("")
   status                 String          @default("DRAFT")
   rmsStatus              String          @default("NOT_READY")
   instructorApprovedAt   DateTime?
