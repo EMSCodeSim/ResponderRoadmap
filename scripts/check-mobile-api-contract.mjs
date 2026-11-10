@@ -52,9 +52,13 @@ for (const { method, path: expectedPath } of declaredOperations) {
   const backendPath = expectedPath.replace(/\{[^}]+\}/g, (part) => `:${part.slice(1, -1)}`);
   operationCount += 1;
   const quotedRoute = `"${backendPath}"`;
-  const routeIndex = router.indexOf(quotedRoute);
-  const routeWindow = routeIndex < 0 ? "" : router.slice(Math.max(0, routeIndex - 220), routeIndex + quotedRoute.length + 260);
-  if (!routeWindow.includes(`method === "${method.toUpperCase()}"`)) {
+  const routeWindows = [];
+  let routeIndex = router.indexOf(quotedRoute);
+  while (routeIndex >= 0) {
+    routeWindows.push(router.slice(Math.max(0, routeIndex - 220), routeIndex + quotedRoute.length + 260));
+    routeIndex = router.indexOf(quotedRoute, routeIndex + quotedRoute.length);
+  }
+  if (!routeWindows.some((routeWindow) => routeWindow.includes(`method === "${method.toUpperCase()}"`))) {
     failures.push(`Backend route/method missing: ${method.toUpperCase()} /api/v1/${expectedPath}`);
   }
   if (!mobileOperations.some((operation) => operation.method === method && compatiblePath(expectedPath, operation.path))) {
