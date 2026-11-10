@@ -129,8 +129,16 @@
     "/app/training-sheets/{id}/evaluation-setup": {
       "patch": {
         "summary": "Attach a published checklist or template grading setup to an open Training Sheet",
-        "parameters": [{ "$ref": "#/components/parameters/Id" }],
-        "responses": { "200": { "description": "Updated Training Sheet" } }
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated Training Sheet"
+          }
+        }
       }
     },
     "/app/training-sheets/{id}/skills/batch": {
@@ -176,11 +184,17 @@
         "operationId": "updateTrainingSheetDocumentation",
         "summary": "Save actual training times, narrative and RMS documentation before instructor approval",
         "parameters": [
-          { "$ref": "#/components/parameters/id" }
+          {
+            "$ref": "#/components/parameters/id"
+          }
         ],
         "responses": {
-          "200": { "description": "Updated draft or active Training Sheet" },
-          "409": { "description": "Closed Training Sheet cannot be modified" }
+          "200": {
+            "description": "Updated draft or active Training Sheet"
+          },
+          "409": {
+            "description": "Closed Training Sheet cannot be modified"
+          }
         }
       }
     },
@@ -728,6 +742,17 @@
         "responses": {
           "200": {
             "description": "Role-scoped action items, count, and next action"
+          }
+        }
+      }
+    },
+    "/app/training-sheet-components": {
+      "get": {
+        "operationId": "listReusableTrainingSheetComponents",
+        "summary": "List reusable grading and EMS CE components for Training Sheets",
+        "responses": {
+          "200": {
+            "description": "Department reusable training components"
           }
         }
       }
