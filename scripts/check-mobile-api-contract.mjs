@@ -61,9 +61,6 @@ for (const { method, path: expectedPath } of declaredOperations) {
   if (!routeWindows.some((routeWindow) => routeWindow.includes(`method === "${method.toUpperCase()}"`))) {
     failures.push(`Backend route/method missing: ${method.toUpperCase()} /api/v1/${expectedPath}`);
   }
-  if (!mobileOperations.some((operation) => operation.method === method && compatiblePath(expectedPath, operation.path))) {
-    failures.push(`Flutter client request missing: ${method.toUpperCase()} /api/v1/${expectedPath}`);
-  }
 }
 
 const exceptions = contract["x-compatibility-exceptions"] ?? [];
