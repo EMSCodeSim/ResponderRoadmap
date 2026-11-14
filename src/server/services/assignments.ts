@@ -150,6 +150,38 @@ export async function listAssignments(ctx: AuthContext) {
   return assignments.map((assignment) => toRow(assignment));
 }
 
+export async function updateAssignmentMetadata(
+  ctx: AuthContext,
+  assignmentId: string,
+  input: { dueDate?: string | null; notes?: string },
+) {
+  assertPermission(ctx, "assignments.write");
+  const assignment = await prisma.taskBookAssignment.findFirst({
+    where: { id: assignmentId, departmentId: ctx.departmentId },
+  });
+  if (!assignment) throw new HttpError(404, "Assignment not found.");
+  if (assignment.status === "COMPLETE") throw new HttpError(409, "Completed assignments are locked to preserve their training history.");
+
+  let dueDate = assignment.dueDate;
+  if (input.dueDate !== undefined) {
+    if (!input.dueDate) dueDate = null;
+    else {
+      const parsedDate = new Date(input.dueDate);
+      if (Number.isNaN(parsedDate.getTime())) throw new HttpError(400, "Enter a valid assignment due date.");
+      dueDate = parsedDate;
+    }
+  }
+  const notes = input.notes === undefined ? assignment.notes : String(input.notes).trim().slice(0, 4000);
+  await prisma.taskBookAssignment.update({ where: { id: assignment.id }, data: { dueDate, notes } });
+  await writeAudit(ctx, "assignment.metadata.updated", "TaskBookAssignment", assignment.id, {
+    dueDate: dueDate?.toISOString() ?? null,
+    notesChanged: input.notes !== undefined,
+  });
+  const updated = await assignmentWithGraph(assignment.id, ctx.departmentId);
+  if (!updated) throw new HttpError(404, "Assignment not found.");
+  return toRow(updated);
+}
+
 const REVIEWER_ROLES = ["EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"];
 
 export function shouldStartNewAssignmentCycle(templateKind: string, existingForVersion: number) {

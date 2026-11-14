@@ -518,6 +518,7 @@ export async function handleApi(req: Request, path: string[]) {
     }
     const asg = match(path, "assignments/:id");
     if (method === "GET" && asg) return jsonOk(await assignments.getAssignmentDetail(ctx, asg.id));
+    if (method === "PATCH" && asg) return jsonOk(await assignments.updateAssignmentMetadata(ctx, asg.id, await readBody(req)));
     const taskBookRmsEntered = match(path, "assignments/:id/rms-entered");
     if (method === "POST" && taskBookRmsEntered) return jsonOk(await assignments.markTaskBookEnteredIntoRms(ctx, taskBookRmsEntered.id, await readBody(req)));
 

@@ -8,6 +8,7 @@ import { Badge, Button, Card, Input, PageHeader, ProgressBar, Select } from "@/c
 import { relativeTime } from "@/lib/dates";
 import { operationalStatusTone, type OperationalStatus } from "@/lib/member-status";
 import { createAssignmentPath, createTaskBookPath, memberProgressPath } from "@/lib/routes";
+import { DashboardTrainingManager } from "@/components/dashboard-training-manager";
 
 type ShiftTrainingRecord = {
   classId: string;
@@ -216,6 +217,7 @@ export default function DashboardPage() {
         <MemberHome data={data} />
       ) : (
         <>
+          <DashboardTrainingManager />
           <ActivationChecklist data={data} />
           <ShiftTrainingHours />
           <div className="mb-6">
