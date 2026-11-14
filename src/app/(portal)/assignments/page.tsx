@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { daysRemainingLabel, formatDate, relativeTime } from "@/lib/dates";
 import { assignmentStatusLabel } from "@/lib/progress";
+import { TrainingRecordDeleteButton, useTrainingCleanup } from "@/components/training-library-actions";
 import {
   TASKBOOK_ATTESTATION_TEXT,
   TASKBOOK_ATTESTATION_VERSION,
@@ -36,6 +37,7 @@ type Assignment = {
   progress: number;
   pendingApproval: number;
   dueDate: string | null;
+  notes?: string;
   status: string;
   stalledDays?: number;
   version?: string;
@@ -147,6 +149,11 @@ function AssignmentsInner() {
     allMembers: false,
   });
   const [memberQuery, setMemberQuery] = useState("");
+  const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const { canManage, cleanup, refresh: refreshCleanup } = useTrainingCleanup();
 
   async function load() {
     const [assignmentRows, signOffs, memberPayload, taskBooks, session] = await Promise.all([
@@ -208,6 +215,31 @@ function AssignmentsInner() {
     setNote("");
     setAttested(false);
     setError(null);
+  }
+
+  function beginAssignmentEdit(assignment: Assignment) {
+    setEditingAssignment(assignment);
+    setEditDueDate(assignment.dueDate ? new Date(assignment.dueDate).toISOString().slice(0, 10) : "");
+    setEditNotes(assignment.notes || "");
+  }
+
+  async function saveAssignmentEdit() {
+    if (!editingAssignment) return;
+    setSavingEdit(true);
+    setError(null);
+    try {
+      await api(`assignments/${encodeURIComponent(editingAssignment.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ dueDate: editDueDate || null, notes: editNotes }),
+      });
+      setMessage(`Updated ${editingAssignment.taskBookTitle} for ${editingAssignment.memberName}.`);
+      setEditingAssignment(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Unable to update this assignment.");
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   async function createAssignment() {
@@ -607,9 +639,11 @@ function AssignmentsInner() {
                         <Badge tone={assignmentTone(row.status)}>{assignmentStatusLabel(row.status)}</Badge>
                       </td>
                       <td>
-                        <Link href={`/assignments/${row.id}/print`} className="text-sm font-semibold text-navy-700" onClick={(e) => e.stopPropagation()}>
-                          Record
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/assignments/${row.id}/print`} className="text-sm font-semibold text-navy-700" onClick={(e) => e.stopPropagation()}>Record</Link>
+                          {canManage && row.status !== "COMPLETE" ? <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={(event) => { event.stopPropagation(); beginAssignmentEdit(row); }}>Edit</Button> : null}
+                          {canManage && cleanup.unstartedAssignments.some((item) => item.id === row.id) ? <TrainingRecordDeleteButton id={row.id} title={`${row.taskBookTitle} — ${row.memberName}`} type="ASSIGNMENT" detail="This member Assignment has not been started and has no submitted work." onRemoved={() => { void load(); void refreshCleanup(); }} /> : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -800,6 +834,16 @@ function AssignmentsInner() {
         <Button className="mt-4" onClick={createAssignment} disabled={!form.templateId || !hasTarget}>
           Assign
         </Button>
+      </Modal>
+
+      <Modal open={!!editingAssignment} title="Edit assignment" onClose={() => { if (!savingEdit) setEditingAssignment(null); }}>
+        {editingAssignment ? <div className="space-y-4">
+          <p className="font-semibold text-navy-900">{editingAssignment.taskBookTitle} · {editingAssignment.memberName}</p>
+          <Field label="Due date"><Input type="date" value={editDueDate} onChange={(event) => setEditDueDate(event.target.value)} /></Field>
+          <Field label="Notes"><TextArea rows={4} maxLength={4000} value={editNotes} onChange={(event) => setEditNotes(event.target.value)} /></Field>
+          <p className="text-xs text-navy-500">Completed assignments are locked. Edits do not change requirements, evidence, or approvals.</p>
+          <div className="flex justify-end gap-2"><Button variant="secondary" disabled={savingEdit} onClick={() => setEditingAssignment(null)}>Cancel</Button><Button disabled={savingEdit} onClick={() => void saveAssignmentEdit()}>{savingEdit ? "Saving…" : "Save changes"}</Button></div>
+        </div> : null}
       </Modal>
     </div>
   );

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AssignmentWorkspaceTabs } from "@/components/AssignmentWorkspaceTabs";
 import { api } from "@/lib/api";
 import { Badge, Button, Card, EmptyState, Input, PageHeader } from "@/components/ui";
+import { TrainingRecordDeleteButton, useTrainingCleanup } from "@/components/training-library-actions";
 
 type Book = {
   id: string;
@@ -21,6 +22,7 @@ export default function AssignmentLibraryPage() {
   const [books, setBooks] = useState<Book[] | null>(null);
   const [q, setQ] = useState("");
   const [error, setError] = useState("");
+  const { canManage, cleanup, refresh: refreshCleanup } = useTrainingCleanup();
 
   useEffect(() => {
     api<Book[]>("task-books?kind=ASSIGNMENT")
@@ -66,6 +68,7 @@ export default function AssignmentLibraryPage() {
               <div className="mt-5 flex flex-wrap gap-2 border-t border-navy-100 pt-4">
                 <Link href={`/task-books/${book.id}`}><Button variant="secondary">Open / edit</Button></Link>
                 {book.status === "ACTIVE" ? <Link href={`/task-books/${book.id}`}><Button>Assign Again</Button></Link> : null}
+                {canManage && cleanup.assignments.some((item) => item.id === book.id) ? <TrainingRecordDeleteButton id={book.id} title={book.title} type="ASSIGNMENT" detail="This Assignment template has no assigned member work." onRemoved={() => { setBooks((current) => current?.filter((item) => item.id !== book.id) ?? []); void refreshCleanup(); }} /> : null}
               </div>
             </Card>
           ))}

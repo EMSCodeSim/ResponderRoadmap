@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { Badge, Button, EmptyState, Input, PageHeader, Select } from "@/components/ui";
+import { TrainingRecordDeleteButton, useTrainingCleanup } from "@/components/training-library-actions";
 
 type Book = {
   id: string;
@@ -35,6 +36,7 @@ export default function TaskBooksPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState("assigned");
+  const { canManage, cleanup, refresh: refreshCleanup } = useTrainingCleanup();
 
   // Fetch once: text/status filters are local so typing does not repeatedly reload the library.
   useEffect(() => {
@@ -88,17 +90,18 @@ export default function TaskBooksPage() {
       ) : (
         <div className="divide-y divide-navy-100 overflow-hidden rounded-lg border border-navy-200 bg-white">
           {visible.map((book) => (
-            <Link key={book.id} href={`/task-books/${book.id}`} className="flex min-h-20 flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-navy-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
-              <div className="min-w-0 flex-1">
+            <div key={book.id} className="flex min-h-20 flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-navy-50">
+              <Link href={`/task-books/${book.id}`} className="min-w-0 flex-1 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
                 <div className="font-semibold text-navy-950">{book.title}</div>
                 <div className="mt-1 text-xs text-navy-500">{book.category}{book.intendedPosition ? ` · ${book.intendedPosition}` : ""} · Version {book.version}</div>
-              </div>
+              </Link>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-navy-600">{book.assignedMembers} assigned</span>
                 <Badge tone={statusTone(book.status)}>{statusLabel(book.status)}</Badge>
-                <span className="text-sm font-semibold text-fire">Open →</span>
+                <Link href={`/task-books/${book.id}`} className="text-sm font-semibold text-fire">Edit →</Link>
+                {canManage && cleanup.taskBooks.some((item) => item.id === book.id) ? <TrainingRecordDeleteButton id={book.id} title={book.title} type="TASK_BOOK" detail="This Task Book has no assignments, Training Sheets, role links, or expectation links." onRemoved={() => { setBooks((current) => current?.filter((item) => item.id !== book.id) ?? []); void refreshCleanup(); }} /> : null}
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

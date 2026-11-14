@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { activityText } from "@/lib/activity";
 import { Badge, Button, Card, Input, PageHeader, ProgressBar, Select } from "@/components/ui";
 import { relativeTime } from "@/lib/dates";
 import { operationalStatusTone, type OperationalStatus } from "@/lib/member-status";
 import { createAssignmentPath, createTaskBookPath, memberProgressPath } from "@/lib/routes";
-import { DashboardTrainingManager } from "@/components/dashboard-training-manager";
 
 type ShiftTrainingRecord = {
   classId: string;
@@ -139,13 +137,6 @@ type Dashboard = {
     overdue: number;
     waitingSignOff: number;
   }>;
-  recentActivity: Array<{
-    id: string;
-    type: string;
-    timestamp: string;
-    actorName: string | null;
-    metadata: Record<string, unknown>;
-  }>;
 };
 
 type HomeGapReport = {
@@ -217,13 +208,11 @@ export default function DashboardPage() {
         <MemberHome data={data} />
       ) : (
         <>
-          <DashboardTrainingManager />
           <ActivationChecklist data={data} />
           <ShiftTrainingHours />
           <div className="mb-6">
             {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
             <EvaluatorCoverage coverage={data.evaluatorCoverage} />
-            <DepartmentRecentActivity events={data.recentActivity} />
           </div>
         </>
       )}
@@ -620,16 +609,6 @@ function EvaluatorCoverage({ coverage }: { coverage?: NonNullable<Dashboard["eva
       </div>
       <Link href="/evaluators" className="text-sm font-semibold text-fire underline">Manage evaluators →</Link>
     </div>
-  </Card>;
-}
-
-function DepartmentRecentActivity({ events }: { events: Dashboard["recentActivity"] }) {
-  return <Card className="mt-6 p-5">
-    <div><div className="kicker">Department log</div><h2 className="display mt-1 text-xl font-bold">Recent Activity</h2></div>
-    <ul className="mt-3 divide-y divide-navy-100">
-      {events.slice(0, 5).map((event) => <li key={event.id} className="flex flex-wrap items-baseline justify-between gap-2 py-3"><span>{activityText(event.type, event.metadata, event.actorName)}</span><span className="text-xs text-navy-400">{relativeTime(event.timestamp)}</span></li>)}
-      {events.length === 0 ? <li className="py-3 text-sm text-navy-500">No recent department activity.</li> : null}
-    </ul>
   </Card>;
 }
 
