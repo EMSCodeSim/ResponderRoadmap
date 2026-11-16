@@ -118,9 +118,9 @@ export default function TrainingSheetTemplatesPage() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!form.name.trim() || !form.defaultTitle.trim()) {
+    if (!form.name.trim()) {
       setBuilderStep(1);
-      setError("Add a template name and default Training Sheet title before saving.");
+      setError("Add a template name before saving.");
       return;
     }
     if ((form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null) || (form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null)) {
@@ -139,7 +139,7 @@ export default function TrainingSheetTemplatesPage() {
     try {
       await api("training-sheet-templates" + (editingId ? "/" + editingId : ""), {
         method: editingId ? "PATCH" : "POST",
-        body: JSON.stringify({ ...form, topic: form.topic === "CUSTOM" ? "OTHER" : form.topic, classType: form.classType === "CUSTOM" ? "GENERAL" : form.classType, trainingCategory: form.trainingCategory === "CUSTOM" ? "OTHER" : form.trainingCategory }),
+        body: JSON.stringify({ ...form, defaultTitle: form.defaultTitle.trim() || form.name.trim(), topic: form.topic === "CUSTOM" ? "OTHER" : form.topic, classType: form.classType === "CUSTOM" ? "GENERAL" : form.classType, trainingCategory: form.trainingCategory === "CUSTOM" ? "OTHER" : form.trainingCategory }),
       });
       await load();
       setMessage(editingId ? "Template updated." : "Template saved.");
@@ -226,7 +226,6 @@ export default function TrainingSheetTemplatesPage() {
   const allocatedHours = form.ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const validationWarnings = [
     !form.name.trim() ? "Add a template name." : "",
-    !form.defaultTitle.trim() ? "Add a default Training Sheet title." : "",
     form.classType === "CPR" && !form.checklistVersionId ? "CPR templates require a published checklist." : "",
     form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null ? "Set the written test passing score." : "",
     form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null ? "Set the CCF passing score." : "",
@@ -274,7 +273,7 @@ export default function TrainingSheetTemplatesPage() {
               <h3 className="font-bold text-navy-900">Topic and title</h3>
               <div className="grid gap-4 md:grid-cols-2">
               <Field label="Template name"><Input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Monthly EMS airway lab" /></Field>
-              <Field label="Default training sheet title"><Input maxLength={180} value={form.defaultTitle} onChange={(e) => setForm({ ...form, defaultTitle: e.target.value })} placeholder="EMS airway management refresher" /></Field>
+              <Field label="Default training sheet title" hint="Optional. If left blank, the template name is used."><Input maxLength={180} value={form.defaultTitle} onChange={(e) => setForm({ ...form, defaultTitle: e.target.value })} placeholder="Same as template name" /></Field>
               <Field label="Template topic">
                 <Select value={form.topic} onChange={(e) => {
                   const topic = e.target.value;
@@ -409,7 +408,7 @@ export default function TrainingSheetTemplatesPage() {
               <h3 className="font-bold text-navy-900">Review template</h3>
               <div className="rounded-xl border border-navy-200 bg-navy-50 p-5">
                 <div className="flex flex-wrap gap-2"><Badge tone="neutral">{form.topic === "CUSTOM" ? form.gradingConfig.customTopicLabel || "Custom topic" : TOPIC_LABELS[form.topic] || "Other"}</Badge>{form.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance only</Badge>}{form.gradingConfig.writtenTestEnabled ? <Badge tone="current">Written test</Badge> : null}{form.gradingConfig.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{form.ceCredits.length ? <Badge tone="current">EMS CE</Badge> : null}</div>
-                <h4 className="mt-3 text-xl font-bold">{form.name || "Untitled template"}</h4><p className="mt-1 text-navy-700">{form.defaultTitle || "No default Training Sheet title"}</p>
+                <h4 className="mt-3 text-xl font-bold">{form.name || "Untitled template"}</h4><p className="mt-1 text-navy-700">{form.defaultTitle || form.name || "No default Training Sheet title"}</p>
                 <p className="mt-3 text-sm"><strong>Checklist:</strong> {selectedChecklist ? selectedChecklist.title + " v" + selectedChecklist.version + " · " + selectedChecklist.skillCount + " skills" : "Attendance only"}</p>
                 <p className="mt-1 text-sm"><strong>Credit:</strong> {form.creditHours ? form.creditHours + " hours" : "Calculated from class duration"}</p>
                 {form.ceCredits.length ? <p className="mt-1 text-sm"><strong>EMS CE:</strong> {form.ceCredits.map((item) => item.hours + " hr " + item.category).join(" · ")}</p> : null}
@@ -435,7 +434,7 @@ export default function TrainingSheetTemplatesPage() {
             </div>
             <div className="flex flex-wrap justify-between gap-2 border-t border-navy-100 pt-4">
               <div>{builderStep > 1 ? <Button type="button" variant="secondary" onClick={() => setBuilderStep((step) => step - 1)}>Back</Button> : editingId ? <Button type="button" variant="secondary" onClick={reset}>Cancel edit</Button> : null}</div>
-              <div className="flex gap-2">{builderStep < 4 ? <Button type="button" onClick={() => setBuilderStep((step) => step + 1)}>Continue</Button> : <Button type="submit" disabled={busy || validationWarnings.some((warning) => /require|name every|no longer published/i.test(warning))}>{busy ? "Saving…" : editingId ? "Save changes" : "Save template"}</Button>}{editingId && builderStep > 1 ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
+              <div className="flex gap-2">{builderStep === 1 && !editingId ? <Button type="submit" variant="secondary" disabled={busy}>Save basic template</Button> : null}{builderStep < 4 ? <Button type="button" onClick={() => setBuilderStep((step) => step + 1)}>Continue</Button> : <Button type="submit" disabled={busy || validationWarnings.some((warning) => /require|name every|no longer published/i.test(warning))}>{busy ? "Saving…" : editingId ? "Save changes" : "Save template"}</Button>}{editingId && builderStep > 1 ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
             </div>
           </form>
         </Card> : null}
