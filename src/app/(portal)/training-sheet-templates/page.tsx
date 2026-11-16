@@ -133,6 +133,16 @@ export default function TrainingSheetTemplatesPage() {
       setError("Select a published CPR skills checklist before saving the CPR training package.");
       return;
     }
+    if (form.ceCredits.length && form.ceCredits.some((item) => !item.category.trim() || item.hours <= 0)) {
+      setBuilderStep(3);
+      setError("Complete the category name and assign hours to every selected credit category, or remove it.");
+      return;
+    }
+    if (allocatedHours > 24) {
+      setBuilderStep(3);
+      setError("Credit category allocations cannot exceed 24 hours.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -227,6 +237,8 @@ export default function TrainingSheetTemplatesPage() {
   const validationWarnings = [
     !form.name.trim() ? "Add a template name." : "",
     form.classType === "CPR" && !form.checklistVersionId ? "CPR templates require a published checklist." : "",
+    form.ceCredits.some((item) => !item.category.trim() || item.hours <= 0) ? "Complete or remove every selected credit category." : "",
+    allocatedHours > 24 ? "Credit category allocations cannot exceed 24 hours." : "",
     form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null ? "Set the written test passing score." : "",
     form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null ? "Set the CCF passing score." : "",
     form.customFields.some((field) => !field.label.trim()) ? "Name every custom grade or student field." : "",
@@ -318,21 +330,54 @@ export default function TrainingSheetTemplatesPage() {
             <div className={builderStep === 3 ? "space-y-4" : "hidden"}>
             {form.topic === "EMS" ? (
               <section className="rounded-lg border border-navy-200 p-4">
-                <h3 className="font-semibold">EMS CE category hours</h3>
-                <p className="mt-1 text-xs text-navy-600">Set the hours this template awards in each CE category. The total fills automatically.</p>
+                <h3 className="font-semibold">Select EMS CE categories</h3>
+                <p className="mt-1 text-xs text-navy-600">Choose the applicable NREMT-style categories, then divide the class hours among them.</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {Object.keys(EMS_CE_CATEGORIES).map((category) => (
-                    <Field key={category} label={category}>
-                      <Input type="number" min="0" max="24" step="0.25" value={form.ceCredits.find((item) => item.category === category)?.hours ?? ""} onChange={(event) => {
+                  {Object.keys(EMS_CE_CATEGORIES).map((category) => {
+                    const allocation = form.ceCredits.find((item) => item.category === category);
+                    return <div key={category} className="rounded-lg border border-navy-200 p-3">
+                      <label className="flex min-h-10 items-center gap-3 font-semibold">
+                        <input type="checkbox" checked={Boolean(allocation)} onChange={(event) => setForm((current) => {
+                          const ceCredits = event.target.checked
+                            ? [...current.ceCredits, { category, hours: 0 }]
+                            : current.ceCredits.filter((item) => item.category !== category);
+                          return { ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) };
+                        })} />
+                        {category}
+                      </label>
+                      {allocation ? <Field label={category + " hours"}><Input type="number" min="0.25" max="24" step="0.25" value={allocation.hours || ""} onChange={(event) => setForm((current) => {
                         const hours = event.target.value === "" ? 0 : Number(event.target.value);
-                        const remaining = form.ceCredits.filter((item) => item.category !== category);
-                        const ceCredits = hours > 0 && Number.isFinite(hours) ? [...remaining, { category, hours }] : remaining;
-                        setForm((current) => ({ ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) }));
-                      }} />
-                    </Field>
-                  ))}
+                        const ceCredits = current.ceCredits.map((item) => item.category === category ? { ...item, hours: Number.isFinite(hours) ? hours : 0 } : item);
+                        return { ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) };
+                      })} /></Field> : null}
+                    </div>;
+                  })}
                 </div>
                 <p className="mt-3 font-semibold">Total CE hours: {form.ceCredits.reduce((sum, item) => sum + item.hours, 0).toFixed(2)}</p>
+              </section>
+            ) : form.topic === "FIRE" ? (
+              <section className="rounded-lg border border-navy-200 p-4">
+                <h3 className="font-semibold">Fire training credit categories</h3>
+                <p className="mt-1 text-xs text-navy-600">Add the department’s categories, then assign the class hours. These categories will be included when the app opens this template.</p>
+                <div className="mt-3 space-y-3">
+                  {form.ceCredits.map((allocation, index) => <div key={"fire-credit-" + index} className="grid gap-2 rounded-lg border border-navy-200 p-3 sm:grid-cols-[1fr_160px_auto]">
+                    <Input aria-label={"Fire category " + (index + 1)} maxLength={80} value={allocation.category} placeholder="e.g. Fireground Operations" onChange={(event) => setForm((current) => {
+                      const ceCredits = current.ceCredits.map((item, itemIndex) => itemIndex === index ? { ...item, category: event.target.value } : item);
+                      return { ...current, ceCredits };
+                    })} />
+                    <Input aria-label={"Hours for Fire category " + (index + 1)} type="number" min="0.25" max="24" step="0.25" value={allocation.hours || ""} placeholder="Hours" onChange={(event) => setForm((current) => {
+                      const hours = event.target.value === "" ? 0 : Number(event.target.value);
+                      const ceCredits = current.ceCredits.map((item, itemIndex) => itemIndex === index ? { ...item, hours: Number.isFinite(hours) ? hours : 0 } : item);
+                      return { ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) };
+                    })} />
+                    <Button type="button" variant="secondary" onClick={() => setForm((current) => {
+                      const ceCredits = current.ceCredits.filter((_, itemIndex) => itemIndex !== index);
+                      return { ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) };
+                    })}>Remove</Button>
+                  </div>)}
+                </div>
+                <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, ceCredits: [...current.ceCredits, { category: "", hours: 0 }] }))}>+ Add Fire category</Button>
+                <p className="mt-3 font-semibold">Total Fire training hours: {form.ceCredits.reduce((sum, item) => sum + item.hours, 0).toFixed(2)}</p>
               </section>
             ) : null}
             <section className="rounded-lg border border-navy-200 p-4">
