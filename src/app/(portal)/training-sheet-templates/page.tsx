@@ -118,9 +118,9 @@ export default function TrainingSheetTemplatesPage() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!form.name.trim() || !form.defaultTitle.trim()) {
+    if (!form.name.trim()) {
       setBuilderStep(1);
-      setError("Add a template name and default Training Sheet title before saving.");
+      setError("Add a template name before saving.");
       return;
     }
     if ((form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null) || (form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null)) {
@@ -133,13 +133,23 @@ export default function TrainingSheetTemplatesPage() {
       setError("Select a published CPR skills checklist before saving the CPR training package.");
       return;
     }
+    if (form.ceCredits.length && form.ceCredits.some((item) => !item.category.trim() || item.hours <= 0)) {
+      setBuilderStep(3);
+      setError("Complete the category name and assign hours to every selected credit category, or remove it.");
+      return;
+    }
+    if (allocatedHours > 24) {
+      setBuilderStep(3);
+      setError("Credit category allocations cannot exceed 24 hours.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
       await api("training-sheet-templates" + (editingId ? "/" + editingId : ""), {
         method: editingId ? "PATCH" : "POST",
-        body: JSON.stringify({ ...form, topic: form.topic === "CUSTOM" ? "OTHER" : form.topic, classType: form.classType === "CUSTOM" ? "GENERAL" : form.classType, trainingCategory: form.trainingCategory === "CUSTOM" ? "OTHER" : form.trainingCategory }),
+        body: JSON.stringify({ ...form, defaultTitle: form.defaultTitle.trim() || form.name.trim(), topic: form.topic === "CUSTOM" ? "OTHER" : form.topic, classType: form.classType === "CUSTOM" ? "GENERAL" : form.classType, trainingCategory: form.trainingCategory === "CUSTOM" ? "OTHER" : form.trainingCategory }),
       });
       await load();
       setMessage(editingId ? "Template updated." : "Template saved.");
@@ -226,8 +236,9 @@ export default function TrainingSheetTemplatesPage() {
   const allocatedHours = form.ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const validationWarnings = [
     !form.name.trim() ? "Add a template name." : "",
-    !form.defaultTitle.trim() ? "Add a default Training Sheet title." : "",
     form.classType === "CPR" && !form.checklistVersionId ? "CPR templates require a published checklist." : "",
+    form.ceCredits.some((item) => !item.category.trim() || item.hours <= 0) ? "Complete or remove every selected credit category." : "",
+    allocatedHours > 24 ? "Credit category allocations cannot exceed 24 hours." : "",
     form.gradingConfig.writtenTestEnabled && form.gradingConfig.writtenTestPassPercent == null ? "Set the written test passing score." : "",
     form.gradingConfig.ccfEnabled && form.gradingConfig.ccfPassPercent == null ? "Set the CCF passing score." : "",
     form.customFields.some((field) => !field.label.trim()) ? "Name every custom grade or student field." : "",
@@ -274,12 +285,12 @@ export default function TrainingSheetTemplatesPage() {
               <h3 className="font-bold text-navy-900">Topic and title</h3>
               <div className="grid gap-4 md:grid-cols-2">
               <Field label="Template name"><Input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Monthly EMS airway lab" /></Field>
-              <Field label="Default training sheet title"><Input maxLength={180} value={form.defaultTitle} onChange={(e) => setForm({ ...form, defaultTitle: e.target.value })} placeholder="EMS airway management refresher" /></Field>
+              <Field label="Default training sheet title" hint="Optional. If left blank, the template name is used."><Input maxLength={180} value={form.defaultTitle} onChange={(e) => setForm({ ...form, defaultTitle: e.target.value })} placeholder="Same as template name" /></Field>
               <Field label="Template topic">
                 <Select value={form.topic} onChange={(e) => {
                   const topic = e.target.value;
                   const category = ({ EMS: "EMS", FIRE: "COMPANY", HAZMAT: "HAZMAT", DRIVER: "DRIVER", CPR: "EMS", OFFICER: "OFFICER", FACILITY: "FACILITY", OTHER: "OTHER", CUSTOM: "CUSTOM" } as Record<string, string>)[topic] || "OTHER";
-                  setForm((current) => ({ ...current, topic, trainingCategory: category, gradingConfig: { ...current.gradingConfig, customTopicLabel: topic === "CUSTOM" ? current.gradingConfig.customTopicLabel : "", customTrainingCategoryLabel: topic === "CUSTOM" ? current.gradingConfig.customTrainingCategoryLabel : "" }, ceCredits: topic === "EMS" ? current.ceCredits : [], creditHours: topic === "EMS" ? current.creditHours : 0 }));
+                  setForm((current) => ({ ...current, topic, trainingCategory: category, gradingConfig: { ...current.gradingConfig, customTopicLabel: topic === "CUSTOM" ? current.gradingConfig.customTopicLabel : "", customTrainingCategoryLabel: topic === "CUSTOM" ? current.gradingConfig.customTrainingCategoryLabel : "" }, ceCredits: topic === current.topic ? current.ceCredits : [], creditHours: topic === current.topic ? current.creditHours : 0 }));
                 }}>
                   {TEMPLATE_TOPICS.map((topic) => <option key={topic} value={topic}>{TOPIC_LABELS[topic]}</option>)}
                   <option value="CUSTOM">Custom…</option>
@@ -319,21 +330,54 @@ export default function TrainingSheetTemplatesPage() {
             <div className={builderStep === 3 ? "space-y-4" : "hidden"}>
             {form.topic === "EMS" ? (
               <section className="rounded-lg border border-navy-200 p-4">
-                <h3 className="font-semibold">EMS CE category hours</h3>
-                <p className="mt-1 text-xs text-navy-600">Set the hours this template awards in each CE category. The total fills automatically.</p>
+                <h3 className="font-semibold">Select EMS CE categories</h3>
+                <p className="mt-1 text-xs text-navy-600">Choose the applicable NREMT-style categories, then divide the class hours among them.</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {Object.keys(EMS_CE_CATEGORIES).map((category) => (
-                    <Field key={category} label={category}>
-                      <Input type="number" min="0" max="24" step="0.25" value={form.ceCredits.find((item) => item.category === category)?.hours ?? ""} onChange={(event) => {
+                  {Object.keys(EMS_CE_CATEGORIES).map((category) => {
+                    const allocation = form.ceCredits.find((item) => item.category === category);
+                    return <div key={category} className="rounded-lg border border-navy-200 p-3">
+                      <label className="flex min-h-10 items-center gap-3 font-semibold">
+                        <input type="checkbox" checked={Boolean(allocation)} onChange={(event) => setForm((current) => {
+                          const ceCredits = event.target.checked
+                            ? [...current.ceCredits, { category, hours: 0 }]
+                            : current.ceCredits.filter((item) => item.category !== category);
+                          return { ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) };
+                        })} />
+                        {category}
+                      </label>
+                      {allocation ? <Field label={category + " hours"}><Input type="number" min="0.25" max="24" step="0.25" value={allocation.hours || ""} onChange={(event) => setForm((current) => {
                         const hours = event.target.value === "" ? 0 : Number(event.target.value);
-                        const remaining = form.ceCredits.filter((item) => item.category !== category);
-                        const ceCredits = hours > 0 && Number.isFinite(hours) ? [...remaining, { category, hours }] : remaining;
-                        setForm((current) => ({ ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) }));
-                      }} />
-                    </Field>
-                  ))}
+                        const ceCredits = current.ceCredits.map((item) => item.category === category ? { ...item, hours: Number.isFinite(hours) ? hours : 0 } : item);
+                        return { ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) };
+                      })} /></Field> : null}
+                    </div>;
+                  })}
                 </div>
                 <p className="mt-3 font-semibold">Total CE hours: {form.ceCredits.reduce((sum, item) => sum + item.hours, 0).toFixed(2)}</p>
+              </section>
+            ) : form.topic === "FIRE" ? (
+              <section className="rounded-lg border border-navy-200 p-4">
+                <h3 className="font-semibold">Fire training credit categories</h3>
+                <p className="mt-1 text-xs text-navy-600">Add the department’s categories, then assign the class hours. These categories will be included when the app opens this template.</p>
+                <div className="mt-3 space-y-3">
+                  {form.ceCredits.map((allocation, index) => <div key={"fire-credit-" + index} className="grid gap-2 rounded-lg border border-navy-200 p-3 sm:grid-cols-[1fr_160px_auto]">
+                    <Input aria-label={"Fire category " + (index + 1)} maxLength={80} value={allocation.category} placeholder="e.g. Fireground Operations" onChange={(event) => setForm((current) => {
+                      const ceCredits = current.ceCredits.map((item, itemIndex) => itemIndex === index ? { ...item, category: event.target.value } : item);
+                      return { ...current, ceCredits };
+                    })} />
+                    <Input aria-label={"Hours for Fire category " + (index + 1)} type="number" min="0.25" max="24" step="0.25" value={allocation.hours || ""} placeholder="Hours" onChange={(event) => setForm((current) => {
+                      const hours = event.target.value === "" ? 0 : Number(event.target.value);
+                      const ceCredits = current.ceCredits.map((item, itemIndex) => itemIndex === index ? { ...item, hours: Number.isFinite(hours) ? hours : 0 } : item);
+                      return { ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) };
+                    })} />
+                    <Button type="button" variant="secondary" onClick={() => setForm((current) => {
+                      const ceCredits = current.ceCredits.filter((_, itemIndex) => itemIndex !== index);
+                      return { ...current, ceCredits, creditHours: ceCredits.reduce((sum, item) => sum + item.hours, 0) };
+                    })}>Remove</Button>
+                  </div>)}
+                </div>
+                <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, ceCredits: [...current.ceCredits, { category: "", hours: 0 }] }))}>+ Add Fire category</Button>
+                <p className="mt-3 font-semibold">Total Fire training hours: {form.ceCredits.reduce((sum, item) => sum + item.hours, 0).toFixed(2)}</p>
               </section>
             ) : null}
             <section className="rounded-lg border border-navy-200 p-4">
@@ -408,11 +452,11 @@ export default function TrainingSheetTemplatesPage() {
             <div className={builderStep === 4 ? "space-y-4" : "hidden"}>
               <h3 className="font-bold text-navy-900">Review template</h3>
               <div className="rounded-xl border border-navy-200 bg-navy-50 p-5">
-                <div className="flex flex-wrap gap-2"><Badge tone="neutral">{form.topic === "CUSTOM" ? form.gradingConfig.customTopicLabel || "Custom topic" : TOPIC_LABELS[form.topic] || "Other"}</Badge>{form.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance only</Badge>}{form.gradingConfig.writtenTestEnabled ? <Badge tone="current">Written test</Badge> : null}{form.gradingConfig.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{form.ceCredits.length ? <Badge tone="current">EMS CE</Badge> : null}</div>
-                <h4 className="mt-3 text-xl font-bold">{form.name || "Untitled template"}</h4><p className="mt-1 text-navy-700">{form.defaultTitle || "No default Training Sheet title"}</p>
+                <div className="flex flex-wrap gap-2"><Badge tone="neutral">{form.topic === "CUSTOM" ? form.gradingConfig.customTopicLabel || "Custom topic" : TOPIC_LABELS[form.topic] || "Other"}</Badge>{form.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance only</Badge>}{form.gradingConfig.writtenTestEnabled ? <Badge tone="current">Written test</Badge> : null}{form.gradingConfig.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{form.ceCredits.length ? <Badge tone="current">{form.topic === "EMS" ? "EMS CE" : form.topic === "FIRE" ? "Fire credits" : "Credit categories"}</Badge> : null}</div>
+                <h4 className="mt-3 text-xl font-bold">{form.name || "Untitled template"}</h4><p className="mt-1 text-navy-700">{form.defaultTitle || form.name || "No default Training Sheet title"}</p>
                 <p className="mt-3 text-sm"><strong>Checklist:</strong> {selectedChecklist ? selectedChecklist.title + " v" + selectedChecklist.version + " · " + selectedChecklist.skillCount + " skills" : "Attendance only"}</p>
                 <p className="mt-1 text-sm"><strong>Credit:</strong> {form.creditHours ? form.creditHours + " hours" : "Calculated from class duration"}</p>
-                {form.ceCredits.length ? <p className="mt-1 text-sm"><strong>EMS CE:</strong> {form.ceCredits.map((item) => item.hours + " hr " + item.category).join(" · ")}</p> : null}
+                {form.ceCredits.length ? <p className="mt-1 text-sm"><strong>{form.topic === "EMS" ? "EMS CE" : form.topic === "FIRE" ? "Fire training credits" : "Training credits"}:</strong> {form.ceCredits.map((item) => item.hours + " hr " + item.category).join(" · ")}</p> : null}
                 {form.customFields.some((item) => item.appliesTo === "ROSTER") ? <p className="mt-1 text-sm"><strong>Roster requirements:</strong> {form.customFields.filter((item) => item.appliesTo === "ROSTER").map((item) => item.label || "Untitled").join(" · ")}</p> : null}
                 {form.customFields.some((item) => item.appliesTo !== "ROSTER") ? <p className="mt-1 text-sm"><strong>Training results:</strong> {form.customFields.filter((item) => item.appliesTo !== "ROSTER").map((item) => item.label || "Untitled").join(" · ")}</p> : null}
                 {form.gradingConfig.rmsEntryCategories.length ? <p className="mt-1 text-sm"><strong>RMS categories:</strong> {form.gradingConfig.rmsEntryCategories.filter(Boolean).join(" · ")}</p> : null}
@@ -435,7 +479,7 @@ export default function TrainingSheetTemplatesPage() {
             </div>
             <div className="flex flex-wrap justify-between gap-2 border-t border-navy-100 pt-4">
               <div>{builderStep > 1 ? <Button type="button" variant="secondary" onClick={() => setBuilderStep((step) => step - 1)}>Back</Button> : editingId ? <Button type="button" variant="secondary" onClick={reset}>Cancel edit</Button> : null}</div>
-              <div className="flex gap-2">{builderStep < 4 ? <Button type="button" onClick={() => setBuilderStep((step) => step + 1)}>Continue</Button> : <Button type="submit" disabled={busy || validationWarnings.some((warning) => /require|name every|no longer published/i.test(warning))}>{busy ? "Saving…" : editingId ? "Save changes" : "Save template"}</Button>}{editingId && builderStep > 1 ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
+              <div className="flex gap-2">{builderStep === 1 && !editingId ? <Button type="submit" variant="secondary" disabled={busy}>Save basic template</Button> : null}{builderStep < 4 ? <Button type="button" onClick={() => setBuilderStep((step) => step + 1)}>Continue</Button> : <Button type="submit" disabled={busy || validationWarnings.some((warning) => /require|name every|no longer published/i.test(warning))}>{busy ? "Saving…" : editingId ? "Save changes" : "Save template"}</Button>}{editingId && builderStep > 1 ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
             </div>
           </form>
         </Card> : null}

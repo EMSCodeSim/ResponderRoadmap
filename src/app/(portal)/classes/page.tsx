@@ -248,8 +248,9 @@ export default function ClassesPage() {
     if (!template) return;
     setTemplateCategory(template.topic || "OTHER");
     const allocations = template.ceCredits || [];
-    setEmsCeMode(allocations.length > 0);
-    setEmsCredits(Object.fromEntries(allocations.map((item) => [item.category, item.hours])));
+    const isEmsTemplate = template.topic === "EMS";
+    setEmsCeMode(isEmsTemplate && allocations.length > 0);
+    setEmsCredits(isEmsTemplate ? Object.fromEntries(allocations.map((item) => [item.category, item.hours])) : {});
     setForm((current) => ({ ...current, title: allocations.length ? "" : template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 

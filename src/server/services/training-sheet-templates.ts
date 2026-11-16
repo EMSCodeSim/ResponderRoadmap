@@ -14,25 +14,25 @@ function legacyTopic(trainingCategory: string) {
   return TOPICS.has(trainingCategory) ? trainingCategory : "OTHER";
 }
 
-function normalizeCeCredits(value: unknown) {
+function normalizeCeCredits(value: unknown, allowCustom = false) {
   if (value == null) return [];
-  if (!Array.isArray(value)) throw new HttpError(400, "EMS CE credits must be a list of categories and hours.");
+  if (!Array.isArray(value)) throw new HttpError(400, "Credit categories must be a list of categories and hours.");
   const totals = new Map<string, number>();
   for (const entry of value) {
     const item = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
-    const category = String(item.category || "").trim();
+    const category = String(item.category || "").trim().slice(0, 80);
     const hours = Number(item.hours ?? 0);
-    if (!EMS_CE_GROUPS.has(category)) throw new HttpError(400, "Choose a valid EMS CE category.");
-    if (!Number.isFinite(hours) || hours < 0 || hours > 24) throw new HttpError(400, "Each CE category must be between 0 and 24 hours.");
+    if (!category || (!EMS_CE_GROUPS.has(category) && !allowCustom)) throw new HttpError(400, "Choose a valid credit category.");
+    if (!Number.isFinite(hours) || hours < 0 || hours > 24) throw new HttpError(400, "Each credit category must be between 0 and 24 hours.");
     if (hours > 0) totals.set(category, (totals.get(category) || 0) + hours);
   }
   const result = [...totals].map(([category, hours]) => ({ category, hours: Math.round(hours * 100) / 100 }));
-  if (result.reduce((sum, item) => sum + item.hours, 0) > 24) throw new HttpError(400, "EMS CE credits cannot exceed 24 hours per training sheet.");
+  if (result.reduce((sum, item) => sum + item.hours, 0) > 24) throw new HttpError(400, "Credit category allocations cannot exceed 24 hours per training sheet.");
   return result;
 }
 
-function parseCeCredits(value: string) {
-  try { return normalizeCeCredits(JSON.parse(value || "[]")); } catch { return []; }
+function parseCeCredits(value: string, allowCustom = false) {
+  try { return normalizeCeCredits(JSON.parse(value || "[]"), allowCustom); } catch { return []; }
 }
 
 function normalizeGradingConfig(value: unknown) {
@@ -80,15 +80,16 @@ function view(row: {
 }) {
   let gradingConfig = {};
   try { gradingConfig = JSON.parse(row.gradingConfigJson || "{}"); } catch {}
+  const topic = TOPICS.has(row.topic) && row.topic !== "OTHER" ? row.topic : legacyTopic(row.trainingCategory);
   return {
     id: row.id,
     name: row.name,
     defaultTitle: row.defaultTitle,
     classType: row.classType,
     trainingCategory: row.trainingCategory,
-    topic: TOPICS.has(row.topic) && row.topic !== "OTHER" ? row.topic : legacyTopic(row.trainingCategory),
+    topic,
     gradingConfig,
-    ceCredits: parseCeCredits(row.ceCreditsJson),
+    ceCredits: parseCeCredits(row.ceCreditsJson, topic === "FIRE"),
     creditHours: row.creditHours,
     checklistVersionId: row.checklistVersionId,
     location: row.location,
@@ -113,8 +114,8 @@ async function validate(ctx: AuthContext, input: Record<string, unknown>) {
   if (!CLASS_TYPES.has(classType)) throw new HttpError(400, "Invalid class type.");
   if (!CATEGORIES.has(trainingCategory)) throw new HttpError(400, "Invalid training category.");
   if (!TOPICS.has(topic)) throw new HttpError(400, "Invalid template topic.");
-  const ceCredits = normalizeCeCredits(input.ceCredits);
-  if (ceCredits.length && topic !== "EMS") throw new HttpError(400, "EMS CE allocations can only be saved on EMS templates.");
+  const ceCredits = normalizeCeCredits(input.ceCredits, topic === "FIRE");
+  if (ceCredits.length && topic !== "EMS" && topic !== "FIRE") throw new HttpError(400, "Credit category allocations are available on EMS and Fire templates.");
   const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const creditHours = allocatedHours > 0 ? allocatedHours : Number(input.creditHours ?? 0);
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
