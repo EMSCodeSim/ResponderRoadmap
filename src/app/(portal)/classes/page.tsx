@@ -91,6 +91,8 @@ export default function ClassesPage() {
   const [templateCategory, setTemplateCategory] = useState("");
   const [emsCeMode, setEmsCeMode] = useState(false);
   const [emsCredits, setEmsCredits] = useState<Record<string, number>>({});
+  const [fireCeMode, setFireCeMode] = useState(false);
+  const [fireCredits, setFireCredits] = useState<Record<string, number>>({});
   const [form, setForm] = useState(emptyForm);
   const [stationChecklistIds, setStationChecklistIds] = useState<string[]>([]);
   const [stationProctors, setStationProctors] = useState<Record<string, string>>({});
@@ -168,11 +170,13 @@ export default function ClassesPage() {
     setShowTemplateSetup(true);
     setShowChecklistSetup(true);
     setTemplateCategory(template.topic || "OTHER");
-    setEmsCeMode((template.ceCredits || []).length > 0);
-    setEmsCredits(Object.fromEntries((template.ceCredits || []).map((item) => [item.category, item.hours])));
+    setEmsCeMode(template.topic === "EMS" && (template.ceCredits || []).length > 0);
+    setEmsCredits(template.topic === "EMS" ? Object.fromEntries((template.ceCredits || []).map((item) => [item.category, item.hours])) : {});
+    setFireCeMode(template.topic === "FIRE" && (template.ceCredits || []).length > 0);
+    setFireCredits(template.topic === "FIRE" ? Object.fromEntries((template.ceCredits || []).map((item) => [item.category, item.hours])) : {});
     setForm({
       ...emptyForm,
-      title: (template.ceCredits || []).length ? "" : template.defaultTitle || template.name,
+      title: template.defaultTitle || template.name,
       classType: template.classType,
       trainingCategory: template.trainingCategory,
       creditHours: template.creditHours ? String(template.creditHours) : "",
@@ -197,15 +201,22 @@ export default function ClassesPage() {
       if (form.classType === "CPR" && !form.checklistVersionId && !emsCeMode) {
         throw new Error("Select the department's published CPR skills checklist before creating this class.");
       }
-      const total = Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0);
-      if (emsCeMode && total > 24) throw new Error("EMS credits cannot exceed 24 hours per training sheet.");
+      const emsTotal = Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0);
+      const fireTotal = Object.values(fireCredits).reduce((sum, hours) => sum + hours, 0);
+      if (emsCeMode && emsTotal > 24) throw new Error("EMS credits cannot exceed 24 hours per training sheet.");
+      if (fireCeMode && fireTotal > 24) throw new Error("Fire credit allocations cannot exceed 24 hours per training sheet.");
       const ceCredits = emsCeMode
         ? Object.entries(emsCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours }))
-        : undefined;
+        : fireCeMode
+          ? Object.entries(fireCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours }))
+          : undefined;
       const payload = emsCeMode
-        ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: total, ceCredits,
+        ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: emsTotal, ceCredits,
             notes: [emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
-        : form;
+        : fireCeMode
+          ? { ...form, creditHours: fireTotal || Number(form.creditHours || 0), ceCredits,
+              notes: [Object.entries(fireCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => `${category}: ${hours} hr`).join(" · "), form.notes.trim()].filter(Boolean).join("\n\n") }
+          : form;
       const stations = stationChecklistIds.map((id, index) => ({ checklistVersionId: id, title: setup?.checklists.find((item) => item.id === id)?.title || `Station ${index + 1}`, proctorUserId: stationProctors[id] || form.proctorUserIds[0] || "" }));
       const created = await api<{ id: string }>("classes", { method: "POST", body: JSON.stringify({ ...payload, stations, ceCredits, trainingSheetTemplateId: selectedTemplateId || undefined, gradingComponentId: selectedGradingComponentId || undefined, ceComponentId: selectedCeComponentId || undefined }) });
       window.location.href = `/classes/${created.id}`;
@@ -226,6 +237,8 @@ export default function ClassesPage() {
     setQuickMode(quick);
     setEmsCeMode(false);
     setEmsCredits({});
+    setFireCeMode(false);
+    setFireCredits({});
     setSelectedTemplateId("");
     setSelectedGradingComponentId("");
     setSelectedCeComponentId("");
@@ -251,11 +264,15 @@ export default function ClassesPage() {
     const isEmsTemplate = template.topic === "EMS";
     setEmsCeMode(isEmsTemplate && allocations.length > 0);
     setEmsCredits(isEmsTemplate ? Object.fromEntries(allocations.map((item) => [item.category, item.hours])) : {});
-    setForm((current) => ({ ...current, title: allocations.length ? "" : template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
+    setFireCeMode(template.topic === "FIRE" && allocations.length > 0);
+    setFireCredits(template.topic === "FIRE" ? Object.fromEntries(allocations.map((item) => [item.category, item.hours])) : {});
+    setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 
   function applyCeComponent(id: string) {
     setSelectedCeComponentId(id);
+    setFireCeMode(false);
+    setFireCredits({});
     const component = components.find((item) => item.id === id && item.kind === "EMS_CE_LIST");
     if (!component) {
       setEmsCeMode(false);
@@ -372,6 +389,19 @@ export default function ClassesPage() {
             <div className="rounded-lg border border-navy-200 bg-navy-50 p-3 text-sm text-navy-800" role="note">Linked Task Book reference. This pre-fills the title and source reference only. Attendance, signed evaluations, and hours are not automatically transferred; verify them before saving.</div>
           ) : null}
           {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Training Sheet</div><p className="mt-1 text-sm text-navy-600">Enter a title and start time to begin. Templates, checklists, roster selection, hours, end time and RMS documentation can be completed later.</p></div> : null}
+          {fireCeMode ? <section aria-label="Fire training credit categories" className="space-y-3 rounded-lg border border-navy-200 p-4">
+            <h3 className="text-lg font-bold">Fire training credit categories</h3>
+            <p className="text-sm text-navy-600">Assign hours to the categories saved in this template. Total credit hours update automatically.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {Object.entries(fireCredits).map(([category, hours]) => <Field key={category} label={category}>
+                <Input aria-label={`${category} credit hours`} type="number" min="0" max="24" step="0.25" value={hours || ""} placeholder="0" onChange={(event) => {
+                  const value = event.target.value === "" ? 0 : Number(event.target.value);
+                  setFireCredits((current) => ({ ...current, [category]: Number.isFinite(value) && value >= 0 ? value : 0 }));
+                }} />
+              </Field>)}
+            </div>
+            <div className="font-bold">Total Fire training credit: {Object.values(fireCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</div>
+          </section> : null}
           {showAdvancedSetup ? <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
             <input type="checkbox" checked={emsCeMode} onChange={(event) => {
               setEmsCeMode(event.target.checked);
@@ -379,7 +409,7 @@ export default function ClassesPage() {
             }} />
             EMS Continuing Education Training Sheet
           </label> : null}
-          {emsCeMode && showAdvancedSetup ? <section aria-label="EMS continuing education credits" className="space-y-3 rounded-lg border border-navy-200 p-4">
+          {emsCeMode ? <section aria-label="EMS continuing education credits" className="space-y-3 rounded-lg border border-navy-200 p-4">
             <h3 className="text-lg font-bold">EMS credit categories</h3>
             <p className="text-sm text-navy-600">Assign hours to one or more topics. Only nonzero categories appear on the saved sheet. Credit hours total automatically.</p>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -401,7 +431,7 @@ export default function ClassesPage() {
               const category = ({ EMS: "EMS", FIRE: "COMPANY", HAZMAT: "HAZMAT", DRIVER: "DRIVER", CPR: "EMS", OFFICER: "OFFICER", FACILITY: "FACILITY", OTHER: "OTHER" } as Record<string, string>)[topic] || "COMPANY";
               setTemplateCategory(topic); setSelectedTemplateId(""); setSelectedGradingComponentId(""); setSelectedCeComponentId("");
               setForm((current) => ({ ...current, trainingCategory: category, checklistVersionId: "" }));
-              setEmsCeMode(false); setEmsCredits({});
+              setEmsCeMode(false); setEmsCredits({}); setFireCeMode(false); setFireCredits({});
             }}>
               <option value="">Choose a topic</option>
               <option value="EMS">EMS</option><option value="FIRE">Fire</option><option value="HAZMAT">HazMat</option><option value="DRIVER">Driver Operator</option><option value="CPR">CPR</option><option value="OFFICER">Officer</option><option value="FACILITY">Facility</option><option value="OTHER">Other</option>
