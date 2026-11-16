@@ -334,7 +334,7 @@ export default function TrainingSheetTemplatesPage() {
                       })} />
                       {category}
                     </label>;
-                  })
+                  })}
                 </div>
               </section>
             ) : form.topic === "FIRE" ? (
