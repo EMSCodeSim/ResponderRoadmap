@@ -24,7 +24,7 @@ function normalizeCeCredits(value: unknown, allowCustom = false) {
     const hours = Number(item.hours ?? 0);
     if (!category || (!EMS_CE_GROUPS.has(category) && !allowCustom)) throw new HttpError(400, "Choose a valid credit category.");
     if (!Number.isFinite(hours) || hours < 0 || hours > 24) throw new HttpError(400, "Each credit category must be between 0 and 24 hours.");
-    if (hours > 0) totals.set(category, (totals.get(category) || 0) + hours);
+    totals.set(category, (totals.get(category) || 0) + hours);
   }
   const result = [...totals].map(([category, hours]) => ({ category, hours: Math.round(hours * 100) / 100 }));
   if (result.reduce((sum, item) => sum + item.hours, 0) > 24) throw new HttpError(400, "Credit category allocations cannot exceed 24 hours per training sheet.");
