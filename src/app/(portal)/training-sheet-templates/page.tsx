@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
-import { TRAINING_SHEET_STARTERS, type TrainingSheetStarter } from "@/lib/training-sheet-starters";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
 
@@ -183,28 +182,6 @@ export default function TrainingSheetTemplatesPage() {
     topic,
     items: visibleTemplates.filter((item) => (item.topic || "OTHER") === topic).sort((a, b) => a.name.localeCompare(b.name)),
   })).filter((group) => group.items.length > 0);
-
-  function chooseStarter(starter: TrainingSheetStarter) {
-    const selected = starter.checklistPattern
-      ? (setup?.checklists || []).find((item) => starter.checklistPattern?.test(item.title))
-      : null;
-    setForm({
-      ...blank,
-      ...starter.values,
-      gradingConfig: { ...blank.gradingConfig, ...(starter.values.gradingConfig || {}) },
-      checklistVersionId: selected?.id || "",
-      proctorUserIds: [],
-    });
-    setEditingId(null);
-    setPageView("BUILDER");
-    setError(null);
-    setMessage(selected
-      ? `Starter linked to your published checklist: ${selected.title} v${selected.version}. Review the example and select proctors before saving.`
-      : starter.checklistStarterId
-        ? "The class example is ready to edit. To add skills grading, copy and publish the matching checklist starter, then select it in step 2."
-        : "Starter opened for review. Edit the example to match this class, then save it for your department.");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
 
   function duplicate(item: Template) {
     setEditingId(null);
@@ -459,23 +436,6 @@ export default function TrainingSheetTemplatesPage() {
           </form>
         </Card> : null}
         {pageView === "LIBRARY" ? <div>
-          <Card className="mb-5 p-4">
-            <h2 className="font-bold text-navy-900">Starter templates</h2>
-            <p className="mt-1 text-sm text-navy-600">Choose a starter to open it in the builder. It will not be saved until you review and save it.</p>
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {TRAINING_SHEET_STARTERS.map((starter) => (
-                <div key={starter.id} className="flex flex-col rounded-lg border border-navy-200 bg-white p-4">
-                  <div className="flex flex-wrap gap-2"><Badge tone="neutral">{TOPIC_LABELS[starter.values.topic] || starter.values.topic}</Badge>{starter.checklistStarterId ? <Badge tone="current">Checklist example</Badge> : null}{starter.values.selfRegistration ? <Badge tone="current">QR</Badge> : null}</div>
-                  <h3 className="mt-3 font-bold text-navy-900">{starter.label}</h3>
-                  <p className="mt-1 flex-1 text-sm text-navy-600">{starter.description}</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button type="button" variant="secondary" onClick={() => chooseStarter(starter)}>Use and edit</Button>
-                    {starter.checklistStarterId ? <Link href={`/task-books/fast-start?starter=${encodeURIComponent(starter.checklistStarterId)}&returnTo=${encodeURIComponent("/training-sheet-templates")}`} className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900">Copy checklist</Link> : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-navy-900">Department templates</h2>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived</label>
