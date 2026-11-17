@@ -181,7 +181,6 @@ export default function ClassesPage() {
     quickAddOpened.current = true;
     openTraining(false);
     setSelectedTemplateId(id);
-    setShowTemplateSetup(true);
     setShowChecklistSetup(true);
     setTemplateCategory(template.topic || "OTHER");
     setEmsCeMode(template.topic === "EMS" && (template.ceCredits || []).length > 0);
