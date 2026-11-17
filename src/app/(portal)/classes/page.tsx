@@ -80,6 +80,8 @@ export default function ClassesPage() {
   const [sheetFilter, setSheetFilter] = useState("all");
   const [setup, setSetup] = useState<Setup | null>(null);
   const [templates, setTemplates] = useState<TrainingSheetTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templateLoadError, setTemplateLoadError] = useState("");
   const [components, setComponents] = useState<TrainingComponent[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedGradingComponentId, setSelectedGradingComponentId] = useState("");
@@ -87,7 +89,6 @@ export default function ClassesPage() {
   const [showAdvancedSetup, setShowAdvancedSetup] = useState(false);
   const [showRosterSetup, setShowRosterSetup] = useState(false);
   const [showChecklistSetup, setShowChecklistSetup] = useState(false);
-  const [showTemplateSetup, setShowTemplateSetup] = useState(false);
   const [templateCategory, setTemplateCategory] = useState("");
   const [emsCeMode, setEmsCeMode] = useState(false);
   const [emsCredits, setEmsCredits] = useState<Record<string, number>>({});
@@ -103,10 +104,23 @@ export default function ClassesPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function refreshTemplates() {
+    setTemplatesLoading(true);
+    setTemplateLoadError("");
+    try {
+      setTemplates(await api<TrainingSheetTemplate[]>("training-sheet-templates"));
+    } catch (err) {
+      setTemplates([]);
+      setTemplateLoadError(err instanceof Error ? err.message : "Unable to load training templates.");
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }
+
   async function load() {
     setRows(await api<ClassRow[]>("classes"));
     api<Setup>("classes/setup").then(setSetup).catch(() => setSetup(null));
-    api<TrainingSheetTemplate[]>("training-sheet-templates").then(setTemplates).catch(() => setTemplates([]));
+    void refreshTemplates();
     api<TrainingComponent[]>("training-sheet-components").then(setComponents).catch(() => setComponents([]));
   }
 
@@ -167,7 +181,6 @@ export default function ClassesPage() {
     quickAddOpened.current = true;
     openTraining(false);
     setSelectedTemplateId(id);
-    setShowTemplateSetup(true);
     setShowChecklistSetup(true);
     setTemplateCategory(template.topic || "OTHER");
     setEmsCeMode(template.topic === "EMS" && (template.ceCredits || []).length > 0);
@@ -247,10 +260,10 @@ export default function ClassesPage() {
     setShowAdvancedSetup(false);
     setShowRosterSetup(false);
     setShowChecklistSetup(false);
-    setShowTemplateSetup(false);
     setTemplateCategory("");
     setForm({ ...emptyForm, startsAt: localDateTimeNow(), selfRegistration: true, proctorUserIds: currentUser ? [currentUser.userId] : [] });
     setOpen(true);
+    void refreshTemplates();
   }
 
   function applyTemplate(id: string) {
@@ -423,9 +436,9 @@ export default function ClassesPage() {
             <div className="font-bold">Total EMS CE credit: {Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</div>
           </section> : null}
           <section className="rounded-lg border border-navy-200 p-4 space-y-3">
-            <label className="flex items-center gap-3 font-bold"><input type="checkbox" checked={showTemplateSetup} onChange={(event) => setShowTemplateSetup(event.target.checked)} /> Use a training template (optional)</label>
-            {showTemplateSetup ? <>
-            <h3 className="text-sm font-semibold">Choose Fire, EMS, HazMat or another template</h3>
+            <h3 className="font-bold">Start from a training template (optional)</h3>
+            <p className="text-sm text-navy-600">Templates you save in the Training Sheet Library appear here. Leave the topic set to all topics to see every template.</p>
+            {templateLoadError ? <p role="alert" className="text-sm text-warn">{templateLoadError} <button type="button" className="font-semibold underline" onClick={() => void refreshTemplates()}>Try again</button></p> : null}
             <Field label="Topic"><Select value={templateCategory} onChange={(event) => {
               const topic = event.target.value;
               const category = ({ EMS: "EMS", FIRE: "COMPANY", HAZMAT: "HAZMAT", DRIVER: "DRIVER", CPR: "EMS", OFFICER: "OFFICER", FACILITY: "FACILITY", OTHER: "OTHER" } as Record<string, string>)[topic] || "COMPANY";
@@ -433,12 +446,12 @@ export default function ClassesPage() {
               setForm((current) => ({ ...current, trainingCategory: category, checklistVersionId: "" }));
               setEmsCeMode(false); setEmsCredits({}); setFireCeMode(false); setFireCredits({});
             }}>
-              <option value="">Choose a topic</option>
+              <option value="">All topics</option>
               <option value="EMS">EMS</option><option value="FIRE">Fire</option><option value="HAZMAT">HazMat</option><option value="DRIVER">Driver Operator</option><option value="CPR">CPR</option><option value="OFFICER">Officer</option><option value="FACILITY">Facility</option><option value="OTHER">Other</option>
             </Select></Field>
-            <Field label="Department training template"><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">Blank sheet</option>{templates.filter((item) => !templateCategory || (item.topic || "OTHER") === templateCategory).sort((a, b) => a.name.localeCompare(b.name)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+            <Field label="Department training template"><Select value={selectedTemplateId} onChange={(event) => applyTemplate(event.target.value)}><option value="">{templatesLoading ? "Loading templates…" : "Blank sheet"}</option>{templates.filter((item) => (!templateCategory || (item.topic || "OTHER") === templateCategory) || item.id === selectedTemplateId).sort((a, b) => a.name.localeCompare(b.name)).map((item) => <option key={item.id} value={item.id}>{item.name} · {item.topic || "Other"}</option>)}</Select></Field>
+            {!templatesLoading && !templateLoadError && templates.length === 0 ? <p className="text-sm text-navy-600">No active templates yet. Create and save one in the <Link href="/training-sheet-templates" className="font-semibold text-fire underline">Training Sheet Library</Link>, then reopen this list.</p> : null}
             <p className="text-xs text-navy-600">A class package can prefill the complete setup. You can add students now or let them scan the QR code after creation.</p>
-            </> : null}
           </section>
           <section className="rounded-lg border border-navy-200 p-4 space-y-3">
             <h3 className="font-semibold">Add reusable components (optional)</h3>
