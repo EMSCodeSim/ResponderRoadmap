@@ -4,7 +4,7 @@ import { assertPermission, type AuthContext } from "@/server/permissions";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 
 const KINDS = new Set(["GRADING", "EMS_CE_LIST"]);
-const FIELD_TYPES = new Set(["TEXT", "NUMBER", "PERCENT", "PASS_FAIL", "CHECKBOX"]);
+const FIELD_TYPES = new Set(["TEXT", "NUMBER", "PERCENT", "PASS_FAIL", "LETTER_GRADE", "SCORE_1_10", "CHECKBOX"]);
 const ceCategories = new Set(Object.keys(EMS_CE_CATEGORIES));
 
 function normalizeData(kind: string, value: unknown) {
