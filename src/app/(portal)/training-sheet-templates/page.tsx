@@ -6,7 +6,8 @@ import { api, ApiError } from "@/lib/api";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
 
-type CustomField = { id: string; label: string; type: string; required: boolean; appliesTo?: "ROSTER" | "RESULT" };
+type CustomField = { id: string; label: string; type: string; required: boolean; appliesTo?: "ROSTER" | "RESULT"; description?: string };
+type TrainingSystem = { id: string; kind: "GRADING" | "EMS_CE_LIST"; name: string; data: { gradingConfig?: Partial<GradingConfig>; customFields?: CustomField[] } };
 type CEAllocation = { category: string; hours: number };
 type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null; rmsEntryCategories: string[]; customTopicLabel: string; customClassTypeLabel: string; customTrainingCategoryLabel: string };
 const TEMPLATE_TOPICS = ["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"];
@@ -57,6 +58,8 @@ const blank = {
 
 export default function TrainingSheetTemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [trainingSystems, setTrainingSystems] = useState<TrainingSystem[]>([]);
+  const [selectedTrainingSystemId, setSelectedTrainingSystemId] = useState("");
   const [setup, setSetup] = useState<Setup | null>(null);
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -71,12 +74,14 @@ export default function TrainingSheetTemplatesPage() {
 
   async function load() {
     const query = showArchived ? "?archived=all" : "";
-    const [rows, options] = await Promise.all([
+    const [rows, options, systems] = await Promise.all([
       api<Template[]>("training-sheet-templates" + query),
       api<Setup>("classes/setup"),
+      api<TrainingSystem[]>("training-sheet-components"),
     ]);
     setTemplates(rows);
     setSetup(options);
+    setTrainingSystems(systems.filter((item) => item.kind === "GRADING"));
   }
 
   useEffect(() => {
@@ -85,12 +90,14 @@ export default function TrainingSheetTemplatesPage() {
 
   function reset() {
     setEditingId(null);
+    setSelectedTrainingSystemId("");
     setForm(blank);
     setPageView("LIBRARY");
   }
 
   function edit(item: Template) {
     setEditingId(item.id);
+    setSelectedTrainingSystemId("");
     setForm({
       name: item.name,
       defaultTitle: item.defaultTitle,
@@ -110,6 +117,18 @@ export default function TrainingSheetTemplatesPage() {
     setMessage(null);
     setPageView("BUILDER");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function applyTrainingSystem(id: string) {
+    setSelectedTrainingSystemId(id);
+    const system = trainingSystems.find((item) => item.id === id);
+    if (!system) return;
+    const grades = system.data.gradingConfig || {};
+    setForm((current) => ({
+      ...current,
+      gradingConfig: { ...current.gradingConfig, ...grades },
+      customFields: system.data.customFields?.map((field) => ({ ...field, appliesTo: "RESULT" })) || [],
+    }));
   }
 
   async function save(event: FormEvent) {
@@ -238,7 +257,7 @@ export default function TrainingSheetTemplatesPage() {
       <Flash message={message} tone="current" />
       <div className="mb-5 grid gap-3 sm:grid-cols-2">
         <button type="button" onClick={() => setPageView("LIBRARY")} className={"min-h-16 rounded-xl border px-5 py-4 text-left font-bold " + (pageView === "LIBRARY" ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-900")}><span className="block">Template Library</span><span className={"mt-1 block text-sm font-normal " + (pageView === "LIBRARY" ? "text-white/80" : "text-navy-500")}>Find, use, duplicate, or edit saved templates</span></button>
-        <button type="button" onClick={() => { setEditingId(null); setForm(blank); setPageView("BUILDER"); setError(null); setMessage(null); }} className={"min-h-16 rounded-xl border px-5 py-4 text-left font-bold " + (pageView === "BUILDER" ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-900")}><span className="block">Create Template</span><span className={"mt-1 block text-sm font-normal " + (pageView === "BUILDER" ? "text-white/80" : "text-navy-500")}>Open the one-page template builder</span></button>
+        <button type="button" onClick={() => { setEditingId(null); setSelectedTrainingSystemId(""); setForm(blank); setPageView("BUILDER"); setError(null); setMessage(null); }} className={"min-h-16 rounded-xl border px-5 py-4 text-left font-bold " + (pageView === "BUILDER" ? "border-fire bg-fire text-white" : "border-navy-200 bg-white text-navy-900")}><span className="block">Create Template</span><span className={"mt-1 block text-sm font-normal " + (pageView === "BUILDER" ? "text-white/80" : "text-navy-500")}>Open the one-page template builder</span></button>
       </div>
       <div>
         {pageView === "BUILDER" ? <Card className="p-5">
@@ -328,8 +347,9 @@ export default function TrainingSheetTemplatesPage() {
               </section>
             ) : null}
             <section className="rounded-lg border border-navy-200 p-4">
-              <h3 className="font-semibold">Grading</h3>
-              <p className="mt-1 text-xs text-navy-600">A selected checklist grades skills. Turn on score collection for a written test or CCF grade.</p>
+              <h3 className="font-semibold">Training system</h3>
+              <p className="mt-1 text-xs text-navy-600">Start from a saved system or set this template’s scoring fields below. Selecting a system copies its settings into this template.</p>
+              <Field label="Saved training system"><Select value={selectedTrainingSystemId} onChange={(event) => applyTrainingSystem(event.target.value)}><option value="">Build scoring for this template</option>{trainingSystems.map((system) => <option key={system.id} value={system.id}>{system.name}</option>)}</Select></Field>
               <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.gradingConfig.writtenTestEnabled} onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, writtenTestEnabled: event.target.checked, writtenTestPassPercent: event.target.checked ? current.gradingConfig.writtenTestPassPercent ?? 80 : null } }))} />
                 Record a written test score
@@ -341,8 +361,8 @@ export default function TrainingSheetTemplatesPage() {
               </label>
               {form.gradingConfig.ccfEnabled ? <Field label="Optional CCF pass mark (%)"><Input type="number" min="0" max="100" value={form.gradingConfig.ccfPassPercent ?? ""} onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, ccfPassPercent: event.target.value === "" ? null : Number(event.target.value) } }))} /></Field> : null}
               <div className="mt-4 border-t border-navy-100 pt-4">
-                <h4 className="font-semibold">Custom grading</h4>
-                <p className="mt-1 text-xs text-navy-600">Add department-defined grades such as Scenario Performance, Equipment Check or Instructor Sign-off. Choose percent, number, pass/fail or checkbox and make it required when appropriate.</p>
+                <h4 className="font-semibold">Custom result fields</h4>
+                <p className="mt-1 text-xs text-navy-600">Add department-defined scores such as Scenario Performance, Equipment Check or Instructor Sign-off. Choose a score type and decide whether the field is required in More template options.</p>
                 <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, customFields: [...current.customFields, { id: `grade-${Date.now()}-${current.customFields.length}`, label: "", type: "PASS_FAIL", required: true, appliesTo: "RESULT" }] }))} disabled={form.customFields.length >= 20}>+ Add custom grade</Button>
               </div>
             </section>
@@ -462,7 +482,7 @@ export default function TrainingSheetTemplatesPage() {
               <Card key={item.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-navy-900">{item.name}</h3><Badge tone="neutral">v{item.revision || 1}</Badge>{item.archived ? <Badge tone="neutral">Archived</Badge> : null}{item.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance</Badge>}{item.gradingConfig?.writtenTestEnabled ? <Badge tone="current">Test</Badge> : null}{item.gradingConfig?.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{item.customFields?.length ? <Badge tone="current">Custom grading</Badge> : null}{item.gradingConfig?.rmsEntryCategories?.length ? <Badge tone="current">RMS categories</Badge> : null}{item.ceCredits?.length ? <Badge tone="current">CE</Badge> : null}{item.selfRegistration ? <Badge tone="current">QR</Badge> : null}</div>
+                    <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-navy-900">{item.name}</h3><Badge tone="neutral">v{item.revision || 1}</Badge>{item.archived ? <Badge tone="neutral">Archived</Badge> : null}{item.checklistVersionId ? <Badge tone="current">Checklist</Badge> : <Badge tone="neutral">Attendance</Badge>}{item.gradingConfig?.writtenTestEnabled ? <Badge tone="current">Test</Badge> : null}{item.gradingConfig?.ccfEnabled ? <Badge tone="current">CCF</Badge> : null}{item.customFields?.length ? <Badge tone="current">Training results</Badge> : null}{item.gradingConfig?.rmsEntryCategories?.length ? <Badge tone="current">RMS categories</Badge> : null}{item.ceCredits?.length ? <Badge tone="current">CE</Badge> : null}{item.selfRegistration ? <Badge tone="current">QR</Badge> : null}</div>
                     <p className="mt-1 text-sm text-navy-600">{item.defaultTitle || item.name}</p>
                     <p className="mt-2 text-xs text-navy-500">{item.gradingConfig?.customTopicLabel || TOPIC_LABELS[item.topic] || "Other"} · {item.creditHours ? item.creditHours + " hr" : "uses class duration"} · {item.selfRegistration ? "QR enabled" : "QR off"}</p>
                     {item.ceCredits?.length ? <p className="mt-1 text-xs text-navy-600">CE: {item.ceCredits.map((credit) => `${credit.category} ${credit.hours} hr`).join(" · ")}</p> : null}

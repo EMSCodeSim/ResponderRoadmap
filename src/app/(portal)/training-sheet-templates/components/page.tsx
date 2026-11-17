@@ -6,7 +6,7 @@ import { api, ApiError } from "@/lib/api";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select } from "@/components/ui";
 
-type GradeField = { id: string; label: string; type: string; required: boolean; appliesTo: "RESULT" };
+type GradeField = { id: string; label: string; type: string; required: boolean; appliesTo: "RESULT"; description?: string };
 type ComponentRow = { id: string; kind: "GRADING" | "EMS_CE_LIST"; name: string; data: { gradingConfig?: { writtenTestEnabled?: boolean; writtenTestPassPercent?: number | null; ccfEnabled?: boolean; ccfPassPercent?: number | null; rmsEntryCategories?: string[] }; customFields?: GradeField[]; ceCredits?: Array<{ category: string; hours: number }> }; revision: number; archived: boolean };
 
 const blankGrades = { writtenTestEnabled: false, writtenTestPassPercent: null as number | null, ccfEnabled: false, ccfPassPercent: null as number | null, rmsEntryCategories: [] as string[] };
@@ -91,11 +91,11 @@ export default function TrainingComponentsPage() {
           : presetId === "LETTER_GRADE"
             ? { label: "Letter Grade", type: "LETTER_GRADE" }
             : { label: "Score (1–10)", type: "SCORE_1_10" };
-      setName(preset?.name || "Grading System");
+      setName(preset?.name || "Training System");
       setCustomFields([{ id: `grade-${presetId.toLowerCase()}`, ...field, required: true, appliesTo: "RESULT" }]);
     }
     setShowGradingBuilder(true);
-    setMessage("Review the prebuilt grading system, adjust the name or settings, then save it for reuse.");
+    setMessage("Review the prebuilt training system, adjust the name or settings, then save it for reuse.");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -106,28 +106,28 @@ export default function TrainingComponentsPage() {
     setGradingConfig({ ...blankGrades });
     setCustomFields([]);
     setShowGradingBuilder(true);
-    setMessage("Add the score fields your department needs, then save the system for reuse.");
+    setMessage("Add, label, and configure the result fields your department needs, then save the system for reuse.");
   }
 
   return <div>
-    <PageHeader kicker="Training templates" title="Reusable training components" description="Build reusable Training Sheet components here: EMS CE category lists, grading systems, and skill checklists. Add them to new Training Sheets or class packages." actions={<Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold">Back to templates</Link>} />
+    <PageHeader kicker="Training templates" title="Reusable training components" description="Build reusable Training Sheet components here: EMS CE category lists, training systems, and skill checklists. Add them to new Training Sheets or class packages." actions={<Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold">Back to templates</Link>} />
     <Flash message={error} tone="danger" /><Flash message={message} tone="current" />
     <div className="mb-5 grid gap-3 md:grid-cols-3">
-      {([ ["GRADING", "Grading systems", "Written test, CCF, and department score fields"], ["EMS_CE_LIST", "EMS CE category lists", "Choose NREMT-aligned categories and save a reusable allocation"] ] as const).map(([value, title, description]) => <button type="button" key={value} onClick={() => { reset(); setKind(value); }} className={`min-h-24 rounded-xl border p-4 text-left ${kind === value ? "border-fire bg-fire text-white" : "border-navy-200 bg-white"}`}><span className="block font-bold">{title}</span><span className={`mt-1 block text-sm ${kind === value ? "text-white/80" : "text-navy-600"}`}>{description}</span></button>)}
+      {([ ["GRADING", "Training systems", "Built-in and custom scoring options"], ["EMS_CE_LIST", "EMS CE category lists", "Choose NREMT-aligned categories and save a reusable allocation"] ] as const).map(([value, title, description]) => <button type="button" key={value} onClick={() => { reset(); setKind(value); }} className={`min-h-24 rounded-xl border p-4 text-left ${kind === value ? "border-fire bg-fire text-white" : "border-navy-200 bg-white"}`}><span className="block font-bold">{title}</span><span className={`mt-1 block text-sm ${kind === value ? "text-white/80" : "text-navy-600"}`}>{description}</span></button>)}
       <Link href="/task-books/fast-start?returnTo=%2Ftraining-sheet-templates%2Fcomponents" className="min-h-24 rounded-xl border border-navy-200 bg-white p-4 text-left hover:bg-navy-50"><span className="block font-bold">Skill checklists</span><span className="mt-1 block text-sm text-navy-600">Create and publish a checklist for any Training Sheet.</span></Link>
     </div>
     {kind === "GRADING" ? <Card className="mb-6 p-5">
-      <h2 className="text-lg font-bold">Prebuilt grading systems</h2>
+      <h2 className="text-lg font-bold">Prebuilt training systems</h2>
       <p className="mt-1 text-sm text-navy-600">Choose a system to prefill a reusable component. You can rename it or adjust its settings before saving.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {GRADING_PRESETS.map((preset) => <button type="button" key={preset.id} onClick={() => chooseGradingPreset(preset.id)} className="rounded-lg border border-navy-200 p-4 text-left hover:border-fire hover:bg-navy-50">
           <span className="block font-semibold">{preset.name}</span><span className="mt-1 block text-sm text-navy-600">{preset.description}</span>
         </button>)}
       </div>
-      <Button type="button" className="mt-4" variant="secondary" onClick={createCustomGradingSystem}>Create custom grading system</Button>
+      <Button type="button" className="mt-4" variant="secondary" onClick={createCustomGradingSystem}>Create custom training system</Button>
     </Card> : null}
     {(kind === "EMS_CE_LIST" || showGradingBuilder) ? <Card className="mb-6 p-5">
-      <h2 className="text-lg font-bold">{editingId ? "Edit saved component" : `Create ${kind === "GRADING" ? "grading system" : "CE category list"}`}</h2>
+      <h2 className="text-lg font-bold">{editingId ? "Edit saved component" : `Create ${kind === "GRADING" ? "training system" : "CE category list"}`}</h2>
       <form className="mt-4 space-y-4" onSubmit={(event) => void save(event)}>
         <Field label="Name"><Input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} placeholder={kind === "GRADING" ? "e.g. EMT Scenario Grading" : "e.g. Monthly EMS Refresher"} /></Field>
         {kind === "GRADING" ? <>
@@ -138,15 +138,15 @@ export default function TrainingComponentsPage() {
             <label className="mt-2 flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={gradingConfig.ccfEnabled} onChange={(event) => setGradingConfig((current) => ({ ...current, ccfEnabled: event.target.checked, ccfPassPercent: event.target.checked ? current.ccfPassPercent : null }))} />Record a CCF score</label>
             {gradingConfig.ccfEnabled ? <Field label="CCF pass mark (%)"><Input type="number" min="0" max="100" value={gradingConfig.ccfPassPercent ?? ""} onChange={(event) => setGradingConfig((current) => ({ ...current, ccfPassPercent: event.target.value ? Number(event.target.value) : null }))} /></Field> : null}
           </section>
-          <section className="rounded-lg border border-navy-200 p-4"><h3 className="font-semibold">Custom grading fields</h3><p className="mt-1 text-sm text-navy-600">Add performance scores that instructors can record for each student.</p>
-            {customFields.map((field, index) => <div key={field.id} className="mt-3 grid gap-2 sm:grid-cols-[1fr_180px_auto]"><Input aria-label={`Grade field ${index + 1}`} value={field.label} onChange={(event) => setCustomFields((items) => items.map((item, i) => i === index ? { ...item, label: event.target.value } : item))} placeholder="e.g. Patient assessment" /><Select aria-label={`Grade type ${index + 1}`} value={field.type} onChange={(event) => setCustomFields((items) => items.map((item, i) => i === index ? { ...item, type: event.target.value } : item))}>{["PASS_FAIL", "PERCENT", "LETTER_GRADE", "SCORE_1_10", "NUMBER", "TEXT", "CHECKBOX"].map((type) => <option key={type} value={type}>{type.replaceAll("_", " ")}</option>)}</Select><Button type="button" variant="secondary" onClick={() => setCustomFields((items) => items.filter((_, i) => i !== index))}>Remove</Button></div>)}
-            <Button type="button" variant="secondary" className="mt-3" onClick={addGrade} disabled={customFields.length >= 20}>+ Add score</Button>
+          <section className="rounded-lg border border-navy-200 p-4"><h3 className="font-semibold">Custom training results</h3><p className="mt-1 text-sm text-navy-600">Add performance scores that instructors can record for each student.</p>
+            {customFields.map((field, index) => <div key={field.id} className="mt-3 space-y-2 rounded-md border border-navy-100 p-3"><div className="grid gap-2 sm:grid-cols-[1fr_180px_auto]"><Input aria-label={`Result field ${index + 1}`} value={field.label} onChange={(event) => setCustomFields((items) => items.map((item, i) => i === index ? { ...item, label: event.target.value } : item))} placeholder="e.g. Patient assessment" /><Select aria-label={`Result type ${index + 1}`} value={field.type} onChange={(event) => setCustomFields((items) => items.map((item, i) => i === index ? { ...item, type: event.target.value } : item))}>{["PASS_FAIL", "PERCENT", "LETTER_GRADE", "SCORE_1_10", "NUMBER", "TEXT", "CHECKBOX"].map((type) => <option key={type} value={type}>{type.replaceAll("_", " ")}</option>)}</Select><Button type="button" variant="secondary" onClick={() => setCustomFields((items) => items.filter((_, i) => i !== index))}>Remove</Button></div><Input aria-label={`Instructions for result ${index + 1}`} maxLength={240} value={field.description || ""} onChange={(event) => setCustomFields((items) => items.map((item, i) => i === index ? { ...item, description: event.target.value } : item))} placeholder="Optional instructions or scoring guidance" /><label className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" checked={field.required} onChange={(event) => setCustomFields((items) => items.map((item, i) => i === index ? { ...item, required: event.target.checked } : item))} />Required before instructor approval</label></div>)}
+            <div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={addGrade} disabled={customFields.length >= 20}>+ Add result</Button><Button type="button" variant="secondary" onClick={() => setCustomFields((items) => [...items, { id: `grade-${Date.now()}-${items.length}`, label: "", type: "TEXT", required: false, appliesTo: "RESULT" }])} disabled={customFields.length >= 20}>+ Add notes field</Button></div>
           </section>
         </> : <section className="rounded-lg border border-navy-200 p-4"><h3 className="font-semibold">EMS continuing education allocation</h3><p className="mt-1 text-sm text-navy-600">Enter hours for each CE category. The total may not exceed 24 hours.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Object.keys(EMS_CE_CATEGORIES).map((category) => <Field key={category} label={category}><Input type="number" min="0" max="24" step="0.25" value={ceCredits[category] || ""} onChange={(event) => setCeCredits((current) => ({ ...current, [category]: event.target.value ? Number(event.target.value) : 0 }))} /></Field>)}</div><p className="mt-3 font-semibold">Total hours: {Object.values(ceCredits).reduce((sum, hours) => sum + (Number.isFinite(hours) ? hours : 0), 0).toFixed(2)}</p></section>}
         <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy}>{busy ? "Saving…" : editingId ? "Save changes" : "Save component"}</Button>{editingId ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
       </form>
     </Card> : null}
-    <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Saved {kind === "GRADING" ? "grading systems" : "CE category lists"}</h2><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />Show archived</label></div>
+    <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Saved {kind === "GRADING" ? "training systems" : "CE category lists"}</h2><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />Show archived</label></div>
     <div className="space-y-3">{visible.length ? visible.map((row) => <Card key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold">{row.name}</h3><Badge tone="neutral">v{row.revision}</Badge>{row.archived ? <Badge tone="neutral">Archived</Badge> : null}</div><p className="mt-1 text-sm text-navy-600">{row.kind === "GRADING" ? [row.data.gradingConfig?.writtenTestEnabled ? "Written test" : "", row.data.gradingConfig?.ccfEnabled ? "CCF" : "", ...(row.data.customFields || []).map((field) => field.label)].filter(Boolean).join(" · ") || "No scores added" : (row.data.ceCredits || []).map((item) => `${item.category} ${item.hours} hr`).join(" · ")}</p></div><div className="flex gap-2">{!row.archived ? <Button type="button" variant="secondary" onClick={() => edit(row)}>Edit</Button> : null}<Button type="button" variant="secondary" onClick={() => void archive(row)}>{row.archived ? "Restore" : "Archive"}</Button></div></div></Card>) : <Card className="p-5 text-sm text-navy-600">No saved components yet. Create one above and it will be available when instructors start a new training sheet.</Card>}</div>
     <Card className="mt-6 p-5"><h2 className="font-bold">Reusable skill checklists</h2><p className="mt-1 text-sm text-navy-600">Build and publish checklists here. Published checklists appear in the Training Sheet checklist picker and can be added to a saved class package.</p><div className="mt-4 flex flex-wrap gap-2"><Link className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white" href="/task-books/fast-start?returnTo=%2Ftraining-sheet-templates%2Fcomponents">Create skill checklist</Link><Link className="inline-flex min-h-11 items-center rounded-md border border-navy-300 px-4 py-2 text-sm font-semibold" href="/task-books">Manage published checklists</Link></div></Card>
   </div>;

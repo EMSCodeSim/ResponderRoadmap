@@ -683,8 +683,13 @@ export default function ClassDetailPage() {
           <Field label="Training narrative and RMS codes"><TextArea rows={5} value={trainingForm.narrative} onChange={(event) => setTrainingForm((current) => ({ ...current, narrative: event.target.value }))} /></Field>
         </section>
         <div className="mt-4 rounded-md border border-navy-200 p-3 text-sm">
-          <div>Roster: <strong>{detail.roster.length}</strong></div>
-          <div>Attendance confirmed: <strong>{detail.roster.filter((item) => item.attendance !== "REGISTERED").length}/{detail.roster.length}</strong></div>
+          <div className="flex flex-wrap items-center justify-between gap-2"><strong>Class roster ({detail.roster.length})</strong><span>Attendance confirmed: {detail.roster.filter((item) => item.attendance !== "REGISTERED").length}/{detail.roster.length}</span></div>
+          {detail.roster.length ? <div className="mt-3 divide-y divide-navy-100 rounded-md border border-navy-100">
+            {detail.roster.map((student) => <div key={student.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2">
+              <div><span className="font-semibold">{student.name}</span>{student.isGuest ? <span className="ml-2 text-xs text-navy-500">Guest</span> : null}</div>
+              <div className="text-right text-xs text-navy-600">{student.attendance.replaceAll("_", " ")}{student.writtenScore != null ? ` · Test ${score(student.writtenScore)}` : ""}{student.ccfScore != null ? ` · CCF ${score(student.ccfScore)}` : ""} · {resultLabels[student.finalResult] || student.finalResult.replaceAll("_", " ")}</div>
+            </div>)}
+          </div> : <p className="mt-2 text-navy-600">No students are on the roster yet.</p>}
           <div>Required skills and department fields are checked on approval.</div>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">

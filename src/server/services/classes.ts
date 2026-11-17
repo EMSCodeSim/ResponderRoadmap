@@ -326,7 +326,7 @@ export async function createClass(
     input.gradingComponentId ? prisma.trainingSheetComponentTemplate.findFirst({ where: { id: input.gradingComponentId, departmentId: ctx.departmentId, kind: "GRADING", archived: false } }) : null,
     input.ceComponentId ? prisma.trainingSheetComponentTemplate.findFirst({ where: { id: input.ceComponentId, departmentId: ctx.departmentId, kind: "EMS_CE_LIST", archived: false } }) : null,
   ]);
-  if (input.gradingComponentId && !gradingComponent) throw new HttpError(404, "Saved grading system not found.");
+  if (input.gradingComponentId && !gradingComponent) throw new HttpError(404, "Saved training system not found.");
   if (input.ceComponentId && !ceComponent) throw new HttpError(404, "Saved EMS CE list not found.");
   const ceComponentData = ceComponent ? parseJsonObject(ceComponent.dataJson) : {};
   let templateCeCredits: Array<{ category: string; hours: number }> = [];

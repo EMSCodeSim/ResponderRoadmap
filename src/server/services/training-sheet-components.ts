@@ -50,6 +50,7 @@ function normalizeData(kind: string, value: unknown) {
     return {
       id: /^[a-zA-Z0-9_-]{1,80}$/.test(String(field.id || "")) ? String(field.id) : `grade-${index + 1}`,
       label,
+      description: String(field.description || "").trim().slice(0, 240),
       type,
       required: field.required !== false,
       appliesTo: "RESULT",
@@ -77,7 +78,7 @@ export async function saveTrainingSheetComponent(ctx: AuthContext, input: Record
   assertPermission(ctx, "classes.write");
   const kind = String(input.kind || "").trim().toUpperCase();
   const name = String(input.name || "").trim().slice(0, 120);
-  if (!KINDS.has(kind)) throw new HttpError(400, "Choose a grading system or EMS CE category list.");
+  if (!KINDS.has(kind)) throw new HttpError(400, "Choose a training system or EMS CE category list.");
   if (!name) throw new HttpError(400, "Component name is required.");
   const dataJson = JSON.stringify(normalizeData(kind, input.data));
   if (!id) {

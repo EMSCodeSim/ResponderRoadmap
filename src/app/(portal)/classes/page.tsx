@@ -455,9 +455,9 @@ export default function ClassesPage() {
           </section>
           <section className="rounded-lg border border-navy-200 p-4 space-y-3">
             <h3 className="font-semibold">Add reusable components (optional)</h3>
-            <p className="text-xs text-navy-600">Choose saved scoring rules or EMS CE hours for this sheet. Published skill checklists can be selected in the checklist section. These selections are copied into the new training record.</p>
+            <p className="text-xs text-navy-600">Choose a saved training system or EMS CE hours for this sheet. Published skill checklists can be selected in the checklist section. These selections are copied into the new training record.</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Grading system"><Select value={selectedGradingComponentId} onChange={(event) => setSelectedGradingComponentId(event.target.value)}><option value="">Use class package or sheet settings</option>{components.filter((item) => item.kind === "GRADING").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+              <Field label="Training system"><Select value={selectedGradingComponentId} onChange={(event) => setSelectedGradingComponentId(event.target.value)}><option value="">Use class package or sheet settings</option>{components.filter((item) => item.kind === "GRADING").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
               <Field label="EMS CE category list"><Select value={selectedCeComponentId} onChange={(event) => applyCeComponent(event.target.value)}><option value="">No saved CE allocation</option>{components.filter((item) => item.kind === "EMS_CE_LIST").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
             </div>
           </section>
