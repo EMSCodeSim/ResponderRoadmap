@@ -33,7 +33,8 @@ type SourceAssignment = { id: string; templateId: string; memberName: string; pr
 type CEAllocation = { category: string; hours: number };
 type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null };
 type TrainingSheetTemplate = { id: string; name: string; defaultTitle: string; classType: string; trainingCategory: string; topic: string; creditHours: number; checklistVersionId: string | null; location: string; notes: string; selfRegistration: boolean; proctorUserIds: string[]; ceCredits: CEAllocation[]; gradingConfig: GradingConfig; };
-type TrainingComponent = { id: string; kind: "GRADING" | "EMS_CE_LIST"; name: string; data: { ceCredits?: CEAllocation[] } };
+type CEGroup = { id: string; name: string; categories: string[] };
+type TrainingComponent = { id: string; kind: "GRADING" | "EMS_CE_LIST"; name: string; data: { ceGroups?: CEGroup[]; ceCredits?: CEAllocation[] } };
 
 type Setup = {
   checklists: Array<{ id: string; title: string; version: string; skillCount: number }>;
@@ -86,6 +87,8 @@ export default function ClassesPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedGradingComponentId, setSelectedGradingComponentId] = useState("");
   const [selectedCeComponentId, setSelectedCeComponentId] = useState("");
+  const [selectedCeGroupName, setSelectedCeGroupName] = useState("");
+  const [componentCeCredits, setComponentCeCredits] = useState<Record<string, number>>({});
   const [showAdvancedSetup, setShowAdvancedSetup] = useState(false);
   const [showRosterSetup, setShowRosterSetup] = useState(false);
   const [showChecklistSetup, setShowChecklistSetup] = useState(false);
@@ -218,12 +221,17 @@ export default function ClassesPage() {
       const fireTotal = Object.values(fireCredits).reduce((sum, hours) => sum + hours, 0);
       if (emsCeMode && emsTotal > 24) throw new Error("EMS credits cannot exceed 24 hours per training sheet.");
       if (fireCeMode && fireTotal > 24) throw new Error("Fire credit allocations cannot exceed 24 hours per training sheet.");
-      const ceCredits = emsCeMode
+      if (selectedCeComponentId && componentCeTotal > 24) throw new Error("CE credits cannot exceed 24 hours per training sheet.");
+      const ceCredits = selectedCeComponentId
+        ? Object.entries(componentCeCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category: `${selectedCeGroupName} — ${category}`.slice(0, 80), hours }))
+        : emsCeMode
         ? Object.entries(emsCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours }))
         : fireCeMode
           ? Object.entries(fireCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours }))
           : undefined;
-      const payload = emsCeMode
+      const payload = selectedCeComponentId
+        ? { ...form, creditHours: componentCeTotal, ceCredits, notes: [Object.entries(componentCeCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => `${selectedCeGroupName} — ${category}: ${hours} hr`).join(" · "), form.notes.trim()].filter(Boolean).join("\n\n") }
+        : emsCeMode
         ? { ...form, classType: "EMS", trainingCategory: "EMS", creditHours: emsTotal, ceCredits,
             notes: [emsCreditSummary(emsCredits), form.notes.trim()].filter(Boolean).join("\n\n") }
         : fireCeMode
@@ -255,6 +263,8 @@ export default function ClassesPage() {
     setSelectedTemplateId("");
     setSelectedGradingComponentId("");
     setSelectedCeComponentId("");
+    setSelectedCeGroupName("");
+    setComponentCeCredits({});
     setStationChecklistIds([]);
     setStationProctors({});
     setShowAdvancedSetup(false);
@@ -270,6 +280,8 @@ export default function ClassesPage() {
     setSelectedTemplateId(id);
     setSelectedGradingComponentId("");
     setSelectedCeComponentId("");
+    setSelectedCeGroupName("");
+    setComponentCeCredits({});
     const template = templates.find((item) => item.id === id);
     if (!template) return;
     setTemplateCategory(template.topic || "OTHER");
@@ -282,23 +294,34 @@ export default function ClassesPage() {
     setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 
-  function applyCeComponent(id: string) {
+  function applyCeComponent(id: string, groupName?: string) {
     setSelectedCeComponentId(id);
     setFireCeMode(false);
     setFireCredits({});
+    setEmsCeMode(false);
+    setEmsCredits({});
     const component = components.find((item) => item.id === id && item.kind === "EMS_CE_LIST");
     if (!component) {
-      setEmsCeMode(false);
-      setEmsCredits({});
-      setForm((current) => ({ ...current, creditHours: "" }));
+      setSelectedCeGroupName("");
+      setComponentCeCredits({});
       return;
     }
-    const allocations = component.data.ceCredits || [];
-    setEmsCeMode(true);
-    setEmsCredits(Object.fromEntries(allocations.map((item) => [item.category, item.hours])));
-    setForm((current) => ({ ...current, trainingCategory: "EMS", classType: "EMS", creditHours: String(allocations.reduce((sum, item) => sum + item.hours, 0)) }));
+    const groups = component.data.ceGroups || (component.data.ceCredits?.length ? [{ id: "legacy-ems", name: "EMS", categories: component.data.ceCredits.map((item) => item.category) }] : []);
+    const group = groups.find((item) => item.name === groupName) || groups[0];
+    if (!group) {
+      setSelectedCeGroupName("");
+      setComponentCeCredits({});
+      return;
+    }
+    setSelectedCeGroupName(group.name);
+    setComponentCeCredits(Object.fromEntries(group.categories.map((category) => [category, 0])));
   }
 
+  function applyCeGroup(groupName: string) {
+    applyCeComponent(selectedCeComponentId, groupName);
+  }
+
+  const componentCeTotal = Object.values(componentCeCredits).reduce((sum, hours) => sum + hours, 0);
   const visibleRows = useMemo(() => rows.filter((row) => {
     const matchesSearch = [row.title, row.location, row.trainingCategory, row.classType].some((value) => value.toLowerCase().includes(search.trim().toLowerCase()));
     const matchesStatus = sheetFilter === "all" || (sheetFilter === "approved" && Boolean(row.instructorApprovedAt)) || (sheetFilter === "complete" && row.status === "COMPLETE") || (sheetFilter === "pending" && row.status !== "COMPLETE") || (sheetFilter === "rms-entered" && row.rmsStatus === "RMS_ENTERED") || (sheetFilter === "rms-needed" && row.rmsStatus !== "RMS_ENTERED" && row.status !== "CANCELLED");
@@ -442,7 +465,7 @@ export default function ClassesPage() {
             <Field label="Topic"><Select value={templateCategory} onChange={(event) => {
               const topic = event.target.value;
               const category = ({ EMS: "EMS", FIRE: "COMPANY", HAZMAT: "HAZMAT", DRIVER: "DRIVER", CPR: "EMS", OFFICER: "OFFICER", FACILITY: "FACILITY", OTHER: "OTHER" } as Record<string, string>)[topic] || "COMPANY";
-              setTemplateCategory(topic); setSelectedTemplateId(""); setSelectedGradingComponentId(""); setSelectedCeComponentId("");
+              setTemplateCategory(topic); setSelectedTemplateId(""); setSelectedGradingComponentId(""); setSelectedCeComponentId(""); setSelectedCeGroupName(""); setComponentCeCredits({});
               setForm((current) => ({ ...current, trainingCategory: category, checklistVersionId: "" }));
               setEmsCeMode(false); setEmsCredits({}); setFireCeMode(false); setFireCredits({});
             }}>
@@ -455,11 +478,16 @@ export default function ClassesPage() {
           </section>
           <section className="rounded-lg border border-navy-200 p-4 space-y-3">
             <h3 className="font-semibold">Add reusable components (optional)</h3>
-            <p className="text-xs text-navy-600">Choose a saved training system or EMS CE hours for this sheet. Published skill checklists can be selected in the checklist section. These selections are copied into the new training record.</p>
+            <p className="text-xs text-navy-600">Choose a saved training system or CE category set for this sheet. Published skill checklists can be selected in the checklist section. These selections are copied into the new training record.</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Training system"><Select value={selectedGradingComponentId} onChange={(event) => setSelectedGradingComponentId(event.target.value)}><option value="">Use class package or sheet settings</option>{components.filter((item) => item.kind === "GRADING").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
-              <Field label="EMS CE category list"><Select value={selectedCeComponentId} onChange={(event) => applyCeComponent(event.target.value)}><option value="">No saved CE allocation</option>{components.filter((item) => item.kind === "EMS_CE_LIST").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+              <Field label="CE category set"><Select value={selectedCeComponentId} onChange={(event) => applyCeComponent(event.target.value)}><option value="">No saved CE categories</option>{components.filter((item) => item.kind === "EMS_CE_LIST").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
             </div>
+            {selectedCeComponentId ? (() => {
+              const selectedSet = components.find((item) => item.id === selectedCeComponentId && item.kind === "EMS_CE_LIST");
+              const groups = selectedSet?.data.ceGroups || (selectedSet?.data.ceCredits?.length ? [{ id: "legacy-ems", name: "EMS", categories: selectedSet.data.ceCredits.map((item) => item.category) }] : []);
+              return <div className="mt-3 space-y-3 rounded-lg border border-navy-200 p-3"><Field label="CE group"><Select value={selectedCeGroupName} onChange={(event) => applyCeGroup(event.target.value)}>{groups.map((group) => <option key={group.id} value={group.name}>{group.name}</option>)}</Select></Field><p className="text-sm text-navy-600">Enter CE hours for the categories that apply. Group and category names are saved with the class record for RMS entry.</p><div className="grid gap-3 sm:grid-cols-2">{Object.entries(componentCeCredits).map(([category, hours]) => <Field key={category} label={category}><Input type="number" min="0" max="24" step="0.25" value={hours || ""} placeholder="0" onChange={(event) => setComponentCeCredits((current) => ({ ...current, [category]: event.target.value ? Number(event.target.value) : 0 }))} /></Field>)}</div><p className="font-semibold">Total CE: {componentCeTotal.toFixed(2)} hours</p></div>;
+            })() : null}
           </section>
           <button type="button" className="w-full rounded-lg border border-navy-200 p-3 text-left text-sm font-semibold" onClick={() => setShowAdvancedSetup((value) => !value)}>{showAdvancedSetup ? "− Hide" : "+ Show"} advanced setup (codes, hours, proctors and objectives)</button>
           {setup?.requiredFields?.length ? <div className="rounded-lg border border-info/30 bg-info/5 p-4 text-sm"><span className="font-semibold">RMS-ready record:</span> department-required RMS fields are validated when the instructor finishes the training sheet, not before teaching.</div> : null}
@@ -485,7 +513,7 @@ export default function ClassesPage() {
               </Select>
             </Field> : null}
             {showAdvancedSetup ? <Field label="Credit hours" hint="Leave blank to use the time between Starts and Ends.">
-              <Input type="number" min="0" max="24" step="0.25" value={emsCeMode ? String(Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0)) : form.creditHours} disabled={emsCeMode} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
+              <Input type="number" min="0" max="24" step="0.25" value={selectedCeComponentId ? String(componentCeTotal) : emsCeMode ? String(Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0)) : form.creditHours} disabled={Boolean(selectedCeComponentId) || emsCeMode} onChange={(e) => setForm({ ...form, creditHours: e.target.value })} placeholder="2.0" />
             </Field> : null}
             {(showChecklistSetup || Boolean(form.checklistVersionId)) ? <Field label="Skills checklist" hint="Optional. Leave blank for attendance-only training such as company drills or classroom training.">
               <Select value={form.checklistVersionId} onChange={(e) => setForm({ ...form, checklistVersionId: e.target.value })}>

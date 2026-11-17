@@ -89,7 +89,7 @@ function view(row: {
     trainingCategory: row.trainingCategory,
     topic,
     gradingConfig,
-    ceCredits: parseCeCredits(row.ceCreditsJson, topic === "FIRE"),
+    ceCredits: parseCeCredits(row.ceCreditsJson, true),
     creditHours: row.creditHours,
     checklistVersionId: row.checklistVersionId,
     location: row.location,
@@ -114,7 +114,7 @@ async function validate(ctx: AuthContext, input: Record<string, unknown>) {
   if (!CLASS_TYPES.has(classType)) throw new HttpError(400, "Invalid class type.");
   if (!CATEGORIES.has(trainingCategory)) throw new HttpError(400, "Invalid training category.");
   if (!TOPICS.has(topic)) throw new HttpError(400, "Invalid template topic.");
-  const ceCredits = normalizeCeCredits(input.ceCredits, topic === "FIRE");
+  const ceCredits = normalizeCeCredits(input.ceCredits, true);
   if (ceCredits.length && topic !== "EMS" && topic !== "FIRE") throw new HttpError(400, "Credit category allocations are available on EMS and Fire templates.");
   const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const creditHours = allocatedHours > 0 ? allocatedHours : Number(input.creditHours ?? 0);

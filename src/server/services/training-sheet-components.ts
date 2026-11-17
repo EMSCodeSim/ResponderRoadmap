@@ -10,19 +10,23 @@ const ceCategories = new Set(Object.keys(EMS_CE_CATEGORIES));
 function normalizeData(kind: string, value: unknown) {
   const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
   if (kind === "EMS_CE_LIST") {
-    if (!Array.isArray(source.ceCredits)) throw new HttpError(400, "Add at least one EMS CE category and hour allocation.");
-    const totals = new Map<string, number>();
-    for (const raw of source.ceCredits) {
-      const row = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
-      const category = String(row.category || "").trim();
-      const hours = Number(row.hours ?? 0);
-      if (!ceCategories.has(category)) throw new HttpError(400, "Choose a valid EMS CE category.");
-      if (!Number.isFinite(hours) || hours <= 0 || hours > 24) throw new HttpError(400, "Each EMS CE category must be between 0 and 24 hours.");
-      totals.set(category, Math.round(((totals.get(category) || 0) + hours) * 100) / 100);
-    }
-    const ceCredits = [...totals].map(([category, hours]) => ({ category, hours }));
-    if (ceCredits.reduce((sum, row) => sum + row.hours, 0) > 24) throw new HttpError(400, "EMS CE allocations cannot exceed 24 hours.");
-    return { ceCredits };
+    const groupsRaw = Array.isArray(source.ceGroups) ? source.ceGroups : Array.isArray(source.ceCredits) && source.ceCredits.length ? [{ name: "EMS", categories: source.ceCredits.map((item) => (item as Record<string, unknown>).category) }] : [];
+    if (!groupsRaw.length) throw new HttpError(400, "Add at least one CE category group.");
+    if (groupsRaw.length > 20) throw new HttpError(400, "A CE category set can contain up to 20 groups.");
+    const names = new Set<string>();
+    const ceGroups = groupsRaw.map((raw, index) => {
+      const group = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+      const name = String(group.name || "").trim().slice(0, 80);
+      if (!name) throw new HttpError(400, `Enter a name for CE category group ${index + 1}.`);
+      const key = name.toLowerCase();
+      if (names.has(key)) throw new HttpError(400, "CE category group names must be unique.");
+      names.add(key);
+      const categories = Array.isArray(group.categories) ? [...new Set(group.categories.map((item) => String(item || "").trim().slice(0, 80)).filter(Boolean))] : [];
+      if (!categories.length) throw new HttpError(400, `Add at least one category to ${name}.`);
+      if (categories.length > 60) throw new HttpError(400, "A CE category group can contain up to 60 categories.");
+      return { id: /^[a-zA-Z0-9_-]{1,80}$/.test(String(group.id || "")) ? String(group.id) : `ce-group-${index + 1}`, name, categories };
+    });
+    return { ceGroups };
   }
 
   const rawConfig = source.gradingConfig && typeof source.gradingConfig === "object" ? source.gradingConfig as Record<string, unknown> : {};
@@ -78,7 +82,7 @@ export async function saveTrainingSheetComponent(ctx: AuthContext, input: Record
   assertPermission(ctx, "classes.write");
   const kind = String(input.kind || "").trim().toUpperCase();
   const name = String(input.name || "").trim().slice(0, 120);
-  if (!KINDS.has(kind)) throw new HttpError(400, "Choose a training system or EMS CE category list.");
+  if (!KINDS.has(kind)) throw new HttpError(400, "Choose a training system or CE category set.");
   if (!name) throw new HttpError(400, "Component name is required.");
   const dataJson = JSON.stringify(normalizeData(kind, input.data));
   if (!id) {

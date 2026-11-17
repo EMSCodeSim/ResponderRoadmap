@@ -327,17 +327,21 @@ export async function createClass(
     input.ceComponentId ? prisma.trainingSheetComponentTemplate.findFirst({ where: { id: input.ceComponentId, departmentId: ctx.departmentId, kind: "EMS_CE_LIST", archived: false } }) : null,
   ]);
   if (input.gradingComponentId && !gradingComponent) throw new HttpError(404, "Saved training system not found.");
-  if (input.ceComponentId && !ceComponent) throw new HttpError(404, "Saved EMS CE list not found.");
+  if (input.ceComponentId && !ceComponent) throw new HttpError(404, "Saved CE category set not found.");
   const ceComponentData = ceComponent ? parseJsonObject(ceComponent.dataJson) : {};
   let templateCeCredits: Array<{ category: string; hours: number }> = [];
   try { templateCeCredits = template ? JSON.parse(template.ceCreditsJson || "[]") : []; } catch {}
   const fireTemplateCredits = !ceComponent && template?.topic === "FIRE";
-  const allowedCustomCategories = new Set(fireTemplateCredits ? templateCeCredits.map((item) => String(item.category || "").trim()) : []);
+  const templateCategories = templateCeCredits.map((item) => String(item.category || "").trim()).filter(Boolean);
+  const componentGroups = Array.isArray(ceComponentData.ceGroups) ? ceComponentData.ceGroups as Array<{ name?: string; categories?: string[] }> : [];
+  const componentCategories = componentGroups.flatMap((group) => (group.categories || []).map((category) => `${String(group.name || "").trim()} — ${String(category).trim()}`.slice(0, 80)));
+  const legacyComponentCategories = Array.isArray(ceComponentData.ceCredits) ? (ceComponentData.ceCredits as Array<{ category?: string }>).flatMap((item) => { const category = String(item.category || "").trim(); return [category, `EMS — ${category}`.slice(0, 80)]; }) : [];
+  const allowedCustomCategories = new Set([...(ceComponent ? [...componentCategories, ...legacyComponentCategories] : []), ...templateCategories]);
   const creditSource = ceComponentData.ceCredits ?? templateCeCredits;
   const ceCredits = input.ceCredits === undefined
     ? normalizeCeCredits(creditSource, allowedCustomCategories)
     : normalizeCeCredits(input.ceCredits, allowedCustomCategories);
-  if (ceCredits.length && !fireTemplateCredits && trainingCategory !== "EMS") throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
+  if (ceCredits.length && !ceComponent && !template && !fireTemplateCredits && trainingCategory !== "EMS") throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
   if (ceCredits.length && fireTemplateCredits && trainingCategory === "EMS") throw new HttpError(400, "Fire training credits cannot use the EMS hours category.");
   const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const creditHours = allocatedHours > 0 ? allocatedHours : requestedCreditHours || template?.creditHours || 0;
@@ -1233,7 +1237,7 @@ export async function updateClassDocumentation(
   const trainingCategory = input.trainingCategory === undefined ? row.trainingCategory : String(input.trainingCategory).trim().toUpperCase();
   if (!TRAINING_CATEGORY_VALUES.has(trainingCategory)) throw new HttpError(400, "Choose a valid training category.");
   const existingCeCredits = JSON.parse(row.ceCreditsJson || "[]") as Array<{ category?: string }>;
-  const allowedCustomCategories = trainingCategory !== "EMS" ? new Set(existingCeCredits.map((item) => String(item.category || ""))) : new Set<string>();
+  const allowedCustomCategories = new Set(existingCeCredits.map((item) => String(item.category || "")));
   const ceCredits = input.ceCredits === undefined ? normalizeCeCredits(existingCeCredits, allowedCustomCategories) : normalizeCeCredits(input.ceCredits, allowedCustomCategories);
   if (ceCredits.length && trainingCategory !== "EMS" && !allowedCustomCategories.size) throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
   const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
