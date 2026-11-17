@@ -87,7 +87,7 @@ function normalizeRosterCustomValues(raw: unknown, rosterFields: RegistrationCus
   const values: Record<string, string | number | boolean | null> = {};
   for (const field of rosterFields) {
     const rawValue = provided[field.id];
-    const value = typeof rawValue === "string" ? rawValue.trim() : rawValue === true ? true : "";
+    const value = typeof rawValue === "string" ? rawValue.trim() : typeof rawValue === "number" ? rawValue : rawValue === true ? true : "";
     if ((value === "" || value === null || (field.type === "CHECKBOX" && value !== true && value !== "true")) && field.required) throw new HttpError(400, field.type === "CHECKBOX" ? `Confirm ${field.label}.` : `Enter ${field.label}.`);
     if (value === "" || value === null) { values[field.id] = null; continue; }
     if (field.type === "EMAIL") {
@@ -99,6 +99,14 @@ function normalizeRosterCustomValues(raw: unknown, rosterFields: RegistrationCus
     } else if (field.type === "LAST4") {
       if (typeof value !== "string" || !/^\d{4}$/.test(value)) throw new HttpError(400, `${field.label} must contain exactly four digits.`);
       values[field.id] = value;
+    } else if (field.type === "LETTER_GRADE") {
+      const grade = String(value).trim().toUpperCase();
+      if (!["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"].includes(grade)) throw new HttpError(400, `Choose a valid letter grade for ${field.label}.`);
+      values[field.id] = grade;
+    } else if (field.type === "SCORE_1_10") {
+      const number = Number(value);
+      if (!Number.isInteger(number) || number < 1 || number > 10) throw new HttpError(400, `${field.label} must be a whole number from 1 to 10.`);
+      values[field.id] = number;
     } else if (field.type === "NUMBER" || field.type === "PERCENT") {
       const number = Number(value);
       if (!Number.isFinite(number) || (field.type === "PERCENT" && (number < 0 || number > 100))) throw new HttpError(400, `Enter a valid value for ${field.label}.`);
@@ -1081,7 +1089,15 @@ export async function updateEnrollment(
     for (const field of fields) {
       const value = input.customValues[field.id];
       if (value == null || value === "") { values[field.id] = null; continue; }
-      if (field.type === "NUMBER" || field.type === "PERCENT") {
+      if (field.type === "LETTER_GRADE") {
+        const grade = String(value).trim().toUpperCase();
+        if (!["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"].includes(grade)) throw new HttpError(400, `Choose a valid letter grade for ${field.label}.`);
+        values[field.id] = grade;
+      } else if (field.type === "SCORE_1_10") {
+        const number = Number(value);
+        if (!Number.isInteger(number) || number < 1 || number > 10) throw new HttpError(400, `${field.label} must be a whole number from 1 to 10.`);
+        values[field.id] = number;
+      } else if (field.type === "NUMBER" || field.type === "PERCENT") {
         const number = Number(value);
         if (!Number.isFinite(number) || (field.type === "PERCENT" && (number < 0 || number > 100))) throw new HttpError(400, "Invalid numeric field value.");
         values[field.id] = number;
