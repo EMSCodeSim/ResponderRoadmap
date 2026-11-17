@@ -7,7 +7,7 @@ import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
 
 type CustomField = { id: string; label: string; type: string; required: boolean; appliesTo?: "ROSTER" | "RESULT"; description?: string };
-type TrainingSystem = { id: string; kind: "GRADING" | "EMS_CE_LIST"; name: string; data: { gradingConfig?: Partial<GradingConfig>; customFields?: CustomField[] } };
+type TrainingSystem = { id: string; kind: "GRADING" | "EMS_CE_LIST"; name: string; data: { gradingConfig?: Partial<GradingConfig>; customFields?: CustomField[]; ceGroups?: Array<{ name: string; categories: string[] }> } };
 type CEAllocation = { category: string; hours: number };
 type GradingConfig = { writtenTestEnabled: boolean; writtenTestPassPercent: number | null; ccfEnabled: boolean; ccfPassPercent: number | null; rmsEntryCategories: string[]; customTopicLabel: string; customClassTypeLabel: string; customTrainingCategoryLabel: string };
 const TEMPLATE_TOPICS = ["EMS", "FIRE", "HAZMAT", "DRIVER", "CPR", "OFFICER", "FACILITY", "OTHER"];
@@ -60,6 +60,8 @@ export default function TrainingSheetTemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [trainingSystems, setTrainingSystems] = useState<TrainingSystem[]>([]);
   const [selectedTrainingSystemId, setSelectedTrainingSystemId] = useState("");
+  const [ceSystems, setCeSystems] = useState<TrainingSystem[]>([]);
+  const [selectedCeSystemId, setSelectedCeSystemId] = useState("");
   const [setup, setSetup] = useState<Setup | null>(null);
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export default function TrainingSheetTemplatesPage() {
     setTemplates(rows);
     setSetup(options);
     setTrainingSystems(systems.filter((item) => item.kind === "GRADING"));
+    setCeSystems(systems.filter((item) => item.kind === "EMS_CE_LIST"));
   }
 
   useEffect(() => {
@@ -91,6 +94,7 @@ export default function TrainingSheetTemplatesPage() {
   function reset() {
     setEditingId(null);
     setSelectedTrainingSystemId("");
+    setSelectedCeSystemId("");
     setForm(blank);
     setPageView("LIBRARY");
   }
@@ -98,6 +102,7 @@ export default function TrainingSheetTemplatesPage() {
   function edit(item: Template) {
     setEditingId(item.id);
     setSelectedTrainingSystemId("");
+    setSelectedCeSystemId("");
     setForm({
       name: item.name,
       defaultTitle: item.defaultTitle,
@@ -128,6 +133,17 @@ export default function TrainingSheetTemplatesPage() {
       ...current,
       gradingConfig: { ...current.gradingConfig, ...grades },
       customFields: system.data.customFields?.map((field) => ({ ...field, appliesTo: "RESULT" })) || [],
+    }));
+  }
+
+  function applyCeSystem(id: string) {
+    setSelectedCeSystemId(id);
+    const component = ceSystems.find((item) => item.id === id);
+    if (!component) return;
+    const categories = Array.from(new Set((component.data.ceGroups || []).flatMap((group) => group.categories || []).map((category) => category.trim()).filter(Boolean)));
+    setForm((current) => ({
+      ...current,
+      ceCredits: categories.map((category) => ({ category, hours: current.ceCredits.find((item) => item.category === category)?.hours || 0 })),
     }));
   }
 
@@ -314,7 +330,32 @@ export default function TrainingSheetTemplatesPage() {
               <div className="rounded-lg border border-dashed border-navy-300 p-4"><h4 className="font-semibold">Need a different checklist?</h4><p className="mt-1 text-sm text-navy-600">Create one manually, copy a starter or existing checklist, or import checklist text or a source file. Publish it, then return and select it here.</p><div className="mt-3 flex flex-wrap gap-2"><Link href="/task-books/fast-start?returnTo=/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900">Create or copy checklist</Link><Link href="/smart-import?returnTo=/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900">Import checklist</Link></div></div>
             </section>
             <div className="space-y-4">
-            {form.topic === "EMS" ? (
+            <section className="rounded-lg border border-navy-200 p-4">
+              <h3 className="font-semibold">Saved CE category groups</h3>
+              <p className="mt-1 text-xs text-navy-600">Select a department CE set to copy its categories into this template. Existing templates retain their saved categories if the reusable set changes later.</p>
+              <Field label="CE category set">
+                <Select value={selectedCeSystemId} onChange={(event) => applyCeSystem(event.target.value)}>
+                  <option value="">Choose a saved CE category set</option>
+                  {ceSystems.map((system) => <option key={system.id} value={system.id}>{system.name}</option>)}
+                </Select>
+              </Field>
+              {selectedCeSystemId ? <div className="mt-3 space-y-2">
+                {ceSystems.find((item) => item.id === selectedCeSystemId)?.data.ceGroups?.map((group, index) => (
+                  <div key={index} className="rounded-md bg-navy-50 p-3">
+                    <p className="text-sm font-semibold">{group.name}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">{group.categories.map((category) => <label key={category} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.ceCredits.some((item) => item.category === category)} onChange={(event) => setForm((current) => ({ ...current, ceCredits: event.target.checked ? [...current.ceCredits, { category, hours: 0 }] : current.ceCredits.filter((item) => item.category !== category) }))} />{category}</label>)}</div>
+                  </div>
+                ))}
+              </div> : null}
+              {form.ceCredits.length ? <div className="mt-3 space-y-2">
+                <p className="text-sm font-semibold">Default credit allocations (hours)</p>
+                {form.ceCredits.map((item, index) => <div key={index} className="flex items-center gap-3">
+                  <span className="flex-1 text-sm">{item.category}</span>
+                  <input aria-label={item.category + " credit hours"} className="w-24 rounded-md border border-navy-300 p-2 text-sm" type="number" min="0" max="24" step="0.25" value={item.hours} onChange={(event) => setForm((current) => ({ ...current, ceCredits: current.ceCredits.map((credit, i) => i === index ? { ...credit, hours: Number(event.target.value) } : credit) }))} />
+                </div>)}
+              </div> : null}
+            </section>
+            {!selectedCeSystemId && form.topic === "EMS" ? (
               <section className="rounded-lg border border-navy-200 p-4">
                 <h3 className="font-semibold">Select EMS CE categories</h3>
                 <p className="mt-1 text-xs text-navy-600">Choose which NREMT categories instructors can use. They assign the hours on each training sheet.</p>
@@ -333,7 +374,7 @@ export default function TrainingSheetTemplatesPage() {
                   })}
                 </div>
               </section>
-            ) : form.topic === "FIRE" ? (
+            ) : !selectedCeSystemId && form.topic === "FIRE" ? (
               <section className="rounded-lg border border-navy-200 p-4">
                 <h3 className="font-semibold">Fire training credit categories</h3>
                 <p className="mt-1 text-xs text-navy-600">Add the categories instructors can choose from. They assign hours on the training sheet.</p>
