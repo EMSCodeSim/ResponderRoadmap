@@ -386,7 +386,7 @@ export default function TrainingSheetTemplatesPage() {
                 <div key={field.id} className="mt-3 grid gap-2 rounded-md border border-navy-100 p-3 sm:grid-cols-2">
                   <Input aria-label={`Field ${index + 1} label`} value={field.label} placeholder="e.g. CCF or Test score" onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, label: e.target.value } : f) }))} />
                   <Select aria-label={`Field ${index + 1} type`} value={field.type} onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, type: e.target.value } : f) }))}>
-                    {["TEXT", "EMAIL", "STATE", "LAST4", "NUMBER", "PERCENT", "DATE", "PASS_FAIL", "CHECKBOX"].map((type) => <option key={type} value={type}>{type === "LAST4" ? "Last 4 digits" : type.replace("_", " ")}</option>)}
+                    {["TEXT", "EMAIL", "STATE", "LAST4", "NUMBER", "PERCENT", "DATE", "PASS_FAIL", "LETTER_GRADE", "SCORE_1_10", "CHECKBOX"].map((type) => <option key={type} value={type}>{type === "LAST4" ? "Last 4 digits" : type.replace("_", " ")}</option>)}
                   </Select>
                   <Select aria-label={`Field ${index + 1} applies to`} value={field.appliesTo || "RESULT"} onChange={(e) => setForm((current) => ({ ...current, customFields: current.customFields.map((f, i) => i === index ? { ...f, appliesTo: e.target.value as "ROSTER" | "RESULT" } : f) }))}>
                     <option value="ROSTER">Roster requirement</option><option value="RESULT">Training result</option>
