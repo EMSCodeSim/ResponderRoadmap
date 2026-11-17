@@ -432,6 +432,8 @@ export async function addManualGuestToClass(ctx: AuthContext, classId: string, i
   const name = String(input.name || "").trim().slice(0, 160);
   const email = String(input.email || "").trim().toLowerCase().slice(0, 254);
   const organization = String(input.organization || "").trim().slice(0, 180);
+  const attendance = String(input.attendance || "REGISTERED").trim().toUpperCase();
+  if (!ATTENDANCE_VALUES.has(attendance)) throw new HttpError(400, "Choose a valid guest attendance status.");
   const templateFields = JSON.parse(row.customFieldsJson || "[]") as RegistrationCustomField[];
   const rosterFields = templateFields.filter((field) => field.appliesTo === "ROSTER");
   const customValues = normalizeRosterCustomValues(input.customValues, rosterFields);
@@ -457,7 +459,7 @@ export async function addManualGuestToClass(ctx: AuthContext, classId: string, i
     select: { id: true },
   }) : null;
   const enrolled = await prisma.trainingClassEnrollment.create({
-    data: member ? { classId, membershipId: member.id, customValuesJson: JSON.stringify(customValues) } : { classId, guestName: name, guestEmail: email || null, guestOrganization: organization, customValuesJson: JSON.stringify(customValues) },
+    data: member ? { classId, membershipId: member.id, attendance, customValuesJson: JSON.stringify(customValues) } : { classId, guestName: name, guestEmail: email || null, guestOrganization: organization, attendance, customValuesJson: JSON.stringify(customValues) },
   });
   await writeAudit(ctx, "class.roster.manual_added", "TrainingClass", classId,
     { enrollmentId: enrolled.id, existingMember: Boolean(member) });
