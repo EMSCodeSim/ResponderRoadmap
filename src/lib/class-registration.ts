@@ -34,7 +34,15 @@ export function normalizeGuestRegistration(raw: unknown, rosterFields: Registrat
     if (field.type === "EMAIL" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) throw new RegistrationInputError(`Enter a valid ${field.label.toLowerCase()}.`);
     if (field.type === "STATE" && !US_STATES.includes(text.toUpperCase() as (typeof US_STATES)[number])) throw new RegistrationInputError(`Choose a valid state for ${field.label}.`);
     if (field.type === "LAST4" && !/^\d{4}$/.test(text)) throw new RegistrationInputError(`${field.label} must contain exactly four digits.`);
-    if (field.type === "NUMBER" || field.type === "PERCENT") {
+    if (field.type === "LETTER_GRADE") {
+      const grade = text.toUpperCase();
+      if (!["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"].includes(grade)) throw new RegistrationInputError(`Choose a valid letter grade for ${field.label}.`);
+      customValues[field.id] = grade;
+    } else if (field.type === "SCORE_1_10") {
+      const number = Number(text);
+      if (!Number.isInteger(number) || number < 1 || number > 10) throw new RegistrationInputError(`${field.label} must be a whole number from 1 to 10.`);
+      customValues[field.id] = number;
+    } else if (field.type === "NUMBER" || field.type === "PERCENT") {
       const number = Number(text);
       if (!Number.isFinite(number) || (field.type === "PERCENT" && (number < 0 || number > 100))) throw new RegistrationInputError(`Enter a valid value for ${field.label}.`);
       customValues[field.id] = number;
