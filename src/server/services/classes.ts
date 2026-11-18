@@ -27,7 +27,7 @@ function normalizeCeCredits(value: unknown, allowedCustomCategories: ReadonlySet
     const hours = Number(item.hours ?? 0);
     if (!category || (!EMS_CE_GROUPS.has(category) && !allowedCustomCategories.has(category))) throw new HttpError(400, "Choose a valid training credit category.");
     if (!Number.isFinite(hours) || hours < 0 || hours > 24) throw new HttpError(400, "Each credit category must be between 0 and 24 hours.");
-    if (hours > 0) totals.set(category, (totals.get(category) || 0) + hours);
+    totals.set(category, (totals.get(category) || 0) + hours);
   }
   const allocations = [...totals].map(([category, hours]) => ({ category, hours: Math.round(hours * 100) / 100 }));
   if (allocations.reduce((sum, item) => sum + item.hours, 0) > 24) throw new HttpError(400, "Credit category allocations cannot exceed 24 hours per training sheet.");
@@ -39,8 +39,9 @@ function parseJsonObject(value: string | null | undefined): Record<string, unkno
 }
 
 function ceCreditNote(allocations: Array<{category: string;hours: number}>) {
-  return allocations.length
-    ? "TRAINING CREDIT BREAKDOWN\n" + allocations.map((item) => `${item.category}: ${item.hours.toFixed(2)} hours`).join("\n")
+  const assigned = allocations.filter((item) => item.hours > 0);
+  return assigned.length
+    ? "TRAINING CREDIT BREAKDOWN\n" + assigned.map((item) => `${item.category}: ${item.hours.toFixed(2)} hours`).join("\n")
     : "";
 }
 const TRAINING_CATEGORY_VALUES = new Set(["COMPANY", "FACILITY", "HAZMAT", "DRIVER", "OFFICER", "EMS", "OTHER"]);
@@ -338,7 +339,9 @@ export async function createClass(
   const componentCategories = componentGroups.flatMap((group) => (group.categories || []).map((category) => `${String(group.name || "").trim()} — ${String(category).trim()}`.slice(0, 80)));
   const legacyComponentCategories = Array.isArray(ceComponentData.ceCredits) ? (ceComponentData.ceCredits as Array<{ category?: string }>).flatMap((item) => { const category = String(item.category || "").trim(); return [category, `EMS — ${category}`.slice(0, 80)]; }) : [];
   const allowedCustomCategories = new Set([...(ceComponent ? [...componentCategories, ...legacyComponentCategories] : []), ...templateCategories]);
-  const creditSource = ceComponentData.ceCredits ?? templateCeCredits;
+  const creditSource = Array.isArray(ceComponentData.ceCredits)
+    ? ceComponentData.ceCredits
+    : ceComponent ? componentCategories.map((category) => ({ category, hours: 0 })) : templateCeCredits;
   const ceCredits = input.ceCredits === undefined
     ? normalizeCeCredits(creditSource, allowedCustomCategories)
     : normalizeCeCredits(input.ceCredits, allowedCustomCategories);
@@ -500,7 +503,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
     classType: row.classType,
     trainingCategory: row.trainingCategory,
     creditHours: row.creditHours,
-    ceCredits: normalizeCeCredits(JSON.parse(row.ceCreditsJson || "[]"), row.trainingCategory !== "EMS" ? new Set(JSON.parse(row.ceCreditsJson || "[]").map((item: { category?: string }) => String(item.category || ""))) : new Set()),
+    ceCredits: normalizeCeCredits(JSON.parse(row.ceCreditsJson || "[]"), new Set(JSON.parse(row.ceCreditsJson || "[]").map((item: { category?: string }) => String(item.category || "")))),
     gradingConfig: parseJsonObject(row.gradingConfigJson),
     templateName: row.templateName,
     templateRevision: row.templateRevision,
