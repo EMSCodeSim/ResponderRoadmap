@@ -60,6 +60,7 @@ function CertificationsInner() {
     credentialNumber: "",
     issueDate: "",
     expirationDate: "",
+    doesNotExpire: false,
     notes: "",
   });
   const [typeName, setTypeName] = useState("");
@@ -77,10 +78,15 @@ function CertificationsInner() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (!form.doesNotExpire && !form.expirationDate) {
+      setError("Add an expiration date or select Does not expire.");
+      return;
+    }
     try {
-      await api("credentials", { method: "POST", body: JSON.stringify(form) });
+      await api("credentials", { method: "POST", body: JSON.stringify({ ...form, expirationDate: form.doesNotExpire ? null : form.expirationDate }) });
       setOpen(false);
       setMessage("Credential saved.");
+      setForm({ membershipId: "", credentialName: "CPR", issuer: "", credentialNumber: "", issueDate: "", expirationDate: "", doesNotExpire: false, notes: "" });
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to save credential.");
@@ -241,9 +247,10 @@ function CertificationsInner() {
           <Field label="Issue date">
             <Input type="date" value={form.issueDate} onChange={(e) => setForm({ ...form, issueDate: e.target.value })} />
           </Field>
-          <Field label="Expiration date" hint="Leave blank if the card has no expiration.">
-            <Input type="date" value={form.expirationDate} onChange={(e) => setForm({ ...form, expirationDate: e.target.value })} />
+          <Field label="Expiration date" required={!form.doesNotExpire} hint={form.doesNotExpire ? "Marked as does not expire." : "Enter the date or mark the credential as non-expiring."}>
+            <Input type="date" required={!form.doesNotExpire} disabled={form.doesNotExpire} value={form.expirationDate} onChange={(e) => setForm({ ...form, expirationDate: e.target.value })} />
           </Field>
+          <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-navy-800"><input type="checkbox" checked={form.doesNotExpire} onChange={(e) => setForm({ ...form, doesNotExpire: e.target.checked, expirationDate: e.target.checked ? "" : form.expirationDate })} />This credential does not expire</label>
           <Field label="Notes">
             <TextArea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </Field>
