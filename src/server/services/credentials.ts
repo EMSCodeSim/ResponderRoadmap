@@ -95,6 +95,9 @@ export async function upsertCredential(
   });
   if (!membership) throw new HttpError(404, "Member not found.");
   if (!input.credentialName.trim()) throw new HttpError(400, "Credential name is required.");
+  if (!input.doesNotExpire && !input.expirationDate) throw new HttpError(400, "Add an expiration date or choose Does not expire.");
+  if (input.expirationDate && Number.isNaN(new Date(input.expirationDate).getTime())) throw new HttpError(400, "Expiration date is invalid.");
+  if (input.issueDate && Number.isNaN(new Date(input.issueDate).getTime())) throw new HttpError(400, "Issue date is invalid.");
 
   const data = {
     membershipId: membership.id,
