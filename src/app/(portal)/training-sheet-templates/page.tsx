@@ -386,6 +386,18 @@ export default function TrainingSheetTemplatesPage() {
                 </div>
                 <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, ceCredits: [...current.ceCredits, { category: "", hours: 0 }] }))}>+ Add Fire category</Button>
               </section>
+            ) : !selectedCeSystemId ? (
+              <section className="rounded-lg border border-navy-200 p-4">
+                <h3 className="font-semibold">Training credit categories</h3>
+                <p className="mt-1 text-xs text-navy-600">Add the categories instructors can use for CE or other training credit assignments on this sheet.</p>
+                <div className="mt-3 space-y-3">
+                  {form.ceCredits.map((allocation, index) => <div key={"training-credit-" + index} className="flex gap-2 rounded-lg border border-navy-200 p-3">
+                    <Input aria-label={"Training credit category " + (index + 1)} maxLength={80} value={allocation.category} placeholder="e.g. Technical Rescue" onChange={(event) => setForm((current) => ({ ...current, ceCredits: current.ceCredits.map((item, itemIndex) => itemIndex === index ? { ...item, category: event.target.value } : item) }))} />
+                    <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, ceCredits: current.ceCredits.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</Button>
+                  </div>)}
+                </div>
+                <Button type="button" variant="secondary" className="mt-3" onClick={() => setForm((current) => ({ ...current, ceCredits: [...current.ceCredits, { category: "", hours: 0 }] }))}>+ Add category</Button>
+              </section>
             ) : null}
             <section className="rounded-lg border border-navy-200 p-4">
               <h3 className="font-semibold">Training system</h3>

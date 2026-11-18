@@ -188,8 +188,8 @@ export default function ClassesPage() {
     setTemplateCategory(template.topic || "OTHER");
     setEmsCeMode(template.topic === "EMS" && (template.ceCredits || []).length > 0);
     setEmsCredits(template.topic === "EMS" ? Object.fromEntries((template.ceCredits || []).map((item) => [item.category, item.hours])) : {});
-    setFireCeMode(template.topic === "FIRE" && (template.ceCredits || []).length > 0);
-    setFireCredits(template.topic === "FIRE" ? Object.fromEntries((template.ceCredits || []).map((item) => [item.category, item.hours])) : {});
+    setFireCeMode(template.topic !== "EMS" && (template.ceCredits || []).length > 0);
+    setFireCredits(template.topic !== "EMS" ? Object.fromEntries((template.ceCredits || []).map((item) => [item.category, item.hours])) : {});
     setForm({
       ...emptyForm,
       title: template.defaultTitle || template.name,
@@ -220,14 +220,14 @@ export default function ClassesPage() {
       const emsTotal = Object.values(emsCredits).reduce((sum, hours) => sum + hours, 0);
       const fireTotal = Object.values(fireCredits).reduce((sum, hours) => sum + hours, 0);
       if (emsCeMode && emsTotal > 24) throw new Error("EMS credits cannot exceed 24 hours per training sheet.");
-      if (fireCeMode && fireTotal > 24) throw new Error("Fire credit allocations cannot exceed 24 hours per training sheet.");
+      if (fireCeMode && fireTotal > 24) throw new Error("Training credit allocations cannot exceed 24 hours per training sheet.");
       if (selectedCeComponentId && componentCeTotal > 24) throw new Error("CE credits cannot exceed 24 hours per training sheet.");
       const ceCredits = selectedCeComponentId
-        ? Object.entries(componentCeCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category: `${selectedCeGroupName} — ${category}`.slice(0, 80), hours }))
+        ? Object.entries(componentCeCredits).map(([category, hours]) => ({ category: `${selectedCeGroupName} — ${category}`.slice(0, 80), hours }))
         : emsCeMode
         ? Object.entries(emsCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours }))
         : fireCeMode
-          ? Object.entries(fireCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours }))
+          ? Object.entries(fireCredits).map(([category, hours]) => ({ category, hours }))
           : undefined;
       const payload = selectedCeComponentId
         ? { ...form, creditHours: componentCeTotal, ceCredits, notes: [Object.entries(componentCeCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => `${selectedCeGroupName} — ${category}: ${hours} hr`).join(" · "), form.notes.trim()].filter(Boolean).join("\n\n") }
@@ -289,8 +289,8 @@ export default function ClassesPage() {
     const isEmsTemplate = template.topic === "EMS";
     setEmsCeMode(isEmsTemplate && allocations.length > 0);
     setEmsCredits(isEmsTemplate ? Object.fromEntries(allocations.map((item) => [item.category, item.hours])) : {});
-    setFireCeMode(template.topic === "FIRE" && allocations.length > 0);
-    setFireCredits(template.topic === "FIRE" ? Object.fromEntries(allocations.map((item) => [item.category, item.hours])) : {});
+    setFireCeMode(template.topic !== "EMS" && allocations.length > 0);
+    setFireCredits(template.topic !== "EMS" ? Object.fromEntries(allocations.map((item) => [item.category, item.hours])) : {});
     setForm((current) => ({ ...current, title: template.defaultTitle || template.name, classType: template.classType, trainingCategory: template.trainingCategory, creditHours: template.creditHours ? String(template.creditHours) : "", checklistVersionId: template.checklistVersionId || "", location: template.location, notes: template.notes, selfRegistration: quickMode ? true : template.selfRegistration, proctorUserIds: template.proctorUserIds }));
   }
 
@@ -425,9 +425,9 @@ export default function ClassesPage() {
             <div className="rounded-lg border border-navy-200 bg-navy-50 p-3 text-sm text-navy-800" role="note">Linked Task Book reference. This pre-fills the title and source reference only. Attendance, signed evaluations, and hours are not automatically transferred; verify them before saving.</div>
           ) : null}
           {quickMode ? <div className="rounded-lg border border-fire/30 bg-fire-soft p-4"><div className="font-semibold text-navy-900">Quick Training Sheet</div><p className="mt-1 text-sm text-navy-600">Enter a title and start time to begin. Templates, checklists, roster selection, hours, end time and RMS documentation can be completed later.</p></div> : null}
-          {fireCeMode ? <section aria-label="Fire training credit categories" className="space-y-3 rounded-lg border border-navy-200 p-4">
-            <h3 className="text-lg font-bold">Fire training credit categories</h3>
-            <p className="text-sm text-navy-600">Assign hours to the categories saved in this template. Total credit hours update automatically.</p>
+          {fireCeMode ? <section aria-label="Training credit categories" className="space-y-3 rounded-lg border border-navy-200 p-4">
+            <h3 className="text-lg font-bold">{templateCategory === "FIRE" ? "Fire training credit categories" : "Training credit categories"}</h3>
+            <p className="text-sm text-navy-600">Choose how many hours belong to each category. You can also finish these assignments during closeout.</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {Object.entries(fireCredits).map(([category, hours]) => <Field key={category} label={category}>
                 <Input aria-label={`${category} credit hours`} type="number" min="0" max="24" step="0.25" value={hours || ""} placeholder="0" onChange={(event) => {
@@ -436,7 +436,7 @@ export default function ClassesPage() {
                 }} />
               </Field>)}
             </div>
-            <div className="font-bold">Total Fire training credit: {Object.values(fireCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</div>
+            <div className="font-bold">Total training credit: {Object.values(fireCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</div>
           </section> : null}
           {showAdvancedSetup ? <label className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
             <input type="checkbox" checked={emsCeMode} onChange={(event) => {
