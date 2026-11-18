@@ -6,6 +6,7 @@ import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
+import { calculateTrainingSheetFinalResult } from "@/server/services/class-result";
 
 const RESULT_VALUES = new Set(["NOT_EVALUATED", "PASS", "NEEDS_REMEDIATION", "FAIL", "NOT_APPLICABLE"]);
 const ATTENDANCE_VALUES = new Set(["REGISTERED", "PRESENT", "ABSENT", "EXCUSED"]);
@@ -802,23 +803,25 @@ async function recalculateEnrollment(enrollmentId: string) {
     ...enrollment.class.checklistVersion.sections.flatMap((section) => section.requirements),
     ...stations.flatMap((station) => station.checklistVersion.sections.flatMap((section) => section.requirements)),
   ].filter((item) => item.isRequired);
-  if (required.length === 0) {
-    const attended = enrollment.attendance === "PRESENT";
-    await prisma.trainingClassEnrollment.update({
-      where: { id: enrollment.id },
-      data: { finalResult: attended ? "PASS" : "PENDING", completedAt: attended ? new Date() : null },
-    });
-    return;
-  }
   const byRequirement = new Map(enrollment.skillResults.map((item) => [item.requirementId, item.result]));
-  const values = required.map((item) => byRequirement.get(item.id) || "NOT_EVALUATED");
-  const finalResult = values.includes("FAIL")
-    ? "FAIL"
-    : values.includes("NEEDS_REMEDIATION")
-      ? "REMEDIATION"
-      : values.every((value) => value === "PASS" || value === "NOT_APPLICABLE")
-        ? "PASS"
-        : "PENDING";
+  const gradingConfig = parseJsonObject(enrollment.class.gradingConfigJson);
+  const customFields = JSON.parse(enrollment.class.customFieldsJson || "[]") as Array<{
+    id: string; type: string; required?: boolean; appliesTo?: string;
+  }>;
+  const customValues = JSON.parse(enrollment.customValuesJson || "{}") as Record<string, unknown>;
+  const finalResult = calculateTrainingSheetFinalResult({
+    attendance: enrollment.attendance,
+    requiredSkillResults: required.map((item) => byRequirement.get(item.id) || "NOT_EVALUATED"),
+    observedSkillResults: enrollment.skillResults.map((item) => item.result),
+    customFields,
+    customValues,
+    writtenTestEnabled: gradingConfig.writtenTestEnabled === true,
+    writtenTestPassPercent: gradingConfig.writtenTestPassPercent == null ? null : Number(gradingConfig.writtenTestPassPercent),
+    writtenScore: enrollment.writtenScore,
+    ccfEnabled: gradingConfig.ccfEnabled === true,
+    ccfPassPercent: gradingConfig.ccfPassPercent == null ? null : Number(gradingConfig.ccfPassPercent),
+    ccfScore: enrollment.ccfScore,
+  });
   await prisma.trainingClassEnrollment.update({
     where: { id: enrollment.id },
     data: { finalResult, completedAt: finalResult === "PENDING" ? null : new Date() },
