@@ -115,7 +115,6 @@ async function validate(ctx: AuthContext, input: Record<string, unknown>) {
   if (!CATEGORIES.has(trainingCategory)) throw new HttpError(400, "Invalid training category.");
   if (!TOPICS.has(topic)) throw new HttpError(400, "Invalid template topic.");
   const ceCredits = normalizeCeCredits(input.ceCredits, true);
-  if (ceCredits.length && topic !== "EMS" && topic !== "FIRE") throw new HttpError(400, "Credit category allocations are available on EMS and Fire templates.");
   const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const creditHours = allocatedHours > 0 ? allocatedHours : Number(input.creditHours ?? 0);
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
