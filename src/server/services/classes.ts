@@ -19,9 +19,13 @@ function canOverrideStationProctor(ctx: AuthContext) {
 }
 
 function normalizeCeCredits(value: unknown, allowedCustomCategories: ReadonlySet<string> = new Set()) {
-  if (!Array.isArray(value)) return [];
+  const entries = Array.isArray(value)
+    ? value
+    : value && typeof value === "object"
+      ? Object.entries(value as Record<string, unknown>).map(([category, hours]) => ({ category, hours }))
+      : [];
   const totals = new Map<string, number>();
-  for (const entry of value) {
+  for (const entry of entries) {
     const item = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
     const category = String(item.category || "").trim().slice(0, 80);
     const hours = Number(item.hours ?? 0);
@@ -1229,7 +1233,7 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
 export async function updateClassDocumentation(
   ctx: AuthContext,
   classId: string,
-  input: { startsAt?: string; endsAt?: string | null; notes?: string; location?: string; station?: string; shift?: string; trainingCategory?: string; creditHours?: number; ceCredits?: unknown },
+  input: { startsAt?: string; endsAt?: string | null; notes?: string; location?: string; station?: string; shift?: string; trainingCategory?: string; trainingSheetTemplateId?: string; creditHours?: number; ceCredits?: unknown },
 ) {
   assertPermission(ctx, "classes.write");
   const row = await canAccessClass(ctx, classId, true);
@@ -1239,12 +1243,28 @@ export async function updateClassDocumentation(
   const startsAt = input.startsAt === undefined ? row.startsAt : parseDate(input.startsAt, "Training start time", true)!;
   const endsAt = input.endsAt === undefined ? row.endsAt : parseDate(input.endsAt, "Training end time");
   if (endsAt && endsAt < startsAt) throw new HttpError(400, "Training end time cannot be before the start time.");
-  const trainingCategory = input.trainingCategory === undefined ? row.trainingCategory : String(input.trainingCategory).trim().toUpperCase();
+  const templateId = String(input.trainingSheetTemplateId || "").trim();
+  const template = templateId
+    ? await prisma.trainingSheetTemplate.findFirst({
+        where: { id: templateId, departmentId: ctx.departmentId, archived: false },
+      })
+    : null;
+  if (templateId && !template) throw new HttpError(404, "Training Sheet template not found.");
+  const trainingCategory = template?.trainingCategory ||
+    (input.trainingCategory === undefined ? row.trainingCategory : String(input.trainingCategory).trim().toUpperCase());
   if (!TRAINING_CATEGORY_VALUES.has(trainingCategory)) throw new HttpError(400, "Choose a valid training category.");
   const existingCeCredits = JSON.parse(row.ceCreditsJson || "[]") as Array<{ category?: string }>;
-  const allowedCustomCategories = new Set(existingCeCredits.map((item) => String(item.category || "")));
+  let templateCeCredits: Array<{ category?: string }> = [];
+  try { templateCeCredits = template ? JSON.parse(template.ceCreditsJson || "[]") : []; } catch {}
+  const allowedCustomCategories = new Set(
+    (template ? templateCeCredits : existingCeCredits)
+      .map((item) => String(item.category || "").trim())
+      .filter(Boolean),
+  );
   const ceCredits = input.ceCredits === undefined ? normalizeCeCredits(existingCeCredits, allowedCustomCategories) : normalizeCeCredits(input.ceCredits, allowedCustomCategories);
-  if (ceCredits.length && trainingCategory !== "EMS" && !allowedCustomCategories.size) throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
+  if (template && ceCredits.some((item) => !allowedCustomCategories.has(item.category))) {
+    throw new HttpError(400, "Choose a training credit category from the selected Training Sheet template.");
+  }
   const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const creditHours = allocatedHours > 0 ? allocatedHours : input.creditHours === undefined ? row.creditHours : Number(input.creditHours);
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) {
@@ -1254,6 +1274,7 @@ export async function updateClassDocumentation(
     where: { id: classId },
     data: {
       startsAt, endsAt, creditHours, trainingCategory, ceCreditsJson: JSON.stringify(ceCredits),
+      ...(template ? { templateName: template.name, templateRevision: template.revision } : {}),
       ...(input.location === undefined ? {} : { location: String(input.location).trim().slice(0, 180) }),
       ...(input.station === undefined ? {} : { station: String(input.station).trim().slice(0, 80) }),
       ...(input.shift === undefined ? {} : { shift: String(input.shift).trim().slice(0, 40) }),
@@ -1261,7 +1282,12 @@ export async function updateClassDocumentation(
     },
   });
   await writeAudit(ctx, "training_sheet.documentation.updated", "TrainingClass", classId, {
-    hasEndTime: Boolean(endsAt), hasNarrative: Boolean(input.notes === undefined ? row.notes : input.notes?.trim()),
+    hasEndTime: Boolean(endsAt),
+    hasNarrative: Boolean(input.notes === undefined ? row.notes : input.notes?.trim()),
+    trainingSheetTemplateId: template?.id || null,
+    templateName: template?.name || row.templateName,
+    trainingCategory,
+    ceCategories: ceCredits.map((item) => item.category),
   });
   return getClass(ctx, classId);
 }
