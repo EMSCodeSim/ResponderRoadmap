@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { normalizeGuestRegistration, US_STATES, type RegistrationCustomField } from "@/lib/class-registration";
 import { canViewClassRecord, classListScope } from "@/lib/class-access";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
+import { getPrebuiltTrainingSystem } from "@/lib/training-systems";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
@@ -1013,7 +1014,7 @@ export async function recordSkillResultsBatch(
 export async function updateClassEvaluationSetup(
   ctx: AuthContext,
   classId: string,
-  input: { trainingSheetTemplateId?: string; checklistVersionId?: string; gradingComponentId?: string },
+  input: { trainingSheetTemplateId?: string; checklistVersionId?: string; gradingComponentId?: string; prebuiltTrainingSystemId?: string },
 ) {
   assertPermission(ctx, "classes.write");
   const classRow = await canAccessClass(ctx, classId, true);
@@ -1024,7 +1025,8 @@ export async function updateClassEvaluationSetup(
   const templateId = String(input.trainingSheetTemplateId || "").trim();
   const requestedChecklistId = String(input.checklistVersionId || "").trim();
   const gradingComponentId = String(input.gradingComponentId || "").trim();
-  if (!templateId && !requestedChecklistId && !gradingComponentId) {
+  const prebuiltTrainingSystemId = String(input.prebuiltTrainingSystemId || "").trim();
+  if (!templateId && !requestedChecklistId && !gradingComponentId && !prebuiltTrainingSystemId) {
     throw new HttpError(400, "Choose a checklist, grading system, or Training Sheet template.");
   }
 
@@ -1041,6 +1043,8 @@ export async function updateClassEvaluationSetup(
     : null;
   if (gradingComponentId && !gradingComponent) throw new HttpError(404, "Saved grading system not found.");
   const gradingComponentData = gradingComponent ? parseJsonObject(gradingComponent.dataJson) : {};
+  const prebuiltTrainingSystem = prebuiltTrainingSystemId ? getPrebuiltTrainingSystem(prebuiltTrainingSystemId) : null;
+  if (prebuiltTrainingSystemId && !prebuiltTrainingSystem) throw new HttpError(404, "Prebuilt training system not found.");
 
   const checklistVersionId = requestedChecklistId || template?.checklistVersionId || "";
   if (checklistVersionId) {
@@ -1078,6 +1082,10 @@ export async function updateClassEvaluationSetup(
         gradingConfigJson: JSON.stringify(gradingComponentData.gradingConfig || {}),
         customFieldsJson: JSON.stringify(Array.isArray(gradingComponentData.customFields) ? gradingComponentData.customFields : []),
       } : {}),
+      ...(prebuiltTrainingSystem ? {
+        gradingConfigJson: JSON.stringify(prebuiltTrainingSystem.gradingConfig),
+        customFieldsJson: JSON.stringify(prebuiltTrainingSystem.customFields),
+      } : {}),
     },
   });
   await writeAudit(ctx, "training_sheet.evaluation_setup.updated", "TrainingClass", classId, {
@@ -1085,6 +1093,8 @@ export async function updateClassEvaluationSetup(
     checklistVersionId: checklistVersionId || classRow.checklistVersionId,
     gradingComponentId: gradingComponent?.id || null,
     gradingSystemName: gradingComponent?.name || null,
+    prebuiltTrainingSystemId: prebuiltTrainingSystem?.id || null,
+    prebuiltTrainingSystemName: prebuiltTrainingSystem?.name || null,
     templateName: template?.name || null,
   });
   return getClass(ctx, classId);

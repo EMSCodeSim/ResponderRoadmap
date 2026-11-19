@@ -128,7 +128,7 @@
     },
     "/app/training-sheets/{id}/evaluation-setup": {
       "patch": {
-        "summary": "Attach a published checklist, saved grading system, or template setup to an open Training Sheet",
+        "summary": "Attach a published checklist, prebuilt or saved grading system, or template setup to an open Training Sheet",
         "parameters": [
           {
             "$ref": "#/components/parameters/Id"

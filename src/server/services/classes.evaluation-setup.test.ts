@@ -100,4 +100,26 @@ describe("mobile Training Sheet evaluation setup", () => {
       { id: "result", label: "Student result", type: "PASS_FAIL", required: true, appliesTo: "RESULT" },
     ]);
   });
+
+  it("applies a prebuilt training system as the grading system", async () => {
+    const result = await updateClassEvaluationSetup(
+      { userId: "officer-1", departmentId: "department-1", role: "TRAINING_OFFICER" } as Parameters<typeof updateClassEvaluationSetup>[0],
+      "class-1",
+      { prebuiltTrainingSystemId: "LETTER_GRADE" },
+    );
+
+    expect(fixture.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        customFieldsJson: JSON.stringify([{
+          id: "grade-letter_grade",
+          label: "Letter Grade",
+          type: "LETTER_GRADE",
+          required: true,
+          appliesTo: "RESULT",
+        }]),
+      }),
+    }));
+    expect(fixture.update.mock.calls[0]?.[0].data).not.toHaveProperty("checklistVersionId");
+    expect(result.customFields[0]?.type).toBe("LETTER_GRADE");
+  });
 });
