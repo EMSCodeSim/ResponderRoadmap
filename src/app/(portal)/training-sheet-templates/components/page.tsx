@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
+import { getPrebuiltTrainingSystem, PREBUILT_TRAINING_SYSTEMS, type PrebuiltTrainingSystemId } from "@/lib/training-systems";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select } from "@/components/ui";
 
 type GradeField = { id: string; label: string; type: string; required: boolean; appliesTo: "RESULT"; description?: string };
@@ -11,14 +12,6 @@ type CEGroup = { id: string; name: string; categories: string[] };
 type ComponentRow = { id: string; kind: "GRADING" | "EMS_CE_LIST"; name: string; data: { ceGroups?: CEGroup[]; gradingConfig?: { writtenTestEnabled?: boolean; writtenTestPassPercent?: number | null; ccfEnabled?: boolean; ccfPassPercent?: number | null; rmsEntryCategories?: string[] }; customFields?: GradeField[]; ceCredits?: Array<{ category: string; hours: number }> }; revision: number; archived: boolean };
 
 const blankGrades = { writtenTestEnabled: false, writtenTestPassPercent: null as number | null, ccfEnabled: false, ccfPassPercent: null as number | null, rmsEntryCategories: [] as string[] };
-const GRADING_PRESETS = [
-  { id: "PASS_FAIL", name: "Pass / Fail", description: "Record a clear pass or fail for each student." },
-  { id: "PERCENT", name: "Percentage", description: "Record a score from 0 to 100%." },
-  { id: "LETTER_GRADE", name: "Letter Grade", description: "Record A+ through F for each student." },
-  { id: "SCORE_1_10", name: "1–10 Score", description: "Record a whole-number score from 1 to 10." },
-  { id: "CCF", name: "CCF Score", description: "Record the CCF score with an 80% pass mark you can adjust." },
-] as const;
-
 export default function TrainingComponentsPage() {
   const [rows, setRows] = useState<ComponentRow[]>([]);
   const [kind, setKind] = useState<ComponentRow["kind"]>("GRADING");
@@ -75,26 +68,14 @@ export default function TrainingComponentsPage() {
   const visible = rows.filter((row) => row.kind === kind);
   const addGrade = () => setCustomFields((items) => [...items, { id: `grade-${Date.now()}-${items.length}`, label: "", type: "PASS_FAIL", required: true, appliesTo: "RESULT" }]);
 
-  function chooseGradingPreset(presetId: typeof GRADING_PRESETS[number]["id"]) {
+  function chooseGradingPreset(presetId: PrebuiltTrainingSystemId) {
+    const preset = getPrebuiltTrainingSystem(presetId);
+    if (!preset) return;
     setKind("GRADING");
     setEditingId(null);
-    setGradingConfig({ ...blankGrades });
-    if (presetId === "CCF") {
-      setName("CCF Score");
-      setGradingConfig({ ...blankGrades, ccfEnabled: true, ccfPassPercent: 80 });
-      setCustomFields([]);
-    } else {
-      const preset = GRADING_PRESETS.find((item) => item.id === presetId);
-      const field = presetId === "PASS_FAIL"
-        ? { label: "Pass/Fail result", type: "PASS_FAIL" }
-        : presetId === "PERCENT"
-          ? { label: "Score (%)", type: "PERCENT" }
-          : presetId === "LETTER_GRADE"
-            ? { label: "Letter Grade", type: "LETTER_GRADE" }
-            : { label: "Score (1–10)", type: "SCORE_1_10" };
-      setName(preset?.name || "Training System");
-      setCustomFields([{ id: `grade-${presetId.toLowerCase()}`, ...field, required: true, appliesTo: "RESULT" }]);
-    }
+    setName(preset.name);
+    setGradingConfig({ ...blankGrades, ...preset.gradingConfig });
+    setCustomFields(preset.customFields);
     setShowGradingBuilder(true);
     setMessage("Review the prebuilt training system, adjust the name or settings, then save it for reuse.");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -121,7 +102,7 @@ export default function TrainingComponentsPage() {
       <h2 className="text-lg font-bold">Prebuilt training systems</h2>
       <p className="mt-1 text-sm text-navy-600">Choose a system to prefill a reusable component. You can rename it or adjust its settings before saving.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {GRADING_PRESETS.map((preset) => <button type="button" key={preset.id} onClick={() => chooseGradingPreset(preset.id)} className="rounded-lg border border-navy-200 p-4 text-left hover:border-fire hover:bg-navy-50">
+        {PREBUILT_TRAINING_SYSTEMS.map((preset) => <button type="button" key={preset.id} onClick={() => chooseGradingPreset(preset.id)} className="rounded-lg border border-navy-200 p-4 text-left hover:border-fire hover:bg-navy-50">
           <span className="block font-semibold">{preset.name}</span><span className="mt-1 block text-sm text-navy-600">{preset.description}</span>
         </button>)}
       </div>
