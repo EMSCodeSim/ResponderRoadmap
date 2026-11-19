@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
+import { getPrebuiltTrainingSystem, PREBUILT_TRAINING_SYSTEMS } from "@/lib/training-systems";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
 
 type CustomField = { id: string; label: string; type: string; required: boolean; appliesTo?: "ROSTER" | "RESULT"; description?: string };
@@ -126,6 +127,16 @@ export default function TrainingSheetTemplatesPage() {
 
   function applyTrainingSystem(id: string) {
     setSelectedTrainingSystemId(id);
+    if (id.startsWith("prebuilt:")) {
+      const system = getPrebuiltTrainingSystem(id.slice("prebuilt:".length));
+      if (!system) return;
+      setForm((current) => ({
+        ...current,
+        gradingConfig: { ...current.gradingConfig, ...system.gradingConfig },
+        customFields: system.customFields.map((field) => ({ ...field, appliesTo: "RESULT" })),
+      }));
+      return;
+    }
     const system = trainingSystems.find((item) => item.id === id);
     if (!system) return;
     const grades = system.data.gradingConfig || {};
@@ -389,8 +400,16 @@ export default function TrainingSheetTemplatesPage() {
             ) : null}
             <section className="rounded-lg border border-navy-200 p-4">
               <h3 className="font-semibold">Training system</h3>
-              <p className="mt-1 text-xs text-navy-600">Start from a saved system or set this template’s scoring fields below. Selecting a system copies its settings into this template.</p>
-              <Field label="Saved training system"><Select value={selectedTrainingSystemId} onChange={(event) => applyTrainingSystem(event.target.value)}><option value="">Build scoring for this template</option>{trainingSystems.map((system) => <option key={system.id} value={system.id}>{system.name}</option>)}</Select></Field>
+              <p className="mt-1 text-xs text-navy-600">Choose a prebuilt or department-created grading system. Its grading rules are copied into this template and can still be adjusted below.</p>
+              <Field label="Grading system"><Select value={selectedTrainingSystemId} onChange={(event) => applyTrainingSystem(event.target.value)}>
+                <option value="">Build custom scoring for this template</option>
+                <optgroup label="Prebuilt training systems">
+                  {PREBUILT_TRAINING_SYSTEMS.map((system) => <option key={system.id} value={`prebuilt:${system.id}`}>{system.name}</option>)}
+                </optgroup>
+                {trainingSystems.length ? <optgroup label="Department custom systems">
+                  {trainingSystems.map((system) => <option key={system.id} value={system.id}>{system.name}</option>)}
+                </optgroup> : null}
+              </Select></Field>
               <label className="mt-3 flex min-h-11 items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.gradingConfig.writtenTestEnabled} onChange={(event) => setForm((current) => ({ ...current, gradingConfig: { ...current.gradingConfig, writtenTestEnabled: event.target.checked, writtenTestPassPercent: event.target.checked ? current.gradingConfig.writtenTestPassPercent ?? 80 : null } }))} />
                 Record a written test score
