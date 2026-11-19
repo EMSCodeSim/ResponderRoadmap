@@ -1013,7 +1013,7 @@ export async function recordSkillResultsBatch(
 export async function updateClassEvaluationSetup(
   ctx: AuthContext,
   classId: string,
-  input: { trainingSheetTemplateId?: string; checklistVersionId?: string },
+  input: { trainingSheetTemplateId?: string; checklistVersionId?: string; gradingComponentId?: string },
 ) {
   assertPermission(ctx, "classes.write");
   const classRow = await canAccessClass(ctx, classId, true);
@@ -1023,8 +1023,9 @@ export async function updateClassEvaluationSetup(
 
   const templateId = String(input.trainingSheetTemplateId || "").trim();
   const requestedChecklistId = String(input.checklistVersionId || "").trim();
-  if (!templateId && !requestedChecklistId) {
-    throw new HttpError(400, "Choose a checklist or Training Sheet template.");
+  const gradingComponentId = String(input.gradingComponentId || "").trim();
+  if (!templateId && !requestedChecklistId && !gradingComponentId) {
+    throw new HttpError(400, "Choose a checklist, grading system, or Training Sheet template.");
   }
 
   const template = templateId
@@ -1033,6 +1034,13 @@ export async function updateClassEvaluationSetup(
       })
     : null;
   if (templateId && !template) throw new HttpError(404, "Training Sheet template not found.");
+  const gradingComponent = gradingComponentId
+    ? await prisma.trainingSheetComponentTemplate.findFirst({
+        where: { id: gradingComponentId, departmentId: ctx.departmentId, kind: "GRADING", archived: false },
+      })
+    : null;
+  if (gradingComponentId && !gradingComponent) throw new HttpError(404, "Saved grading system not found.");
+  const gradingComponentData = gradingComponent ? parseJsonObject(gradingComponent.dataJson) : {};
 
   const checklistVersionId = requestedChecklistId || template?.checklistVersionId || "";
   if (checklistVersionId) {
@@ -1066,11 +1074,17 @@ export async function updateClassEvaluationSetup(
         templateName: template.name,
         templateRevision: template.revision,
       } : {}),
+      ...(gradingComponent ? {
+        gradingConfigJson: JSON.stringify(gradingComponentData.gradingConfig || {}),
+        customFieldsJson: JSON.stringify(Array.isArray(gradingComponentData.customFields) ? gradingComponentData.customFields : []),
+      } : {}),
     },
   });
   await writeAudit(ctx, "training_sheet.evaluation_setup.updated", "TrainingClass", classId, {
     trainingSheetTemplateId: template?.id || null,
     checklistVersionId: checklistVersionId || classRow.checklistVersionId,
+    gradingComponentId: gradingComponent?.id || null,
+    gradingSystemName: gradingComponent?.name || null,
     templateName: template?.name || null,
   });
   return getClass(ctx, classId);
