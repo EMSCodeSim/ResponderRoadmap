@@ -8,6 +8,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
+      url: "https://responderroadmap.com/firefighter-career-record-app",
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
+    {
       url: "https://responderroadmap.com/demo",
       changeFrequency: "weekly",
       priority: 0.95,
