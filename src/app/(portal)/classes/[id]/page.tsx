@@ -399,7 +399,7 @@ export default function ClassDetailPage() {
           notes: serializeTrainingForm(trainingForm, legacyTrainingNotes),
           location: docLocation,
           creditHours: docHours ? Number(docHours) : 0,
-          ceCredits: Object.entries(docCeCredits).filter(([, hours]) => hours > 0).map(([category, hours] => ({ category, hours })),
+          ceCredits: Object.entries(docCeCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours })),
         }),
       });
       if (approve) {
