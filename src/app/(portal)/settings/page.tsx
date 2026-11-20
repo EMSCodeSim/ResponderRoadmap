@@ -185,8 +185,15 @@ export default function SettingsPage() {
       items: [
         { key: "department", href: "/training-expectations", title: "Training expectations", description: "Set credential, Task Book, and annual-hour expectations by rank or position." },
         { key: "task-books", href: "/task-books", title: "Task Book library", description: "Create and publish department Task Books." },
-        { key: "task-books", href: "/training-cleanup", title: "Training record cleanup", description: "Remove unused books, unstarted assignments, unfinished sheets, and old templates." },
         { key: "classes", href: "/training-sheet-templates", title: "Training Sheet templates", description: "Manage reusable templates for department training." },
+      ],
+    },
+    {
+      title: "Content management",
+      items: [
+        { key: "assignments", href: "/assignments", title: "Assignments", description: "Edit department assignments and manage member work." },
+        { key: "classes", href: "/classes", title: "Training Sheets", description: "Open and edit department training records." },
+        { key: "task-books", href: "/training-cleanup", title: "Manage and remove content", description: "Review Task Books, assignments, Training Sheets, and templates. Remove eligible items and restore them for seven days." },
       ],
     },
     {

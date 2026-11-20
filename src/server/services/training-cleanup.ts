@@ -33,9 +33,9 @@ export async function listTrainingCleanupItems(ctx: AuthContext) {
     prisma.trainingExpectation.findMany({ where: { departmentId: ctx.departmentId }, select: { taskBookTemplateIdsJson: true } }),
     prisma.operationalRole.findMany({ where: { departmentId: ctx.departmentId }, select: { taskBookTemplateIdsJson: true } }),
     prisma.trainingClass.findMany({
-      where: { departmentId: ctx.departmentId, status: { in: ["DRAFT", "ACTIVE"] }, rmsStatus: "NOT_READY" },
-      orderBy: { startsAt: "asc" },
-      select: { id: true, title: true, startsAt: true, createdAt: true, status: true, roster: { select: { attendance: true, finalResult: true, writtenScore: true, ccfScore: true, skillResults: { select: { id: true } } } } },
+      where: { departmentId: ctx.departmentId },
+      orderBy: { startsAt: "desc" },
+      select: { id: true, title: true, startsAt: true, createdAt: true, status: true, rmsStatus: true, roster: { select: { attendance: true, finalResult: true, writtenScore: true, ccfScore: true, skillResults: { select: { id: true } } } } },
     }),
     prisma.taskBookAssignment.findMany({
       where: { departmentId: ctx.departmentId, status: { in: ["NOT_STARTED", "OVERDUE"] }, completions: { none: {} } },
@@ -67,12 +67,18 @@ export async function listTrainingCleanupItems(ctx: AuthContext) {
     }
   }
 
-  const trainingSheets = classes.filter((row) => row.roster.every((entry) =>
+  const trainingSheets = classes.filter((row) => ["DRAFT", "ACTIVE"].includes(row.status) && row.rmsStatus === "NOT_READY" && row.roster.every((entry) =>
     entry.attendance === "REGISTERED" && entry.finalResult === "PENDING" && entry.writtenScore == null && entry.ccfScore == null && entry.skillResults.length === 0,
   )).map((row) => ({
     id: row.id,
     title: row.title,
     detail: `${row.status.toLowerCase()} · ${row.roster.length} ungraded roster entries`,
+    createdAt: row.createdAt,
+  }));
+  const completedTrainingSheets = classes.filter((row) => ["COMPLETE", "CANCELLED"].includes(row.status)).map((row) => ({
+    id: row.id,
+    title: row.title,
+    detail: `${row.status.toLowerCase()} · ${row.roster.length} roster entries · RMS ${row.rmsStatus.toLowerCase().replaceAll("_", " ")}`,
     createdAt: row.createdAt,
   }));
 
@@ -92,6 +98,7 @@ export async function listTrainingCleanupItems(ctx: AuthContext) {
       createdAt: row.createdAt,
     })),
     trainingSheets,
+    completedTrainingSheets,
     templates: trainingSheetTemplates.map((row) => ({ id: row.id, title: row.name, detail: row.archived ? "Archived Training Sheet template" : "Training Sheet template", createdAt: row.createdAt })),
     recovery: await prisma.trainingRecoveryItem.findMany({ where: { departmentId: ctx.departmentId, expiresAt: { gt: now } }, orderBy: { deletedAt: "desc" }, select: { id: true, entityType: true, title: true, deletedAt: true, expiresAt: true } }),
   };
@@ -148,14 +155,12 @@ export async function deleteTrainingCleanupItem(ctx: AuthContext, type: CleanupT
 
     if (type === "TRAINING_SHEET") {
       const row = await tx.trainingClass.findFirst({
-        where: { id, departmentId: ctx.departmentId, status: { in: ["DRAFT", "ACTIVE"] }, rmsStatus: "NOT_READY" },
-        include: { roster: { include: { skillResults: true } }, proctors: true },
+        where: { id, departmentId: ctx.departmentId },
+        include: { roster: { include: { skillResults: true } }, proctors: true, stations: true },
       });
-      if (!row) throw new HttpError(404, "Unfinished Training Sheet not found.");
-      const hasTrainingResults = row.roster.some((entry) => entry.attendance !== "REGISTERED" || entry.finalResult !== "PENDING" || entry.writtenScore != null || entry.ccfScore != null || entry.skillResults.length > 0);
-      if (hasTrainingResults) throw new HttpError(409, "This Training Sheet has attendance or evaluation data and cannot be removed here.");
+      if (!row) throw new HttpError(404, "Training Sheet not found.");
       await saveRecoverySnapshot(tx, ctx, "TRAINING_SHEET", row.id, row.title, row);
-      await tx.auditLog.create({ data: { departmentId: ctx.departmentId, actorId: ctx.userId, action: "training_cleanup.training_sheet_deleted", entityType: "TrainingClass", entityId: row.id, detailsJson: JSON.stringify({ title: row.title, rosterEntriesRemoved: row.roster.length }) } });
+      await tx.auditLog.create({ data: { departmentId: ctx.departmentId, actorId: ctx.userId, action: "training_cleanup.training_sheet_deleted", entityType: "TrainingClass", entityId: row.id, detailsJson: JSON.stringify({ title: row.title, status: row.status, rmsStatus: row.rmsStatus, rosterEntriesRemoved: row.roster.length, skillResultsRemoved: row.roster.reduce((sum, entry) => sum + entry.skillResults.length, 0) }) } });
       await tx.activityEvent.deleteMany({ where: { departmentId: ctx.departmentId, referenceId: row.id } });
       await tx.inboxNotification.deleteMany({ where: { departmentId: ctx.departmentId, referenceId: row.id } });
       await tx.trainingClass.delete({ where: { id: row.id } });
@@ -204,11 +209,13 @@ export async function restoreTrainingCleanupItem(ctx: AuthContext, recoveryId: s
     } else if (item.entityType === "TRAINING_SHEET") {
       const roster = row.roster as Array<Record<string, unknown>>;
       const proctors = row.proctors as Array<Record<string, unknown>>;
-      const { roster: _roster, proctors: _proctors, department: _department, checklistVersion: _checklist, createdBy: _createdBy, ...trainingClass } = row;
+      const stations = (row.stations as Array<Record<string, unknown>> | undefined) || [];
+      const { roster: _roster, proctors: _proctors, stations: _stations, department: _department, checklistVersion: _checklist, createdBy: _createdBy, ...trainingClass } = row;
       await tx.trainingClass.create({ data: { ...(trainingClass as Prisma.TrainingClassUncheckedCreateInput), startsAt: dates(trainingClass.startsAt)!, endsAt: dates(trainingClass.endsAt), createdAt: dates(trainingClass.createdAt) ?? undefined, updatedAt: dates(trainingClass.updatedAt) ?? undefined, instructorApprovedAt: dates(trainingClass.instructorApprovedAt), rmsEnteredAt: dates(trainingClass.rmsEnteredAt), roster: { create: roster.map((entry) => {
+        const skillResults = (entry.skillResults as Array<Record<string, unknown>> | undefined) || [];
         const { skillResults: _skills, class: _class, membership: _member, classId: _classId, ...enrollment } = entry;
-        return enrollment as Prisma.TrainingClassEnrollmentUncheckedCreateInput;
-      }) }, proctors: { create: proctors.map(({ user: _user, class: _class, classId: _classId, ...proctor }) => proctor as Prisma.TrainingClassProctorUncheckedCreateInput) } } });
+        return { ...(enrollment as Prisma.TrainingClassEnrollmentUncheckedCreateInput), enrolledAt: dates(enrollment.enrolledAt) ?? undefined, completedAt: dates(enrollment.completedAt), skillResults: { create: skillResults.map(({ enrollment: _enrollment, requirement: _requirement, evaluator: _evaluator, enrollmentId: _enrollmentId, ...skill }) => ({ ...(skill as Prisma.TrainingClassSkillResultUncheckedCreateInput), evaluatedAt: dates(skill.evaluatedAt) ?? undefined, updatedAt: dates(skill.updatedAt) ?? undefined })) } };
+      }) }, proctors: { create: proctors.map(({ user: _user, class: _class, classId: _classId, ...proctor }) => ({ ...(proctor as Prisma.TrainingClassProctorUncheckedCreateInput), assignedAt: dates(proctor.assignedAt) ?? undefined })) }, stations: { create: stations.map(({ proctor: _proctor, class: _class, classId: _classId, ...station }) => ({ ...(station as Prisma.TrainingClassStationUncheckedCreateInput), createdAt: dates(station.createdAt) ?? undefined, updatedAt: dates(station.updatedAt) ?? undefined })) } } });
     } else {
       throw new HttpError(400, "This recovery item type is not supported.");
     }
