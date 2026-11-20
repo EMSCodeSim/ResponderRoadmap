@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { Badge, Button, Card, Flash, Modal, PageHeader } from "@/components/ui";
 
@@ -55,16 +56,27 @@ export default function TrainingCleanupPage() {
   ];
 
   return <div>
-    <PageHeader kicker="Training administration" title="Training record cleanup" description="Remove old items that are no longer used. Training Officers and Department Administrators can manage this page." actions={<Button variant="secondary" onClick={() => void load()} disabled={busy}>Refresh</Button>} />
+    <PageHeader kicker="Department administration" title="Manage and remove content" description="Manage department-created records regardless of who created them. Edit from the libraries below; remove eligible items here." actions={<Button variant="secondary" onClick={() => void load()} disabled={busy}>Refresh</Button>} />
+    <div className="mb-5 flex flex-wrap gap-2" aria-label="Department content libraries">
+      <Link href="/task-books" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-900 hover:bg-navy-50">Task Books</Link>
+      <Link href="/assignment-library" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-900 hover:bg-navy-50">Assignment templates</Link>
+      <Link href="/assignments" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-900 hover:bg-navy-50">Member assignments</Link>
+      <Link href="/classes" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-900 hover:bg-navy-50">Training Sheets</Link>
+      <Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-900 hover:bg-navy-50">Sheet templates</Link>
+    </div>
     <div className="mb-4 space-y-2"><Flash message={error} tone="danger" /><Flash message={notice} tone="current" /></div>
-    <Card className="mb-5 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Completed and in-progress training history is protected.</strong> Books linked to assignments, classes, role qualifications, or training expectations are kept. Sheets with recorded attendance or evaluation results are kept. Only unstarted or overdue assignments with no submitted work appear below. Eligible items can be restored for seven days; all actions are recorded in audit history.</Card>
+    <Card className="mb-5 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Removal protects department history.</strong> Books linked to assignments, classes, role qualifications, or training expectations, and sheets with recorded attendance or evaluation results, cannot be removed here. Only unstarted or overdue assignments with no submitted work can be removed. Removed items can be restored for seven days; all actions are recorded in audit history.</Card>
     <div className="space-y-5">
       {sections.map((section) => <Card key={section.title} className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="display text-xl font-bold">{section.title}</h2><p className="mt-1 max-w-3xl text-sm text-navy-500">{section.description}</p></div><Badge>{section.rows.length} available</Badge></div>
         {section.rows.length ? <div className="mt-3 divide-y divide-navy-100">{section.rows.map((item) => {
           const type: CleanupType = section.title === "Assignments" && data?.assignments.some((template) => template.id === item.id) ? "ASSIGNMENT" : section.type;
           const description = type === "TASK_BOOK" ? "This unused Task Book and its draft content will be removed. It can be restored for seven days." : type === "TRAINING_SHEET" ? "This unfinished Training Sheet and its ungraded roster entries will be removed. It can be restored for seven days." : type === "TEMPLATE" ? "This reusable Training Sheet template will be removed. It can be restored for seven days." : data?.assignments.some((template) => template.id === item.id) ? "This unused Assignment template will be removed. It can be restored for seven days." : "This unstarted member assignment will be removed. It can be restored for seven days.";
-          return <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div className="min-w-0"><div className="font-semibold text-navy-900">{item.title}</div><div className="text-sm text-navy-500">{item.detail} · created {new Date(item.createdAt).toLocaleDateString()}</div></div><Button variant="danger" className="min-h-9 px-3 text-xs" onClick={() => setSelected({ id: item.id, title: item.title, type, description })}>Delete</Button></div>;
+          const editHref = type === "TASK_BOOK" || (type === "ASSIGNMENT" && data?.assignments.some((template) => template.id === item.id))
+            ? `/task-books/${encodeURIComponent(item.id)}`
+            : type === "TRAINING_SHEET" ? `/classes/${encodeURIComponent(item.id)}`
+              : type === "TEMPLATE" ? "/training-sheet-templates" : "/assignments";
+          return <div key={`${type}-${item.id}`} className="flex flex-wrap items-center justify-between gap-3 py-3"><div className="min-w-0"><div className="font-semibold text-navy-900">{item.title}</div><div className="text-sm text-navy-500">{item.detail} · created {new Date(item.createdAt).toLocaleDateString()}</div></div><div className="flex flex-wrap items-center gap-2"><Link href={editHref} className="inline-flex min-h-9 items-center rounded-md border border-navy-200 px-3 text-xs font-semibold text-navy-900 hover:bg-navy-50">Edit</Link><Button variant="danger" className="min-h-9 px-3 text-xs" onClick={() => setSelected({ id: item.id, title: item.title, type, description })}>Remove</Button></div></div>;
         })}</div> : <p className="mt-4 rounded-md bg-navy-50 p-3 text-sm text-navy-500">Nothing eligible for cleanup.</p>}
       </Card>)}
       <Card className="p-5">
