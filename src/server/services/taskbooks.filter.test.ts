@@ -3,7 +3,7 @@ import { templateKindFilter } from "./taskbooks";
 
 describe("templateKindFilter", () => {
   it("keeps long-term Task Books separate by default", () => {
-    expect(templateKindFilter()).toEqual({ not: "TRAINING_TASK" });
+    expect(templateKindFilter()).toEqual({ notIn: ["TRAINING_TASK", "SKILL_CHECKLIST"] });
   });
 
   it("returns reusable short-term Assignment templates when requested", () => {
