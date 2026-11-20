@@ -399,7 +399,7 @@ export default function ClassDetailPage() {
           notes: serializeTrainingForm(trainingForm, legacyTrainingNotes),
           location: docLocation,
           creditHours: docHours ? Number(docHours) : 0,
-          ceCredits: detail.trainingCategory === "EMS" ? Object.entries(docCeCredits).filter(([, hours]) => hours > 0).map(([category, hours]) => ({ category, hours })) : undefined,
+          ceCredits: Object.entries(docCeCredits).filter(([, hours]) => hours > 0).map(([category, hours] => ({ category, hours })),
         }),
       });
       if (approve) {
@@ -672,7 +672,7 @@ export default function ClassDetailPage() {
           <Field label="Location"><Input value={docLocation} onChange={(event) => setDocLocation(event.target.value)} /></Field>
           <Field label="Credit hours (optional if times provided)"><Input type="number" min="0" max="24" step="0.25" value={docHours} onChange={(event) => setDocHours(event.target.value)} /></Field>
         </div>
-        {detail.trainingCategory === "EMS" ? <section className="mt-4 rounded-lg border border-navy-200 p-4"><h3 className="font-bold">EMS CE categories</h3><p className="mt-1 text-sm text-navy-600">Confirm the credit earned in each category. Example: 0.5 Medical and 0.5 Airway.</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{Object.keys(EMS_CE_CATEGORIES).map((category) => <Field key={category} label={category}><Input type="number" min="0" max="24" step="0.25" value={docCeCredits[category] ?? ""} placeholder="0" onChange={(event) => { const hours = event.target.value === "" ? 0 : Number(event.target.value); setDocCeCredits((current) => ({ ...current, [category]: Number.isFinite(hours) && hours >= 0 ? hours : 0 })); }} /></Field>)}</div><p className="mt-3 font-semibold">Total CE credit: {Object.values(docCeCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</p></section> : null}
+        {(detail.trainingCategory === "EMS" || Object.keys(docCeCredits).length > 0) ? <section className="mt-4 rounded-lg border border-navy-200 p-4"><h3 className="font-bold">Continuing education credit categories</h3><p className="mt-1 text-sm text-navy-600">Confirm the credit earned in each category. Categories saved on the Training Sheet template are available for every training category.</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{(detail.trainingCategory === "EMS" ? Object.keys(EMS_CE_CATEGORIES) : Object.keys(docCeCredits)).map((category) => <Field key={category} label={category}><Input type="number" min="0" max="24" step="0.25" value={docCeCredits[category] ?? ""} placeholder="0" onChange={(event) => { const hours = event.target.value === "" ? 0 : Number(event.target.value); setDocCeCredits((current) => ({ ...current, [category]: Number.isFinite(hours) && hours >= 0 ? hours : 0 })); }} /></Field>)}</div><p className="mt-3 font-semibold">Total CE credit: {Object.values(docCeCredits).reduce((sum, hours) => sum + hours, 0).toFixed(2)} hours</p></section> : null}
         <section className="mt-4 space-y-3 rounded-lg border border-navy-200 p-4">
           <h3 className="font-bold">Department Training Sheet information</h3>
           <p className="text-sm text-navy-600">Complete these fields after class. They are preserved in the training narrative and RMS export; department-specific choices can be entered as text.</p>
