@@ -7,7 +7,7 @@ import { Badge, Button, Card, Flash, Modal, PageHeader } from "@/components/ui";
 
 type Item = { id: string; title: string; detail: string; createdAt: string };
 type RecoveryItem = { id: string; entityType: string; title: string; deletedAt: string; expiresAt: string };
-type CleanupData = { taskBooks: Item[]; assignments: Item[]; unstartedAssignments: Item[]; trainingSheets: Item[]; templates: Item[]; recovery: RecoveryItem[] };
+type CleanupData = { taskBooks: Item[]; assignments: Item[]; unstartedAssignments: Item[]; trainingSheets: Item[]; completedTrainingSheets: Item[]; templates: Item[]; recovery: RecoveryItem[] };
 type CleanupType = "TASK_BOOK" | "ASSIGNMENT" | "TRAINING_SHEET" | "TEMPLATE";
 type SelectedItem = { id: string; title: string; type: CleanupType; description: string };
 
@@ -52,6 +52,7 @@ export default function TrainingCleanupPage() {
     { title: "Unused Task Books", description: "Only books with no member assignments, Training Sheets, or role/expectation links are listed.", rows: data?.taskBooks || [], type: "TASK_BOOK" },
     { title: "Assignments", description: "Includes unused Assignment templates and unstarted or overdue member assignments with no submitted work.", rows: [...(data?.assignments || []), ...(data?.unstartedAssignments || [])], type: "ASSIGNMENT" },
     { title: "Unfinished Training Sheets", description: "Only draft or active sheets with no recorded attendance, grades, or skill evaluations are listed.", rows: data?.trainingSheets || [], type: "TRAINING_SHEET" },
+    { title: "Completed Training Sheets", description: "Remove test or duplicate sheets, including their attendance, scores, skill evaluations, CE credits, and Roadmap training-hour totals. Removal affects Responder Roadmap records; it does not remove an entry from your department RMS.", rows: data?.completedTrainingSheets || [], type: "TRAINING_SHEET" },
     { title: "Training Sheet templates", description: "Removing a template does not change past sheets; their settings are saved with each record.", rows: data?.templates || [], type: "TEMPLATE" },
   ];
 
@@ -65,13 +66,14 @@ export default function TrainingCleanupPage() {
       <Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-900 hover:bg-navy-50">Sheet templates</Link>
     </div>
     <div className="mb-4 space-y-2"><Flash message={error} tone="danger" /><Flash message={notice} tone="current" /></div>
-    <Card className="mb-5 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Removal protects department history.</strong> Books linked to assignments, classes, role qualifications, or training expectations, and sheets with recorded attendance or evaluation results, cannot be removed here. Only unstarted or overdue assignments with no submitted work can be removed. Removed items can be restored for seven days; all actions are recorded in audit history.</Card>
+    <Card className="mb-5 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Completed sheets can be removed as test or duplicate records.</strong> This removes their Roadmap attendance, scores, CE credits, and training hours; it does not change your department RMS. Restore eligible removals for seven days. Task Books with linked assignments, classes, roles, or expectations remain protected, as do unfinished sheets with recorded results and assignments with submitted work. All removal and restore actions are recorded in audit history.</Card>
     <div className="space-y-5">
       {sections.map((section) => <Card key={section.title} className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="display text-xl font-bold">{section.title}</h2><p className="mt-1 max-w-3xl text-sm text-navy-500">{section.description}</p></div><Badge>{section.rows.length} available</Badge></div>
         {section.rows.length ? <div className="mt-3 divide-y divide-navy-100">{section.rows.map((item) => {
           const type: CleanupType = section.title === "Assignments" && data?.assignments.some((template) => template.id === item.id) ? "ASSIGNMENT" : section.type;
-          const description = type === "TASK_BOOK" ? "This unused Task Book and its draft content will be removed. It can be restored for seven days." : type === "TRAINING_SHEET" ? "This unfinished Training Sheet and its ungraded roster entries will be removed. It can be restored for seven days." : type === "TEMPLATE" ? "This reusable Training Sheet template will be removed. It can be restored for seven days." : data?.assignments.some((template) => template.id === item.id) ? "This unused Assignment template will be removed. It can be restored for seven days." : "This unstarted member assignment will be removed. It can be restored for seven days.";
+          const isCompletedSheet = section.title === "Completed Training Sheets";
+          const description = type === "TASK_BOOK" ? "This unused Task Book and its draft content will be removed. It can be restored for seven days." : type === "TRAINING_SHEET" ? isCompletedSheet ? "This completed Training Sheet will be removed, including attendance, scores, skill evaluations, CE credits, and Roadmap training-hour totals. It can be restored for seven days. This does not remove an entry from your department RMS." : "This unfinished Training Sheet and its ungraded roster entries will be removed. It can be restored for seven days." : type === "TEMPLATE" ? "This reusable Training Sheet template will be removed. It can be restored for seven days." : data?.assignments.some((template) => template.id === item.id) ? "This unused Assignment template will be removed. It can be restored for seven days." : "This unstarted member assignment will be removed. It can be restored for seven days.";
           const editHref = type === "TASK_BOOK" || (type === "ASSIGNMENT" && data?.assignments.some((template) => template.id === item.id))
             ? `/task-books/${encodeURIComponent(item.id)}`
             : type === "TRAINING_SHEET" ? `/classes/${encodeURIComponent(item.id)}`
