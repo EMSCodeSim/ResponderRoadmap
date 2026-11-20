@@ -176,9 +176,14 @@ async function getAttendanceOnlyVersion(ctx: AuthContext) {
 
 export async function getClassSetup(ctx: AuthContext) {
   assertPermission(ctx, "classes.write");
+  const reusableChecklistVersions = await prisma.skillChecklist.findMany({
+    where: { departmentId: ctx.departmentId, archived: false, status: "PUBLISHED", backingVersionId: { not: null } },
+    select: { backingVersionId: true },
+  });
+  const checklistVersionIds = reusableChecklistVersions.map((item) => item.backingVersionId).filter((id): id is string => Boolean(id));
   const [versions, memberships, department] = await Promise.all([
     prisma.taskBookVersion.findMany({
-      where: { template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } }, status: "PUBLISHED" },
+      where: { template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } }, status: "PUBLISHED", OR: [{ template: { templateKind: { not: "SKILL_CHECKLIST" } } }, { id: { in: checklistVersionIds } }] },
       include: { template: true, sections: { include: { requirements: true } } },
       orderBy: { publishedAt: "desc" },
     }),

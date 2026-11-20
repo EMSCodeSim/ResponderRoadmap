@@ -19,6 +19,7 @@ import * as evaluators from "@/server/services/evaluators";
 import * as trainingExpectations from "@/server/services/training-expectations";
 import * as trainingSheetTemplates from "@/server/services/training-sheet-templates";
 import * as trainingSheetComponents from "@/server/services/training-sheet-components";
+import * as skillChecklists from "@/server/services/skill-checklists";
 import * as trainingCleanup from "@/server/services/training-cleanup";
 import * as mobilePreferences from "@/server/services/mobile-preferences";
 import * as qualifications from "@/server/services/qualifications";
@@ -350,6 +351,12 @@ export async function handleApi(req: Request, path: string[]) {
     if (method === "GET" && match(path, "training-sheet-components")) {
       return jsonOk(await trainingSheetComponents.listTrainingSheetComponents(ctx, q.archived === "all"));
     }
+    if (method === "GET" && match(path, "skill-checklists")) return jsonOk(await skillChecklists.listSkillChecklists(ctx, q.archived === "all"));
+    if (method === "POST" && match(path, "skill-checklists")) return jsonOk(await skillChecklists.saveSkillChecklist(ctx, await readBody(req)), 201);
+    const skillChecklist = match(path, "skill-checklists/:id");
+    if (method === "PATCH" && skillChecklist) return jsonOk(await skillChecklists.saveSkillChecklist(ctx, await readBody(req), skillChecklist.id));
+    const archiveSkillChecklist = match(path, "skill-checklists/:id/archive");
+    if (method === "POST" && archiveSkillChecklist) return jsonOk(await skillChecklists.archiveSkillChecklist(ctx, archiveSkillChecklist.id));
     if (method === "POST" && match(path, "training-sheet-components")) {
       return jsonOk(await trainingSheetComponents.saveTrainingSheetComponent(ctx, await readBody(req)), 201);
     }

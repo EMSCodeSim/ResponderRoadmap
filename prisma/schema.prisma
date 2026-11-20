@@ -79,6 +79,7 @@ model Department {
   trainingClasses                 TrainingClass[]
   trainingSheetTemplates          TrainingSheetTemplate[]
   trainingSheetComponents         TrainingSheetComponentTemplate[]
+  skillChecklists                 SkillChecklist[]
   trainingExpectations            TrainingExpectation[]
   trainingSheetRequiredFieldsJson String                           @default("[\"TITLE\",\"DATE\",\"INSTRUCTOR\",\"CATEGORY\",\"HOURS\",\"ATTENDANCE\"]")
   agencyType                      String                           @default("FIRE_EMS")
@@ -197,6 +198,7 @@ model TaskBookVersion {
   assignments     TaskBookAssignment[]
   trainingClasses TrainingClass[]
   trainingStations TrainingClassStation[]
+  standaloneChecklist SkillChecklist? @relation("SkillChecklistBackingVersion")
 
   @@unique([templateId, version])
 }
@@ -441,6 +443,27 @@ model TrainingSheetComponentTemplate {
 
   @@unique([departmentId, kind, name])
   @@index([departmentId, kind, archived])
+}
+
+/// Department-owned reusable skills checklists, managed independently from Task Books.
+model SkillChecklist {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  title        String
+  description  String     @default("")
+  sectionsJson String     @default("[]")
+  status       String     @default("DRAFT")
+  revision     Int        @default(1)
+  archived     Boolean    @default(false)
+  backingVersionId String? @unique
+  backingVersion TaskBookVersion? @relation("SkillChecklistBackingVersion", fields: [backingVersionId], references: [id], onDelete: SetNull)
+  createdById  String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([departmentId, title])
+  @@index([departmentId, status, archived])
 }
 
 /// A scheduled class or skills-testing event using a published checklist.
