@@ -342,7 +342,6 @@ export async function createClass(
   const ceComponentData = ceComponent ? parseJsonObject(ceComponent.dataJson) : {};
   let templateCeCredits: Array<{ category: string; hours: number }> = [];
   try { templateCeCredits = template ? JSON.parse(template.ceCreditsJson || "[]") : []; } catch {}
-  const fireTemplateCredits = !ceComponent && template?.topic === "FIRE";
   const templateCategories = templateCeCredits.map((item) => String(item.category || "").trim()).filter(Boolean);
   const componentGroups = Array.isArray(ceComponentData.ceGroups) ? ceComponentData.ceGroups as Array<{ name?: string; categories?: string[] }> : [];
   const componentCategories = componentGroups.flatMap((group) => (group.categories || []).map((category) => `${String(group.name || "").trim()} — ${String(category).trim()}`.slice(0, 80)));
@@ -352,8 +351,6 @@ export async function createClass(
   const ceCredits = input.ceCredits === undefined
     ? normalizeCeCredits(creditSource, allowedCustomCategories)
     : normalizeCeCredits(input.ceCredits, allowedCustomCategories);
-  if (ceCredits.length && !ceComponent && !template && !fireTemplateCredits && trainingCategory !== "EMS") throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
-  if (ceCredits.length && fireTemplateCredits && trainingCategory === "EMS") throw new HttpError(400, "Fire training credits cannot use the EMS hours category.");
   const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
   const creditHours = allocatedHours > 0 ? allocatedHours : requestedCreditHours || template?.creditHours || 0;
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
