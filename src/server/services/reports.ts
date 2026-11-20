@@ -364,7 +364,7 @@ export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
           },
         },
       },
-      trainingStations: {
+      stations: {
         orderBy: { sortOrder: "asc" },
         include: {
           proctor: true,
@@ -738,8 +738,8 @@ export async function classTrainingSheetReport(ctx: AuthContext, classId: string
         instructions: requirement.instructions,
       })),
     }));
-  const stations = training.trainingStations.length
-    ? training.trainingStations.map((station) => ({
+  const stations = training.stations.length
+    ? training.stations.map((station) => ({
         id: station.id,
         title: station.title,
         proctor: station.proctor?.name || null,
