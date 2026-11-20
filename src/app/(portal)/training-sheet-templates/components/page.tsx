@@ -4,7 +4,6 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
-import { getPrebuiltTrainingSystem, PREBUILT_TRAINING_SYSTEMS, type PrebuiltTrainingSystemId } from "@/lib/training-systems";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select } from "@/components/ui";
 
 type GradeField = { id: string; label: string; type: string; required: boolean; appliesTo: "RESULT"; description?: string };
@@ -68,19 +67,6 @@ export default function TrainingComponentsPage() {
   const visible = rows.filter((row) => row.kind === kind);
   const addGrade = () => setCustomFields((items) => [...items, { id: `grade-${Date.now()}-${items.length}`, label: "", type: "PASS_FAIL", required: true, appliesTo: "RESULT" }]);
 
-  function chooseGradingPreset(presetId: PrebuiltTrainingSystemId) {
-    const preset = getPrebuiltTrainingSystem(presetId);
-    if (!preset) return;
-    setKind("GRADING");
-    setEditingId(null);
-    setName(preset.name);
-    setGradingConfig({ ...blankGrades, ...preset.gradingConfig });
-    setCustomFields(preset.customFields);
-    setShowGradingBuilder(true);
-    setMessage("Review the prebuilt training system, adjust the name or settings, then save it for reuse.");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
   function createCustomGradingSystem() {
     setKind("GRADING");
     setEditingId(null);
@@ -95,19 +81,9 @@ export default function TrainingComponentsPage() {
     <PageHeader kicker="Training templates" title="Reusable training components" description="Build reusable Training Sheet components here: CE categories, training systems, and skill checklists. Add them to new Training Sheets or class packages." actions={<Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold">Back to templates</Link>} />
     <Flash message={error} tone="danger" /><Flash message={message} tone="current" />
     <div className="mb-5 grid gap-3 md:grid-cols-3">
-      {([ ["GRADING", "Training systems", "Built-in and custom scoring options"], ["EMS_CE_LIST", "CE category", "Create grouped categories that match your department RMS"] ] as const).map(([value, title, description]) => <button type="button" key={value} onClick={() => { reset(); setKind(value); }} className={`min-h-24 rounded-xl border p-4 text-left ${kind === value ? "border-fire bg-fire text-white" : "border-navy-200 bg-white"}`}><span className="block font-bold">{title}</span><span className={`mt-1 block text-sm ${kind === value ? "text-white/80" : "text-navy-600"}`}>{description}</span></button>)}
+      {([ ["GRADING", "Training systems", "Create and manage department scoring options"], ["EMS_CE_LIST", "CE category", "Create grouped categories that match your department RMS"] ] as const).map(([value, title, description]) => <button type="button" key={value} onClick={() => { reset(); setKind(value); }} className={`min-h-24 rounded-xl border p-4 text-left ${kind === value ? "border-fire bg-fire text-white" : "border-navy-200 bg-white"}`}><span className="block font-bold">{title}</span><span className={`mt-1 block text-sm ${kind === value ? "text-white/80" : "text-navy-600"}`}>{description}</span></button>)}
       <Link href="/task-books/fast-start?returnTo=%2Ftraining-sheet-templates%2Fcomponents" className="min-h-24 rounded-xl border border-navy-200 bg-white p-4 text-left hover:bg-navy-50"><span className="block font-bold">Skill checklists</span><span className="mt-1 block text-sm text-navy-600">Create and publish a checklist for any Training Sheet.</span></Link>
     </div>
-    {kind === "GRADING" ? <Card className="mb-6 p-5">
-      <h2 className="text-lg font-bold">Prebuilt training systems</h2>
-      <p className="mt-1 text-sm text-navy-600">Choose a system to prefill a reusable component. You can rename it or adjust its settings before saving.</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {PREBUILT_TRAINING_SYSTEMS.map((preset) => <button type="button" key={preset.id} onClick={() => chooseGradingPreset(preset.id)} className="rounded-lg border border-navy-200 p-4 text-left hover:border-fire hover:bg-navy-50">
-          <span className="block font-semibold">{preset.name}</span><span className="mt-1 block text-sm text-navy-600">{preset.description}</span>
-        </button>)}
-      </div>
-      <Button type="button" className="mt-4" variant="secondary" onClick={createCustomGradingSystem}>Create custom training system</Button>
-    </Card> : null}
     {(kind === "EMS_CE_LIST" || showGradingBuilder) ? <Card className="mb-6 p-5">
       <h2 className="text-lg font-bold">{editingId ? "Edit saved component" : `Create ${kind === "GRADING" ? "training system" : "CE category set"}`}</h2>
       <form className="mt-4 space-y-4" onSubmit={(event) => void save(event)}>
@@ -128,7 +104,7 @@ export default function TrainingComponentsPage() {
         <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy}>{busy ? "Saving…" : editingId ? "Save changes" : "Save component"}</Button>{editingId ? <Button type="button" variant="secondary" onClick={reset}>Cancel</Button> : null}</div>
       </form>
     </Card> : null}
-    <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Saved {kind === "GRADING" ? "training systems" : "CE category sets"}</h2><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />Show archived</label></div>
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Saved {kind === "GRADING" ? "training systems" : "CE category sets"}</h2><div className="flex flex-wrap items-center gap-3">{kind === "GRADING" ? <Button type="button" variant="secondary" onClick={createCustomGradingSystem}>Create training system</Button> : null}<label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />Show archived</label></div></div>
     <div className="space-y-3">{visible.length ? visible.map((row) => <Card key={row.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold">{row.name}</h3><Badge tone="neutral">v{row.revision}</Badge>{row.archived ? <Badge tone="neutral">Archived</Badge> : null}</div><p className="mt-1 text-sm text-navy-600">{row.kind === "GRADING" ? [row.data.gradingConfig?.writtenTestEnabled ? "Written test" : "", row.data.gradingConfig?.ccfEnabled ? "CCF" : "", ...(row.data.customFields || []).map((field) => field.label)].filter(Boolean).join(" · ") || "No scores added" : (row.data.ceGroups || []).map((group) => `${group.name}: ${group.categories.join(", ")}`).join(" · ") || (row.data.ceCredits || []).map((item) => `${item.category} ${item.hours} hr`).join(" · ")}</p></div><div className="flex gap-2">{!row.archived ? <Button type="button" variant="secondary" onClick={() => edit(row)}>Edit</Button> : null}<Button type="button" variant="secondary" onClick={() => void archive(row)}>{row.archived ? "Restore" : "Archive"}</Button></div></div></Card>) : <Card className="p-5 text-sm text-navy-600">No saved components yet. Create one above and it will be available when instructors start a new training sheet.</Card>}</div>
     <Card className="mt-6 p-5"><h2 className="font-bold">Reusable skill checklists</h2><p className="mt-1 text-sm text-navy-600">Build and publish checklists here. Published checklists appear in the Training Sheet checklist picker and can be added to a saved class package.</p><div className="mt-4 flex flex-wrap gap-2"><Link className="inline-flex min-h-11 items-center rounded-md bg-fire px-4 py-2 text-sm font-semibold text-white" href="/task-books/fast-start?returnTo=%2Ftraining-sheet-templates%2Fcomponents">Create skill checklist</Link><Link className="inline-flex min-h-11 items-center rounded-md border border-navy-300 px-4 py-2 text-sm font-semibold" href="/task-books">Manage published checklists</Link></div></Card>
   </div>;
