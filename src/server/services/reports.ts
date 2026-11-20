@@ -356,28 +356,6 @@ export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
     include: {
       createdBy: true,
       proctors: { include: { user: true } },
-      checklistVersion: {
-        include: {
-          sections: {
-            orderBy: { sortOrder: "asc" },
-            include: { requirements: { orderBy: { sortOrder: "asc" } } },
-          },
-        },
-      },
-      stations: {
-        orderBy: { sortOrder: "asc" },
-        include: {
-          proctor: true,
-          checklistVersion: {
-            include: {
-              sections: {
-                orderBy: { sortOrder: "asc" },
-                include: { requirements: { orderBy: { sortOrder: "asc" } } },
-              },
-            },
-          },
-        },
-      },
       roster: {
         where: { attendance: "PRESENT", membershipId: { not: null } },
         include: { membership: { include: { user: true } } },
@@ -709,6 +687,28 @@ export async function classTrainingSheetReport(ctx: AuthContext, classId: string
       department: true,
       createdBy: true,
       proctors: { include: { user: true } },
+      checklistVersion: {
+        include: {
+          sections: {
+            orderBy: { sortOrder: "asc" },
+            include: { requirements: { orderBy: { sortOrder: "asc" } } },
+          },
+        },
+      },
+      stations: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          proctor: true,
+          checklistVersion: {
+            include: {
+              sections: {
+                orderBy: { sortOrder: "asc" },
+                include: { requirements: { orderBy: { sortOrder: "asc" } } },
+              },
+            },
+          },
+        },
+      },
       roster: {
         include: { membership: { include: { user: true } } },
         orderBy: { enrolledAt: "asc" },
