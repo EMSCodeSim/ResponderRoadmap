@@ -7,8 +7,25 @@ import { getPrebuiltTrainingSystem } from "@/lib/training-systems";
 import { HttpError, writeActivity, writeAudit } from "@/server/http";
 import { assertPermission, hasPermission, type AuthContext } from "@/server/permissions";
 import { approvedEvaluatorWhere, assertApprovedEvaluator } from "@/server/services/evaluators";
-import { calculateTrainingSheetFinalRe[jÇºã
-âµç«®ŠÁ®‰ž˜©{7VÇBÒg&öÒ$÷6W'fW"÷6W'f–6W2ö6Æ72×&W7VÇB#° ¦6öç7B$U5TÅEõdÅTU2ÒæWr6WB…²$äõEôUdÅTDTB"Â%52"Â$äTTE5õ$TÔTD”D”ôâ"Â$d”Â"Â$äõEôÄ”4$ÄR%Ò“°¦6öç7BEDTäDä4UõdÅTU2ÒæWr6WB…²%$Tt•5DU$TB"Â%$U4TåB"Â$%4TåB"Â$U„5U4TB%Ò“°¦6öç7B4Ä55õ5DEU5õdÅTU2ÒæWr6WB…²$E$eB"Â$5D•dR"Â$4ôÕÄUDR"Â$4ä4TÄÄTB%Ò“°¦6öç7B4Ä55õE•UõdÅTU2ÒæWr6WB…²$tTäU$Â"Â$d•$Uô4DTÕ’"Â$5""Â$TÕ2%Ò“°¦6öç7BTÕ5ô4Uôu$õU2ÒæWr6WB„ö&¦V7Bæ¶W—2„TÕ5ô4Uô4DTtõ$”U2’“° ¦gVæ7F–öâ6ä÷fW'&–FU7FF–öå&ö7F÷"†7Gƒ¢WF„6öçFW‡B’°¢&WGW&â7G‚ç&öÆRÓÓÒ%E$”ä”äuôôdd”4U""ÇÂ7G‚ç&öÆRÓÓÒ$DU%DÔTåEôDÔ”ä•5E$Dõ"#°§Ð ¦gVæ7F–öâæ÷&ÖÆ—¦T6T7&VF—G2‡fÇVS¢Væ¶æ÷vâÂÆÆ÷vVD7W7FöÔ6FVv÷&–W3¢&VFöæÇ•6WCÇ7G&–æsâÒæWr6WB‚’’°¢6öç7BVçG&–W2Ò'&’æ—4'&’‡fÇVR¢òfÇVP¢¢fÇVRbbG—VöbfÇVRÓÓÒ&ö&¦V7B ¢òö&¦V7BæVçG&–W2‡fÇVR2&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâ’æÖ‚…¶6FVv÷'’Â†÷W'5Ò’Óâ‡²6FVv÷'’Â†÷W'2Ò’¢¢µÓ°¢6öç7BF÷FÇ2ÒæWrÖÇ7G&–ævÚ±î¸Â¸­yêë¢°k¢G§¦*^, number>();
+import { calculateTrainingSheetFinalResult } from "@/server/services/class-result";
+
+const RESULT_VALUES = new Set(["NOT_EVALUATED", "PASS", "NEEDS_REMEDIATION", "FAIL", "NOT_APPLICABLE"]);
+const ATTENDANCE_VALUES = new Set(["REGISTERED", "PRESENT", "ABSENT", "EXCUSED"]);
+const CLASS_STATUS_VALUES = new Set(["DRAFT", "ACTIVE", "COMPLETE", "CANCELLED"]);
+const CLASS_TYPE_VALUES = new Set(["GENERAL", "FIRE_ACADEMY", "CPR", "EMS"]);
+const EMS_CE_GROUPS = new Set(Object.keys(EMS_CE_CATEGORIES));
+
+function canOverrideStationProctor(ctx: AuthContext) {
+  return ctx.role === "TRAINING_OFFICER" || ctx.role === "DEPARTMENT_ADMINISTRATOR";
+}
+
+function normalizeCeCredits(value: unknown, allowedCustomCategories: ReadonlySet<string> = new Set()) {
+  const entries = Array.isArray(value)
+    ? value
+    : value && typeof value === "object"
+      ? Object.entries(value as Record<string, unknown>).map(([category, hours]) => ({ category, hours }))
+      : [];
+  const totals = new Map<string, number>();
   for (const entry of entries) {
     const item = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
     const category = String(item.category || "").trim().slice(0, 80);
@@ -18,7 +35,23 @@ import { calculateTrainingSheetFinalRe[jÇºã
     if (hours > 0) totals.set(category, (totals.get(category) || 0) + hours);
   }
   const allocations = [...totals].map(([category, hours]) => ({ category, hours: Math.round(hours * 100) / 100 }));
-  if (allocations.reduce((sum, item) => sum + item.hours, 0) > 24) tm«ëŒ+Š×ž®º+º$zzb¥æ‡&÷ræWr‡GGW'&÷"ƒCÂ$7&VF—B6FVv÷'’ÆÆö6F–öç26ææ÷BW†6VVB#B†÷W'2W"G&–æ–ær6†VWBâ"“°¢&WGW&âÆÆö6F–öç3°§Ð ¦gVæ7F–öâ'6T§6öäö&¦V7B‡fÇVS¢7G&–ærÂçVÆÂÂVæFVf–æVB“¢&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâ°¢G'’²6öç7B'6VBÒ¥4ôâç'6R‡fÇVRÇÂ'·Ò"“²&WGW&â'6VBbbG—Vöb'6VBÓÓÒ&ö&¦V7B"ò'6VB2&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâ¢·Ó²Ò6F6‚²&WGW&â·Ó²Ð§Ð ¦gVæ7F–öâ6T7&VF—Dæ÷FR†ÆÆö6F–öç3¢'&“Ç¶6FVv÷'“¢7G&–æs¶†÷W'3¢çVÖ&W'Óâ’°¢&WGW&âÆÆö6F–öç2æÆVæwF€¢ò%E$”ä”är5$TD•B%$T´DõtåÆâ"²ÆÆö6F–öç2æÖ‚†—FVÒ’ÓâG¶—FVÒæ6FVv÷'—Ó¢G¶—FVÒæ†÷W'2çFôf—†VBƒ"—Ò†÷W'6’æ¦ö–â‚%Æâ"¢¢"#°§Ð¦6öç7BE$”ä”äuô4DTtõ%•õdÅTU2ÒæWr6WB…²$4ôÕå’"Â$d4”Ä•E’"Â$„¤ÔB"Â$E$•dU""Â$ôdd”4U""Â$TÕ2"Â$õD„U"%Ò“° ¦gVæ7F–öâ'6TFFR‡fÇVS¢Væ¶æ÷vâÂf–VÆC¢7G&–ærÂ&WV—&VBÒfÇ6R’°¢–b‡fÇVRÓÒçVÆÂÇÂÚ±î¸Â¸­yêë¢°k¢G§¦*^value === "") {
+  if (allocations.reduce((sum, item) => sum + item.hours, 0) > 24) throw new HttpError(400, "Credit category allocations cannot exceed 24 hours per training sheet.");
+  return allocations;
+}
+
+function parseJsonObject(value: string | null | undefined): Record<string, unknown> {
+  try { const parsed = JSON.parse(value || "{}"); return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {}; } catch { return {}; }
+}
+
+function ceCreditNote(allocations: Array<{category: string;hours: number}>) {
+  return allocations.length
+    ? "TRAINING CREDIT BREAKDOWN\n" + allocations.map((item) => `${item.category}: ${item.hours.toFixed(2)} hours`).join("\n")
+    : "";
+}
+const TRAINING_CATEGORY_VALUES = new Set(["COMPANY", "FACILITY", "HAZMAT", "DRIVER", "OFFICER", "EMS", "OTHER"]);
+
+function parseDate(value: unknown, field: string, required = false) {
+  if (value == null || value === "") {
     if (required) throw new HttpError(400, `${field} is required.`);
     return null;
   }
@@ -42,7 +75,20 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
     include: { proctors: { where: { userId: ctx.userId } }, stations: { where: { proctorUserId: ctx.userId }, select: { id: true } } },
   });
   if (!row) throw new HttpError(404, "Class not found.");
-  cm«ëŒ+Š×ž®º+º$zzb¥æöç7B76–væVE7FF–öç2Ò&÷rç7FF–öç2ÇÂµÓ°¢–b‚6åf–Wt6Æ75&V6÷&B†7G‚ç&öÆRÂ7G‚çW6W$–BÂ&÷ræ7&VFVD'”–BÂ²ââç&÷rç&ö7F÷'2æÖ‚†—FVÒ’Óâ—FVÒçW6W$–B’Ââââ†76–væVE7FF–öç2æÆVæwF‚ò¶7G‚çW6W$–EÒ¢µÒ•Ò’’°¢F‡&÷ræWr‡GGW'&÷"ƒC2Â%–÷R&Ræ÷B76–væVBFòF†—26Æ72â"“°¢Ð¢–b‡w&—FRbb&÷rç&ö7F÷'2æÆVæwF‚ÓÓÒbb&÷ræ7&VFVD'”–BÓÒ7G‚çW6W$–Bbb6ä÷fW'&–FU7FF–öå&ö7F÷"†7G‚’’°¢F‡&÷ræWr‡GGW'&÷"ƒC2Â%7FF–öâ&ö7F÷'26â7V&Ö—BF†V—"76–væVB6¶–ÆÂWfÇVF–öç2'WB6ææ÷BÖævRF†RgVÆÂG&–æ–ær6†VWBâ"“°¢Ð¢–b‡w&—FRbb†5W&Ö—76–öâ†7G‚ç&öÆRÂ&6Æ76W2çw&—FR"’bb&÷rç&ö7F÷'2æÆVæwF‚ÓÓÒbb76–væVE7FF–öç2æÆVæwF‚ÓÓÒ’°¢F‡&÷ræWr‡GGW'&÷"ƒC2Â%–÷R&Ræ÷B76–væVB2&ö7F÷"f÷"F†—26Æ72â"“°¢Ð¢&WGW&â&÷s°§Ð ¦gVæ7F–öâæ÷&ÖÆ—¦U&÷7FW$7W7FöÕfÇVW2‡&s¢Væ¶æ÷vâÂ&÷7FW$f–VÆG3¦Ú±î¸Â¸­yêë¢°k¢G§¦*^ RegistrationCustomField[]) {
+  const assignedStations = row.stations || [];
+  if (!canViewClassRecord(ctx.role, ctx.userId, row.createdById, [...row.proctors.map((item) => item.userId), ...(assignedStations.length ? [ctx.userId] : [])])) {
+    throw new HttpError(403, "You are not assigned to this class.");
+  }
+  if (write && row.proctors.length === 0 && row.createdById !== ctx.userId && !canOverrideStationProctor(ctx)) {
+    throw new HttpError(403, "Station proctors can submit their assigned skill evaluations but cannot manage the full Training Sheet.");
+  }
+  if (write && !hasPermission(ctx.role, "classes.write") && row.proctors.length === 0 && assignedStations.length === 0) {
+    throw new HttpError(403, "You are not assigned as a proctor for this class.");
+  }
+  return row;
+}
+
+function normalizeRosterCustomValues(raw: unknown, rosterFields: RegistrationCustomField[]) {
   const provided = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
   const values: Record<string, string | number | boolean | null> = {};
   for (const field of rosterFields) {
@@ -51,7 +97,17 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
     if ((value === "" || value === null || (field.type === "CHECKBOX" && value !== true && value !== "true")) && field.required) throw new HttpError(400, field.type === "CHECKBOX" ? `Confirm ${field.label}.` : `Enter ${field.label}.`);
     if (value === "" || value === null) { values[field.id] = null; continue; }
     if (field.type === "EMAIL") {
-      if (typeof value !== "string" || !/^[^m«ëŒ+Š×ž®º+º$zzb¥åÇ4Ò´µåÇ4ÒµÂåµåÇ4Ò²BòçFW7B‡fÇVR’’F‡&÷ræWr‡GGW'&÷"ƒCÂVçFW"fÆ–BG¶f–VÆBæÆ&VÂçFôÆ÷vW$66R‚—Òæ“°¢fÇVW5¶f–VÆBæ–EÒÒfÇVRçFôÆ÷vW$66R‚’ç6Æ–6RƒÂ#SB“°¢ÒVÇ6R–b†f–VÆBçG—RÓÓÒ%5DDR"’°¢–b‡G—VöbfÇVRÓÒ'7G&–ær"ÇÂU5õ5DDU2æ–æ6ÇVFW2‡fÇVRçFõWW$66R‚’2‡G—VöbU5õ5DDU2•¶çVÖ&W%Ò’’F‡&÷ræWr‡GGW'&÷"ƒCÂ6†ö÷6RfÆ–B7FFRf÷"G¶f–VÆBæÆ&VÇÒæ“°¢fÇVW5¶f–VÆBæ–EÒÒfÇVRçFõWW$66R‚“°¢ÒVÇ6R–b†f–VÆBçG—RÓÓÒ$Ä5CB"’°¢–b‡G—VöbfÇVRÓÒ'7G&–ær"ÇÂõåÆG³GÒBòçFW7B‡fÇVR’’F‡&÷ræWr‡GGW'&÷"ƒCÂG¶f–VÆBæÆ&VÇÒ×W7B6öçF–âW†7FÇ’f÷W"F–v—G2æ“°¢fÇVW5¶f–VÆBæ–EÒÒfÇVS°¢ÒVÇ6R–b†f–VÆBçG—RÓÓÒ$ÄUEDU%ôu$DR"’°¢6öç7Bw&FRÒ7G&–ær‡fÇVR’çG&–Ò‚’çFõWW$66R‚“°¢–b‚²$²"Â$"Â$Ò"Â$"²"Â$""Â$"Ò"Â$2²"Â$2"Â$2Ò"Â$B²"ÆÚ±î¸Â¸­yêë¢°k¢G§¦*^ "D", "D-", "F"].includes(grade)) throw new HttpError(400, `Choose a valid letter grade for ${field.label}.`);
+      if (typeof value !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new HttpError(400, `Enter a valid ${field.label.toLowerCase()}.`);
+      values[field.id] = value.toLowerCase().slice(0, 254);
+    } else if (field.type === "STATE") {
+      if (typeof value !== "string" || !US_STATES.includes(value.toUpperCase() as (typeof US_STATES)[number])) throw new HttpError(400, `Choose a valid state for ${field.label}.`);
+      values[field.id] = value.toUpperCase();
+    } else if (field.type === "LAST4") {
+      if (typeof value !== "string" || !/^\d{4}$/.test(value)) throw new HttpError(400, `${field.label} must contain exactly four digits.`);
+      values[field.id] = value;
+    } else if (field.type === "LETTER_GRADE") {
+      const grade = String(value).trim().toUpperCase();
+      if (!["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"].includes(grade)) throw new HttpError(400, `Choose a valid letter grade for ${field.label}.`);
       values[field.id] = grade;
     } else if (field.type === "SCORE_1_10") {
       const number = Number(value);
@@ -59,7 +115,40 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
       values[field.id] = number;
     } else if (field.type === "NUMBER" || field.type === "PERCENT") {
       const number = Number(value);
-      if (!Number.isFinite(number) || (field.type === "PERCENT" && (number < 0 || number > 100))) throw new HttpError(400, `EnvÚ±î¸Â¸­yêë¢°k¢G§¦*^FW"fÆ–BfÇVRf÷"G¶f–VÆBæÆ&VÇÒæ“°¢fÇVW5¶f–VÆBæ–EÒÒçVÖ&W#°¢ÒVÇ6R–b†f–VÆBçG—RÓÓÒ$4„T4´$õ‚"’fÇVW5¶f–VÆBæ–EÒÒfÇVRÓÓÒG'VRÇÂfÇVRÓÓÒ'G'VR#°¢VÇ6RfÇVW5¶f–VÆBæ–EÒÒ7G&–ær‡fÇVR’ç6Æ–6RƒÂS“°¢Ð¢&WGW&âfÇVW3°§Ð  ¦7–æ2gVæ7F–öâvWDGFVæFæ6TöæÇ•fW'6–öâ†7Gƒ¢WF„6öçFW‡B’°¢6öç7BW†—7F–ærÒv—B&—6ÖçF6´&ööµFV×ÆFRæf–æDf—'7B‡°¢v†W&S¢°¢FW'FÖVçD–C¢7G‚æFW'FÖVçD–BÀ¢FV×ÆFT¶–æC¢%E$”ä”äuõD4²"À¢6FVv÷'“¢%7—7FVÒGFVæFæ6R"À¢F—FÆS¢$GFVæFæ6RÖöæÇ’G&–æ–ær"À¢ÒÀ¢–æ6ÇVFS¢²fW'6–öç3¢²v†W&S¢²7FGW3¢%T$Ä•4„TB"ÒÂ÷&FW$'“¢²7&VFVDC¢&FW62"ÒÒÒÀ¢Ò“°¢–b†W†—7F–æsòçfW'6–öç5³Ò’&WGW&âW†—7F–ærçfW'6–öç5³Ó° ¢–b†W†—7F–ær’°¢&WGW&â&—6ÖçF6´&ööµfW'6–öâæ7&VFR‡°¢FF¢°¢FV×ÆFT–C¢W†—7F–æræ–BÀ¢fW'6–öã¢#ã"À¢7FGW3¢%T$Ä•4„TB"À¢V&Æ—6†VDC¢æWrFFR‚’À¢V&Æ—6†VD'”–C¢7G‚çW6W$–BÀ¢ÒÀ¢Ò“°¢Ð ¢6öç7B7&VFVBÒv—B&—6ÖçF6´&ööµFV×ÆFRæ7&VFR†Ú±î¸Â¸­yêë¢°k¢G§¦*^{
+      if (!Number.isFinite(number) || (field.type === "PERCENT" && (number < 0 || number > 100))) throw new HttpError(400, `Enter a valid value for ${field.label}.`);
+      values[field.id] = number;
+    } else if (field.type === "CHECKBOX") values[field.id] = value === true || value === "true";
+    else values[field.id] = String(value).slice(0, 500);
+  }
+  return values;
+}
+
+
+async function getAttendanceOnlyVersion(ctx: AuthContext) {
+  const existing = await prisma.taskBookTemplate.findFirst({
+    where: {
+      departmentId: ctx.departmentId,
+      templateKind: "TRAINING_TASK",
+      category: "System Attendance",
+      title: "Attendance-only training",
+    },
+    include: { versions: { where: { status: "PUBLISHED" }, orderBy: { createdAt: "desc" } } },
+  });
+  if (existing?.versions[0]) return existing.versions[0];
+
+  if (existing) {
+    return prisma.taskBookVersion.create({
+      data: {
+        templateId: existing.id,
+        version: "1.0",
+        status: "PUBLISHED",
+        publishedAt: new Date(),
+        publishedById: ctx.userId,
+      },
+    });
+  }
+
+  const created = await prisma.taskBookTemplate.create({
     data: {
       departmentId: ctx.departmentId,
       title: "Attendance-only training",
@@ -81,7 +170,22 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
     include: { versions: true },
   });
   const version = created.versions[0];
-  if (!version)&Ú±î¸Â¸­yêë¢°k¢G§¦*^F‡&÷ræWr‡GGW'&÷"ƒSÂ%Væ&ÆRFò–æ—F–Æ—¦RGFVæFæ6RG&–æ–ær&V6÷&Bâ"“°¢&WGW&âfW'6–öã°§Ð ¦W‡÷'B7–æ2gVæ7F–öâvWD6Æ756WGW†7Gƒ¢WF„6öçFW‡B’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2çw&—FR"“°¢6öç7B&WW6&ÆT6†V6¶Æ—7EfW'6–öç2Òv—B&—6Öç6¶–ÆÄ6†V6¶Æ—7Bæf–æDÖç’‡°¢v†W&S¢²FW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂ&6†—fVC¢fÇ6RÂ7FGW3¢%T$Ä•4„TB"Â&6¶–æufW'6–öä–C¢²æ÷C¢çVÆÂÒÒÀ¢6VÆV7C¢²&6¶–æufW'6–öä–C¢G'VRÒÀ¢Ò“°¢6öç7B6†V6¶Æ—7EfW'6–öä–G2Ò&WW6&ÆT6†V6¶Æ—7EfW'6–öç2æÖ‚†—FVÒ’Óâ—FVÒæ&6¶–æufW'6–öä–B’æf–ÇFW"‚†–B“¢–B—27G&–ærÓâ&ööÆVâ†–B’“°¢6öç7B·fW'6–öç2ÂÖVÖ&W'6†—2ÂFW'FÖVçEÒÒv—B&öÖ—6RæÆÂ…°¢&—6ÖçF6´&ööµfW'6–öâæf–æDÖç’‡°¢v†W&S¢²FV×ÆFS¢²FW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂFV×ÆFT¶–æC¢²æ÷C¢%E$”ä”äuõD4²"ÒÒÂ7FGW3¢%T$Ä•4„TB"Âõ#¢·²FV×ÆFS¢²FV×ÆFT¶–æC¢²æ÷C¢%4´”ÄÅô4„T4´Ä•5B"ÒÒÒÂ²–C¢²–ã¢6†V6¶Æ—7EfW'6–öä–G2ÒÕÒÒÀ¢–æ6ÇVFS¢²FV×ÆFS¢G'VRÂ6V7F–öç3¢²–æ6ÇVFS¢²&WV—&VÖVçG3¢G'VRÒÒÒÀ¢÷&FW$'“¢²V&Æ—6†VDC¢&FW62&Ú±î¸Â¸­yêë¢°k¢G§¦*^ },
+  if (!version) throw new HttpError(500, "Unable to initialize attendance training record.");
+  return version;
+}
+
+export async function getClassSetup(ctx: AuthContext) {
+  assertPermission(ctx, "classes.write");
+  const reusableChecklistVersions = await prisma.skillChecklist.findMany({
+    where: { departmentId: ctx.departmentId, archived: false, status: "PUBLISHED", backingVersionId: { not: null } },
+    select: { backingVersionId: true },
+  });
+  const checklistVersionIds = reusableChecklistVersions.map((item) => item.backingVersionId).filter((id): id is string => Boolean(id));
+  const [versions, memberships, department] = await Promise.all([
+    prisma.taskBookVersion.findMany({
+      where: { template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } }, status: "PUBLISHED", OR: [{ template: { templateKind: { not: "SKILL_CHECKLIST" } } }, { id: { in: checklistVersionIds } }] },
+      include: { template: true, sections: { include: { requirements: true } } },
+      orderBy: { publishedAt: "desc" },
     }),
     prisma.departmentMembership.findMany({
       where: { departmentId: ctx.departmentId, status: "ACTIVE" },
@@ -102,7 +206,26 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
       id: membership.id,
       userId: membership.userId,
       name: membership.user.name,
-      email:m«ëŒ+Š×ž®º+º$zzb¥âÖVÖ&W'6†—çW6W"æVÖ–ÂÀ¢&æ³¢ÖVÖ&W'6†—ç&æ²À¢&öÆS¢ÖVÖ&W'6†—ç&öÆRÀ¢Ò’’À¢&ö7F÷'3¢ÖVÖ&W'6†—0¢æf–ÇFW"‚†ÖVÖ&W'6†—’Óâ²$”å5E%T5Dõ""Â$UdÅTDõ""Â%E$”ä”äuôôdd”4U""Â$DU%DÔTåEôDÔ”ä•5E$Dõ"%Òæ–æ6ÇVFW2†ÖVÖ&W'6†—ç&öÆR’bbÖVÖ&W'6†—æWfÇVF÷%7FGW2ÓÒ%5U5TäDTB"¢æÖ‚†ÖVÖ&W'6†—’Óâ‡²W6W$–C¢ÖVÖ&W'6†—çW6W$–BÂæÖS¢ÖVÖ&W'6†—çW6W"ææÖRÂ&öÆS¢ÖVÖ&W'6†—ç&öÆRÒ’’À¢Ó°§Ð ¦W‡÷'B7–æ2gVæ7F–öâÆ—7D6Æ76W2†7Gƒ¢WF„6öçFW‡BÂf–ÇFW#¢²f–Wsó¢7G&–ærÒÒ·Ò’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2ç&VB"“°¢6öç7B&÷w2Òv—B&—6ÖçG&–æ–æt6Æ72æf–æDÖç’‡°¢v†W&S¢°¢FW'FÖVçD–C¢7G‚æFW'FÖVçD–BÀ¢ââæ6Æ74Æ—7E66÷R†7G‚ç&öÆRÂ7G‚çW6W$–BÂf–ÇFW"çf–Wr’À¢ÒÀ¢–æ6ÇVFS¢°¢6†V6¶Æ—7EfW'6–öã¢²–æ6ÇVFS¢²FV×ÆFS¢G'VRÒÒÀ¢&÷7FW#¢²6VÆV7C¢²–C¢G'VRÂf–æÚ±î¸Â¸­yêë¢°k¢G§¦*^alResult: true, attendance: true } },
+      email: membership.user.email,
+      rank: membership.rank,
+      role: membership.role,
+    })),
+    proctors: memberships
+      .filter((membership) => ["INSTRUCTOR", "EVALUATOR", "TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(membership.role) && membership.evaluatorStatus !== "SUSPENDED")
+      .map((membership) => ({ userId: membership.userId, name: membership.user.name, role: membership.role })),
+  };
+}
+
+export async function listClasses(ctx: AuthContext, filter: { view?: string } = {}) {
+  assertPermission(ctx, "classes.read");
+  const rows = await prisma.trainingClass.findMany({
+    where: {
+      departmentId: ctx.departmentId,
+      ...classListScope(ctx.role, ctx.userId, filter.view),
+    },
+    include: {
+      checklistVersion: { include: { template: true } },
+      roster: { select: { id: true, finalResult: true, attendance: true } },
       proctors: { include: { user: true } },
     },
     orderBy: { startsAt: "desc" },
@@ -124,7 +247,36 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
     rmsEnteredAt: row.rmsEnteredAt,
     rosterCount: row.roster.length,
     completeCount: row.roster.filter((item) => item.finalResult !== "PENDING").length,
-    proctors: row.proctorsm«ëŒ+Š×ž®º+º$zzb¥âæÖ‚†—FVÒ’Óâ—FVÒçW6W"ææÖR’À¢Ò’“°§Ð ¦W‡÷'B7–æ2gVæ7F–öâ7&VFT6Æ72€¢7Gƒ¢WF„6öçFW‡BÀ¢–çWC¢°¢F—FÆSó¢7G&–æs°¢6Æ75G—Só¢7G&–æs°¢6†V6¶Æ—7EfW'6–öä–Có¢7G&–æs°¢G&–æ–æt6FVv÷'“ó¢7G&–æs°¢7&VF—D†÷W'3ó¢çVÖ&W#°¢7F'G4Có¢7G&–æs°¢VæG4Có¢7G&–ærÂçVÆÃ°¢Æö6F–öãó¢7G&–æs°¢7FF–öãó¢7G&–æs°¢6†–gCó¢7G&–æs°¢æ÷FW3ó¢7G&–æs°¢ÖVÖ&W'6†—–G3ó¢7G&–æuµÓ°¢&ö7F÷%W6W$–G3ó¢7G&–æuµÓ°¢6VÆe&Vv—7G&F–öãó¢&ööÆVã°¢G&–æ–æu6†VWEFV×ÆFT–Có¢7G&–æs°¢w&F–æt6ö×öæVçD–Có¢7G&–æs°¢6T6ö×öæVçD–Có¢7G&–æs°¢6T7&VF—G3ó¢'&“Ç²6FVv÷'“¢7G&–æs²†÷W'3¢çVÖ&W"Óã°¢7FF–öç3ó¢'&“Ç²6†V6¶Æ—7EfW'6–öä–Có¢7G&–æs²F—FÆSó¢7G&–æs²&ö7F÷%W6W$–Có¢7G&–ærÓã°¢ÒÀ¢’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2çw&—FR"“°¢6öç7BF—FÆRÒ–çWBçF—FÆSòçG&–Ò‚’ç6Æ–6RƒÂƒ–Ú±î¸Â¸­yêë¢°k¢G§¦*^ || "";
+    proctors: row.proctors.map((item) => item.user.name),
+  }));
+}
+
+export async function createClass(
+  ctx: AuthContext,
+  input: {
+    title?: string;
+    classType?: string;
+    checklistVersionId?: string;
+    trainingCategory?: string;
+    creditHours?: number;
+    startsAt?: string;
+    endsAt?: string | null;
+    location?: string;
+    station?: string;
+    shift?: string;
+    notes?: string;
+    membershipIds?: string[];
+    proctorUserIds?: string[];
+    selfRegistration?: boolean;
+    trainingSheetTemplateId?: string;
+    gradingComponentId?: string;
+    ceComponentId?: string;
+    ceCredits?: Array<{ category: string; hours: number }>;
+    stations?: Array<{ checklistVersionId?: string; title?: string; proctorUserId?: string }>;
+  },
+) {
+  assertPermission(ctx, "classes.write");
+  const title = input.title?.trim().slice(0, 180) || "";
   if (!title) throw new HttpError(400, "Class title is required.");
   const classType = input.classType?.trim().toUpperCase() || "GENERAL";
   if (!CLASS_TYPE_VALUES.has(classType)) throw new HttpError(400, "Invalid class type.");
@@ -134,7 +286,19 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
   if (!Number.isFinite(requestedCreditHours) || requestedCreditHours < 0 || requestedCreditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
   const selectedVersion = input.checklistVersionId
     ? await prisma.taskBookVersion.findFirst({
-        where: { id: input.checklistVersionId, status: "PUm«ëŒ+Š×ž®º+º$zzb¥ä$Ä•4„TB"ÂFV×ÆFS¢²FW'FÖVçD–C¢7G‚æFW'FÖVçD–BÒÒÀ¢Ò¢¢çVÆÃ°¢–b†–çWBæ6†V6¶Æ—7EfW'6–öä–Bbb6VÆV7FVEfW'6–öâ’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%V&Æ—6†VB6†V6¶Æ—7Bæ÷Bf÷VæBâ"“°¢6öç7BfW'6–öâÒ6VÆV7FVEfW'6–öâÇÂv—BvWDGFVæFæ6TöæÇ•fW'6–öâ†7G‚“°¢6öç7BÖVÖ&W$–G2Ò²ââææWr6WB†–çWBæÖVÖ&W'6†—–G2ÇÂµÒ•Ó°¢6öç7B&ö7F÷$–G2Ò²ââææWr6WB†–çWBç&ö7F÷%W6W$–G2ÇÂµÒ•Ó°¢–b†ÖVÖ&W$–G2æÆVæwF‚ÓÓÒbb–çWBç6VÆe&Vv—7G&F–öâÓÒG'VR’F‡&÷ræWr‡GGW'&÷"ƒCÂ$FBBÆV7BöæR7GVFVçB÷"Væ&ÆR"6VÆb×&Vv—7G&F–öââ"“°¢–b‡&ö7F÷$–G2æÆVæwF‚ÓÓÒ’F‡&÷ræWr‡GGW'&÷"ƒCÂ$76–vâBÆV7BöæR&ö7F÷"â"“°¢6öç7BfÆ–DÖVÖ&W'2Òv—B&—6ÖæFW'FÖVçDÖVÖ&W'6†—æf–æDÖç’‡°¢v†W&S¢²–C¢²–ã¢ÖVÖ&W$–G2ÒÂFW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂ7FGW3¢$5D•dR"ÒÀ¢Ò“°¢6öç7BfÆ–E&ö7F÷'2Òv—B&—6Ú±î¸Â¸­yêë¢°k¢G§¦*^ma.departmentMembership.findMany({
+        where: { id: input.checklistVersionId, status: "PUBLISHED", template: { departmentId: ctx.departmentId } },
+      })
+    : null;
+  if (input.checklistVersionId && !selectedVersion) throw new HttpError(404, "Published checklist not found.");
+  const version = selectedVersion || await getAttendanceOnlyVersion(ctx);
+  const memberIds = [...new Set(input.membershipIds || [])];
+  const proctorIds = [...new Set(input.proctorUserIds || [])];
+  if (memberIds.length === 0 && input.selfRegistration !== true) throw new HttpError(400, "Add at least one student or enable QR self-registration.");
+  if (proctorIds.length === 0) throw new HttpError(400, "Assign at least one proctor.");
+  const validMembers = await prisma.departmentMembership.findMany({
+    where: { id: { in: memberIds }, departmentId: ctx.departmentId, status: "ACTIVE" },
+  });
+  const validProctors = await prisma.departmentMembership.findMany({
     where: {
       ...approvedEvaluatorWhere(ctx.departmentId),
       userId: { in: proctorIds },
@@ -148,7 +312,14 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
     title: String(station.title || "").trim().slice(0, 160),
     proctorUserId: String(station.proctorUserId || "").trim(),
   }));
-  if (normalizedStations.length > 20) throw new HttpError(400, "A Training Sheet can have up to 20 statiom«ëŒ+Š×ž®º+º$zzb¥æç2â"“°¢–b†æWr6WB†æ÷&ÖÆ—¦VE7FF–öç2æÖ‚‡7FF–öâ’Óâ7FF–öâæ6†V6¶Æ—7EfW'6–öä–B’’ç6—¦RÓÒæ÷&ÖÆ—¦VE7FF–öç2æÆVæwF‚’F‡&÷ræWr‡GGW'&÷"ƒCÂ$6†V6¶Æ—7B6âöæÇ’&R76–væVBFòöæR7FF–öâW"G&–æ–ær6†VWBâ"“°¢–b†æ÷&ÖÆ—¦VE7FF–öç2ç6öÖR‚‡7FF–öâ’Óâ7FF–öâæ6†V6¶Æ—7EfW'6–öä–BÇÂ7FF–öâçF—FÆRÇÂ7FF–öâç&ö7F÷%W6W$–B’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$V6‚7FF–öâæVVG26†V6¶Æ—7BÂ7FF–öâæÖRÂæBâWF†÷&—¦VB&ö7F÷"â"“°¢–b†æ÷&ÖÆ—¦VE7FF–öç2æÆVæwF‚’°¢6öç7B7FF–öä6†V6¶Æ—7D–G2Ò²ââææWr6WB†æ÷&ÖÆ—¦VE7FF–öç2æÖ‚‡7FF–öâ’Óâ7FF–öâæ6†V6¶Æ—7EfW'6–öä–B’•Ó°¢6öç7B7FF–öå&ö7F÷$–G2Ò²ââææWr6WB†æ÷&ÖÆ—¦VE7FF–öç2æÖ‚‡7FF–öâ’Óâ7FF–öâç&ö7F÷%W6W$–B’•Ó°¢6öç7B·fÆ–EfW'6–öç2ÂfÆ–E7FF–öå&ö7F÷'5ÒÒv—B&öÖ—6RæÆÂ…°¢&—6ÖçF6´&ööµfW'6–öâæf–æDÖç’‡²v†W&S¢²–C¢²–ã¢7FF–öÚ±î¸Â¸­yêë¢°k¢G§¦*^nChecklistIds }, status: "PUBLISHED", template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } } }, select: { id: true } }),
+  if (normalizedStations.length > 20) throw new HttpError(400, "A Training Sheet can have up to 20 stations.");
+  if (new Set(normalizedStations.map((station) => station.checklistVersionId)).size !== normalizedStations.length) throw new HttpError(400, "A checklist can only be assigned to one station per Training Sheet.");
+  if (normalizedStations.some((station) => !station.checklistVersionId || !station.title || !station.proctorUserId)) throw new HttpError(400, "Each station needs a checklist, a station name, and an authorized proctor.");
+  if (normalizedStations.length) {
+    const stationChecklistIds = [...new Set(normalizedStations.map((station) => station.checklistVersionId))];
+    const stationProctorIds = [...new Set(normalizedStations.map((station) => station.proctorUserId))];
+    const [validVersions, validStationProctors] = await Promise.all([
+      prisma.taskBookVersion.findMany({ where: { id: { in: stationChecklistIds }, status: "PUBLISHED", template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } } }, select: { id: true } }),
       prisma.departmentMembership.findMany({ where: { ...approvedEvaluatorWhere(ctx.departmentId), userId: { in: stationProctorIds } }, select: { userId: true } }),
     ]);
     if (validVersions.length !== stationChecklistIds.length) throw new HttpError(400, "One or more station checklists are not published by this department.");
@@ -156,7 +327,9 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
   }
   // Department RMS fields are verified at instructor closeout, not at class creation.
   // Instructors must be able to start a training sheet before teaching has finished.
-  const stm«ëŒ+Š×ž®º+º$zzb¥æ'G4BÒ'6TFFR†–çWBç7F'G4BÂ%7F'BFFR"ÂG'VR’°¢6öç7BVæG4BÒ'6TFFR†–çWBæVæG4BÂ$VæBFFR"“°¢–b†VæG4BbbVæG4B¶¬{®0®+^zºè¬è‘ééŠ—¼ startsAt) throw new HttpError(400, "End date cannot be before the start date.");
+  const startsAt = parseDate(input.startsAt, "Start date", true)!;
+  const endsAt = parseDate(input.endsAt, "End date");
+  if (endsAt && endsAt < startsAt) throw new HttpError(400, "End date cannot be before the start date.");
 
   const template = input.trainingSheetTemplateId ? await prisma.trainingSheetTemplate.findFirst({ where: { id: input.trainingSheetTemplateId, departmentId: ctx.departmentId, archived: false } }) : null;
   if (input.trainingSheetTemplateId && !template) throw new HttpError(404, "Training sheet template not found.");
@@ -170,13 +343,31 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
   let templateCeCredits: Array<{ category: string; hours: number }> = [];
   try { templateCeCredits = template ? JSON.parse(template.ceCreditsJson || "[]") : []; } catch {}
   const fireTemplateCredits = !ceComponent && template?.topic === "FIRE";
-  const templateCategories = templateCeCredits.map((item) => String(item.category || "").trim()).filter(Bom«ëŒ+Š×ž®º+º$zzb¥æöÆVâ“°¢6öç7B6ö×öæVçDw&÷W2Ò'&’æ—4'&’†6T6ö×öæVçDFFæ6Tw&÷W2’ò6T6ö×öæVçDFFæ6Tw&÷W22'&“Ç²æÖSó¢7G&–æs²6FVv÷&–W3ó¢7G&–æuµÒÓâ¢µÓ°¢6öç7B6ö×öæVçD6FVv÷&–W2Ò6ö×öæVçDw&÷W2æfÆDÖ‚†w&÷W’Óâ†w&÷Wæ6FVv÷&–W2ÇÂµÒ’æÖ‚†6FVv÷'’’ÓâGµ7G&–ær†w&÷WææÖRÇÂ""’çG&–Ò‚—Ò(	BGµ7G&–ær†6FVv÷'’’çG&–Ò‚—Öç6Æ–6RƒÂƒ’’“°¢6öç7BÆVv7”6ö×öæVçD6FVv÷&–W2Ò'&’æ—4'&’†6T6ö×öæVçDFFæ6T7&VF—G2’ò†6T6ö×öæVçDFFæ6T7&VF—G22'&“Ç²6FVv÷'“ó¢7G&–ærÓâ’æfÆDÖ‚†—FVÒ’Óâ²6öç7B6FVv÷'’Ò7G&–ær†—FVÒæ6FVv÷'’ÇÂ""’çG&–Ò‚“²&WGW&â¶6FVv÷'’ÂTÕ2(	BG¶6FVv÷'—Öç6Æ–6RƒÂƒ•Ó²Ò’¢µÓ°¢6öç7BÆÆ÷vVD7W7FöÔ6FVv÷&–W2ÒæWr6WB…²âââ†6T6ö×öæVçBò²ââæ6ö×öæVçD6FVv÷&–W2ÂââæÆVv7”6ö×öæVçD6FVv÷&–W5Ò¢µÒ’ÂââçFV×ÆFT6FVv÷&–W5Ò“°¢6öç7B7&VF—E6÷W&6RÒ6T6ö×öæVçDFFæ6T7&VF—G2óöÚ±î¸Â¸­yêë¢°k¢G§¦*^ templateCeCredits;
+  const templateCategories = templateCeCredits.map((item) => String(item.category || "").trim()).filter(Boolean);
+  const componentGroups = Array.isArray(ceComponentData.ceGroups) ? ceComponentData.ceGroups as Array<{ name?: string; categories?: string[] }> : [];
+  const componentCategories = componentGroups.flatMap((group) => (group.categories || []).map((category) => `${String(group.name || "").trim()} â€” ${String(category).trim()}`.slice(0, 80)));
+  const legacyComponentCategories = Array.isArray(ceComponentData.ceCredits) ? (ceComponentData.ceCredits as Array<{ category?: string }>).flatMap((item) => { const category = String(item.category || "").trim(); return [category, `EMS â€” ${category}`.slice(0, 80)]; }) : [];
+  const allowedCustomCategories = new Set([...(ceComponent ? [...componentCategories, ...legacyComponentCategories] : []), ...templateCategories]);
+  const creditSource = ceComponentData.ceCredits ?? templateCeCredits;
   const ceCredits = input.ceCredits === undefined
     ? normalizeCeCredits(creditSource, allowedCustomCategories)
     : normalizeCeCredits(input.ceCredits, allowedCustomCategories);
   if (ceCredits.length && !ceComponent && !template && !fireTemplateCredits && trainingCategory !== "EMS") throw new HttpError(400, "EMS CE allocations require the EMS training-hours category.");
   if (ceCredits.length && fireTemplateCredits && trainingCategory === "EMS") throw new HttpError(400, "Fire training credits cannot use the EMS hours category.");
-  const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 1¶¬{®0®+^zºè¬è‘ééŠ—‚“°¢6öç7B7&VF—D†÷W'2ÒÆÆö6FVD†÷W'2âòÆÆö6FVD†÷W'2¢&WVW7FVD7&VF—D†÷W'2ÇÂFV×ÆFSòæ7&VF—D†÷W'2ÇÂ°¢–b‚çVÖ&W"æ—4f–æ—FR†7&VF—D†÷W'2’ÇÂ7&VF—D†÷W'2ÂÇÂ7&VF—D†÷W'2â#B’F‡&÷ræWr‡GGW'&÷"ƒCÂ$7&VF—B†÷W'2×W7B&R&WGvVVâæB#Bâ"“°¢6öç7Bw&F–æt6ö×öæVçDFFÒw&F–æt6ö×öæVçBò'6T§6öäö&¦V7B†w&F–æt6ö×öæVçBæFF§6öâ’¢·Ó°¢6öç7Bw&F–æt6öæf–rÒw&F–æt6ö×öæVç@¢ò'6T§6öäö&¦V7B„¥4ôâç7G&–æv–g’†w&F–æt6ö×öæVçDFFæw&F–æt6öæf–rÇÂ·Ò’¢¢'6T§6öäö&¦V7B‡FV×ÆFSòæw&F–æt6öæf–t§6öâ“°¢6öç7B7W7FöÔf–VÆG4§6öâÒw&F–æt6ö×öæVçBbb'&’æ—4'&’†w&F–æt6ö×öæVçDFFæ7W7FöÔf–VÆG2¢ò¥4ôâç7G&–æv–g’†w&F–æt6ö×öæVçDFFæ7W7FöÔf–VÆG2¢¢FV×ÆFSòæ7W7FöÔf–VÆG4§6öâÇÂ%µÒ#°¢6öç7B7WÆ–VDæ÷FW2Ò–çWBææ÷FW3òçG&–Ò‚’ç6Æ–6RƒÂ3c’ÇÂ"#°¢6öç7B7&VF—Dæ÷FRÒ6T7&VF—Dæ÷FR†6T7&VF—G2“°¢6öç7Bæ÷FW2Ò7&VF—Dæ÷FRbb7WÆ–VDæ÷FW2æ–æ6ÇVFW2‚%E$”ä”är5$TD•B%$T´Dõtâ"’bb7WÆ–VDæ÷FW2æ–æ6ÇVFW2‚$TÕ24R5$TD•B%$T´Dõtâ"¢ò·7WÆ–VDæ÷FW2Â7&VF—Dæ÷FUÒæf–ÇFVÚ±î¸Â¸­yêë¢°k¢G§¦*^r(Boolean).join("\n\n").slice(0, 4000)
+  const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
+  const creditHours = allocatedHours > 0 ? allocatedHours : requestedCreditHours || template?.creditHours || 0;
+  if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) throw new HttpError(400, "Credit hours must be between 0 and 24.");
+  const gradingComponentData = gradingComponent ? parseJsonObject(gradingComponent.dataJson) : {};
+  const gradingConfig = gradingComponent
+    ? parseJsonObject(JSON.stringify(gradingComponentData.gradingConfig || {}))
+    : parseJsonObject(template?.gradingConfigJson);
+  const customFieldsJson = gradingComponent && Array.isArray(gradingComponentData.customFields)
+    ? JSON.stringify(gradingComponentData.customFields)
+    : template?.customFieldsJson || "[]";
+  const suppliedNotes = input.notes?.trim().slice(0, 3600) || "";
+  const creditNote = ceCreditNote(ceCredits);
+  const notes = creditNote && !suppliedNotes.includes("TRAINING CREDIT BREAKDOWN") && !suppliedNotes.includes("EMS CE CREDIT BREAKDOWN")
+    ? [suppliedNotes, creditNote].filter(Boolean).join("\n\n").slice(0, 4000)
     : suppliedNotes;
   const created = await prisma.trainingClass.create({
     data: {
@@ -197,7 +388,26 @@ async function canAccessClass(ctx: AuthContext, classId: string, write = false) 
       shift: input.shift?.trim().slice(0, 40) || "",
       notes,
       registrationToken: input.selfRegistration ? randomBytes(32).toString("hex") : null,
-      registrationEnabled: input.selfRegistrationm«ëŒ+Š×ž®º+º$zzb¥âÓÓÒG'VRÀ¢7W7FöÔf–VÆG4§6öâÀ¢7&VFVD'”–C¢7G‚çW6W$–BÀ¢&÷7FW#¢²7&VFS¢ÖVÖ&W$–G2æÖ‚†ÖVÖ&W'6†—–B’Óâ‡²ÖVÖ&W'6†—–BÒ’’ÒÀ¢&ö7F÷'3¢²7&VFS¢&ö7F÷$–G2æÖ‚‡W6W$–B’Óâ‡²W6W$–BÒ’’ÒÀ¢7FF–öç3¢²7&VFS¢æ÷&ÖÆ—¦VE7FF–öç2æÖ‚‡7FF–öâÂ6÷'D÷&FW"’Óâ‡²ââç7FF–öâÂ6÷'D÷&FW"Ò’’ÒÀ¢ÒÀ¢Ò“°¢v—Bw&—FTVF—B†7G‚Â&6Æ72æ7&VFVB"Â%G&–æ–æt6Æ72"Â7&VFVBæ–BÂ°¢F—FÆRÀ¢&÷7FW$6÷VçC¢ÖVÖ&W$–G2æÆVæwF‚À¢&ö7F÷$6÷VçC¢&ö7F÷$–G2æÆVæwF‚À¢6†V6¶Æ—7EfW'6–öä–C¢fW'6–öâæ–BÀ¢7FF–öç3¢æ÷&ÖÆ—¦VE7FF–öç2æÖ‚‡7FF–öâ’Óâ‡²6†V6¶Æ—7EfW'6–öä–C¢7FF–öâæ6†V6¶Æ—7EfW'6–öä–BÂF—FÆS¢7FF–öâçF—FÆRÂ&ö7F÷%W6W$–C¢7FF–öâç&ö7F÷%W6W$–BÒ’’À¢G&–æ–æt6FVv÷'’À¢7&VF—D†÷W'2À¢6T7&VF—G2À¢Ò“°¢v—Bw&—FT7F—f—G’†7G‚æFW'FÖVçD–BÂ$4Ä55ô5$TDTB"Â°¢W6W$–C¢7G‚çVÚ±î¸Â¸­yêë¢°k¢G§¦*^serId,
+      registrationEnabled: input.selfRegistration === true,
+      customFieldsJson,
+      createdById: ctx.userId,
+      roster: { create: memberIds.map((membershipId) => ({ membershipId })) },
+      proctors: { create: proctorIds.map((userId) => ({ userId })) },
+      stations: { create: normalizedStations.map((station, sortOrder) => ({ ...station, sortOrder })) },
+    },
+  });
+  await writeAudit(ctx, "class.created", "TrainingClass", created.id, {
+    title,
+    rosterCount: memberIds.length,
+    proctorCount: proctorIds.length,
+    checklistVersionId: version.id,
+    stations: normalizedStations.map((station) => ({ checklistVersionId: station.checklistVersionId, title: station.title, proctorUserId: station.proctorUserId })),
+    trainingCategory,
+    creditHours,
+    ceCredits,
+  });
+  await writeActivity(ctx.departmentId, "CLASS_CREATED", {
+    userId: ctx.userId,
     referenceId: created.id,
     metadata: { actorName: ctx.name, title, rosterCount: memberIds.length },
   });
@@ -211,7 +421,22 @@ export async function importClassRoster(ctx: AuthContext, classId: string, rawId
   if (!["DRAFT", "ACTIVE"].includes(row.status)) throw new HttpError(409, "A closed class cannot accept roster imports.");
   if (!Array.isArray(rawIds) || rawIds.length === 0 || rawIds.length > 200 || rawIds.some((id) => typeof id !== "string"))
     throw new HttpError(400, "Select between 1 and 200 existing department members.");
-  const membershipIds = [...new Set(rawIds am«ëŒ+Š×ž®º+º$zzb¥ç27G&–æuµÒ•Ó°¢6öç7BfÆ–BÒv—B&—6ÖæFW'FÖVçDÖVÖ&W'6†—æf–æDÖç’‡°¢v†W&S¢²–C¢²–ã¢ÖVÖ&W'6†—–G2ÒÂFW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂ7FGW3¢$5D•dR"ÒÀ¢6VÆV7C¢²–C¢G'VRÒÀ¢Ò“°¢–b‡fÆ–BæÆVæwF‚ÓÒÖVÖ&W'6†—–G2æÆVæwF‚’F‡&÷ræWr‡GGW'&÷"ƒCÂ%&÷7FW"6öçF–ç2â–çfÆ–B÷"–æ7F—fRFW'FÖVçBÖVÖ&W"â"“°¢6öç7B&W7VÇBÒv—B&—6ÖçG&–æ–æt6Æ74Vç&öÆÆÖVçBæ7&VFTÖç’‡°¢FF¢ÖVÖ&W'6†—–G2æÖ‚†ÖVÖ&W'6†—–B’Óâ‡²6Æ74–BÂÖVÖ&W'6†—–BÒ’’À¢6¶—GWÆ–6FW3¢G'VRÀ¢Ò“°¢v—Bw&—FTVF—B†7G‚Â&6Æ72ç&÷7FW"æ–×÷'FVB"Â%G&–æ–æt6Æ72"Â6Æ74–BÂ²FFVC¢&W7VÇBæ6÷VçBÂ&WVW7FVC¢ÖVÖ&W'6†—–G2æÆVæwF‚Ò“°¢&WGW&â²FFVC¢&W7VÇBæ6÷VçBÂÇ&VG”Vç&öÆÆVC¢ÖVÖ&W'6†—–G2æÆVæwF‚Ò&W7VÇBæ6÷VçBÂ6Æ74–BÓ°§Ð ¢ò¢¢–ç7G'V7F÷"ÖVçFW&VBwVW7G2æWfW"&V6öÖRfW&–f–VBFW'FÖVçBÖVÖ&W'2â¢ð¦W‡÷'B7–Ú±î¸Â¸­yêë¢°k¢G§¦*^nc function addManualGuestToClass(ctx: AuthContext, classId: string, input: Record<string, unknown>) {
+  const membershipIds = [...new Set(rawIds as string[])];
+  const valid = await prisma.departmentMembership.findMany({
+    where: { id: { in: membershipIds }, departmentId: ctx.departmentId, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (valid.length !== membershipIds.length) throw new HttpError(400, "Roster contains an invalid or inactive department member.");
+  const result = await prisma.trainingClassEnrollment.createMany({
+    data: membershipIds.map((membershipId) => ({ classId, membershipId })),
+    skipDuplicates: true,
+  });
+  await writeAudit(ctx, "class.roster.imported", "TrainingClass", classId, { added: result.count, requested: membershipIds.length });
+  return { added: result.count, alreadyEnrolled: membershipIds.length - result.count, classId };
+}
+
+/** Instructor-entered guests never become verified department members. */
+export async function addManualGuestToClass(ctx: AuthContext, classId: string, input: Record<string, unknown>) {
   assertPermission(ctx, "classes.write");
   const row = await canAccessClass(ctx, classId, true);
   if (!["DRAFT", "ACTIVE"].includes(row.status)) throw new HttpError(409, "Closed training cannot accept students.");
@@ -220,7 +445,20 @@ export async function importClassRoster(ctx: AuthContext, classId: string, rawId
   const organization = String(input.organization || "").trim().slice(0, 180);
   const attendance = String(input.attendance || "REGISTERED").trim().toUpperCase();
   if (!ATTENDANCE_VALUES.has(attendance)) throw new HttpError(400, "Choose a valid guest attendance status.");
-  const templateFields = JSON.parse(row.customFieldsJson || "[]") as RegistrationCustomField[m«ëŒ+Š×ž®º+º$zzb¥åÓ°¢6öç7B&÷7FW$f–VÆG2ÒFV×ÆFTf–VÆG2æf–ÇFW"‚†f–VÆB’Óâf–VÆBæÆ–W5FòÓÓÒ%$õ5DU""“°¢6öç7B7W7FöÕfÇVW2Òæ÷&ÖÆ—¦U&÷7FW$7W7FöÕfÇVW2†–çWBæ7W7FöÕfÇVW2Â&÷7FW$f–VÆG2“°¢–b†æÖRæÆVæwF‚Â"’F‡&÷ræWr‡GGW'&÷"ƒCÂ$VçFW"F†R7GVFVçBw2æÖRâ"“°¢–b†VÖ–ÂbbõåµåÇ4Ò´µåÇ4ÒµÂåµåÇ4Ò²BòçFW7B†VÖ–Â’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$VçFW"fÆ–B7GVFVçBVÖ–Ââ"“°¢–b†VÖ–Â’°¢6öç7BW†—7F–ærÒv—B&—6ÖçG&–æ–æt6Æ74Vç&öÆÆÖVçBæf–æDf—'7B‡°¢v†W&S¢²6Æ74–BÂõ#¢·²wVW7DVÖ–Ã¢VÖ–ÂÒÂ²ÖVÖ&W'6†—¢²W6W#¢²VÖ–ÂÒÒÕÒÒÀ¢6VÆV7C¢²–C¢G'VRÒÀ¢Ò“°¢–b†W†—7F–ær’F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—2VÖ–Â—2Ç&VG’öâF†R6Æ72&÷7FW"â"“°¢ÒVÇ6R°¢6öç7BW†—7F–ætwVW7BÒv—B&—6ÖçG&–æ–æt6Æ74Vç&öÆÆÖVçBæf–æDf—'7B‡°¢v†W&S¢²6Æ74–BÂwVW7DVÖ–Ã¢çVÆÂÂwVW7DæÖS¢²WVÇ3¢æÖÚ±î¸Â¸­yêë¢°k¢G§¦*^e, mode: "insensitive" }, guestOrganization: { equals: organization, mode: "insensitive" } },
+  const templateFields = JSON.parse(row.customFieldsJson || "[]") as RegistrationCustomField[];
+  const rosterFields = templateFields.filter((field) => field.appliesTo === "ROSTER");
+  const customValues = normalizeRosterCustomValues(input.customValues, rosterFields);
+  if (name.length < 2) throw new HttpError(400, "Enter the student's name.");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "Enter a valid student email.");
+  if (email) {
+    const existing = await prisma.trainingClassEnrollment.findFirst({
+      where: { classId, OR: [{ guestEmail: email }, { membership: { user: { email } } }] },
+      select: { id: true },
+    });
+    if (existing) throw new HttpError(409, "This email is already on the class roster.");
+  } else {
+    const existingGuest = await prisma.trainingClassEnrollment.findFirst({
+      where: { classId, guestEmail: null, guestName: { equals: name, mode: "insensitive" }, guestOrganization: { equals: organization, mode: "insensitive" } },
       select: { id: true },
     });
     if (existingGuest) throw new HttpError(409, "This guest name and agency are already on the class roster.");
@@ -232,7 +470,27 @@ export async function importClassRoster(ctx: AuthContext, classId: string, rawId
     select: { id: true },
   }) : null;
   const enrolled = await prisma.trainingClassEnrollment.create({
-    data: member ? { classId, membershipId: member.id, attendance, customValuesJson: JSON.stringify(customValues) } : { classId, guestName: name, guestEmail: email || m«ëŒ+Š×ž®º+º$zzb¥æçVÆÂÂwVW7D÷&væ—¦F–öã¢÷&væ—¦F–öâÂGFVæFæ6RÂ7W7FöÕfÇVW4§6öã¢¥4ôâç7G&–æv–g’†7W7FöÕfÇVW2’ÒÀ¢Ò“°¢v—Bw&—FTVF—B†7G‚Â&6Æ72ç&÷7FW"æÖçVÅöFFVB"Â%G&–æ–æt6Æ72"Â6Æ74–BÀ¢²Vç&öÆÆÖVçD–C¢Vç&öÆÆVBæ–BÂW†—7F–ætÖVÖ&W#¢&ööÆVâ†ÖVÖ&W"’Ò“°¢&WGW&â²FFVC¢G'VRÂÖF6†VDÖVÖ&W#¢&ööÆVâ†ÖVÖ&W"’Ó°§Ð ¦W‡÷'B7–æ2gVæ7F–öâvWD6Æ72†7Gƒ¢WF„6öçFW‡BÂ6Æ74–C¢7G&–ær’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2ç&VB"“°¢v—B6ä66W746Æ72†7G‚Â6Æ74–B“°¢6öç7B&÷rÒv—B&—6ÖçG&–æ–æt6Æ72æf–æEVæ—VR‡°¢v†W&S¢²–C¢6Æ74–BÒÀ¢–æ6ÇVFS¢°¢6†V6¶Æ—7EfW'6–öã¢°¢–æ6ÇVFS¢°¢FV×ÆFS¢G'VRÀ¢6V7F–öç3¢²÷&FW$'“¢²6÷'D÷&FW#¢&62"ÒÂ–æ6ÇVFS¢²&WV—&VÖVçG3¢²÷&FW$'“¢²6÷'D÷&FW#¢&62"ÒÒÒÒÀ¢ÒÀ¢ÒÀ¢&ö7F÷'3¢²–æ6ÇVFS¢²W6W#¢G'VRÒÒÁ¶¬{®0®+^zºè¬è‘ééŠ—Š      stations: {
+    data: member ? { classId, membershipId: member.id, attendance, customValuesJson: JSON.stringify(customValues) } : { classId, guestName: name, guestEmail: email || null, guestOrganization: organization, attendance, customValuesJson: JSON.stringify(customValues) },
+  });
+  await writeAudit(ctx, "class.roster.manual_added", "TrainingClass", classId,
+    { enrollmentId: enrolled.id, existingMember: Boolean(member) });
+  return { added: true, matchedMember: Boolean(member) };
+}
+
+export async function getClass(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.read");
+  await canAccessClass(ctx, classId);
+  const row = await prisma.trainingClass.findUnique({
+    where: { id: classId },
+    include: {
+      checklistVersion: {
+        include: {
+          template: true,
+          sections: { orderBy: { sortOrder: "asc" }, include: { requirements: { orderBy: { sortOrder: "asc" } } } },
+        },
+      },
+      proctors: { include: { user: true } },
+      stations: {
         orderBy: { sortOrder: "asc" },
         include: { proctor: { select: { id: true, name: true } }, checklistVersion: { include: { template: true, sections: { orderBy: { sortOrder: "asc" }, include: { requirements: { orderBy: { sortOrder: "asc" } } } } } } },
       },
@@ -252,7 +510,26 @@ export async function importClassRoster(ctx: AuthContext, classId: string, rawId
     classType: row.classType,
     trainingCategory: row.trainingCategory,
     creditHours: row.creditHours,
-    ceCredits: normalizeCeCredits(JSON.parse(row.ceCreditsJson || "[]"), row.trainingCategory !== "EMS" ? new Setm«ëŒ+Š×ž®º+º$zzb¥â„¥4ôâç'6R‡&÷ræ6T7&VF—G4§6öâÇÂ%µÒ"’æÖ‚†—FVÓ¢²6FVv÷'“ó¢7G&–ærÒ’Óâ7G&–ær†—FVÒæ6FVv÷'’ÇÂ""’’’¢æWr6WB‚’’À¢w&F–æt6öæf–s¢'6T§6öäö&¦V7B‡&÷ræw&F–æt6öæf–t§6öâ’À¢FV×ÆFTæÖS¢&÷rçFV×ÆFTæÖRÀ¢FV×ÆFU&Wf—6–öã¢&÷rçFV×ÆFU&Wf—6–öâÀ¢7F'G4C¢&÷rç7F'G4BÀ¢VæG4C¢&÷ræVæG4BÀ¢Æö6F–öã¢&÷ræÆö6F–öâÀ¢7FF–öã¢&÷rç7FF–öâÀ¢6†–gC¢&÷rç6†–gBÀ¢7FGW3¢&÷rç7FGW2À¢&×57FGW3¢&÷rç&×57FGW2À¢–ç7G'V7F÷$&÷fVDC¢&÷ræ–ç7G'V7F÷$&÷fVDBÀ¢&×5&VfW&Væ6S¢&÷rç&×5&VfW&Væ6RÀ¢&×4VçG'”æ÷FS¢&÷rç&×4VçG'”æ÷FRÀ¢–ç7G'V7F÷$&÷fVD'”–C¢&÷ræ–ç7G'V7F÷$&÷fVD'”–BÀ¢&×4VçFW&VDC¢&÷rç&×4VçFW&VDBÀ¢&×4VçFW&VD'”–C¢&÷rç&×4VçFW&VD'”–BÀ¢æ÷FW3¢&÷rææ÷FW2À¢7W7FöÔf–VÆG3¢¥4ôâç'6R‡&÷ræ7W7FöÔf–VÆG4§6öâÇÂ%µÒ"’À¢&Vv—7G&F–öäVæ&ÆVC¢&÷rç&Vv—7G&F–öäVæ&ÆÚ±î¸Â¸­yêë¢°k¢G§¦*^ed,
+    ceCredits: normalizeCeCredits(JSON.parse(row.ceCreditsJson || "[]"), row.trainingCategory !== "EMS" ? new Set(JSON.parse(row.ceCreditsJson || "[]").map((item: { category?: string }) => String(item.category || ""))) : new Set()),
+    gradingConfig: parseJsonObject(row.gradingConfigJson),
+    templateName: row.templateName,
+    templateRevision: row.templateRevision,
+    startsAt: row.startsAt,
+    endsAt: row.endsAt,
+    location: row.location,
+    station: row.station,
+    shift: row.shift,
+    status: row.status,
+    rmsStatus: row.rmsStatus,
+    instructorApprovedAt: row.instructorApprovedAt,
+    rmsReference: row.rmsReference,
+    rmsEntryNote: row.rmsEntryNote,
+    instructorApprovedById: row.instructorApprovedById,
+    rmsEnteredAt: row.rmsEnteredAt,
+    rmsEnteredById: row.rmsEnteredById,
+    notes: row.notes,
+    customFields: JSON.parse(row.customFieldsJson || "[]"),
+    registrationEnabled: row.registrationEnabled,
     registrationToken: hasPermission(ctx.role, "classes.write") ? row.registrationToken : null,
     checklistTitle: row.checklistVersion?.template.title || "Attendance-only training",
     checklistVersion: row.checklistVersion?.version || "",
@@ -267,4 +544,847 @@ export async function importClassRoster(ctx: AuthContext, classId: string, rawId
       checklistTitle: station.checklistVersion.template.title,
       checklistVersion: station.checklistVersion.version,
       sections: station.checklistVersion.sections.map((section) => ({
-       m«ëŒ+Š×ž®º+º$zzb¥â–C¢6V7F–öâæ–BÀ¢F—FÆS¢6V7F–öâçF—FÆRÀ¢FW67&—F–öã¢6V7F–öâæFW67&—F–öâÀ¢6¶–ÆÇ3¢6V7F–öâç&WV—&VÖVçG2æÖ‚‡&WV—&VÖVçB’Óâ‡°¢–C¢&WV—&VÖVçBæ–BÀ¢F—FÆS¢&WV—&VÖVçBçF—FÆRÀ¢FW67&—F–öã¢&WV—&VÖVçBæFW67&—F–öâÀ¢–ç7G'V7F–öç3¢&WV—&VÖVçBæ–ç7G'V7F–öç2À¢&WV—&VC¢&WV—&VÖVçBæ—5&WV—&VBÀ¢WfÇVF–öå7FW3¢'6T§6öä'&’‡&WV—&VÖVçBæWfÇVF–öå7FW4§6öâ’À¢7&—F–6Äf–ÇW&W3¢'6T§6öä'&’‡&WV—&VÖVçBæ7&—F–6Äf–ÇW&W4§6öâ’À¢Ò’’À¢Ò’’À¢Ò’’À¢6V7F–öç3¢°¢âââ‡&÷ræ6†V6¶Æ—7EfW'6–öãòç6V7F–öç2ÇÂµÒ’æÖ‚‡6V7F–öâ’Óâ‡°¢–C¢6V7F–öâæ–BÀ¢F—FÆS¢6V7F–öâçF—FÆRÀ¢FW67&—F–öã¢6V7F–öâæFW67&—F–öâÀ¢6¶–ÆÇ3¢6V7F–öâç&WV—&VÖVçG2æÖ‚‡&WV—&VÖVçB’Óâ‡°¢–C¢&WV—&VÖVçBæ–BÀ¢F—FÆS¢&WV—&VÖVçBçF—FÆRÀ¢FW67&—F–öã¢&WV—&VÖVçBæFW67&—F–öâÀ¢–ç7G'V7F–öç3¢&WV—&VÖVçBæ–ç7G'V7F–öç2À¢&WV—&VC¢&WV—&VÖVçBæ—5&WV—&VBÀ¢WfÇVF–öå7FW3¢'6T§6öä'&’‡&WV—&VÖVçBæWfÇVF–öå7FW4§6öâ’À¢7&—F–6Äf–ÇW&W3¢'6T§6öä'&’‡&WV—&VÖVçBæ7&—F–6Äf–ÇW&W4§6öâ’À¢Ò’’À¢Ò’’À¢âââ‡&÷rç7FF–öç2ÇÂµÒ’æfÆDÖ‚‡7FF–öâ’Óâ7FF–öâæ6†V6¶Æ—7EfW'6–öâç6V7F–öç2æÖ‚‡6V7F–öâ’Óâ‡°¢–C¢6V7F–öâæ–BÀ¢F—FÆS¢G·7FF–öâçF—FÆWÒ+rG·6V7F–öâçF—FÆWÖÀ¢FW67&—F–öã¢·7FF–öâç&ö7F÷#òææÖRò&ö7F÷#¢G·7FF–öâç&ö7F÷"ææÖWÖ¢""Â6V7F–öâæFW67&—F–öåÒæf–ÇFW"„&ööÆVâ’æ¦ö–â‚"+r"’À¢6¶–ÆÇ3¢6V7F–öâç&WV—&VÖVçG2æÖ‚‡&WV—&VÖVçB’Óâ‡°¢–C¢&WV—&VÖVçBæ–BÀ¢F—FÆS¢&WV—&VÖVçBçF—FÆRÀ¢FW67&—F–öã¢&WV—&VÖVçBæFW67&—F–öâÀ¢–ç7G'V7F–öç3¢&WV—&VÖVçBæ–ç7G'V7F–öç2À¢&WV—&VC¢&WV—&VÖVçBæ—5&WV—&VBÀ¢WfÇVF–öå7FW3¢'6T§6öä'&’‡&WV—&VÖVçBæWfÇVF–öå7FW4§6öâ’À¢7&—F–6Äf–ÇW&W3¢'6T§6öä'&’‡&WV—&VÖVçBæ7&—F–6Äf–ÇW&W4§6öâ’À¢Ò’’À¢Ò’’’À¢ÒÀ¢&÷7FW#¢&÷rç&÷7FW"æÖ‚†Vç&öÆÆÖVçB’Óâ‡°¢–C¢Vç&öÆÆÖVçBæ–BÀ¢ÖVÖ&W'6†—–C¢Vç&öÆÆÖVçBæÖVÖ&W'6†—–BÀ¢æÖS¢Vç&öÆÆÖVçBæÖVÖ&W'6†—òçW6W"ææÖRÇÂVç&öÆÆÖVçBæwVW7DæÖRÇÂ%Væ¶æ÷vâ7GVFVçB"À¢&æ³¢Vç&öÆÆÖVçBæÖVÖ&W'6†—òç&æ²ÇÂçVÆÂÀ¢VÖ–Ã¢Vç&öÆÆÖVçBæÖVÖ&W'6†—òçW6W"æVÖ–ÂÇÂVç&öÆÆÖVçBæwVW7DVÖ–ÂÇÂ""À¢—4wVW7C¢Vç&öÆÆÖVçBæÖVÖ&W'6†—–BÓÒçVÆÂÀ¢÷&væ—¦F–öã¢Vç&öÆÆÖVçBæwVW7D÷&væ—¦F–öâÀ¢&Vv—7FW&VDC¢Vç&öÆÆÖVçBæVç&öÆÆVDBÀ¢GFVæFæ6S¢Vç&öÆÆÖVçBæGFVæFæ6RÀ¢w&—GFVå66÷&S¢Vç&öÆÆÖVçBçw&—GFVå66÷&RÀ¢66e66÷&S¢Vç&öÆÆÖVçBæ66e66÷&RÀ¢7W7FöÕfÇVW3¢¥4ôâç'6R†Vç&öÆÆÖVçBæ7W7FöÕfÇVW4§6öâÇÂ'·Ò"’À¢f–æÅ&W7VÇC¢Vç&öÆÆÖVçBæf–æÅ&W7VÇBÀ¢æ÷FW3¢Vç&öÆÆÖVçBææ÷FW2À¢6ö×ÆWFVDC¢Vç&öÆÆÖVçBæ6ö×ÆWFVDBÀ¢&W7VÇG3¢Vç&öÆÆÖVçBç6¶–ÆÅ&W7VÇG2æÖ‚‡&W7VÇB’Óâ‡°¢–C¢&W7VÇBæ–BÀ¢&WV—&VÖVçD–C¢&W7VÇBç&WV—&VÖVçD–BÀ¢&W7VÇC¢&W7VÇBç&W7VÇBÀ¢æ÷FW3¢&W7VÇBææ÷FW2À¢çVÖW&–566÷&S¢&W7VÇBæçVÖW&–566÷&RÀ¢7FW&W7VÇG3¢'6T§6öä'&’‡&W7VÇBç7FW&W7VÇG4§6öâ’À¢WfÇVF÷$æÖS¢&W7VÇBæWfÇVF÷"ææÖRÀ¢WfÇVFVDC¢&W7VÇBæWfÇVFVDBÀ¢WFFVDC¢&W7VÇBçWFFVDBÀ¢Ò’’À¢Ò’’À¢Ó°§Ð ¦gVæ7F–öâ77d6VÆÂ‡fÇVS¢Væ¶æ÷vâ’°¢6öç7BFW‡BÒfÇVRÓÒçVÆÂò""¢7G&–ær‡fÇVR“°¢&WGW&â"G·FW‡Bç&WÆ6R‚ò"örÂr""r—Ò&°§Ð ¦W‡÷'B7–æ2gVæ7F–öâvWD6Æ7477dW‡÷'B†7Gƒ¢WF„6öçFW‡BÂ6Æ74–C¢7G&–ær’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2ç&VB"“°¢6öç7BFWF–ÂÒv—BvWD6Æ72†7G‚Â6Æ74–B“°¢–b†FWF–Âç7FGW2ÓÒ$4ôÕÄUDR"’F‡&÷ræWr‡GGW'&÷"ƒC’Â$6Æ÷6RG&–æ–ær&Vf÷&RW‡÷'F–ærF†Röff–6–Â&V6÷&Bâ"“°¢6öç7B†VFW'2Ò°¢$FW'FÖVçB"Â%G&–æ–ær”B"Â%G&–æ–ærF—FÆR"Â$6FVv÷'’"Â%7F'B"Â$VæB"Â$†÷W'2"Â$Æö6F–öâ"À¢%&ö7F÷'2"Â$ÖVÖ&W""Â%&æ²"Â$VÖ–Â"Â$GFVæFæ6R"Â$f–æÂ&W7VÇB"Â$6ö×ÆWFVBB"À¢$6†V6¶Æ—7B"Â%6¶–ÆÂ"Â%6¶–ÆÂ&WV—&VB"Â%6¶–ÆÂ&W7VÇB"Â%6¶–ÆÂ66÷&R"Â$WfÇVF÷""Â$WfÇVFVBB"Â%6¶–ÆÂæ÷FW2"Â%G&–æ–æræ÷FW2"À¢Ó°¢6öç7BFW'FÖVçBÒv—B&—6ÖæFW'FÖVçBæf–æEVæ—VR‡²v†W&S¢²–C¢7G‚æFW'FÖVçD–BÒÂ6VÆV7C¢²æÖS¢G'VRÒÒ“°¢6öç7B&÷w3¢7G&–æuµÕµÒÒµÓ°¢f÷"†6öç7BÖVÖ&W"öbFWF–Âç&÷7FW"’°¢6öç7B&W7VÇG2ÒÖVÖ&W"ç&W7VÇG2æÆVæwF‚òÖVÖ&W"ç&W7VÇG2¢·²&WV—&VÖVçD–C¢""Â&W7VÇC¢""ÂçVÖW&–566÷&S¢çVÆÂÂæ÷FW3¢""ÂWfÇVF÷$æÖS¢""ÂWfÇVFVDC¢çVÆÂÕÓ°¢f÷"†6öç7B&W7VÇBöb&W7VÇG2’°¢6öç7B6¶–ÆÂÒFWF–Âç6V7F–öç2æfÆDÖ‚‡6V7F–öâ’Óâ6V7F–öâç6¶–ÆÇ2’æf–æB‚†—FVÒ’Óâ—FVÒæ–BÓÓÒ&W7VÇBç&WV—&VÖVçD–B“°¢&÷w2çW6‚…°¢FW'FÖVçCòææÖRÇÂ""ÂFWF–Âæ–BÂFWF–ÂçF—FÆRÂFWF–ÂçG&–æ–æt6FVv÷'’À¢FWF–Âç7F'G4CòçFô•4õ7G&–ær‚’ÇÂ""ÂFWF–ÂæVæG4CòçFô•4õ7G&–ær‚’ÇÂ""À¢7G&–ær†FWF–Âæ7&VF—D†÷W'2ÇÂ""’ÂFWF–ÂæÆö6F–öâÇÂ""À¢FWF–Âç&ö7F÷'2æÖ‚†—FVÒ’Óâ—FVÒææÖR’æ¦ö–â‚#²"’À¢ÖVÖ&W"ææÖRÂÖVÖ&W"ç&æ²ÇÂ""ÂÖVÖ&W"æVÖ–ÂÂÖVÖ&W"æGFVæFæ6RÂÖVÖ&W"æf–æÅ&W7VÇBÀ¢ÖVÖ&W"æ6ö×ÆWFVDCòçFô•4õ7G&–ær‚’ÇÂ""ÂFWF–Âæ6†V6¶Æ—7EF—FÆRÀ¢6¶–ÆÃòçF—FÆRÇÂ""Â6¶–ÆÃòç&WV—&VBò%”U2"¢""Â&W7VÇBç&W7VÇBÇÂ""Â&W7VÇBæçVÖW&–566÷&RÓÒçVÆÂò""¢7G&–ær‡&W7VÇBæçVÖW&–566÷&R’À¢&W7VÇBæWfÇVF÷$æÖRÇÂ""Â&W7VÇBæWfÇVFVDCòçFô•4õ7G&–ær‚’ÇÂ""Â&W7VÇBææ÷FW2ÇÂ""ÂFWF–Âææ÷FW2ÇÂ""À¢Ò“°¢Ð¢Ð¢&WGW&â¶†VFW'2Âââç&÷w5ÒæÖ‚‡&÷r’Óâ&÷ræÖ†77d6VÆÂ’æ¦ö–â‚"Â"’’æ¦ö–â‚%Ç%Æâ"“°§Ð ¦W‡÷'B7–æ2gVæ7F–öâvWD6Æ74W‡÷'E&V6÷&B†7Gƒ¢WF„6öçFW‡BÂ6Æ74–C¢7G&–ær’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2ç&VB"“°¢6öç7BFWF–ÂÒv—BvWD6Æ72†7G‚Â6Æ74–B“°¢–b†FWF–Âç7FGW2ÓÒ$4ôÕÄUDR"’F‡&÷ræWr‡GGW'&÷"ƒC’Â$6Æ÷6RG&–æ–ær&Vf÷&RW‡÷'F–ærF†Röff–6–Â&V6÷&Bâ"“°¢6öç7BFW'FÖVçBÒv—B&—6ÖæFW'FÖVçBæf–æEVæ—VR‡²v†W&S¢²–C¢7G‚æFW'FÖVçD–BÒÂ6VÆV7C¢²æÖS¢G'VRÒÒ“°¢&WGW&â°¢W‡÷'EfW'6–öã¢À¢vVæW&FVDC¢æWrFFR‚’çFô•4õ7G&–ær‚’À¢FW'FÖVçC¢²æÖS¢FW'FÖVçCòææÖRÇÂ""ÒÀ¢G&–æ–æs¢FWF–ÂÀ¢Ó°§Ð ¦W‡÷'B7–æ2gVæ7F–öâÖævT6Æ75&Vv—7G&F–öâ†7Gƒ¢WF„6öçFW‡BÂ6Æ74–C¢7G&–ærÂ&t7F–öã¢Væ¶æ÷vâ’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2çw&—FR"“°¢6öç7B&÷rÒv—B6ä66W746Æ72†7G‚Â6Æ74–B“°¢6öç7B7F–öâÒ7G&–ær‡&t7F–öâÇÂ""’çFõWW$66R‚“°¢–b‚æWr6WB…²$õTâ"Â$4Äõ4R"Â%$õDDR%Ò’æ†2†7F–öâ’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$–çfÆ–B&Vv—7G&F–öâ7F–öââ"“°¢–b†7F–öâÓÒ$4Äõ4R"bb²$E$eB"Â$5D•dR%Òæ–æ6ÇVFW2‡&÷rç7FGW2’’F‡&÷ræWr‡GGW'&÷"ƒC’Â$6ö×ÆWFVB÷"6æ6VÆÆVB6Æ726ææ÷B66WB&Vv—7G&F–öç2â"“°¢6öç7BWFFVBÒv—B&—6ÖçG&–æ–æt6Æ72çWFFR‡°¢v†W&S¢²–C¢&÷ræ–BÒÀ¢FF¢7F–öâÓÓÒ$4Äõ4R ¢ò²&Vv—7G&F–öäVæ&ÆVC¢fÇ6RÐ¢¢²&Vv—7G&F–öäVæ&ÆVC¢G'VRÂ&Vv—7G&F–öåFö¶Vã¢7F–öâÓÓÒ%$õDDR"ÇÂ&÷rç&Vv—7G&F–öåFö¶Vâò&æFöÔ'—FW2ƒ3"’çFõ7G&–ær‚&†W‚"’¢&÷rç&Vv—7G&F–öåFö¶VâÒÀ¢Ò“°¢v—Bw&—FTVF—B†7G‚Â6Æ72ç&Vv—7G&F–öââG¶7F–öâçFôÆ÷vW$66R‚—ÖÂ%G&–æ–æt6Æ72"Â&÷ræ–BÂ²Væ&ÆVC¢WFFVBç&Vv—7G&F–öäVæ&ÆVBÒ“°¢&WGW&âvWD6Æ72†7G‚Â&÷ræ–B“°§Ð ¦7–æ2gVæ7F–öâf–æE&Vv—7G&F–öä6Æ72‡Fö¶Vã¢7G&–ær’°¢–b‚õå¶ÖcÓ•×³cGÒBòçFW7B‡Fö¶Vâ’’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%&Vv—7G&F–öâÆ–æ²æ÷Bf÷VæBâ"“°¢6öç7B&÷rÒv—B&—6ÖçG&–æ–æt6Æ72æf–æEVæ—VR‡°¢v†W&S¢²&Vv—7G&F–öåFö¶Vã¢Fö¶VâÒÀ¢6VÆV7C¢²–C¢G'VRÂFW'FÖVçD–C¢G'VRÂF—FÆS¢G'VRÂ7F'G4C¢G'VRÂÆö6F–öã¢G'VRÂ7FGW3¢G'VRÂ&Vv—7G&F–öäVæ&ÆVC¢G'VRÂ7W7FöÔf–VÆG4§6öã¢G'VRÒÀ¢Ò“°¢–b‚&÷r’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%&Vv—7G&F–öâÆ–æ²æ÷Bf÷VæBâ"“°¢&WGW&â&÷s°§Ð ¦W‡÷'B7–æ2gVæ7F–öâvWEV&Æ–46Æ75&Vv—7G&F–öâ‡Fö¶Vã¢7G&–ær’°¢6öç7B&÷rÒv—Bf–æE&Vv—7G&F–öä6Æ72‡Fö¶Vâ“°¢6öç7B7W7FöÔf–VÆG2Ò„¥4ôâç'6R‡&÷ræ7W7FöÔf–VÆG4§6öâÇÂ%µÒ"’2&Vv—7G&F–öä7W7FöÔf–VÆEµÒ’æf–ÇFW"‚†f–VÆB’Óâf–VÆBæÆ–W5FòÓÓÒ%$õ5DU""“°¢&WGW&â²F—FÆS¢&÷rçF—FÆRÂ7F'G4C¢&÷rç7F'G4BÂÆö6F–öã¢&÷ræÆö6F–öâÂ÷Vã¢&÷rç&Vv—7G&F–öäVæ&ÆVBbb²$E$eB"Â$5D•dR%Òæ–æ6ÇVFW2‡&÷rç7FGW2’Â7W7FöÔf–VÆG2Ó°§Ð ¦7–æ2gVæ7F–öâVæf÷&6U&Vv—7G&F–öå&FTÆ–Ö—B‡Fö¶Vã¢7G&–ærÂ6÷W&6S¢7G&–ær’°¢6öç7Bv–æF÷t×2ÒR¢c¢°¢6öç7Bv–æF÷u7F'BÒæWrFFR„ÖF‚æfÆö÷"„FFRææ÷r‚’òv–æF÷t×2’¢v–æF÷t×2“°¢6öç7B¶W’Ò7&VFT†6‚‚'6†#Sb"’çWFFR†G·Fö¶VçÓ¢G·6÷W&6RÇÂ'Væ¶æ÷vâ'Ó¢G·v–æF÷u7F'BçFô•4õ7G&–ær‚—Ö’æF–vW7B‚&†W‚"“°¢6öç7B6÷VçFW"Òv—B&—6Öç&Vv—7G&F–öå&FTÆ–Ö—BçW6W'B‡°¢v†W&S¢²¶W’ÒÂ7&VFS¢²¶W’Âv–æF÷u7F'BÂ6÷VçC¢ÒÂWFFS¢²6÷VçC¢²–æ7&VÖVçC¢ÒÒÂ6VÆV7C¢²6÷VçC¢G'VRÒÀ¢Ò“°¢–b†6÷VçFW"æ6÷VçBâ‚’F‡&÷ræWr‡GGW'&÷"ƒC#’Â%FöòÖç’&Vv—7G&F–öâGFV×G2âv—BfWrÖ–çWFW2æBG'’v–ââ"“°§Ð ¦W‡÷'B7–æ2gVæ7F–öâ&Vv—7FW$wVW7E7GVFVçB‡Fö¶Vã¢7G&–ærÂ&s¢Væ¶æ÷vâÂ6÷W&6RÒ'Væ¶æ÷vâ"’°¢v—BVæf÷&6U&Vv—7G&F–öå&FTÆ–Ö—B‡Fö¶VâÂ6÷W&6R“°¢6öç7B&Vv—7G&F–öä6Æ72Òv—Bf–æE&Vv—7G&F–öä6Æ72‡Fö¶Vâ“°¢6öç7B7W7FöÔf–VÆG2Ò„¥4ôâç'6R‡&Vv—7G&F–öä6Æ72æ7W7FöÔf–VÆG4§6öâÇÂ%µÒ"’2&Vv—7G&F–öä7W7FöÔf–VÆEµÒ’æf–ÇFW"‚†f–VÆB’Óâf–VÆBæÆ–W5FòÓÓÒ%$õ5DU""“°¢6öç7B–çWBÒæ÷&ÖÆ—¦TwVW7E&Vv—7G&F–öâ‡&rÂ7W7FöÔf–VÆG2“°¢6öç7BVç&öÆÆÖVçBÒv—B&—6ÖâGG&ç67F–öâ†7–æ2‡G‚’Óâ°¢6öç7B&÷rÒv—BG‚çG&–æ–æt6Æ72æf–æEVæ—VR‡²v†W&S¢²&Vv—7G&F–öåFö¶Vã¢Fö¶VâÒÂ6VÆV7C¢²–C¢G'VRÂFW'FÖVçD–C¢G'VRÂ7FGW3¢G'VRÂ&Vv—7G&F–öäVæ&ÆVC¢G'VRÒÒ“°¢–b‚&÷rÇÂõå¶ÖcÓ•×³cGÒBòçFW7B‡Fö¶Vâ’’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%&Vv—7G&F–öâÆ–æ²æ÷Bf÷VæBâ"“°¢–b‚&÷rç&Vv—7G&F–öäVæ&ÆVBÇÂ²$E$eB"Â$5D•dR%Òæ–æ6ÇVFW2‡&÷rç7FGW2’’F‡&÷ræWr‡GGW'&÷"ƒC’Â%&Vv—7G&F–öâ—26Æ÷6VBf÷"F†—26Æ72â"“°¢6öç7B&÷7FW$6÷VçBÒv—BG‚çG&–æ–æt6Æ74Vç&öÆÆÖVçBæ6÷VçB‡²v†W&S¢²6Æ74–C¢&÷ræ–BÒÒ“°¢–b‡&÷7FW$6÷VçBãÒ#S’F‡&÷ræWr‡GGW'&÷"ƒC’Â%&Vv—7G&F–öâ—2gVÆÂâ6öçF7BF†R–ç7G'V7F÷"â"“°¢6öç7BW†—7F–ærÒv—BG‚çG&–æ–æt6Æ74Vç&öÆÆÖVçBæf–æDf—'7B‡°¢v†W&S¢²6Æ74–C¢&÷ræ–BÂõ#¢·²wVW7DVÖ–Ã¢–çWBæVÖ–ÂÒÂ²ÖVÖ&W'6†—¢²W6W#¢²VÖ–Ã¢–çWBæVÖ–ÂÒÒÕÒÒÂ6VÆV7C¢²–C¢G'VRÒÀ¢Ò“°¢–b†W†—7F–ær’F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—2VÖ–Â—2Ç&VG’öâF†R6Æ72&÷7FW"â"“°¢6öç7BFW'FÖVçDÖVÖ&W"Òv—BG‚æFW'FÖVçDÖVÖ&W'6†—æf–æDf—'7B‡°¢v†W&S¢²FW'FÖVçD–C¢&÷ræFW'FÖVçD–BÂ7FGW3¢$5D•dR"ÂW6W#¢²VÖ–Ã¢–çWBæVÖ–ÂÒÒÀ¢6VÆV7C¢²–C¢G'VRÒÀ¢Ò“°¢6öç7B7&VFVBÒv—BG‚çG&–æ–æt6Æ74Vç&öÆÆÖVçBæ7&VFR‡°¢FF¢FW'FÖVçDÖVÖ&W ¢ò²6Æ74–C¢&÷ræ–BÂÖVÖ&W'6†—–C¢FW'FÖVçDÖVÖ&W"æ–BÂ7W7FöÕfÇVW4§6öã¢¥4ôâç7G&–æv–g’†–çWBæ7W7FöÕfÇVW2’Ð¢¢²6Æ74–C¢&÷ræ–BÂwVW7DæÖS¢–çWBææÖRÂwVW7DVÖ–Ã¢–çWBæVÖ–ÂÂwVW7D÷&væ—¦F–öã¢–çWBæ÷&væ—¦F–öâÂ7W7FöÕfÇVW4§6öã¢¥4ôâç7G&–æv–g’†–çWBæ7W7FöÕfÇVW2’ÒÀ¢Ò“°¢&WGW&â²–C¢7&VFVBæ–BÂ6Æ74–C¢&÷ræ–BÂFW'FÖVçD–C¢&÷ræFW'FÖVçD–BÂÖF6†VDÖVÖ&W#¢&ööÆVâ†FW'FÖVçDÖVÖ&W"’Ó°¢Ò’æ6F6‚‚†W'&÷#¢Væ¶æ÷vâ’Óâ°¢–b†W'&÷"bbG—VöbW'&÷"ÓÓÒ&ö&¦V7B"bb&6öFR"–âW'&÷"bbW'&÷"æ6öFRÓÓÒ%#""’F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—2VÖ–Â—2Ç&VG’öâF†R6Æ72&÷7FW"â"“°¢F‡&÷rW'&÷#°¢Ò“°¢v—Bw&—FT7F—f—G’†Vç&öÆÆÖVçBæFW'FÖVçD–BÂ$4Ä55ôuTU5Eõ$Tt•5DU$TB"Â²&VfW&Væ6T–C¢Vç&öÆÆÖVçBæ6Æ74–BÂÖWFFF¢²Vç&öÆÆÖVçD–C¢Vç&öÆÆÖVçBæ–BÂ6÷W&6S¢$4Ä55õ""Â66÷VçD7&VFVC¢fÇ6RÂÖF6†VDFW'FÖVçDÖVÖ&W#¢Vç&öÆÆÖVçBæÖF6†VDÖVÖ&W"ÒÒ“°¢&WGW&â²&Vv—7FW&VC¢G'VRÓ°§Ð ¦W‡÷'B7–æ2gVæ7F–öâ&Vv—7FW$FW'FÖVçDÖVÖ&W"†7Gƒ¢WF„6öçFW‡BÂFö¶Vã¢7G&–ær’°¢6öç7B&÷rÒv—Bf–æE&Vv—7G&F–öä6Æ72‡Fö¶Vâ“°¢–b‡&÷ræFW'FÖVçD–BÓÒ7G‚æFW'FÖVçD–B’°¢F‡&÷ræWr‡GGW'&÷"ƒC2Â%F†—26Æ72&VÆöæw2Fòæ÷F†W"FW'FÖVçBâ"“°¢Ð¢–b‚&÷rç&Vv—7G&F–öäVæ&ÆVBÇÂ²$E$eB"Â$5D•dR%Òæ–æ6ÇVFW2‡&÷rç7FGW2’’°¢F‡&÷ræWr‡GGW'&÷"ƒC’Â%&Vv—7G&F–öâ—26Æ÷6VBf÷"F†—26Æ72â"“°¢Ð ¢6öç7BVç&öÆÆÖVçBÒv—B&—6ÖâGG&ç67F–öâ†7–æ2‡G‚’Óâ°¢6öç7BÖVÖ&W'6†—Òv—BG‚æFW'FÖVçDÖVÖ&W'6†—æf–æDf—'7B‡°¢v†W&S¢²–C¢7G‚æÖVÖ&W'6†—–BÂW6W$–C¢7G‚çW6W$–BÂFW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂ7FGW3¢$5D•dR"ÒÀ¢6VÆV7C¢²–C¢G'VRÒÀ¢Ò“°¢–b‚ÖVÖ&W'6†—’F‡&÷ræWr‡GGW'&÷"ƒC2Â%–÷W"7F—fRFW'FÖVçBÖVÖ&W'6†—6÷VÆBæ÷B&RfW&–f–VBâ"“° ¢6öç7BW†—7F–ærÒv—BG‚çG&–æ–æt6Æ74Vç&öÆÆÖVçBæf–æDf—'7B‡°¢v†W&S¢²6Æ74–C¢&÷ræ–BÂÖVÖ&W'6†—–C¢ÖVÖ&W'6†—æ–BÒÀ¢6VÆV7C¢²–C¢G'VRÒÀ¢Ò“°¢–b†W†—7F–ær’&WGW&â²–C¢W†—7F–æræ–BÂÇ&VG•&Vv—7FW&VC¢G'VRÓ° ¢6öç7B&÷7FW$6÷VçBÒv—BG‚çG&–æ–æt6Æ74Vç&öÆÆÖVçBæ6÷VçB‡²v†W&S¢²6Æ74–C¢&÷ræ–BÒÒ“°¢–b‡&÷7FW$6÷VçBãÒ#S’F‡&÷ræWr‡GGW'&÷"ƒC’Â%&Vv—7G&F–öâ—2gVÆÂâ6öçF7BF†R–ç7G'V7F÷"â"“° ¢6öç7B7&VFVBÒv—BG‚çG&–æ–æt6Æ74Vç&öÆÆÖVçBæ7&VFR‡°¢FF¢²6Æ74–C¢&÷ræ–BÂÖVÖ&W'6†—–C¢ÖVÖ&W'6†—æ–BÒÀ¢6VÆV7C¢²–C¢G'VRÒÀ¢Ò“°¢&WGW&â²–C¢7&VFVBæ–BÂÇ&VG•&Vv—7FW&VC¢fÇ6RÓ°¢Ò’æ6F6‚‚†W'&÷#¢Væ¶æ÷vâ’Óâ°¢–b†W'&÷"bbG—VöbW'&÷"ÓÓÒ&ö&¦V7B"bb&6öFR"–âW'&÷"bbW'&÷"æ6öFRÓÓÒ%#""’°¢&WGW&â²–C¢""ÂÇ&VG•&Vv—7FW&VC¢G'VRÓ°¢Ð¢F‡&÷rW'&÷#°¢Ò“° ¢–b‚Vç&öÆÆÖVçBæÇ&VG•&Vv—7FW&VB’°¢v—Bw&—FT7F—f—G’†7G‚æFW'FÖVçD–BÂ$4Ä55ôÔTÔ$U%õ$Tt•5DU$TB"Â°¢&VfW&Væ6T–C¢&÷ræ–BÀ¢W6W$–C¢7G‚çW6W$–BÀ¢ÖWFFF¢²Vç&öÆÆÖVçD–C¢Vç&öÆÆÖVçBæ–BÂ6÷W&6S¢$4Ä55õ%ô"ÂÖVÖ&W'6†—–C¢7G‚æÖVÖ&W'6†—–BÂÖVÖ&W$æÖS¢7G‚ææÖRÒÀ¢Ò“°¢Ð¢&WGW&â°¢&Vv—7FW&VC¢G'VRÀ¢Ç&VG•&Vv—7FW&VC¢Vç&öÆÆÖVçBæÇ&VG•&Vv—7FW&VBÀ¢6Æ74–C¢&÷ræ–BÀ¢F—FÆS¢&÷rçF—FÆRÀ¢7F'G4C¢&÷rç7F'G4BÀ¢Æö6F–öã¢&÷ræÆö6F–öâÀ¢Ó°§Ð ¦7–æ2gVæ7F–öâ&V6Æ7VÆFTVç&öÆÆÖVçB†Vç&öÆÆÖVçD–C¢7G&–ær’°¢6öç7BVç&öÆÆÖVçBÒv—B&—6ÖçG&–æ–æt6Æ74Vç&öÆÆÖVçBæf–æEVæ—VR‡°¢v†W&S¢²–C¢Vç&öÆÆÖVçD–BÒÀ¢–æ6ÇVFS¢°¢6Æ73¢²–æ6ÇVFS¢²6†V6¶Æ—7EfW'6–öã¢²–æ6ÇVFS¢²6V7F–öç3¢²–æ6ÇVFS¢²&WV—&VÖVçG3¢G'VRÒÒÒÒÒÒÀ¢6¶–ÆÅ&W7VÇG3¢G'VRÀ¢ÒÀ¢Ò“°¢–b‚Vç&öÆÆÖVçB’&WGW&ã°¢6öç7B7FF–öç2Òv—B&—6ÖçG&–æ–æt6Æ757FF–öâæf–æDÖç’‡°¢v†W&S¢²6Æ74–C¢Vç&öÆÆÖVçBæ6Æ74–BÒÀ¢–æ6ÇVFS¢²6†V6¶Æ—7EfW'6–öã¢²–æ6ÇVFS¢²6V7F–öç3¢²–æ6ÇVFS¢²&WV—&VÖVçG3¢G'VRÒÒÒÒÒÀ¢Ò“°¢6öç7B&WV—&VBÒ°¢ââæVç&öÆÆÖVçBæ6Æ72æ6†V6¶Æ—7EfW'6–öâç6V7F–öç2æfÆDÖ‚‡6V7F–öâ’Óâ6V7F–öâç&WV—&VÖVçG2’À¢ââç7FF–öç2æfÆDÖ‚‡7FF–öâ’Óâ7FF–öâæ6†V6¶Æ—7EfW'6–öâç6V7F–öç2æfÆDÖ‚‡6V7F–öâ’Óâ6V7F–öâç&WV—&VÖVçG2’’À¢Òæf–ÇFW"‚†—FVÒ’Óâ—FVÒæ—5&WV—&VB“°¢6öç7B'•&WV—&VÖVçBÒæWrÖ†Vç&öÆÆÖVçBç6¶–ÆÅ&W7VÇG2æÖ‚†—FVÒ’Óâ¶—FVÒç&WV—&VÖVçD–BÂ—FVÒç&W7VÇEÒ’“°¢6öç7Bw&F–æt6öæf–rÒ'6T§6öäö&¦V7B†Vç&öÆÆÖVçBæ6Æ72æw&F–æt6öæf–t§6öâ“°¢6öç7B7W7FöÔf–VÆG2Ò¥4ôâç'6R†Vç&öÆÆÖVçBæ6Æ72æ7W7FöÔf–VÆG4§6öâÇÂ%µÒ"’2'&“Ç°¢–C¢7G&–æs²G—S¢7G&–æs²&WV—&VCó¢&ööÆVã²Æ–W5Fóó¢7G&–æs°¢Óã°¢6öç7B7W7FöÕfÇVW2Ò¥4ôâç'6R†Vç&öÆÆÖVçBæ7W7FöÕfÇVW4§6öâÇÂ'·Ò"’2&V6÷&CÇ7G&–ærÂVæ¶æ÷vãã°¢6öç7Bf–æÅ&W7VÇBÒ6Æ7VÆFUG&–æ–æu6†VWDf–æÅ&W7VÇB‡°¢GFVæFæ6S¢Vç&öÆÆÖVçBæGFVæFæ6RÀ¢&WV—&VE6¶–ÆÅ&W7VÇG3¢&WV—&VBæÖ‚†—FVÒ’Óâ'•&WV—&VÖVçBævWB†—FVÒæ–B’ÇÂ$äõEôUdÅTDTB"’À¢ö'6W'fVE6¶–ÆÅ&W7VÇG3¢Vç&öÆÆÖVçBç6¶–ÆÅ&W7VÇG2æÖ‚†—FVÒ’Óâ—FVÒç&W7VÇB’À¢7W7FöÔf–VÆG2À¢7W7FöÕfÇVW2À¢w&—GFVåFW7DVæ&ÆVC¢w&F–æt6öæf–rçw&—GFVåFW7DVæ&ÆVBÓÓÒG'VRÀ¢w&—GFVåFW7E75W&6VçC¢w&F–æt6öæf–rçw&—GFVåFW7E75W&6VçBÓÒçVÆÂòçVÆÂ¢çVÖ&W"†w&F–æt6öæf–rçw&—GFVåFW7E75W&6VçB’À¢w&—GFVå66÷&S¢Vç&öÆÆÖVçBçw&—GFVå66÷&RÀ¢66dVæ&ÆVC¢w&F–æt6öæf–ræ66dVæ&ÆVBÓÓÒG'VRÀ¢66e75W&6VçC¢w&F–æt6öæf–ræ66e75W&6VçBÓÒçVÆÂòçVÆÂ¢çVÖ&W"†w&F–æt6öæf–ræ66e75W&6VçB’À¢66e66÷&S¢Vç&öÆÆÖVçBæ66e66÷&RÀ¢Ò“°¢v—B&—6ÖçG&–æ–æt6Æ74Vç&öÆÆÖVçBçWFFR‡°¢v†W&S¢²–C¢Vç&öÆÆÖVçBæ–BÒÀ¢FF¢²f–æÅ&W7VÇBÂ6ö×ÆWFVDC¢f–æÅ&W7VÇBÓÓÒ%TäD”är"òçVÆÂ¢æWrFFR‚’ÒÀ¢Ò“°§Ð ¦W‡÷'B7–æ2gVæ7F–öâ&V6÷&E6¶–ÆÅ&W7VÇB€¢7Gƒ¢WF„6öçFW‡BÀ¢6Æ74–C¢7G&–ærÀ¢Vç&öÆÆÖVçD–C¢7G&–ærÀ¢&WV—&VÖVçD–C¢7G&–ærÀ¢–çWC¢²&W7VÇCó¢7G&–æs²æ÷FW3ó¢7G&–æs²7FW&W7VÇG3ó¢Væ¶æ÷våµÓ²çVÖW&–566÷&Só¢çVÖ&W"ÂçVÆÂÒÀ¢’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2ç&ö7F÷""“°¢v—B76W'D&÷fVDWfÇVF÷"†7G‚“°¢6öç7B6Æ75&÷rÒv—B6ä66W746Æ72†7G‚Â6Æ74–B“°¢–b†6Æ75&÷rç7FGW2ÓÓÒ$4ôÕÄUDR"ÇÂ6Æ75&÷rç7FGW2ÓÓÒ$4ä4TÄÄTB"’°¢F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—26Æ72—26Æ÷6VBf÷"6†V6²Ööfbâ"“°¢Ð¢6öç7BVç&öÆÆÖVçBÒv—B&—6ÖçG&–æ–æt6Æ74Vç&öÆÆÖVçBæf–æDf—'7B‡²v†W&S¢²–C¢Vç&öÆÆÖVçD–BÂ6Æ74–BÒÒ“°¢–b‚Vç&öÆÆÖVçB’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%7GVFVçB—2æ÷BöâF†—26Æ72&÷7FW"â"“°¢–b‚6Æ75&÷ræ6†V6¶Æ—7EfW'6–öä–B’F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—2G&–æ–ær&V6÷&BFöW2æ÷BW6R6¶–ÆÇ26†V6¶Æ—7Bâ"“°¢6öç7B&WV—&VÖVçBÒv—B&—6ÖçF6´&ööµ&WV—&VÖVçBæf–æDf—'7B‡°¢v†W&S¢²–C¢&WV—&VÖVçD–BÂ6V7F–öã¢²fW'6–öä–C¢²–ã¢¶6Æ75&÷ræ6†V6¶Æ—7EfW'6–öä–BÂâââ†v—B&—6ÖçG&–æ–æt6Æ757FF–öâæf–æDÖç’‡²v†W&S¢²6Æ74–BÒÂ6VÆV7C¢²6†V6¶Æ—7EfW'6–öä–C¢G'VRÒÒ’’æÖ‚‡7FF–öâ’Óâ7FF–öâæ6†V6¶Æ—7EfW'6–öä–B•ÒÒÒÒÀ¢6VÆV7C¢²–C¢G'VRÂ6V7F–öã¢²6VÆV7C¢²fW'6–öä–C¢G'VRÒÒÒÀ¢Ò“°¢–b‚&WV—&VÖVçB’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%6¶–ÆÂ—2æ÷B'BöbF†—26Æ726†V6¶Æ—7Bâ"“°¢6öç7B7FF–öâÒv—B&—6ÖçG&–æ–æt6Æ757FF–öâæf–æDf—'7B‡²v†W&S¢²6Æ74–BÂ6†V6¶Æ—7EfW'6–öä–C¢&WV—&VÖVçBç6V7F–öâçfW'6–öä–BÒÂ6VÆV7C¢²&ö7F÷%W6W$–C¢G'VRÂF—FÆS¢G'VRÒÒ“°¢–b‡7FF–öãòç&ö7F÷%W6W$–Bbb7FF–öâç&ö7F÷%W6W$–BÓÒ7G‚çW6W$–Bbb6ä÷fW'&–FU7FF–öå&ö7F÷"†7G‚’’F‡&÷ræWr‡GGW'&÷"ƒC2ÂöæÇ’F†R76–væVB&ö7F÷"f÷"G·7FF–öâçF—FÆWÒ6âw&FRF†—27FF–öâæ“°¢6öç7B&W7VÇBÒ–çWBç&W7VÇCòçG&–Ò‚’çFõWW$66R‚’ÇÂ$äõEôUdÅTDTB#°¢–b‚$U5TÅEõdÅTU2æ†2‡&W7VÇB’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$–çfÆ–B6¶–ÆÂ&W7VÇBâ"“°¢–b‚‡&W7VÇBÓÓÒ$äTTE5õ$TÔTD”D”ôâ"ÇÂ&W7VÇBÓÓÒ$d”Â"’bb–çWBææ÷FW3òçG&–Ò‚’’°¢F‡&÷ræWr‡GGW'&÷"ƒCÂ$W‡Æ–âv†BF†R7GVFVçB×W7B6÷'&V7Bâ"“°¢Ð¢–b†–çWBæçVÖW&–566÷&RÒçVÆÂbb‚çVÖ&W"æ—4f–æ—FR†–çWBæçVÖW&–566÷&R’ÇÂ–çWBæçVÖW&–566÷&RÂÇÂ–çWBæçVÖW&–566÷&Râ’’°¢F‡&÷ræWr‡GGW'&÷"ƒCÂ%6¶–ÆÂ66÷&R×W7B&R&WGvVVâæBâ"“°¢Ð¢6öç7B&Wf–÷W5&W7VÇBÒv—B&—6ÖçG&–æ–æt6Æ756¶–ÆÅ&W7VÇBæf–æEVæ—VR‡°¢v†W&S¢²Vç&öÆÆÖVçD–E÷&WV—&VÖVçD–C¢²Vç&öÆÆÖVçD–BÂ&WV—&VÖVçD–BÒÒÀ¢6VÆV7C¢²&W7VÇC¢G'VRÒÀ¢Ò“°¢6öç7B&V6÷&FVBÒv—B&—6ÖçG&–æ–æt6Æ756¶–ÆÅ&W7VÇBçW6W'B‡°¢v†W&S¢²Vç&öÆÆÖVçD–E÷&WV—&VÖVçD–C¢²Vç&öÆÆÖVçD–BÂ&WV—&VÖVçD–BÒÒÀ¢7&VFS¢°¢Vç&öÆÆÖVçD–BÀ¢&WV—&VÖVçD–BÀ¢&W7VÇBÀ¢æ÷FW3¢–çWBææ÷FW3òçG&–Ò‚’ç6Æ–6RƒÂC’ÇÂ""À¢çVÖW&–566÷&S¢–çWBæçVÖW&–566÷&RóòçVÆÂÀ¢7FW&W7VÇG4§6öã¢¥4ôâç7G&–æv–g’„'&’æ—4'&’†–çWBç7FW&W7VÇG2’ò–çWBç7FW&W7VÇG2¢µÒ’À¢WfÇVF÷$–C¢7G‚çW6W$–BÀ¢ÒÀ¢WFFS¢°¢&W7VÇBÀ¢æ÷FW3¢–çWBææ÷FW3òçG&–Ò‚’ç6Æ–6RƒÂC’ÇÂ""À¢çVÖW&–566÷&S¢–çWBæçVÖW&–566÷&RóòçVÆÂÀ¢7FW&W7VÇG4§6öã¢¥4ôâç7G&–æv–g’„'&’æ—4'&’†–çWBç7FW&W7VÇG2’ò–çWBç7FW&W7VÇG2¢µÒ’À¢WfÇVF÷$–C¢7G‚çW6W$–BÀ¢WfÇVFVDC¢æWrFFR‚’À¢ÒÀ¢Ò“°¢v—B&V6Æ7VÆFTVç&öÆÆÖVçB†Vç&öÆÆÖVçBæ–B“°¢v—Bw&—FTVF—B†7G‚Â&6Æ72ç6¶–ÆÅ÷&W7VÇBç&V6÷&FVB"Â%G&–æ–æt6Æ756¶–ÆÅ&W7VÇB"Â&V6÷&FVBæ–BÂ°¢6Æ74–BÀ¢Vç&öÆÆÖVçD–BÀ¢&WV—&VÖVçD–BÀ¢&W7VÇBÀ¢çVÖW&–566÷&S¢–çWBæçVÖW&–566÷&RóòçVÆÂÀ¢&–÷%&W7VÇC¢&Wf–÷W5&W7VÇCòç&W7VÇBÇÂçVÆÂÀ¢Ò“°¢&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°§Ð ¢ò¢¢&V6÷&B–æF—f–GVÆÇ’6VÆV7FVB&W7VÇG2f÷"öæR6¶–ÆÂ–â6–ævÆR6Æ72×&÷7FW"7V&Ö—76–öââ¢ð¦W‡÷'B7–æ2gVæ7F–öâ&V6÷&E6¶–ÆÅ&W7VÇG4&F6‚€¢7Gƒ¢WF„6öçFW‡BÀ¢6Æ74–C¢7G&–ærÀ¢–çWC¢²&WV—&VÖVçD–Có¢7G&–æs²&W7VÇG3ó¢'&“Ç²Vç&öÆÆÖVçD–Có¢7G&–æs²&WV—&VÖVçD–Có¢7G&–æs²&W7VÇCó¢7G&–æs²æ÷FW3ó¢7G&–æs²W‡V7FVEWFFVDCó¢7G&–ærÂçVÆÂÓâÒÀ¢’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2ç&ö7F÷""“°¢v—B76W'D&÷fVDWfÇVF÷"†7G‚“°¢6öç7B6Æ75&÷rÒv—B6ä66W746Æ72†7G‚Â6Æ74–B“°¢–b†6Æ75&÷rç7FGW2ÓÓÒ$4ôÕÄUDR"ÇÂ6Æ75&÷rç7FGW2ÓÓÒ$4ä4TÄÄTB"’°¢F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—26Æ72—26Æ÷6VBf÷"6†V6²Ööfbâ"“°¢Ð¢–b‚6Æ75&÷ræ6†V6¶Æ—7EfW'6–öä–B’F‡&÷ræWr‡GGW'&÷"ƒCÂ%F†—2G&–æ–ær&V6÷&BFöW2æ÷BW6R6¶–ÆÇ26†V6¶Æ—7Bâ"“°¢6öç7B&W7VÇG2Ò'&’æ—4'&’†–çWBç&W7VÇG2’ò–çWBç&W7VÇG2¢µÓ°¢–b‡&W7VÇG2æÆVæwF‚ÂÇÂ&W7VÇG2æÆVæwF‚â#’F‡&÷ræWr‡GGW'&÷"ƒCÂ%7V&Ö—B&WGvVVâæB#–æF—f–GVÂ&W7VÇG2â"“°¢6öç7B&÷w2Ò&W7VÇG2æÖ‚†—FVÒ’Óâ°¢6öç7BVç&öÆÆÖVçD–BÒ7G&–ær†—FVÒæVç&öÆÆÖVçD–BÇÂ""“°¢6öç7B&WV—&VÖVçD–BÒ7G&–ær†—FVÒç&WV—&VÖVçD–BÇÂ–çWBç&WV—&VÖVçD–BÇÂ""“°¢6öç7B&W7VÇBÒ7G&–ær†—FVÒç&W7VÇBÇÂ""’çG&–Ò‚’çFõWW$66R‚“°¢6öç7Bæ÷FW2Ò7G&–ær†—FVÒææ÷FW2ÇÂ""’çG&–Ò‚’ç6Æ–6RƒÂC“°¢–b‚Vç&öÆÆÖVçD–BÇÂ&WV—&VÖVçD–B’F‡&÷ræWr‡GGW'&÷"ƒCÂ$V6‚&W7VÇBæVVG27GVFVçBæB6¶–ÆÂâ"“°¢–b‚²%52"Â$d”Â"Â$äTTE5õ$TÔTD”D”ôâ%Òæ–æ6ÇVFW2‡&W7VÇB’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$6†ö÷6RfÆ–Bö'6W'fVB&W7VÇBf÷"V6‚6VÆV7FVB6¶–ÆÂâ"“°¢–b‚‡&W7VÇBÓÓÒ$d”Â"ÇÂ&W7VÇBÓÓÒ$äTTE5õ$TÔTD”D”ôâ"’bbæ÷FW2’F‡&÷ræWr‡GGW'&÷"ƒCÂ$FB6÷'&V7F–öâæ÷FW2f÷"V6‚f–ÆVB÷"&VÖVF–F–öâ&W7VÇBâ"“°¢6öç7BW‡V7FVEWFFVDBÒ—FVÒæW‡V7FVEWFFVDC°¢–b†W‡V7FVEWFFVDBÓÒVæFVf–æVBbbW‡V7FVEWFFVDBÓÒçVÆÂb`¢‚çVÖ&W"æ—4f–æ—FR„FFRç'6R†W‡V7FVEWFFVDB’’ÇÂæWrFFR†W‡V7FVEWFFVDB’çFô•4õ7G&–ær‚’ÓÒW‡V7FVEWFFVDB’’°¢F‡&÷ræWr‡GGW'&÷"ƒCÂ$–çfÆ–BW‡V7FVEWFFVDB&Wf—6–öâF–ÖW7F×â"“°¢Ð¢&WGW&â²Vç&öÆÆÖVçD–BÂ&WV—&VÖVçD–BÂ&W7VÇBÂæ÷FW2ÂW‡V7FVEWFFVDBÓ°¢Ò“°¢6öç7B&W7VÇD¶W—2Ò&÷w2æÖ‚†—FVÒ’ÓâG¶—FVÒæVç&öÆÆÖVçD–GÓ¢G¶—FVÒç&WV—&VÖVçD–GÖ“°¢–b†æWr6WB‡&W7VÇD¶W—2’ç6—¦RÓÒ&W7VÇD¶W—2æÆVæwF‚’F‡&÷ræWr‡GGW'&÷"ƒCÂ$7GVFVçBæB6¶–ÆÂ6âV"öæÇ’öæ6R–âF†—27V&Ö—76–öââ"“°¢6öç7BVç&öÆÆÖVçD–G2Ò²ââææWr6WB‡&÷w2æÖ‚†—FVÒ’Óâ—FVÒæVç&öÆÆÖVçD–B’•Ó°¢6öç7B&WV—&VÖVçD–G2Ò²ââææWr6WB‡&÷w2æÖ‚†—FVÒ’Óâ—FVÒç&WV—&VÖVçD–B’•Ó°¢6öç7B7FF–öåfW'6–öç2Òv—B&—6ÖçG&–æ–æt6Æ757FF–öâæf–æDÖç’‡²v†W&S¢²6Æ74–BÒÂ6VÆV7C¢²6†V6¶Æ—7EfW'6–öä–C¢G'VRÂ&ö7F÷%W6W$–C¢G'VRÂF—FÆS¢G'VRÒÒ“°¢6öç7BÆÆ÷vVEfW'6–öä–G2Ò¶6Æ75&÷ræ6†V6¶Æ—7EfW'6–öä–BÂââç7FF–öåfW'6–öç2æÖ‚‡7FF–öâ’Óâ7FF–öâæ6†V6¶Æ—7EfW'6–öä–B•Ó°¢6öç7B&WV—&VÖVçG2Òv—B&—6ÖçF6´&ööµ&WV—&VÖVçBæf–æDÖç’‡°¢v†W&S¢²–C¢²–ã¢&WV—&VÖVçD–G2ÒÂ6V7F–öã¢²fW'6–öä–C¢²–ã¢ÆÆ÷vVEfW'6–öä–G2ÒÒÒÀ¢6VÆV7C¢²–C¢G'VRÂ6V7F–öã¢²6VÆV7C¢²fW'6–öä–C¢G'VRÒÒÒÀ¢Ò“°¢–b‡&WV—&VÖVçG2æÆVæwF‚ÓÒ&WV—&VÖVçD–G2æÆVæwF‚’F‡&÷ræWr‡GGW'&÷"ƒCBÂ$öæR÷"Ö÷&R6¶–ÆÇ2&Ræ÷B'BöbF†—26Æ726†V6¶Æ—7Bâ"“°¢f÷"†6öç7B&WV—&VÖVçBöb&WV—&VÖVçG2’°¢6öç7B7FF–öâÒ7FF–öåfW'6–öç2æf–æB‚†—FVÒ’Óâ—FVÒæ6†V6¶Æ—7EfW'6–öä–BÓÓÒ&WV—&VÖVçBç6V7F–öâçfW'6–öä–B“°¢–b‡7FF–öãòç&ö7F÷%W6W$–Bbb7FF–öâç&ö7F÷%W6W$–BÓÒ7G‚çW6W$–Bbb6ä÷fW'&–FU7FF–öå&ö7F÷"†7G‚’’F‡&÷ræWr‡GGW'&÷"ƒC2ÂöæÇ’F†R76–væVB&ö7F÷"f÷"G·7FF–öâçF—FÆWÒ6âw&FRF†—27FF–öâæ“°¢Ð¢6öç7BVç&öÆÆÖVçG2Òv—B&—6ÖçG&–æ–æt6Æ74Vç&öÆÆÖVçBæf–æDÖç’‡°¢v†W&S¢²–C¢²–ã¢Vç&öÆÆÖVçD–G2ÒÂ6Æ74–BÒÀ¢6VÆV7C¢²–C¢G'VRÂGFVæFæ6S¢G'VRÒÀ¢Ò“°¢–b†Vç&öÆÆÖVçG2æÆVæwF‚ÓÒVç&öÆÆÖVçD–G2æÆVæwF‚’F‡&÷ræWr‡GGW'&÷"ƒCBÂ$öæR÷"Ö÷&R7GVFVçG2&Ræ÷BöâF†—26Æ72&÷7FW"â"“°¢–b†Vç&öÆÆÖVçG2ç6öÖR‚†—FVÒ’Óâ—FVÒæGFVæFæ6RÓÒ%$U4TåB"’’°¢F‡&÷ræWr‡GGW'&÷"ƒCÂ$6öæf—&ÒV6‚6VÆV7FVB7GVFVçB2&W6VçB&Vf÷&R&V6÷&F–ær6¶–ÆÂ&W7VÇG2â"“°¢Ð¢òòv†Vâ6Æ–VçB7WÆ–W2âö'6W'fVB&Wf—6–öâÂVæf÷&6R—BFöÖ–6ÆÇ’–âF†P¢òò6ÖRG&ç67F–öâ2F†R÷F†W"7GVFVçG2âöæR6öæfÆ–7B&V¦V7G2F†RVçF—&R&F6‚à¢òòÆVv7’6ÆÆW'2v—F†÷WB&Wf—6–öâ&VÖ–â6ö×F–&ÆRGW&–ærÖ–w&F–öâà¢v—B&—6ÖâGG&ç67F–öâ†7–æ2‡G‚’Óâ°¢f÷"†6öç7B—FVÒöb&÷w2’°¢6öç7Bv†W&RÒ²Vç&öÆÆÖVçD–E÷&WV—&VÖVçD–C¢²Vç&öÆÆÖVçD–C¢—FVÒæVç&öÆÆÖVçD–BÂ&WV—&VÖVçD–C¢—FVÒç&WV—&VÖVçD–BÒÓ°¢6öç7BWFFRÒ°¢&W7VÇC¢—FVÒç&W7VÇBÂæ÷FW3¢—FVÒææ÷FW2ÂçVÖW&–566÷&S¢çVÆÂÀ¢7FW&W7VÇG4§6öã¢%µÒ"ÂWfÇVF÷$–C¢7G‚çW6W$–BÂWfÇVFVDC¢æWrFFR‚’À¢Ó°¢–b†—FVÒæW‡V7FVEWFFVDBÓÒVæFVf–æVB’°¢6öç7BW†—7F–ærÒv—BG‚çG&–æ–æt6Æ756¶–ÆÅ&W7VÇBæf–æEVæ—VR‡°¢v†W&RÂ6VÆV7C¢²–C¢G'VRÂWFFVDC¢G'VRÒÀ¢Ò“°¢–b†—FVÒæW‡V7FVEWFFVDBÓÓÒçVÆÂ’°¢–b†W†—7F–ær’F‡&÷ræWr‡GGW'&÷"ƒC’Â%6¶–ÆÂ&W7VÇB6†ævVBâ&Vg&W6‚F†R&÷7FW"&Vf÷&R7V&Ö—GF–ærâ"“°¢v—BG‚çG&–æ–æt6Æ756¶–ÆÅ&W7VÇBæ7&VFR‡°¢FF¢²Vç&öÆÆÖVçD–C¢—FVÒæVç&öÆÆÖVçD–BÂ&WV—&VÖVçD–C¢—FVÒç&WV—&VÖVçD–BÀ¢&W7VÇC¢—FVÒç&W7VÇBÂæ÷FW3¢—FVÒææ÷FW2ÂWfÇVF÷$–C¢7G‚çW6W$–BÒÀ¢Ò“°¢ÒVÇ6R°¢–b‚W†—7F–ær’F‡&÷ræWr‡GGW'&÷"ƒC’Â%6¶–ÆÂ&W7VÇB6†ævVBâ&Vg&W6‚F†R&÷7FW"&Vf÷&R7V&Ö—GF–ærâ"“°¢6öç7B6†ævVBÒv—BG‚çG&–æ–æt6Æ756¶–ÆÅ&W7VÇBçWFFTÖç’‡°¢v†W&S¢²–C¢W†—7F–æræ–BÂWFFVDC¢æWrFFR†—FVÒæW‡V7FVEWFFVDB’ÒÀ¢FF¢WFFRÀ¢Ò“°¢–b†6†ævVBæ6÷VçBÓÒ’F‡&÷ræWr‡GGW'&÷"ƒC’Â%6¶–ÆÂ&W7VÇB6†ævVBâ&Vg&W6‚F†R&÷7FW"&Vf÷&R7V&Ö—GF–ærâ"“°¢Ð¢ÒVÇ6R°¢òòöÆFW"6Æ–VçG26ææ÷B&÷f–FR&Wf—6–öââW&Ö—Bf—'7B×F–ÖRw&F–ærÀ¢òò'WBæWfW"ÆÆ÷râVçfW'6–öæVB&F6‚Fò&WÆ6R&V6÷&FVBWf–FVæ6Rà¢6öç7BW†—7F–ærÒv—BG‚çG&–æ–æt6Æ756¶–ÆÅ&W7VÇBæf–æEVæ—VR‡°¢v†W&RÂ6VÆV7C¢²–C¢G'VRÒÀ¢Ò“°¢–b†W†—7F–ær’F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—26¶–ÆÂÇ&VG’†2âWfÇVF–öââ&Vg&W6‚æB&W7V&Ö—Bv—F‚—G2&Wf—6–öââ"“°¢v—BG‚çG&–æ–æt6Æ756¶–ÆÅ&W7VÇBæ7&VFR‡°¢FF¢²Vç&öÆÆÖVçD–C¢—FVÒæVç&öÆÆÖVçD–BÂ&WV—&VÖVçD–C¢—FVÒç&WV—&VÖVçD–BÀ¢&W7VÇC¢—FVÒç&W7VÇBÂæ÷FW3¢—FVÒææ÷FW2ÂWfÇVF÷$–C¢7G‚çW6W$–BÒÀ¢Ò“°¢Ð¢Ð¢Ò“°¢v—B&öÖ—6RæÆÂ…²ââææWr6WB†Vç&öÆÆÖVçD–G2•ÒæÖ‚†–B’Óâ&V6Æ7VÆFTVç&öÆÆÖVçB†–B’’“°¢v—Bw&—FTVF—B†7G‚Â&6Æ72ç6¶–ÆÅ÷&W7VÇBæ&F6…÷&V6÷&FVB"Â%G&–æ–æt6Æ72"Â6Æ74–BÂ°¢&W7VÇD6÷VçC¢&÷w2æÆVæwF‚À¢76VD6÷VçC¢&÷w2æf–ÇFW"‚†—FVÒ’Óâ—FVÒç&W7VÇBÓÓÒ%52"’æÆVæwF‚À¢f–ÆVD6÷VçC¢&÷w2æf–ÇFW"‚†—FVÒ’Óâ—FVÒç&W7VÇBÓÓÒ$d”Â"’æÆVæwF‚À¢&VÖVF–F–öä6÷VçC¢&÷w2æf–ÇFW"‚†—FVÒ’Óâ—FVÒç&W7VÇBÓÓÒ$äTTE5õ$TÔTD”D”ôâ"’æÆVæwF‚À¢&W7VÇG3¢&÷w2æÖ‚‡²Vç&öÆÆÖVçD–BÂ&WV—&VÖVçD–BÂ&W7VÇBÒ’Óâ‡²Vç&öÆÆÖVçD–BÂ&WV—&VÖVçD–BÂ&W7VÇBÒ’’À¢Ò“°¢&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°§Ð ¢ò¢ ¢¢GF6‚V&Æ—6†VBFW'FÖVçB6†V6¶Æ—7BæBö÷"w&F–ær6WGWFòâ÷Và¢¢G&–æ–ær6†VWBâFV×ÆFW2&R6÷–VBöçFòF†R6Æ726òÆFW"FV×ÆFRVF—G0¢¢6ææ÷B6†ævRF†Röff–6–Â6Æ72&V6÷&Bà¢¢ð¦W‡÷'B7–æ2gVæ7F–öâWFFT6Æ74WfÇVF–öå6WGW€¢7Gƒ¢WF„6öçFW‡BÀ¢6Æ74–C¢7G&–ærÀ¢–çWC¢²G&–æ–æu6†VWEFV×ÆFT–Có¢7G&–æs²6†V6¶Æ—7EfW'6–öä–Có¢7G&–æs²w&F–æt6ö×öæVçD–Có¢7G&–æs²&V'V–ÇEG&–æ–æu7—7FVÔ–Có¢7G&–ærÒÀ¢’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2çw&—FR"“°¢6öç7B6Æ75&÷rÒv—B6ä66W746Æ72†7G‚Â6Æ74–BÂG'VR“°¢–b†6Æ75&÷rç7FGW2ÓÓÒ$4ôÕÄUDR"ÇÂ6Æ75&÷rç7FGW2ÓÓÒ$4ä4TÄÄTB"ÇÂ6Æ75&÷rç&×57FGW2ÓÒ$äõEõ$TE’"’°¢F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—2G&–æ–ær6†VWB—2Ç&VG’6Æ÷6VBâW6RF†RWF†÷&—¦VB6÷'&V7F–öâ&ö6W72â"“°¢Ð ¢6öç7BFV×ÆFT–BÒ7G&–ær†–çWBçG&–æ–æu6†VWEFV×ÆFT–BÇÂ""’çG&–Ò‚“°¢6öç7B&WVW7FVD6†V6¶Æ—7D–BÒ7G&–ær†–çWBæ6†V6¶Æ—7EfW'6–öä–BÇÂ""’çG&–Ò‚“°¢6öç7Bw&F–æt6ö×öæVçD–BÒ7G&–ær†–çWBæw&F–æt6ö×öæVçD–BÇÂ""’çG&–Ò‚“°¢6öç7B&V'V–ÇEG&–æ–æu7—7FVÔ–BÒ7G&–ær†–çWBç&V'V–ÇEG&–æ–æu7—7FVÔ–BÇÂ""’çG&–Ò‚“°¢–b‚FV×ÆFT–Bbb&WVW7FVD6†V6¶Æ—7D–Bbbw&F–æt6ö×öæVçD–Bbb&V'V–ÇEG&–æ–æu7—7FVÔ–B’°¢F‡&÷ræWr‡GGW'&÷"ƒCÂ$6†ö÷6R6†V6¶Æ—7BÂw&F–ær7—7FVÒÂ÷"G&–æ–ær6†VWBFV×ÆFRâ"“°¢Ð ¢6öç7BFV×ÆFRÒFV×ÆFT–@¢òv—B&—6ÖçG&–æ–æu6†VWEFV×ÆFRæf–æDf—'7B‡°¢v†W&S¢²–C¢FV×ÆFT–BÂFW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂ&6†—fVC¢fÇ6RÒÀ¢Ò¢¢çVÆÃ°¢–b‡FV×ÆFT–BbbFV×ÆFR’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%G&–æ–ær6†VWBFV×ÆFRæ÷Bf÷VæBâ"“°¢6öç7Bw&F–æt6ö×öæVçBÒw&F–æt6ö×öæVçD–@¢òv—B&—6ÖçG&–æ–æu6†VWD6ö×öæVçEFV×ÆFRæf–æDf—'7B‡°¢v†W&S¢²–C¢w&F–æt6ö×öæVçD–BÂFW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂ¶–æC¢$u$D”är"Â&6†—fVC¢fÇ6RÒÀ¢Ò¢¢çVÆÃ°¢–b†w&F–æt6ö×öæVçD–Bbbw&F–æt6ö×öæVçB’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%6fVBw&F–ær7—7FVÒæ÷Bf÷VæBâ"“°¢6öç7Bw&F–æt6ö×öæVçDFFÒw&F–æt6ö×öæVçBò'6T§6öäö&¦V7B†w&F–æt6ö×öæVçBæFF§6öâ’¢·Ó°¢6öç7B&V'V–ÇEG&–æ–æu7—7FVÒÒ&V'V–ÇEG&–æ–æu7—7FVÔ–BòvWE&V'V–ÇEG&–æ–æu7—7FVÒ‡&V'V–ÇEG&–æ–æu7—7FVÔ–B’¢çVÆÃ°¢–b‡&V'V–ÇEG&–æ–æu7—7FVÔ–Bbb&V'V–ÇEG&–æ–æu7—7FVÒ’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%&V'V–ÇBG&–æ–ær7—7FVÒæ÷Bf÷VæBâ"“° ¢6öç7B6†V6¶Æ—7EfW'6–öä–BÒ&WVW7FVD6†V6¶Æ—7D–BÇÂFV×ÆFSòæ6†V6¶Æ—7EfW'6–öä–BÇÂ"#°¢–b†6†V6¶Æ—7EfW'6–öä–B’°¢6öç7B6†V6¶Æ—7BÒv—B&—6ÖçF6´&ööµfW'6–öâæf–æDf—'7B‡°¢v†W&S¢°¢–C¢6†V6¶Æ—7EfW'6–öä–BÀ¢7FGW3¢%T$Ä•4„TB"À¢FV×ÆFS¢²FW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂFV×ÆFT¶–æC¢²æ÷C¢%E$”ä”äuõD4²"ÒÒÀ¢ÒÀ¢6VÆV7C¢²–C¢G'VRÒÀ¢Ò“°¢–b‚6†V6¶Æ—7B’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%V&Æ—6†VBFW'FÖVçB6†V6¶Æ—7Bæ÷Bf÷VæBâ"“°¢Ð ¢–b†6†V6¶Æ—7EfW'6–öä–Bbb6†V6¶Æ—7EfW'6–öä–BÓÒ6Æ75&÷ræ6†V6¶Æ—7EfW'6–öä–B’°¢6öç7BW†—7F–æu&W7VÇG2Òv—B&—6ÖçG&–æ–æt6Æ756¶–ÆÅ&W7VÇBæ6÷VçB‡°¢v†W&S¢²Vç&öÆÆÖVçC¢²6Æ74–BÒÒÀ¢Ò“°¢–b†W†—7F–æu&W7VÇG2â’°¢F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—26†V6¶Æ—7BÇ&VG’†2&V6÷&FVBWfÇVF–öç2æB6ææ÷B&R&WÆ6VBâ"“°¢Ð¢Ð ¢v—B&—6ÖçG&–æ–æt6Æ72çWFFR‡°¢v†W&S¢²–C¢6Æ74–BÒÀ¢FF¢°¢âââ†6†V6¶Æ—7EfW'6–öä–Bò²6†V6¶Æ—7EfW'6–öä–BÒ¢·Ò’À¢âââ‡FV×ÆFRò°¢w&F–æt6öæf–t§6öã¢FV×ÆFRæw&F–æt6öæf–t§6öâÀ¢7W7FöÔf–VÆG4§6öã¢FV×ÆFRæ7W7FöÔf–VÆG4§6öâÀ¢FV×ÆFTæÖS¢FV×ÆFRææÖRÀ¢FV×ÆFU&Wf—6–öã¢FV×ÆFRç&Wf—6–öâÀ¢Ò¢·Ò’À¢âââ†w&F–æt6ö×öæVçBò°¢w&F–æt6öæf–t§6öã¢¥4ôâç7G&–æv–g’†w&F–æt6ö×öæVçDFFæw&F–æt6öæf–rÇÂ·Ò’À¢7W7FöÔf–VÆG4§6öã¢¥4ôâç7G&–æv–g’„'&’æ—4'&’†w&F–æt6ö×öæVçDFFæ7W7FöÔf–VÆG2’òw&F–æt6ö×öæVçDFFæ7W7FöÔf–VÆG2¢µÒ’À¢Ò¢·Ò’À¢âââ‡&V'V–ÇEG&–æ–æu7—7FVÒò°¢w&F–æt6öæf–t§6öã¢¥4ôâç7G&–æv–g’‡&V'V–ÇEG&–æ–æu7—7FVÒæw&F–æt6öæf–r’À¢7W7FöÔf–VÆG4§6öã¢¥4ôâç7G&–æv–g’‡&V'V–ÇEG&–æ–æu7—7FVÒæ7W7FöÔf–VÆG2’À¢Ò¢·Ò’À¢ÒÀ¢Ò“°¢v—Bw&—FTVF—B†7G‚Â'G&–æ–æu÷6†VWBæWfÇVF–öå÷6WGWçWFFVB"Â%G&–æ–æt6Æ72"Â6Æ74–BÂ°¢G&–æ–æu6†VWEFV×ÆFT–C¢FV×ÆFSòæ–BÇÂçVÆÂÀ¢6†V6¶Æ—7EfW'6–öä–C¢6†V6¶Æ—7EfW'6–öä–BÇÂ6Æ75&÷ræ6†V6¶Æ—7EfW'6–öä–BÀ¢w&F–æt6ö×öæVçD–C¢w&F–æt6ö×öæVçCòæ–BÇÂçVÆÂÀ¢w&F–æu7—7FVÔæÖS¢w&F–æt6ö×öæVçCòææÖRÇÂçVÆÂÀ¢&V'V–ÇEG&–æ–æu7—7FVÔ–C¢&V'V–ÇEG&–æ–æu7—7FVÓòæ–BÇÂçVÆÂÀ¢&V'V–ÇEG&–æ–æu7—7FVÔæÖS¢&V'V–ÇEG&–æ–æu7—7FVÓòææÖRÇÂçVÆÂÀ¢FV×ÆFTæÖS¢FV×ÆFSòææÖRÇÂçVÆÂÀ¢Ò“°¢&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°§Ð ¦W‡÷'B7–æ2gVæ7F–öâWFFTVç&öÆÆÖVçB€¢7Gƒ¢WF„6öçFW‡BÀ¢6Æ74–C¢7G&–ærÀ¢Vç&öÆÆÖVçD–C¢7G&–ærÀ¢–çWC¢²GFVæFæ6Só¢7G&–æs²w&—GFVå66÷&Só¢çVÖ&W"ÂçVÆÃ²66e66÷&Só¢çVÖ&W"ÂçVÆÃ²æ÷FW3ó¢7G&–æs²7W7FöÕfÇVW3ó¢&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâÒÀ¢’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2ç&ö7F÷""“°¢v—B76W'D&÷fVDWfÇVF÷"†7G‚“°¢v—B6ä66W746Æ72†7G‚Â6Æ74–BÂG'VR“°¢6öç7BVç&öÆÆÖVçBÒv—B&—6ÖçG&–æ–æt6Æ74Vç&öÆÆÖVçBæf–æDf—'7B‡²v†W&S¢²–C¢Vç&öÆÆÖVçD–BÂ6Æ74–BÒÒ“°¢–b‚Vç&öÆÆÖVçB’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%7GVFVçB—2æ÷BöâF†—26Æ72&÷7FW"â"“°¢6öç7BGFVæFæ6RÒ–çWBæGFVæFæ6SòçG&–Ò‚’çFõWW$66R‚“°¢–b†GFVæFæ6RbbEDTäDä4UõdÅTU2æ†2†GFVæFæ6R’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$–çfÆ–BGFVæFæ6RfÇVRâ"“°¢f÷"†6öç7B¶Æ&VÂÂfÇVUÒöbµ²%w&—GFVâ66÷&R"Â–çWBçw&—GFVå66÷&UÒÂ²$44b66÷&R"Â–çWBæ66e66÷&UÕÒ26öç7B’°¢–b‡fÇVRÒçVÆÂbb‚çVÖ&W"æ—4f–æ—FR‡fÇVR’ÇÂfÇVRÂÇÂfÇVRâ’’°¢F‡&÷ræWr‡GGW'&÷"ƒCÂG¶Æ&VÇÒ×W7B&R&WGvVVâæBæ“°¢Ð¢Ð¢6öç7B6Æ75&÷rÒv—B&—6ÖçG&–æ–æt6Æ72æf–æEVæ—VT÷%F‡&÷r‡²v†W&S¢²–C¢6Æ74–BÒÂ6VÆV7C¢²7W7FöÔf–VÆG4§6öã¢G'VRÒÒ“°¢6öç7Bf–VÆG2Ò¥4ôâç'6R†6Æ75&÷ræ7W7FöÔf–VÆG4§6öâÇÂ%µÒ"’2'&“Ç²–C¢7G&–æs²Æ&VÃ¢7G&–æs²G—S¢7G&–æs²Æ–W5Fóó¢7G&–ærÓã°¢6öç7BfÇVW3¢&V6÷&CÇ7G&–ærÂ7G&–ærÂçVÖ&W"Â&ööÆVâÂçVÆÃâÒ·Ó°¢–b†–çWBæ7W7FöÕfÇVW2ÓÒVæFVf–æVB’°¢–b‚–çWBæ7W7FöÕfÇVW2ÇÂG—Vöb–çWBæ7W7FöÕfÇVW2ÓÒ&ö&¦V7B"ÇÂ'&’æ—4'&’†–çWBæ7W7FöÕfÇVW2’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$–çfÆ–B7W7FöÒfÇVW2â"“°¢f÷"†6öç7Bf–VÆBöbf–VÆG2’°¢6öç7BfÇVRÒ–çWBæ7W7FöÕfÇVW5¶f–VÆBæ–EÓ°¢–b‡fÇVRÓÒçVÆÂÇÂfÇVRÓÓÒ""’²fÇVW5¶f–VÆBæ–EÒÒçVÆÃ²6öçF–çVS²Ð¢–b†f–VÆBçG—RÓÓÒ$ÄUEDU%ôu$DR"’°¢6öç7Bw&FRÒ7G&–ær‡fÇVR’çG&–Ò‚’çFõWW$66R‚“°¢–b‚²$²"Â$"Â$Ò"Â$"²"Â$""Â$"Ò"Â$2²"Â$2"Â$2Ò"Â$B²"Â$B"Â$BÒ"Â$b%Òæ–æ6ÇVFW2†w&FR’’F‡&÷ræWr‡GGW'&÷"ƒCÂ6†ö÷6RfÆ–BÆWGFW"w&FRf÷"G¶f–VÆBæÆ&VÇÒæ“°¢fÇVW5¶f–VÆBæ–EÒÒw&FS°¢ÒVÇ6R–b†f–VÆBçG—RÓÓÒ%44õ$Uóó"’°¢6öç7BçVÖ&W"ÒçVÖ&W"‡fÇVR“°¢–b‚çVÖ&W"æ—4–çFVvW"†çVÖ&W"’ÇÂçVÖ&W"ÂÇÂçVÖ&W"â’F‡&÷ræWr‡GGW'&÷"ƒCÂG¶f–VÆBæÆ&VÇÒ×W7B&Rv†öÆRçVÖ&W"g&öÒFòæ“°¢fÇVW5¶f–VÆBæ–EÒÒçVÖ&W#°¢ÒVÇ6R–b†f–VÆBçG—RÓÓÒ$åTÔ$U""ÇÂf–VÆBçG—RÓÓÒ%U$4TåB"’°¢6öç7BçVÖ&W"ÒçVÖ&W"‡fÇVR“°¢–b‚çVÖ&W"æ—4f–æ—FR†çVÖ&W"’ÇÂ†f–VÆBçG—RÓÓÒ%U$4TåB"bb†çVÖ&W"ÂÇÂçVÖ&W"â’’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$–çfÆ–BçVÖW&–2f–VÆBfÇVRâ"“°¢fÇVW5¶f–VÆBæ–EÒÒçVÖ&W#°¢ÒVÇ6R–b†f–VÆBçG—RÓÓÒ$4„T4´$õ‚"’fÇVW5¶f–VÆBæ–EÒÒfÇVRÓÓÒG'VRÇÂfÇVRÓÓÒ'G'VR#°¢VÇ6R–b†f–VÆBçG—RÓÓÒ$TÔ”Â"’°¢6öç7BVÖ–ÂÒ7G&–ær‡fÇVR’çG&–Ò‚’çFôÆ÷vW$66R‚“°¢–b‚õåµåÇ4Ò´µåÇ4ÒµÂåµåÇ4Ò²BòçFW7B†VÖ–Â’’F‡&÷ræWr‡GGW'&÷"ƒCÂVçFW"fÆ–BG¶f–VÆBæÆ&VÂçFôÆ÷vW$66R‚—Òæ“°¢fÇVW5¶f–VÆBæ–EÒÒVÖ–Âç6Æ–6RƒÂ#SB“°¢ÒVÇ6R–b†f–VÆBçG—RÓÓÒ%5DDR"’°¢6öç7B7FFRÒ7G&–ær‡fÇVR’çG&–Ò‚’çFõWW$66R‚“°¢–b‚U5õ5DDU2æ–æ6ÇVFW2‡7FFR2‡G—VöbU5õ5DDU2•¶çVÖ&W%Ò’’F‡&÷ræWr‡GGW'&÷"ƒCÂ6†ö÷6RfÆ–B7FFRf÷"G¶f–VÆBæÆ&VÇÒæ“°¢fÇVW5¶f–VÆBæ–EÒÒ7FFS°¢ÒVÇ6R–b†f–VÆBçG—RÓÓÒ$Ä5CB"’°¢6öç7BÆ7CBÒ7G&–ær‡fÇVR’çG&–Ò‚“°¢–b‚õåÆG³GÒBòçFW7B†Æ7CB’’F‡&÷ræWr‡GGW'&÷"ƒCÂG¶f–VÆBæÆ&VÇÒ×W7B6öçF–âW†7FÇ’f÷W"F–v—G2æ“°¢fÇVW5¶f–VÆBæ–EÒÒÆ7CC°¢ÒVÇ6RfÇVW5¶f–VÆBæ–EÒÒ7G&–ær‡fÇVR’ç6Æ–6RƒÂS“°¢Ð¢Ð¢v—B&—6ÖçG&–æ–æt6Æ74Vç&öÆÆÖVçBçWFFR‡°¢v†W&S¢²–C¢Vç&öÆÆÖVçBæ–BÒÀ¢FF¢°¢âââ†GFVæFæ6Rò²GFVæFæ6RÒ¢·Ò’À¢âââ†–çWBçw&—GFVå66÷&RÓÒVæFVf–æVBò²w&—GFVå66÷&S¢–çWBçw&—GFVå66÷&RÒ¢·Ò’À¢âââ†–çWBæ66e66÷&RÓÒVæFVf–æVBò²66e66÷&S¢–çWBæ66e66÷&RÒ¢·Ò’À¢âââ†–çWBææ÷FW2ÓÒVæFVf–æVBò²æ÷FW3¢–çWBææ÷FW2çG&–Ò‚’ç6Æ–6RƒÂC’Ò¢·Ò’À¢âââ†–çWBæ7W7FöÕfÇVW2ÓÒVæFVf–æVBò²7W7FöÕfÇVW4§6öã¢¥4ôâç7G&–æv–g’‡fÇVW2’Ò¢·Ò’À¢ÒÀ¢Ò“°¢v—Bw&—FTVF—B†7G‚Â&6Æ72æVç&öÆÆÖVçBçWFFVB"Â%G&–æ–æt6Æ74Vç&öÆÆÖVçB"ÂVç&öÆÆÖVçBæ–BÂ°¢6Æ74–BÀ¢GFVæFæ6RÀ¢w&—GFVå66÷&S¢–çWBçw&—GFVå66÷&RÀ¢66e66÷&S¢–çWBæ66e66÷&RÀ¢æ÷FW5WFFVC¢–çWBææ÷FW2ÓÒVæFVf–æVBÀ¢Ò“°¢v—B&V6Æ7VÆFTVç&öÆÆÖVçB†Vç&öÆÆÖVçBæ–B“°¢&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°§Ð ¦W‡÷'B7–æ2gVæ7F–öâfÆ–FFT6Æ746Æ÷7W&R†7Gƒ¢WF„6öçFW‡BÂ6Æ74–C¢7G&–ær’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2çw&—FR"“°¢v—B6ä66W746Æ72†7G‚Â6Æ74–B“°¢6öç7B&÷rÒv—B&—6ÖçG&–æ–æt6Æ72æf–æEVæ—VR‡°¢v†W&S¢²–C¢6Æ74–BÒÀ¢–æ6ÇVFS¢°¢FW'FÖVçC¢²6VÆV7C¢²G&–æ–æu6†VWE&WV—&VDf–VÆG4§6öã¢G'VRÒÒÀ¢6†V6¶Æ—7EfW'6–öã¢²–æ6ÇVFS¢²6V7F–öç3¢²–æ6ÇVFS¢²&WV—&VÖVçG3¢G'VRÒÒÒÒÀ¢7FF–öç3¢²–æ6ÇVFS¢²6†V6¶Æ—7EfW'6–öã¢²–æ6ÇVFS¢²6V7F–öç3¢²–æ6ÇVFS¢²&WV—&VÖVçG3¢G'VRÒÒÒÒÒÒÀ¢&÷7FW#¢²–æ6ÇVFS¢²6¶–ÆÅ&W7VÇG3¢G'VRÒÒÀ¢&ö7F÷'3¢G'VRÀ¢ÒÀ¢Ò“°¢–b‚&÷r’F‡&÷ræWr‡GGW'&÷"ƒCBÂ$6Æ72æ÷Bf÷VæBâ"“° ¢6öç7B&WV—&VDf–VÆG2ÒæWr6WB‡'6T§6öä'&’‡&÷ræFW'FÖVçBçG&–æ–æu6†VWE&WV—&VDf–VÆG4§6öâ’æÖ‚†—FVÒ’Óâ7G&–ær†—FVÒ’çFõWW$66R‚’’“°¢6öç7BÖ—76–æs¢'&“Ç²6öFS¢7G&–æs²ÖW76vS¢7G&–æs²7F–öã¢7G&–ærÓâÒµÓ°¢6öç7Bw&F–æt6öæf–rÒ'6T§6öäö&¦V7B‡&÷ræw&F–æt6öæf–t§6öâ“°¢6öç7BFBÒ†6öFS¢7G&–ærÂÖW76vS¢7G&–ærÂ7F–öã¢7G&–ær’ÓâÖ—76–ærçW6‚‡²6öFRÂÖW76vRÂ7F–öâÒ“° ¢–b‡&WV—&VDf–VÆG2æ†2‚%D•DÄR"’bb&÷rçF—FÆRçG&–Ò‚’’FB‚%D•DÄR"Â%G&–æ–ærF—FÆR—2Ö—76–ærâ"Â$VF—BF†RG&–æ–ærF—FÆRâ"“°¢–b‡&WV—&VDf–VÆG2æ†2‚$DDR"’bb&÷rç7F'G4B’FB‚$DDR"Â%G&–æ–ærFFR÷F–ÖR—2Ö—76–ærâ"Â%6WBF†RG&–æ–ærFFRæBF–ÖRâ"“°¢–b‡&WV—&VDf–VÆG2æ†2‚$TäEõD”ÔR"’bb&÷ræVæG4B’FB‚$TäEõD”ÔR"Â%G&–æ–ærVæBF–ÖR—2Ö—76–ærâ"Â%6WBF†RG&–æ–ærVæBF–ÖRâ"“°¢–b‡&WV—&VDf–VÆG2æ†2‚$”å5E%T5Dõ""’bb&÷rç&ö7F÷'2æÆVæwF‚ÓÓÒ’FB‚$”å5E%T5Dõ""Â$æò–ç7G'V7F÷"÷&ö7F÷"—276–væVBâ"Â$76–vâBÆV7BöæR&÷fVB–ç7G'V7F÷"÷"&ö7F÷"â"“°¢–b‡&WV—&VDf–VÆG2æ†2‚$4DTtõ%’"’bb&÷rçG&–æ–æt6FVv÷'’çG&–Ò‚’’FB‚$4DTtõ%’"Â%G&–æ–ær6FVv÷'’—2Ö—76–ærâ"Â$6†ö÷6RG&–æ–ær6FVv÷'’â"“°¢–b‡&WV—&VDf–VÆG2æ†2‚$Äô4D”ôâ"’bb&÷ræÆö6F–öâçG&–Ò‚’’FB‚$Äô4D”ôâ"Â%G&–æ–ærÆö6F–öâ—2Ö—76–ærâ"Â$VçFW"F†RG&–æ–ærÆö6F–öââ"“°¢–b‡&WV—&VDf–VÆG2æ†2‚%5DD”ôâ"’bb&÷rç7FF–öâçG&–Ò‚’’FB‚%5DD”ôâ"Â%G&–æ–ær7FF–öâ—2Ö—76–ærâ"Â$6†ö÷6R÷"VçFW"F†R7FF–öââ"“°¢–b‡&WV—&VDf–VÆG2æ†2‚%4„”eB"’bb&÷rç6†–gBçG&–Ò‚’’FB‚%4„”eB"Â%G&–æ–ær6†–gB—2Ö—76–ærâ"Â$6†ö÷6RF†RFW'FÖVçB6†–gBâ"“°¢–b‡&WV—&VDf–VÆG2æ†2‚$DU45$•D”ôâ"’bb&÷rææ÷FW2çG&–Ò‚’’FB‚$DU45$•D”ôâ"Â%G&–æ–ærFW67&—F–öâòæ÷FW2&RÖ—76–ærâ"Â$VçFW"F†R&WV—&VBG&–æ–ærFW67&—F–öâ÷"æ÷FW2â"“°¢–b‡&WV—&VDf–VÆG2æ†2‚$„õU%2"’bb‡&÷ræ7&VF—D†÷W'2âÇÂ‡&÷rç7F'G4Bbb&÷ræVæG4B’’’°¢FB‚$„õU%2"Â%G&–æ–ær†÷W'2&RÖ—76–ærâ"Â$VçFW"7&VF—B†÷W'2÷"&÷F‚7F'BæBVæBF–ÖW2â"“°¢Ð¢6öç7B7W7FöÔf–VÆG2Ò¥4ôâç'6R‡&÷ræ7W7FöÔf–VÆG4§6öâÇÂ%µÒ"’2'&“Ç²–C¢7G&–æs²Æ&VÃ¢7G&–æs²G—S¢7G&–æs²&WV—&VC¢&ööÆVã²Æ–W5Fóó¢7G&–ærÓã°¢f÷"†6öç7Bf–VÆBöb7W7FöÔf–VÆG2æf–ÇFW"‚†—FVÒ’Óâ—FVÒç&WV—&VB’’°¢f÷"†6öç7BVç&öÆÆÖVçBöb&÷rç&÷7FW"æf–ÇFW"‚†—FVÒ’Óâ—FVÒæGFVæFæ6RÓÓÒ%$U4TåB"’’°¢6öç7BfÇVW2Ò¥4ôâç'6R†Vç&öÆÆÖVçBæ7W7FöÕfÇVW4§6öâÇÂ'·Ò"’2&V6÷&CÇ7G&–ærÂVæ¶æ÷vãã°¢–b‡fÇVW5¶f–VÆBæ–EÒÓÓÒVæFVf–æVBÇÂfÇVW5¶f–VÆBæ–EÒÓÓÒçVÆÂÇÂfÇVW5¶f–VÆBæ–EÒÓÓÒ""ÇÂ†f–VÆBæÆ–W5FòÓÓÒ%$õ5DU""bbf–VÆBçG—RÓÓÒ$4„T4´$õ‚"bbfÇVW5¶f–VÆBæ–EÒÓÒG'VR’’°¢FB‚$5U5DôÕôd”TÄB"Â&WV—&VBf–VÆB"G¶f–VÆBæÆ&VÇÒ"—2Ö—76–ærf÷"7GVFVçBæÂ$VçFW"F†R&WV—&VB7GVFVçB&W7VÇB&Vf÷&Rf–æÆ—¦–ærâ"“°¢Ð¢Ð¢Ð¢–b‡&÷rç&÷7FW"æÆVæwF‚ÓÓÒ’FB‚%$õ5DU""Â%F†R&÷7FW"—2V×G’â"Â$FBBÆV7BöæRW'6öâFòF†RG&–æ–ær&÷7FW"â"“° ¢6öç7BVç&W6öÇfVDGFVæFæ6RÒ&÷rç&÷7FW"æf–ÇFW"‚†—FVÒ’Óâ—FVÒæGFVæFæ6RÓÓÒ%$Tt•5DU$TB"“°¢–b‡Vç&W6öÇfVDGFVæFæ6RæÆVæwF‚’°¢FB‚$EDTäDä4R"ÂG·Vç&W6öÇfVDGFVæFæ6RæÆVæwF‡Ò&÷7FW"ÖVÖ&W"G·Vç&W6öÇfVDGFVæFæ6RæÆVæwF‚ÓÓÒò""¢'2'Ò7F–ÆÂæVVBGFVæFæ6R6öæf—&ÖVBæÂ$Ö&²V6‚&÷7FW"ÖVÖ&W"&W6VçBÂ'6VçBÂ÷"W†7W6VBâ"“°¢Ð ¢f÷"†6öç7BVç&öÆÆÖVçBöb&÷rç&÷7FW"æf–ÇFW"‚†—FVÒ’Óâ—FVÒæGFVæFæ6RÓÓÒ%$U4TåB"’’°¢–b†w&F–æt6öæf–rçw&—GFVåFW7DVæ&ÆVBÓÓÒG'VR’°¢–b†Vç&öÆÆÖVçBçw&—GFVå66÷&RÓÒçVÆÂ’FB‚%u$•EDTåõDU5B"Â$w&—GFVâFW7B66÷&R—2Ö—76–ærf÷"&W6VçB7GVFVçBâ"Â%&V6÷&BF†Rw&—GFVâFW7B66÷&R&Vf÷&R6Æ÷6–ærâ"“°¢VÇ6R–b†w&F–æt6öæf–rçw&—GFVåFW7E75W&6VçBÒçVÆÂbbVç&öÆÆÖVçBçw&—GFVå66÷&RÂçVÖ&W"†w&F–æt6öæf–rçw&—GFVåFW7E75W&6VçB’’FB‚%u$•EDTåõDU5B"Â$w&—GFVâFW7B66÷&R—2&VÆ÷rF†RFV×ÆFR72Ö&²â"Â%&Wf–WrF†R&W7VÇBæB6ö×ÆWFR&VÖVF–F–öâ÷"&V6÷&B76–ær66÷&Râ"“°¢Ð¢–b†w&F–æt6öæf–ræ66dVæ&ÆVBÓÓÒG'VR’°¢–b†Vç&öÆÆÖVçBæ66e66÷&RÓÒçVÆÂ’FB‚$44eõ44õ$R"Â$44b66÷&R—2Ö—76–ærf÷"&W6VçB7GVFVçBâ"Â%&V6÷&BF†R44b66÷&R&Vf÷&R6Æ÷6–ærâ"“°¢VÇ6R–b†w&F–æt6öæf–ræ66e75W&6VçBÒçVÆÂbbVç&öÆÆÖVçBæ66e66÷&RÂçVÖ&W"†w&F–æt6öæf–ræ66e75W&6VçB’’FB‚$44eõ44õ$R"Â$44b66÷&R—2&VÆ÷rF†RFV×ÆFR72Ö&²â"Â%&Wf–WrF†R&W7VÇBæB6ö×ÆWFR&VÖVF–F–öâ÷"&V6÷&B76–ær66÷&Râ"“°¢Ð¢Ð ¢6öç7B&WV—&VD–G2Ò°¢âââ‡&÷ræ6†V6¶Æ—7EfW'6–öãòç6V7F–öç2æfÆDÖ‚‡6V7F–öâ’Óâ6V7F–öâç&WV—&VÖVçG2æf–ÇFW"‚†—FVÒ’Óâ—FVÒæ—5&WV—&VB’æÖ‚†—FVÒ’Óâ—FVÒæ–B’’ÇÂµÒ’À¢ââç&÷rç7FF–öç2æfÆDÖ‚‡7FF–öâ’Óâ7FF–öâæ6†V6¶Æ—7EfW'6–öâç6V7F–öç2æfÆDÖ‚‡6V7F–öâ’Óâ6V7F–öâç&WV—&VÖVçG2æf–ÇFW"‚†—FVÒ’Óâ—FVÒæ—5&WV—&VB’æÖ‚†—FVÒ’Óâ—FVÒæ–B’’’À¢Ó°¢6öç7B–æ6ö×ÆWFU6¶–ÆÇ2Ò&÷rç&÷7FW"æf–ÇFW"‚†—FVÒ’Óà¢—FVÒæGFVæFæ6RÓÓÒ%$U4TåB"b`¢&WV—&VD–G2ç6öÖR‚†–B’Óâ—FVÒç6¶–ÆÅ&W7VÇG2ç6öÖR‚‡&W7VÇB’Óâ&W7VÇBç&WV—&VÖVçD–BÓÓÒ–Bbb&W7VÇBç&W7VÇBÓÒ$äõEôUdÅTDTB"’’À¢“°¢–b†–æ6ö×ÆWFU6¶–ÆÇ2æÆVæwF‚’°¢FB‚%$UT•$TEõ4´”ÄÅ2"ÂG¶–æ6ö×ÆWFU6¶–ÆÇ2æÆVæwF‡Ò&W6VçBÖVÖ&W"G¶–æ6ö×ÆWFU6¶–ÆÇ2æÆVæwF‚ÓÓÒò""¢'2'Ò7F–ÆÂæVVB&WV—&VB6¶–ÆÂ&W7VÇG2æÂ$f–æ—6‚&WV—&VB6¶–ÆÂWfÇVF–öç2f÷"V6‚&W6VçBÖVÖ&W"â"“°¢Ð ¢&WGW&â²6ä6Æ÷6S¢Ö—76–æræÆVæwF‚ÓÓÒÂÖ—76–ærÓ°§Ð ¢ò¢ ¢¢6fRF†Rf–æÂ–ç7G'V7F÷"æ'&F—fRÂ7GVÂF–ÖW2æB$Õ2×&VG’ÖWFFFà¢¢FW'FÖVçB×&WV—&VBf–VÆG2&R6†V6¶VB'’fÆ–FFT6Æ746Æ÷7W&RB&÷fÂÀ¢¢æ÷Bv†VâF†R–ç7G'V7F÷"7F'G2F†R6†VWBà¢¢ð¦W‡÷'B7–æ2gVæ7F–öâWFFT6Æ74Fö7VÖVçFF–öâ€¢7Gƒ¢WF„6öçFW‡BÀ¢6Æ74–C¢7G&–ærÀ¢–çWC¢²7F'G4Có¢7G&–æs²VæG4Có¢7G&–ærÂçVÆÃ²æ÷FW3ó¢7G&–æs²Æö6F–öãó¢7G&–æs²7FF–öãó¢7G&–æs²6†–gCó¢7G&–æs²G&–æ–æt6FVv÷'“ó¢7G&–æs²G&–æ–æu6†VWEFV×ÆFT–Có¢7G&–æs²7&VF—D†÷W'3ó¢çVÖ&W#²6T7&VF—G3ó¢Væ¶æ÷vâÒÀ¢’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2çw&—FR"“°¢6öç7B&÷rÒv—B6ä66W746Æ72†7G‚Â6Æ74–BÂG'VR“°¢–b‡&÷rç7FGW2ÓÓÒ$4ôÕÄUDR"ÇÂ&÷rç7FGW2ÓÓÒ$4ä4TÄÄTB"ÇÂ&÷rç&×57FGW2ÓÒ$äõEõ$TE’"’°¢F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—2G&–æ–ær6†VWB—2Ç&VG’6Æ÷6VBâW6RF†RWF†÷&—¦VB6÷'&V7F–öâ&ö6W72â"“°¢Ð¢6öç7B7F'G4BÒ–çWBç7F'G4BÓÓÒVæFVf–æVBò&÷rç7F'G4B¢'6TFFR†–çWBç7F'G4BÂ%G&–æ–ær7F'BF–ÖR"ÂG'VR’°¢6öç7BVæG4BÒ–çWBæVæG4BÓÓÒVæFVf–æVBò&÷ræVæG4B¢'6TFFR†–çWBæVæG4BÂ%G&–æ–ærVæBF–ÖR"“°¢–b†VæG4BbbVæG4BÂ7F'G4B’F‡&÷ræWr‡GGW'&÷"ƒCÂ%G&–æ–ærVæBF–ÖR6ææ÷B&R&Vf÷&RF†R7F'BF–ÖRâ"“°¢6öç7BFV×ÆFT–BÒ7G&–ær†–çWBçG&–æ–æu6†VWEFV×ÆFT–BÇÂ""’çG&–Ò‚“°¢6öç7BFV×ÆFRÒFV×ÆFT–@¢òv—B&—6ÖçG&–æ–æu6†VWEFV×ÆFRæf–æDf—'7B‡°¢v†W&S¢²–C¢FV×ÆFT–BÂFW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂ&6†—fVC¢fÇ6RÒÀ¢Ò¢¢çVÆÃ°¢–b‡FV×ÆFT–BbbFV×ÆFR’F‡&÷ræWr‡GGW'&÷"ƒCBÂ%G&–æ–ær6†VWBFV×ÆFRæ÷Bf÷VæBâ"“°¢6öç7BG&–æ–æt6FVv÷'’ÒFV×ÆFSòçG&–æ–æt6FVv÷'’ÇÀ¢†–çWBçG&–æ–æt6FVv÷'’ÓÓÒVæFVf–æVBò&÷rçG&–æ–æt6FVv÷'’¢7G&–ær†–çWBçG&–æ–æt6FVv÷'’’çG&–Ò‚’çFõWW$66R‚’“°¢–b‚E$”ä”äuô4DTtõ%•õdÅTU2æ†2‡G&–æ–æt6FVv÷'’’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$6†ö÷6RfÆ–BG&–æ–ær6FVv÷'’â"“°¢6öç7BW†—7F–æt6T7&VF—G2Ò¥4ôâç'6R‡&÷ræ6T7&VF—G4§6öâÇÂ%µÒ"’2'&“Ç²6FVv÷'“ó¢7G&–ærÓã°¢ÆWBFV×ÆFT6T7&VF—G3¢'&“Ç²6FVv÷'“ó¢7G&–ærÓâÒµÓ°¢G'’²FV×ÆFT6T7&VF—G2ÒFV×ÆFRò¥4ôâç'6R‡FV×ÆFRæ6T7&VF—G4§6öâÇÂ%µÒ"’¢µÓ²Ò6F6‚·Ð¢6öç7BÆÆ÷vVD7W7FöÔ6FVv÷&–W2ÒæWr6WB€¢‡FV×ÆFRòFV×ÆFT6T7&VF—G2¢W†—7F–æt6T7&VF—G2¢æÖ‚†—FVÒ’Óâ7G&–ær†—FVÒæ6FVv÷'’ÇÂ""’çG&–Ò‚’¢æf–ÇFW"„&ööÆVâ’À¢“°¢6öç7B6T7&VF—G2Ò–çWBæ6T7&VF—G2ÓÓÒVæFVf–æVBòæ÷&ÖÆ—¦T6T7&VF—G2†W†—7F–æt6T7&VF—G2ÂÆÆ÷vVD7W7FöÔ6FVv÷&–W2’¢æ÷&ÖÆ—¦T6T7&VF—G2†–çWBæ6T7&VF—G2ÂÆÆ÷vVD7W7FöÔ6FVv÷&–W2“°¢–b‡FV×ÆFRbb6T7&VF—G2ç6öÖR‚†—FVÒ’ÓâÆÆ÷vVD7W7FöÔ6FVv÷&–W2æ†2†—FVÒæ6FVv÷'’’’’°¢F‡&÷ræWr‡GGW'&÷"ƒCÂ$6†ö÷6RG&–æ–ær7&VF—B6FVv÷'’g&öÒF†R6VÆV7FVBG&–æ–ær6†VWBFV×ÆFRâ"“°¢Ð¢6öç7BÆÆö6FVD†÷W'2Ò6T7&VF—G2ç&VGV6R‚‡7VÒÂ—FVÒ’Óâ7VÒ²—FVÒæ†÷W'2Â“°¢6öç7B7&VF—D†÷W'2ÒÆÆö6FVD†÷W'2âòÆÆö6FVD†÷W'2¢–çWBæ7&VF—D†÷W'2ÓÓÒVæFVf–æVBò&÷ræ7&VF—D†÷W'2¢çVÖ&W"†–çWBæ7&VF—D†÷W'2“°¢–b‚çVÖ&W"æ—4f–æ—FR†7&VF—D†÷W'2’ÇÂ7&VF—D†÷W'2ÂÇÂ7&VF—D†÷W'2â#B’°¢F‡&÷ræWr‡GGW'&÷"ƒCÂ$7&VF—B†÷W'2×W7B&R&WGvVVâæB#Bâ"“°¢Ð¢v—B&—6ÖçG&–æ–æt6Æ72çWFFR‡°¢v†W&S¢²–C¢6Æ74–BÒÀ¢FF¢°¢7F'G4BÂVæG4BÂ7&VF—D†÷W'2ÂG&–æ–æt6FVv÷'’Â6T7&VF—G4§6öã¢¥4ôâç7G&–æv–g’†6T7&VF—G2’À¢âââ‡FV×ÆFRò²FV×ÆFTæÖS¢FV×ÆFRææÖRÂFV×ÆFU&Wf—6–öã¢FV×ÆFRç&Wf—6–öâÒ¢·Ò’À¢âââ†–çWBæÆö6F–öâÓÓÒVæFVf–æVBò·Ò¢²Æö6F–öã¢7G&–ær†–çWBæÆö6F–öâ’çG&–Ò‚’ç6Æ–6RƒÂƒ’Ò’À¢âââ†–çWBç7FF–öâÓÓÒVæFVf–æVBò·Ò¢²7FF–öã¢7G&–ær†–çWBç7FF–öâ’çG&–Ò‚’ç6Æ–6RƒÂƒ’Ò’À¢âââ†–çWBç6†–gBÓÓÒVæFVf–æVBò·Ò¢²6†–gC¢7G&–ær†–çWBç6†–gB’çG&–Ò‚’ç6Æ–6RƒÂC’Ò’À¢âââ†–çWBææ÷FW2ÓÓÒVæFVf–æVBò·Ò¢²æ÷FW3¢7G&–ær†–çWBææ÷FW2’çG&–Ò‚’ç6Æ–6RƒÂC’Ò’À¢ÒÀ¢Ò“°¢v—Bw&—FTVF—B†7G‚Â'G&–æ–æu÷6†VWBæFö7VÖVçFF–öâçWFFVB"Â%G&–æ–æt6Æ72"Â6Æ74–BÂ°¢†4VæEF–ÖS¢&ööÆVâ†VæG4B’À¢†4æ'&F—fS¢&ööÆVâ†–çWBææ÷FW2ÓÓÒVæFVf–æVBò&÷rææ÷FW2¢–çWBææ÷FW3òçG&–Ò‚’’À¢G&–æ–æu6†VWEFV×ÆFT–C¢FV×ÆFSòæ–BÇÂçVÆÂÀ¢FV×ÆFTæÖS¢FV×ÆFSòææÖRÇÂ&÷rçFV×ÆFTæÖRÀ¢G&–æ–æt6FVv÷'’À¢6T6FVv÷&–W3¢6T7&VF—G2æÖ‚†—FVÒ’Óâ—FVÒæ6FVv÷'’’À¢Ò“°¢&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°§Ð ¦W‡÷'B7–æ2gVæ7F–öâWFFT6Æ757FGW2†7Gƒ¢WF„6öçFW‡BÂ6Æ74–C¢7G&–ærÂ7FGW4–çWC¢Væ¶æ÷vâ’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2çw&—FR"“°¢v—B6ä66W746Æ72†7G‚Â6Æ74–B“°¢6öç7B7FGW2Ò7G&–ær‡7FGW4–çWBÇÂ""’çG&–Ò‚’çFõWW$66R‚“°¢–b‚4Ä55õ5DEU5õdÅTU2æ†2‡7FGW2’’F‡&÷ræWr‡GGW'&÷"ƒCÂ$–çfÆ–B6Æ727FGW2â"“°¢–b‡7FGW2ÓÓÒ$4ôÕÄUDR"’°¢6öç7BfÆ–FF–öâÒv—BfÆ–FFT6Æ746Æ÷7W&R†7G‚Â6Æ74–B“°¢–b‚fÆ–FF–öâæ6ä6Æ÷6R’°¢F‡&÷ræWr‡GGW'&÷"ƒC’ÂfÆ–FF–öâæÖ—76–æræÖ‚†—FVÒ’Óâ—FVÒæÖW76vR’æ¦ö–â‚""’“°¢Ð¢Ð¢v—B&—6ÖçG&–æ–æt6Æ72çWFFR‡²v†W&S¢²–C¢6Æ74–BÒÂFF¢²7FGW2Ââââ…²$4ôÕÄUDR"Â$4ä4TÄÄTB%Òæ–æ6ÇVFW2‡7FGW2’ò²&Vv—7G&F–öäVæ&ÆVC¢fÇ6RÒ¢·Ò’ÒÒ“°¢v—Bw&—FTVF—B†7G‚Â&6Æ72ç7FGW2çWFFVB"Â%G&–æ–æt6Æ72"Â6Æ74–BÂ²7FGW2Ò“°¢&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°§Ð  ¦W‡÷'B7–æ2gVæ7F–öâ&÷fUG&–æ–æu6†VWB†7Gƒ¢WF„6öçFW‡BÂ6Æ74–C¢7G&–ær’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2çw&—FR"“°¢6öç7B&÷rÒv—B6ä66W746Æ72†7G‚Â6Æ74–BÂG'VR“°¢–b‡&÷rç7FGW2ÓÓÒ$4ä4TÄÄTB"ÇÂ&÷rç&×57FGW2ÓÓÒ%$Õ5ôTåDU$TB"’F‡&÷ræWr‡GGW'&÷"ƒC’Â%F†—2G&–æ–ær6†VWB6ææ÷B&R&÷fVBf÷"$Õ2VçG'’â"“°¢–b‡&÷rç&×57FGW2ÓÓÒ$t•D”äuôTåE%’"’&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°¢6öç7BfÆ–FF–öâÒv—BfÆ–FFT6Æ746Æ÷7W&R†7G‚Â6Æ74–B“°¢–b‚fÆ–FF–öâæ6ä6Æ÷6R’F‡&÷ræWr‡GGW'&÷"ƒC’ÂfÆ–FF–öâæÖ—76–æræÖ‚†—FVÒ’Óâ—FVÒæÖW76vR’æ¦ö–â‚""’“°¢v—B&—6ÖçG&–æ–æt6Æ72çWFFR‡²v†W&S¢²–C¢6Æ74–BÒÂFF¢²7FGW3¢$4ôÕÄUDR"Â&×57FGW3¢$t•D”äuôTåE%’"Â–ç7G'V7F÷$&÷fVDC¢æWrFFR‚’Â–ç7G'V7F÷$&÷fVD'”–C¢7G‚çW6W$–BÂ&Vv—7G&F–öäVæ&ÆVC¢fÇ6RÒÒ“°¢v—Bw&—FTVF—B†7G‚Â'G&–æ–æu÷6†VWBæ–ç7G'V7F÷%ö&÷fVB"Â%G&–æ–æt6Æ72"Â6Æ74–BÂ²7FGW3¢$4ôÕÄUDR"Â&×57FGW3¢$t•D”äuôTåE%’"Ò“°¢&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°§Ð ¦W‡÷'B7–æ2gVæ7F–öâÖ&´6Æ74VçFW&VD–çFõ&×2†7Gƒ¢WF„6öçFW‡BÂ6Æ74–C¢7G&–ærÂ–çWC¢²&VfW&Væ6Só¢7G&–æs²æ÷FSó¢7G&–ærÒ’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2çw&—FR"“°¢6öç7B&÷rÒv—B6ä66W746Æ72†7G‚Â6Æ74–BÂG'VR“°¢–b‡&÷rç&×57FGW2ÓÓÒ%$Õ5ôTåDU$TB"’&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°¢–b‡&÷rç&×57FGW2ÓÒ$t•D”äuôTåE%’"’F‡&÷ræWr‡GGW'&÷"ƒC’Â%G&–æ–ær6†VWB—2æ÷Bv—F–ær$Õ2VçG'’â"“°¢6öç7B&VfW&Væ6RÒ–çWBç&VfW&Væ6SòçG&–Ò‚’ç6Æ–6RƒÂƒ’ÇÂçVÆÃ°¢6öç7Bæ÷FRÒ–çWBææ÷FSòçG&–Ò‚’ç6Æ–6RƒÂC’ÇÂ"#°¢v—B&—6ÖçG&–æ–æt6Æ72çWFFR‡²v†W&S¢²–C¢6Æ74–BÒÂFF¢²&×57FGW3¢%$Õ5ôTåDU$TB"Â&×4VçFW&VDC¢æWrFFR‚’Â&×4VçFW&VD'”–C¢7G‚çW6W$–BÂ&×5&VfW&Væ6S¢&VfW&Væ6RÂ&×4VçG'”æ÷FS¢æ÷FRÒÒ“°¢v—Bw&—FTVF—B†7G‚Â'G&–æ–æu÷6†VWBç&×5öVçFW&VB"Â%G&–æ–æt6Æ72"Â6Æ74–BÂ²&VfW&Væ6RÒ“°¢&WGW&âvWD6Æ72†7G‚Â6Æ74–B“°§Ð ¢ò¢¢F†R7&VF–ær–ç7G'V7F÷"÷vç2föÆÆ÷r×WVçF–Â$Õ2VçG'’—26öæf—&ÖVBà¢¢F†—2FVÆ–&W&FVÇ’–æ6ÇVFW2G&gBÂ7F—fRÂ6Æ÷6VBæB&÷fVBG&–æ–ær6†VWG2à¢¢F†RW†—7F–ær$Õ27F–öâVWVR&VÖ–ç2F—7F–æ7Böff–6W"v÷&¶fÆ÷rà¢¢ð¦W‡÷'B7–æ2gVæ7F–öâÆ—7D–ç7G'V7F÷%G&–æ–ætGFVçF–öâ†7Gƒ¢WF„6öçFW‡B’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2ç&VB"“°¢6öç7B&÷w2Òv—B&—6ÖçG&–æ–æt6Æ72æf–æDÖç’‡°¢v†W&S¢°¢FW'FÖVçD–C¢7G‚æFW'FÖVçD–BÀ¢õ#¢·²7&VFVD'”–C¢7G‚çW6W$–BÒÂ²&ö7F÷'3¢²6öÖS¢²W6W$–C¢7G‚çW6W$–BÒÒÕÒÀ¢&×57FGW3¢²æ÷C¢%$Õ5ôTåDU$TB"ÒÀ¢7FGW3¢²æ÷C¢$4ä4TÄÄTB"ÒÀ¢ÒÀ¢÷&FW$'“¢²7F'G4C¢&FW62"ÒÀ¢6VÆV7C¢°¢–C¢G'VRÂF—FÆS¢G'VRÂ7FGW3¢G'VRÂ&×57FGW3¢G'VRÀ¢7F'G4C¢G'VRÂ–ç7G'V7F÷$&÷fVDC¢G'VRÀ¢ÒÀ¢Ò“°¢&WGW&â&÷w3°§Ð ¦W‡÷'B7–æ2gVæ7F–öâÆ—7E&×47F–öåVWVR†7Gƒ¢WF„6öçFW‡B’°¢76W'EW&Ö—76–öâ†7G‚Â&6Æ76W2ç&VB"“°¢&WGW&â&—6ÖçG&–æ–æt6Æ72æf–æDÖç’‡²v†W&S¢²FW'FÖVçD–C¢7G‚æFW'FÖVçD–BÂ7FGW3¢$4ôÕÄUDR"Â&×57FGW3¢$t•D”äuôTåE%’"ÒÂ÷&FW$'“¢²7F'G4C¢&FW62"ÒÂ6VÆV7C¢²–C¢G'VRÂF—FÆS¢G'VRÂ7F'G4C¢G'VRÂG&–æ–æt6FVv÷'“¢G'VRÂ7&VF—D†÷W'3¢G'VRÂ7FGW3¢G'VRÂ&×57FGW3¢G'VRÂ–ç7G'V7F÷$&÷fVDC¢G'VRÒÒ“°§Ð
+        id: section.id,
+        title: section.title,
+        description: section.description,
+        skills: section.requirements.map((requirement) => ({
+          id: requirement.id,
+          title: requirement.title,
+          description: requirement.description,
+          instructions: requirement.instructions,
+          required: requirement.isRequired,
+          evaluationSteps: parseJsonArray(requirement.evaluationStepsJson),
+          criticalFailures: parseJsonArray(requirement.criticalFailuresJson),
+        })),
+      })),
+    })),
+    sections: [
+      ...(row.checklistVersion?.sections || []).map((section) => ({
+      id: section.id,
+      title: section.title,
+      description: section.description,
+      skills: section.requirements.map((requirement) => ({
+        id: requirement.id,
+        title: requirement.title,
+        description: requirement.description,
+        instructions: requirement.instructions,
+        required: requirement.isRequired,
+        evaluationSteps: parseJsonArray(requirement.evaluationStepsJson),
+        criticalFailures: parseJsonArray(requirement.criticalFailuresJson),
+      })),
+      })),
+      ...(row.stations || []).flatMap((station) => station.checklistVersion.sections.map((section) => ({
+        id: section.id,
+        title: `${station.title} Â· ${section.title}`,
+        description: [station.proctor?.name ? `Proctor: ${station.proctor.name}` : "", section.description].filter(Boolean).join(" Â· "),
+        skills: section.requirements.map((requirement) => ({
+          id: requirement.id,
+          title: requirement.title,
+          description: requirement.description,
+          instructions: requirement.instructions,
+          required: requirement.isRequired,
+          evaluationSteps: parseJsonArray(requirement.evaluationStepsJson),
+          criticalFailures: parseJsonArray(requirement.criticalFailuresJson),
+        })),
+      }))),
+    ],
+    roster: row.roster.map((enrollment) => ({
+      id: enrollment.id,
+      membershipId: enrollment.membershipId,
+      name: enrollment.membership?.user.name || enrollment.guestName || "Unknown student",
+      rank: enrollment.membership?.rank || null,
+      email: enrollment.membership?.user.email || enrollment.guestEmail || "",
+      isGuest: enrollment.membershipId == null,
+      organization: enrollment.guestOrganization,
+      registeredAt: enrollment.enrolledAt,
+      attendance: enrollment.attendance,
+      writtenScore: enrollment.writtenScore,
+      ccfScore: enrollment.ccfScore,
+      customValues: JSON.parse(enrollment.customValuesJson || "{}"),
+      finalResult: enrollment.finalResult,
+      notes: enrollment.notes,
+      completedAt: enrollment.completedAt,
+      results: enrollment.skillResults.map((result) => ({
+        id: result.id,
+        requirementId: result.requirementId,
+        result: result.result,
+        notes: result.notes,
+        numericScore: result.numericScore,
+        stepResults: parseJsonArray(result.stepResultsJson),
+        evaluatorName: result.evaluator.name,
+        evaluatedAt: result.evaluatedAt,
+        updatedAt: result.updatedAt,
+      })),
+    })),
+  };
+}
+
+function csvCell(value: unknown) {
+  const text = value == null ? "" : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+export async function getClassCsvExport(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.read");
+  const detail = await getClass(ctx, classId);
+  if (detail.status !== "COMPLETE") throw new HttpError(409, "Close Training before exporting the official record.");
+  const headers = [
+    "Department","Training ID","Training Title","Category","Start","End","Hours","Location",
+    "Proctors","Member","Rank","Email","Attendance","Final Result","Completed At",
+    "Checklist","Skill","Skill Required","Skill Result","Skill Score","Evaluator","Evaluated At","Skill Notes","Training Notes",
+  ];
+  const department = await prisma.department.findUnique({ where: { id: ctx.departmentId }, select: { name: true } });
+  const rows: string[][] = [];
+  for (const member of detail.roster) {
+    const results = member.results.length ? member.results : [{ requirementId: "", result: "", numericScore: null, notes: "", evaluatorName: "", evaluatedAt: null }];
+    for (const result of results) {
+      const skill = detail.sections.flatMap((section) => section.skills).find((item) => item.id === result.requirementId);
+      rows.push([
+        department?.name || "", detail.id, detail.title, detail.trainingCategory,
+        detail.startsAt?.toISOString() || "", detail.endsAt?.toISOString() || "",
+        String(detail.creditHours || ""), detail.location || "",
+        detail.proctors.map((item) => item.name).join("; "),
+        member.name, member.rank || "", member.email, member.attendance, member.finalResult,
+        member.completedAt?.toISOString() || "", detail.checklistTitle,
+        skill?.title || "", skill?.required ? "YES" : "", result.result || "", result.numericScore == null ? "" : String(result.numericScore),
+        result.evaluatorName || "", result.evaluatedAt?.toISOString() || "", result.notes || "", detail.notes || "",
+      ]);
+    }
+  }
+  return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+}
+
+export async function getClassExportRecord(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.read");
+  const detail = await getClass(ctx, classId);
+  if (detail.status !== "COMPLETE") throw new HttpError(409, "Close Training before exporting the official record.");
+  const department = await prisma.department.findUnique({ where: { id: ctx.departmentId }, select: { name: true } });
+  return {
+    exportVersion: 1,
+    generatedAt: new Date().toISOString(),
+    department: { name: department?.name || "" },
+    training: detail,
+  };
+}
+
+export async function manageClassRegistration(ctx: AuthContext, classId: string, rawAction: unknown) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId);
+  const action = String(rawAction || "").toUpperCase();
+  if (!new Set(["OPEN", "CLOSE", "ROTATE"]).has(action)) throw new HttpError(400, "Invalid registration action.");
+  if (action !== "CLOSE" && !["DRAFT", "ACTIVE"].includes(row.status)) throw new HttpError(409, "A completed or cancelled class cannot accept registrations.");
+  const updated = await prisma.trainingClass.update({
+    where: { id: row.id },
+    data: action === "CLOSE"
+      ? { registrationEnabled: false }
+      : { registrationEnabled: true, registrationToken: action === "ROTATE" || !row.registrationToken ? randomBytes(32).toString("hex") : row.registrationToken },
+  });
+  await writeAudit(ctx, `class.registration.${action.toLowerCase()}`, "TrainingClass", row.id, { enabled: updated.registrationEnabled });
+  return getClass(ctx, row.id);
+}
+
+async function findRegistrationClass(token: string) {
+  if (!/^[a-f0-9]{64}$/.test(token)) throw new HttpError(404, "Registration link not found.");
+  const row = await prisma.trainingClass.findUnique({
+    where: { registrationToken: token },
+    select: { id: true, departmentId: true, title: true, startsAt: true, location: true, status: true, registrationEnabled: true, customFieldsJson: true },
+  });
+  if (!row) throw new HttpError(404, "Registration link not found.");
+  return row;
+}
+
+export async function getPublicClassRegistration(token: string) {
+  const row = await findRegistrationClass(token);
+  const customFields = (JSON.parse(row.customFieldsJson || "[]") as RegistrationCustomField[]).filter((field) => field.appliesTo === "ROSTER");
+  return { title: row.title, startsAt: row.startsAt, location: row.location, open: row.registrationEnabled && ["DRAFT", "ACTIVE"].includes(row.status), customFields };
+}
+
+async function enforceRegistrationRateLimit(token: string, source: string) {
+  const windowMs = 15 * 60 * 1000;
+  const windowStart = new Date(Math.floor(Date.now() / windowMs) * windowMs);
+  const key = createHash("sha256").update(`${token}:${source || "unknown"}:${windowStart.toISOString()}`).digest("hex");
+  const counter = await prisma.registrationRateLimit.upsert({
+    where: { key }, create: { key, windowStart, count: 1 }, update: { count: { increment: 1 } }, select: { count: true },
+  });
+  if (counter.count > 8) throw new HttpError(429, "Too many registration attempts. Wait a few minutes and try again.");
+}
+
+export async function registerGuestStudent(token: string, raw: unknown, source = "unknown") {
+  await enforceRegistrationRateLimit(token, source);
+  const registrationClass = await findRegistrationClass(token);
+  const customFields = (JSON.parse(registrationClass.customFieldsJson || "[]") as RegistrationCustomField[]).filter((field) => field.appliesTo === "ROSTER");
+  const input = normalizeGuestRegistration(raw, customFields);
+  const enrollment = await prisma.$transaction(async (tx) => {
+    const row = await tx.trainingClass.findUnique({ where: { registrationToken: token }, select: { id: true, departmentId: true, status: true, registrationEnabled: true } });
+    if (!row || !/^[a-f0-9]{64}$/.test(token)) throw new HttpError(404, "Registration link not found.");
+    if (!row.registrationEnabled || !["DRAFT", "ACTIVE"].includes(row.status)) throw new HttpError(409, "Registration is closed for this class.");
+    const rosterCount = await tx.trainingClassEnrollment.count({ where: { classId: row.id } });
+    if (rosterCount >= 250) throw new HttpError(409, "Registration is full. Contact the instructor.");
+    const existing = await tx.trainingClassEnrollment.findFirst({
+      where: { classId: row.id, OR: [{ guestEmail: input.email }, { membership: { user: { email: input.email } } }] }, select: { id: true },
+    });
+    if (existing) throw new HttpError(409, "This email is already on the class roster.");
+    const departmentMember = await tx.departmentMembership.findFirst({
+      where: { departmentId: row.departmentId, status: "ACTIVE", user: { email: input.email } },
+      select: { id: true },
+    });
+    const created = await tx.trainingClassEnrollment.create({
+      data: departmentMember
+        ? { classId: row.id, membershipId: departmentMember.id, customValuesJson: JSON.stringify(input.customValues) }
+        : { classId: row.id, guestName: input.name, guestEmail: input.email, guestOrganization: input.organization, customValuesJson: JSON.stringify(input.customValues) },
+    });
+    return { id: created.id, classId: row.id, departmentId: row.departmentId, matchedMember: Boolean(departmentMember) };
+  }).catch((error: unknown) => {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw new HttpError(409, "This email is already on the class roster.");
+    throw error;
+  });
+  await writeActivity(enrollment.departmentId, "CLASS_GUEST_REGISTERED", { referenceId: enrollment.classId, metadata: { enrollmentId: enrollment.id, source: "CLASS_QR", accountCreated: false, matchedDepartmentMember: enrollment.matchedMember } });
+  return { registered: true };
+}
+
+export async function registerDepartmentMember(ctx: AuthContext, token: string) {
+  const row = await findRegistrationClass(token);
+  if (row.departmentId !== ctx.departmentId) {
+    throw new HttpError(403, "This class belongs to another department.");
+  }
+  if (!row.registrationEnabled || !["DRAFT", "ACTIVE"].includes(row.status)) {
+    throw new HttpError(409, "Registration is closed for this class.");
+  }
+
+  const enrollment = await prisma.$transaction(async (tx) => {
+    const membership = await tx.departmentMembership.findFirst({
+      where: { id: ctx.membershipId, userId: ctx.userId, departmentId: ctx.departmentId, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (!membership) throw new HttpError(403, "Your active department membership could not be verified.");
+
+    const existing = await tx.trainingClassEnrollment.findFirst({
+      where: { classId: row.id, membershipId: membership.id },
+      select: { id: true },
+    });
+    if (existing) return { id: existing.id, alreadyRegistered: true };
+
+    const rosterCount = await tx.trainingClassEnrollment.count({ where: { classId: row.id } });
+    if (rosterCount >= 250) throw new HttpError(409, "Registration is full. Contact the instructor.");
+
+    const created = await tx.trainingClassEnrollment.create({
+      data: { classId: row.id, membershipId: membership.id },
+      select: { id: true },
+    });
+    return { id: created.id, alreadyRegistered: false };
+  }).catch((error: unknown) => {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      return { id: "", alreadyRegistered: true };
+    }
+    throw error;
+  });
+
+  if (!enrollment.alreadyRegistered) {
+    await writeActivity(ctx.departmentId, "CLASS_MEMBER_REGISTERED", {
+      referenceId: row.id,
+      userId: ctx.userId,
+      metadata: { enrollmentId: enrollment.id, source: "CLASS_QR_APP", membershipId: ctx.membershipId, memberName: ctx.name },
+    });
+  }
+  return {
+    registered: true,
+    alreadyRegistered: enrollment.alreadyRegistered,
+    classId: row.id,
+    title: row.title,
+    startsAt: row.startsAt,
+    location: row.location,
+  };
+}
+
+async function recalculateEnrollment(enrollmentId: string) {
+  const enrollment = await prisma.trainingClassEnrollment.findUnique({
+    where: { id: enrollmentId },
+    include: {
+      class: { include: { checklistVersion: { include: { sections: { include: { requirements: true } } } } } },
+      skillResults: true,
+    },
+  });
+  if (!enrollment) return;
+  const stations = await prisma.trainingClassStation.findMany({
+    where: { classId: enrollment.classId },
+    include: { checklistVersion: { include: { sections: { include: { requirements: true } } } } },
+  });
+  const required = [
+    ...enrollment.class.checklistVersion.sections.flatMap((section) => section.requirements),
+    ...stations.flatMap((station) => station.checklistVersion.sections.flatMap((section) => section.requirements)),
+  ].filter((item) => item.isRequired);
+  const byRequirement = new Map(enrollment.skillResults.map((item) => [item.requirementId, item.result]));
+  const gradingConfig = parseJsonObject(enrollment.class.gradingConfigJson);
+  const customFields = JSON.parse(enrollment.class.customFieldsJson || "[]") as Array<{
+    id: string; type: string; required?: boolean; appliesTo?: string;
+  }>;
+  const customValues = JSON.parse(enrollment.customValuesJson || "{}") as Record<string, unknown>;
+  const finalResult = calculateTrainingSheetFinalResult({
+    attendance: enrollment.attendance,
+    requiredSkillResults: required.map((item) => byRequirement.get(item.id) || "NOT_EVALUATED"),
+    observedSkillResults: enrollment.skillResults.map((item) => item.result),
+    customFields,
+    customValues,
+    writtenTestEnabled: gradingConfig.writtenTestEnabled === true,
+    writtenTestPassPercent: gradingConfig.writtenTestPassPercent == null ? null : Number(gradingConfig.writtenTestPassPercent),
+    writtenScore: enrollment.writtenScore,
+    ccfEnabled: gradingConfig.ccfEnabled === true,
+    ccfPassPercent: gradingConfig.ccfPassPercent == null ? null : Number(gradingConfig.ccfPassPercent),
+    ccfScore: enrollment.ccfScore,
+  });
+  await prisma.trainingClassEnrollment.update({
+    where: { id: enrollment.id },
+    data: { finalResult, completedAt: finalResult === "PENDING" ? null : new Date() },
+  });
+}
+
+export async function recordSkillResult(
+  ctx: AuthContext,
+  classId: string,
+  enrollmentId: string,
+  requirementId: string,
+  input: { result?: string; notes?: string; stepResults?: unknown[]; numericScore?: number | null },
+) {
+  assertPermission(ctx, "classes.proctor");
+  await assertApprovedEvaluator(ctx);
+  const classRow = await canAccessClass(ctx, classId);
+  if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED") {
+    throw new HttpError(409, "This class is closed for check-off.");
+  }
+  const enrollment = await prisma.trainingClassEnrollment.findFirst({ where: { id: enrollmentId, classId } });
+  if (!enrollment) throw new HttpError(404, "Student is not on this class roster.");
+  if (!classRow.checklistVersionId) throw new HttpError(409, "This training record does not use a skills checklist.");
+  const requirement = await prisma.taskBookRequirement.findFirst({
+    where: { id: requirementId, section: { versionId: { in: [classRow.checklistVersionId, ...(await prisma.trainingClassStation.findMany({ where: { classId }, select: { checklistVersionId: true } })).map((station) => station.checklistVersionId)] } } },
+    select: { id: true, section: { select: { versionId: true } } },
+  });
+  if (!requirement) throw new HttpError(404, "Skill is not part of this class checklist.");
+  const station = await prisma.trainingClassStation.findFirst({ where: { classId, checklistVersionId: requirement.section.versionId }, select: { proctorUserId: true, title: true } });
+  if (station?.proctorUserId && station.proctorUserId !== ctx.userId && !canOverrideStationProctor(ctx)) throw new HttpError(403, `Only the assigned proctor for ${station.title} can grade this station.`);
+  const result = input.result?.trim().toUpperCase() || "NOT_EVALUATED";
+  if (!RESULT_VALUES.has(result)) throw new HttpError(400, "Invalid skill result.");
+  if ((result === "NEEDS_REMEDIATION" || result === "FAIL") && !input.notes?.trim()) {
+    throw new HttpError(400, "Explain what the student must correct.");
+  }
+  if (input.numericScore != null && (!Number.isFinite(input.numericScore) || input.numericScore < 0 || input.numericScore > 100)) {
+    throw new HttpError(400, "Skill score must be between 0 and 100.");
+  }
+  const previousResult = await prisma.trainingClassSkillResult.findUnique({
+    where: { enrollmentId_requirementId: { enrollmentId, requirementId } },
+    select: { result: true },
+  });
+  const recorded = await prisma.trainingClassSkillResult.upsert({
+    where: { enrollmentId_requirementId: { enrollmentId, requirementId } },
+    create: {
+      enrollmentId,
+      requirementId,
+      result,
+      notes: input.notes?.trim().slice(0, 4000) || "",
+      numericScore: input.numericScore ?? null,
+      stepResultsJson: JSON.stringify(Array.isArray(input.stepResults) ? input.stepResults : []),
+      evaluatorId: ctx.userId,
+    },
+    update: {
+      result,
+      notes: input.notes?.trim().slice(0, 4000) || "",
+      numericScore: input.numericScore ?? null,
+      stepResultsJson: JSON.stringify(Array.isArray(input.stepResults) ? input.stepResults : []),
+      evaluatorId: ctx.userId,
+      evaluatedAt: new Date(),
+    },
+  });
+  await recalculateEnrollment(enrollment.id);
+  await writeAudit(ctx, "class.skill_result.recorded", "TrainingClassSkillResult", recorded.id, {
+    classId,
+    enrollmentId,
+    requirementId,
+    result,
+    numericScore: input.numericScore ?? null,
+    priorResult: previousResult?.result || null,
+  });
+  return getClass(ctx, classId);
+}
+
+/** Record individually selected results for one skill in a single class-roster submission. */
+export async function recordSkillResultsBatch(
+  ctx: AuthContext,
+  classId: string,
+  input: { requirementId?: string; results?: Array<{ enrollmentId?: string; requirementId?: string; result?: string; notes?: string; expectedUpdatedAt?: string | null }> },
+) {
+  assertPermission(ctx, "classes.proctor");
+  await assertApprovedEvaluator(ctx);
+  const classRow = await canAccessClass(ctx, classId);
+  if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED") {
+    throw new HttpError(409, "This class is closed for check-off.");
+  }
+  if (!classRow.checklistVersionId) throw new HttpError(400, "This training record does not use a skills checklist.");
+  const results = Array.isArray(input.results) ? input.results : [];
+  if (results.length < 1 || results.length > 200) throw new HttpError(400, "Submit between 1 and 200 individual results.");
+  const rows = results.map((item) => {
+    const enrollmentId = String(item.enrollmentId || "");
+    const requirementId = String(item.requirementId || input.requirementId || "");
+    const result = String(item.result || "").trim().toUpperCase();
+    const notes = String(item.notes || "").trim().slice(0, 4000);
+    if (!enrollmentId || !requirementId) throw new HttpError(400, "Each result needs a student and skill.");
+    if (!["PASS", "FAIL", "NEEDS_REMEDIATION"].includes(result)) throw new HttpError(400, "Choose a valid observed result for each selected skill.");
+    if ((result === "FAIL" || result === "NEEDS_REMEDIATION") && !notes) throw new HttpError(400, "Add correction notes for each failed or remediation result.");
+    const expectedUpdatedAt = item.expectedUpdatedAt;
+    if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null &&
+        (!Number.isFinite(Date.parse(expectedUpdatedAt)) || new Date(expectedUpdatedAt).toISOString() !== expectedUpdatedAt)) {
+      throw new HttpError(400, "Invalid expectedUpdatedAt revision timestamp.");
+    }
+    return { enrollmentId, requirementId, result, notes, expectedUpdatedAt };
+  });
+  const resultKeys = rows.map((item) => `${item.enrollmentId}:${item.requirementId}`);
+  if (new Set(resultKeys).size !== resultKeys.length) throw new HttpError(400, "A student and skill can appear only once in this submission.");
+  const enrollmentIds = [...new Set(rows.map((item) => item.enrollmentId))];
+  const requirementIds = [...new Set(rows.map((item) => item.requirementId))];
+  const stationVersions = await prisma.trainingClassStation.findMany({ where: { classId }, select: { checklistVersionId: true, proctorUserId: true, title: true } });
+  const allowedVersionIds = [classRow.checklistVersionId, ...stationVersions.map((station) => station.checklistVersionId)];
+  const requirements = await prisma.taskBookRequirement.findMany({
+    where: { id: { in: requirementIds }, section: { versionId: { in: allowedVersionIds } } },
+    select: { id: true, section: { select: { versionId: true } } },
+  });
+  if (requirements.length !== requirementIds.length) throw new HttpError(404, "One or more skills are not part of this class checklist.");
+  for (const requirement of requirements) {
+    const station = stationVersions.find((item) => item.checklistVersionId === requirement.section.versionId);
+    if (station?.proctorUserId && station.proctorUserId !== ctx.userId && !canOverrideStationProctor(ctx)) throw new HttpError(403, `Only the assigned proctor for ${station.title} can grade this station.`);
+  }
+  const enrollments = await prisma.trainingClassEnrollment.findMany({
+    where: { id: { in: enrollmentIds }, classId },
+    select: { id: true, attendance: true },
+  });
+  if (enrollments.length !== enrollmentIds.length) throw new HttpError(404, "One or more students are not on this class roster.");
+  if (enrollments.some((item) => item.attendance !== "PRESENT")) {
+    throw new HttpError(400, "Confirm each selected student as present before recording skill results.");
+  }
+  // When a client supplies an observed revision, enforce it atomically in the
+  // same transaction as the other students. One conflict rejects the entire batch.
+  // Legacy callers without a revision remain compatible during migration.
+  await prisma.$transaction(async (tx) => {
+    for (const item of rows) {
+      const where = { enrollmentId_requirementId: { enrollmentId: item.enrollmentId, requirementId: item.requirementId } };
+      const update = {
+        result: item.result, notes: item.notes, numericScore: null,
+        stepResultsJson: "[]", evaluatorId: ctx.userId, evaluatedAt: new Date(),
+      };
+      if (item.expectedUpdatedAt !== undefined) {
+        const existing = await tx.trainingClassSkillResult.findUnique({
+          where, select: { id: true, updatedAt: true },
+        });
+        if (item.expectedUpdatedAt === null) {
+          if (existing) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+          await tx.trainingClassSkillResult.create({
+            data: { enrollmentId: item.enrollmentId, requirementId: item.requirementId,
+              result: item.result, notes: item.notes, evaluatorId: ctx.userId },
+          });
+        } else {
+          if (!existing) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+          const changed = await tx.trainingClassSkillResult.updateMany({
+            where: { id: existing.id, updatedAt: new Date(item.expectedUpdatedAt) },
+            data: update,
+          });
+          if (changed.count !== 1) throw new HttpError(409, "Skill result changed. Refresh the roster before submitting.");
+        }
+      } else {
+        // Older clients cannot provide a revision. Permit first-time grading,
+        // but never allow an unversioned batch to replace recorded evidence.
+        const existing = await tx.trainingClassSkillResult.findUnique({
+          where, select: { id: true },
+        });
+        if (existing) throw new HttpError(409, "This skill already has an evaluation. Refresh and resubmit with its revision.");
+        await tx.trainingClassSkillResult.create({
+          data: { enrollmentId: item.enrollmentId, requirementId: item.requirementId,
+            result: item.result, notes: item.notes, evaluatorId: ctx.userId },
+        });
+      }
+    }
+  });
+  await Promise.all([...new Set(enrollmentIds)].map((id) => recalculateEnrollment(id)));
+  await writeAudit(ctx, "class.skill_result.batch_recorded", "TrainingClass", classId, {
+    resultCount: rows.length,
+    passedCount: rows.filter((item) => item.result === "PASS").length,
+    failedCount: rows.filter((item) => item.result === "FAIL").length,
+    remediationCount: rows.filter((item) => item.result === "NEEDS_REMEDIATION").length,
+    results: rows.map(({ enrollmentId, requirementId, result }) => ({ enrollmentId, requirementId, result })),
+  });
+  return getClass(ctx, classId);
+}
+
+/**
+ * Attach a published department checklist and/or grading setup to an open
+ * Training Sheet. Templates are copied onto the class so later template edits
+ * cannot change the official class record.
+ */
+export async function updateClassEvaluationSetup(
+  ctx: AuthContext,
+  classId: string,
+  input: { trainingSheetTemplateId?: string; checklistVersionId?: string; gradingComponentId?: string; prebuiltTrainingSystemId?: string },
+) {
+  assertPermission(ctx, "classes.write");
+  const classRow = await canAccessClass(ctx, classId, true);
+  if (classRow.status === "COMPLETE" || classRow.status === "CANCELLED" || classRow.rmsStatus !== "NOT_READY") {
+    throw new HttpError(409, "This Training Sheet is already closed. Use the authorized correction process.");
+  }
+
+  const templateId = String(input.trainingSheetTemplateId || "").trim();
+  const requestedChecklistId = String(input.checklistVersionId || "").trim();
+  const gradingComponentId = String(input.gradingComponentId || "").trim();
+  const prebuiltTrainingSystemId = String(input.prebuiltTrainingSystemId || "").trim();
+  if (!templateId && !requestedChecklistId && !gradingComponentId && !prebuiltTrainingSystemId) {
+    throw new HttpError(400, "Choose a checklist, grading system, or Training Sheet template.");
+  }
+
+  const template = templateId
+    ? await prisma.trainingSheetTemplate.findFirst({
+        where: { id: templateId, departmentId: ctx.departmentId, archived: false },
+      })
+    : null;
+  if (templateId && !template) throw new HttpError(404, "Training Sheet template not found.");
+  const gradingComponent = gradingComponentId
+    ? await prisma.trainingSheetComponentTemplate.findFirst({
+        where: { id: gradingComponentId, departmentId: ctx.departmentId, kind: "GRADING", archived: false },
+      })
+    : null;
+  if (gradingComponentId && !gradingComponent) throw new HttpError(404, "Saved grading system not found.");
+  const gradingComponentData = gradingComponent ? parseJsonObject(gradingComponent.dataJson) : {};
+  const prebuiltTrainingSystem = prebuiltTrainingSystemId ? getPrebuiltTrainingSystem(prebuiltTrainingSystemId) : null;
+  if (prebuiltTrainingSystemId && !prebuiltTrainingSystem) throw new HttpError(404, "Prebuilt training system not found.");
+
+  const checklistVersionId = requestedChecklistId || template?.checklistVersionId || "";
+  if (checklistVersionId) {
+    const checklist = await prisma.taskBookVersion.findFirst({
+      where: {
+        id: checklistVersionId,
+        status: "PUBLISHED",
+        template: { departmentId: ctx.departmentId, templateKind: { not: "TRAINING_TASK" } },
+      },
+      select: { id: true },
+    });
+    if (!checklist) throw new HttpError(404, "Published department checklist not found.");
+  }
+
+  if (checklistVersionId && checklistVersionId !== classRow.checklistVersionId) {
+    const existingResults = await prisma.trainingClassSkillResult.count({
+      where: { enrollment: { classId } },
+    });
+    if (existingResults > 0) {
+      throw new HttpError(409, "This checklist already has recorded evaluations and cannot be replaced.");
+    }
+  }
+
+  await prisma.trainingClass.update({
+    where: { id: classId },
+    data: {
+      ...(checklistVersionId ? { checklistVersionId } : {}),
+      ...(template ? {
+        gradingConfigJson: template.gradingConfigJson,
+        customFieldsJson: template.customFieldsJson,
+        templateName: template.name,
+        templateRevision: template.revision,
+      } : {}),
+      ...(gradingComponent ? {
+        gradingConfigJson: JSON.stringify(gradingComponentData.gradingConfig || {}),
+        customFieldsJson: JSON.stringify(Array.isArray(gradingComponentData.customFields) ? gradingComponentData.customFields : []),
+      } : {}),
+      ...(prebuiltTrainingSystem ? {
+        gradingConfigJson: JSON.stringify(prebuiltTrainingSystem.gradingConfig),
+        customFieldsJson: JSON.stringify(prebuiltTrainingSystem.customFields),
+      } : {}),
+    },
+  });
+  await writeAudit(ctx, "training_sheet.evaluation_setup.updated", "TrainingClass", classId, {
+    trainingSheetTemplateId: template?.id || null,
+    checklistVersionId: checklistVersionId || classRow.checklistVersionId,
+    gradingComponentId: gradingComponent?.id || null,
+    gradingSystemName: gradingComponent?.name || null,
+    prebuiltTrainingSystemId: prebuiltTrainingSystem?.id || null,
+    prebuiltTrainingSystemName: prebuiltTrainingSystem?.name || null,
+    templateName: template?.name || null,
+  });
+  return getClass(ctx, classId);
+}
+
+export async function updateEnrollment(
+  ctx: AuthContext,
+  classId: string,
+  enrollmentId: string,
+  input: { attendance?: string; writtenScore?: number | null; ccfScore?: number | null; notes?: string; customValues?: Record<string, unknown> },
+) {
+  assertPermission(ctx, "classes.proctor");
+  await assertApprovedEvaluator(ctx);
+  await canAccessClass(ctx, classId, true);
+  const enrollment = await prisma.trainingClassEnrollment.findFirst({ where: { id: enrollmentId, classId } });
+  if (!enrollment) throw new HttpError(404, "Student is not on this class roster.");
+  const attendance = input.attendance?.trim().toUpperCase();
+  if (attendance && !ATTENDANCE_VALUES.has(attendance)) throw new HttpError(400, "Invalid attendance value.");
+  for (const [label, value] of [["Written score", input.writtenScore], ["CCF score", input.ccfScore]] as const) {
+    if (value != null && (!Number.isFinite(value) || value < 0 || value > 100)) {
+      throw new HttpError(400, `${label} must be between 0 and 100.`);
+    }
+  }
+  const classRow = await prisma.trainingClass.findUniqueOrThrow({ where: { id: classId }, select: { customFieldsJson: true } });
+  const fields = JSON.parse(classRow.customFieldsJson || "[]") as Array<{ id: string; label: string; type: string; appliesTo?: string }>;
+  const values: Record<string, string | number | boolean | null> = {};
+  if (input.customValues !== undefined) {
+    if (!input.customValues || typeof input.customValues !== "object" || Array.isArray(input.customValues)) throw new HttpError(400, "Invalid custom values.");
+    for (const field of fields) {
+      const value = input.customValues[field.id];
+      if (value == null || value === "") { values[field.id] = null; continue; }
+      if (field.type === "LETTER_GRADE") {
+        const grade = String(value).trim().toUpperCase();
+        if (!["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"].includes(grade)) throw new HttpError(400, `Choose a valid letter grade for ${field.label}.`);
+        values[field.id] = grade;
+      } else if (field.type === "SCORE_1_10") {
+        const number = Number(value);
+        if (!Number.isInteger(number) || number < 1 || number > 10) throw new HttpError(400, `${field.label} must be a whole number from 1 to 10.`);
+        values[field.id] = number;
+      } else if (field.type === "NUMBER" || field.type === "PERCENT") {
+        const number = Number(value);
+        if (!Number.isFinite(number) || (field.type === "PERCENT" && (number < 0 || number > 100))) throw new HttpError(400, "Invalid numeric field value.");
+        values[field.id] = number;
+      } else if (field.type === "CHECKBOX") values[field.id] = value === true || value === "true";
+      else if (field.type === "EMAIL") {
+        const email = String(value).trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, `Enter a valid ${field.label.toLowerCase()}.`);
+        values[field.id] = email.slice(0, 254);
+      } else if (field.type === "STATE") {
+        const state = String(value).trim().toUpperCase();
+        if (!US_STATES.includes(state as (typeof US_STATES)[number])) throw new HttpError(400, `Choose a valid state for ${field.label}.`);
+        values[field.id] = state;
+      } else if (field.type === "LAST4") {
+        const last4 = String(value).trim();
+        if (!/^\d{4}$/.test(last4)) throw new HttpError(400, `${field.label} must contain exactly four digits.`);
+        values[field.id] = last4;
+      } else values[field.id] = String(value).slice(0, 500);
+    }
+  }
+  await prisma.trainingClassEnrollment.update({
+    where: { id: enrollment.id },
+    data: {
+      ...(attendance ? { attendance } : {}),
+      ...(input.writtenScore !== undefined ? { writtenScore: input.writtenScore } : {}),
+      ...(input.ccfScore !== undefined ? { ccfScore: input.ccfScore } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes.trim().slice(0, 4000) } : {}),
+      ...(input.customValues !== undefined ? { customValuesJson: JSON.stringify(values) } : {}),
+    },
+  });
+  await writeAudit(ctx, "class.enrollment.updated", "TrainingClassEnrollment", enrollment.id, {
+    classId,
+    attendance,
+    writtenScore: input.writtenScore,
+    ccfScore: input.ccfScore,
+    notesUpdated: input.notes !== undefined,
+  });
+  await recalculateEnrollment(enrollment.id);
+  return getClass(ctx, classId);
+}
+
+export async function validateClassClosure(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.write");
+  await canAccessClass(ctx, classId);
+  const row = await prisma.trainingClass.findUnique({
+    where: { id: classId },
+    include: {
+      department: { select: { trainingSheetRequiredFieldsJson: true } },
+      checklistVersion: { include: { sections: { include: { requirements: true } } } },
+      stations: { include: { checklistVersion: { include: { sections: { include: { requirements: true } } } } } },
+      roster: { include: { skillResults: true } },
+      proctors: true,
+    },
+  });
+  if (!row) throw new HttpError(404, "Class not found.");
+
+  const requiredFields = new Set(parseJsonArray(row.department.trainingSheetRequiredFieldsJson).map((item) => String(item).toUpperCase()));
+  const missing: Array<{ code: string; message: string; action: string }> = [];
+  const gradingConfig = parseJsonObject(row.gradingConfigJson);
+  const add = (code: string, message: string, action: string) => missing.push({ code, message, action });
+
+  if (requiredFields.has("TITLE") && !row.title.trim()) add("TITLE", "Training title is missing.", "Edit the training title.");
+  if (requiredFields.has("DATE") && !row.startsAt) add("DATE", "Training date/time is missing.", "Set the training date and time.");
+  if (requiredFields.has("END_TIME") && !row.endsAt) add("END_TIME", "Training end time is missing.", "Set the training end time.");
+  if (requiredFields.has("INSTRUCTOR") && row.proctors.length === 0) add("INSTRUCTOR", "No instructor/proctor is assigned.", "Assign at least one approved instructor or proctor.");
+  if (requiredFields.has("CATEGORY") && !row.trainingCategory.trim()) add("CATEGORY", "Training category is missing.", "Choose a training category.");
+  if (requiredFields.has("LOCATION") && !row.location.trim()) add("LOCATION", "Training location is missing.", "Enter the training location.");
+  if (requiredFields.has("STATION") && !row.station.trim()) add("STATION", "Training station is missing.", "Choose or enter the station.");
+  if (requiredFields.has("SHIFT") && !row.shift.trim()) add("SHIFT", "Training shift is missing.", "Choose the department shift.");
+  if (requiredFields.has("DESCRIPTION") && !row.notes.trim()) add("DESCRIPTION", "Training description / notes are missing.", "Enter the required training description or notes.");
+  if (requiredFields.has("HOURS") && !(row.creditHours > 0 || (row.startsAt && row.endsAt))) {
+    add("HOURS", "Training hours are missing.", "Enter credit hours or both start and end times.");
+  }
+  const customFields = JSON.parse(row.customFieldsJson || "[]") as Array<{ id: string; label: string; type: string; required: boolean; appliesTo?: string }>;
+  for (const field of customFields.filter((item) => item.required)) {
+    for (const enrollment of row.roster.filter((item) => item.attendance === "PRESENT")) {
+      const values = JSON.parse(enrollment.customValuesJson || "{}") as Record<string, unknown>;
+      if (values[field.id] === undefined || values[field.id] === null || values[field.id] === "" || (field.appliesTo === "ROSTER" && field.type === "CHECKBOX" && values[field.id] !== true)) {
+        add("CUSTOM_FIELD", `Required field "${field.label}" is missing for a student.`, "Enter the required student result before finalizing.");
+      }
+    }
+  }
+  if (row.roster.length === 0) add("ROSTER", "The roster is empty.", "Add at least one person to the training roster.");
+
+  const unresolvedAttendance = row.roster.filter((item) => item.attendance === "REGISTERED");
+  if (unresolvedAttendance.length) {
+    add("ATTENDANCE", `${unresolvedAttendance.length} roster member${unresolvedAttendance.length === 1 ? "" : "s"} still need attendance confirmed.`, "Mark each roster member Present, Absent, or Excused.");
+  }
+
+  for (const enrollment of row.roster.filter((item) => item.attendance === "PRESENT")) {
+    if (gradingConfig.writtenTestEnabled === true) {
+      if (enrollment.writtenScore == null) add("WRITTEN_TEST", "A written test score is missing for a present student.", "Record the written test score before closing.");
+      else if (gradingConfig.writtenTestPassPercent != null && enrollment.writtenScore < Number(gradingConfig.writtenTestPassPercent)) add("WRITTEN_TEST", "A written test score is below the template pass mark.", "Review the result and complete remediation or record a passing score.");
+    }
+    if (gradingConfig.ccfEnabled === true) {
+      if (enrollment.ccfScore == null) add("CCF_SCORE", "A CCF score is missing for a present student.", "Record the CCF score before closing.");
+      else if (gradingConfig.ccfPassPercent != null && enrollment.ccfScore < Number(gradingConfig.ccfPassPercent)) add("CCF_SCORE", "A CCF score is below the template pass mark.", "Review the result and complete remediation or record a passing score.");
+    }
+  }
+
+  const requiredIds = [
+    ...(row.checklistVersion?.sections.flatMap((section) => section.requirements.filter((item) => item.isRequired).map((item) => item.id)) || []),
+    ...row.stations.flatMap((station) => station.checklistVersion.sections.flatMap((section) => section.requirements.filter((item) => item.isRequired).map((item) => item.id))),
+  ];
+  const incompleteSkills = row.roster.filter((item) =>
+    item.attendance === "PRESENT" &&
+    requiredIds.some((id) => !item.skillResults.some((result) => result.requirementId === id && result.result !== "NOT_EVALUATED")),
+  );
+  if (incompleteSkills.length) {
+    add("REQUIRED_SKILLS", `${incompleteSkills.length} present member${incompleteSkills.length === 1 ? "" : "s"} still need required skill results.`, "Finish required skill evaluations for each present member.");
+  }
+
+  return { canClose: missing.length === 0, missing };
+}
+
+/**
+ * Save the final instructor narrative, actual times and RMS-ready metadata.
+ * Department-required fields are checked by validateClassClosure at approval,
+ * not when the instructor starts the sheet.
+ */
+export async function updateClassDocumentation(
+  ctx: AuthContext,
+  classId: string,
+  input: { startsAt?: string; endsAt?: string | null; notes?: string; location?: string; station?: string; shift?: string; trainingCategory?: string; trainingSheetTemplateId?: string; creditHours?: number; ceCredits?: unknown },
+) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId, true);
+  if (row.status === "COMPLETE" || row.status === "CANCELLED" || row.rmsStatus !== "NOT_READY") {
+    throw new HttpError(409, "This Training Sheet is already closed. Use the authorized correction process.");
+  }
+  const startsAt = input.startsAt === undefined ? row.startsAt : parseDate(input.startsAt, "Training start time", true)!;
+  const endsAt = input.endsAt === undefined ? row.endsAt : parseDate(input.endsAt, "Training end time");
+  if (endsAt && endsAt < startsAt) throw new HttpError(400, "Training end time cannot be before the start time.");
+  const templateId = String(input.trainingSheetTemplateId || "").trim();
+  const template = templateId
+    ? await prisma.trainingSheetTemplate.findFirst({
+        where: { id: templateId, departmentId: ctx.departmentId, archived: false },
+      })
+    : null;
+  if (templateId && !template) throw new HttpError(404, "Training Sheet template not found.");
+  const trainingCategory = template?.trainingCategory ||
+    (input.trainingCategory === undefined ? row.trainingCategory : String(input.trainingCategory).trim().toUpperCase());
+  if (!TRAINING_CATEGORY_VALUES.has(trainingCategory)) throw new HttpError(400, "Choose a valid training category.");
+  const existingCeCredits = JSON.parse(row.ceCreditsJson || "[]") as Array<{ category?: string }>;
+  let templateCeCredits: Array<{ category?: string }> = [];
+  try { templateCeCredits = template ? JSON.parse(template.ceCreditsJson || "[]") : []; } catch {}
+  const allowedCustomCategories = new Set(
+    (template ? templateCeCredits : existingCeCredits)
+      .map((item) => String(item.category || "").trim())
+      .filter(Boolean),
+  );
+  const ceCredits = input.ceCredits === undefined ? normalizeCeCredits(existingCeCredits, allowedCustomCategories) : normalizeCeCredits(input.ceCredits, allowedCustomCategories);
+  if (template && ceCredits.some((item) => !allowedCustomCategories.has(item.category))) {
+    throw new HttpError(400, "Choose a training credit category from the selected Training Sheet template.");
+  }
+  const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
+  const creditHours = allocatedHours > 0 ? allocatedHours : input.creditHours === undefined ? row.creditHours : Number(input.creditHours);
+  if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) {
+    throw new HttpError(400, "Credit hours must be between 0 and 24.");
+  }
+  await prisma.trainingClass.update({
+    where: { id: classId },
+    data: {
+      startsAt, endsAt, creditHours, trainingCategory, ceCreditsJson: JSON.stringify(ceCredits),
+      ...(template ? { templateName: template.name, templateRevision: template.revision } : {}),
+      ...(input.location === undefined ? {} : { location: String(input.location).trim().slice(0, 180) }),
+      ...(input.station === undefined ? {} : { station: String(input.station).trim().slice(0, 80) }),
+      ...(input.shift === undefined ? {} : { shift: String(input.shift).trim().slice(0, 40) }),
+      ...(input.notes === undefined ? {} : { notes: String(input.notes).trim().slice(0, 4000) }),
+    },
+  });
+  await writeAudit(ctx, "training_sheet.documentation.updated", "TrainingClass", classId, {
+    hasEndTime: Boolean(endsAt),
+    hasNarrative: Boolean(input.notes === undefined ? row.notes : input.notes?.trim()),
+    trainingSheetTemplateId: template?.id || null,
+    templateName: template?.name || row.templateName,
+    trainingCategory,
+    ceCategories: ceCredits.map((item) => item.category),
+  });
+  return getClass(ctx, classId);
+}
+
+export async function updateClassStatus(ctx: AuthContext, classId: string, statusInput: unknown) {
+  assertPermission(ctx, "classes.write");
+  await canAccessClass(ctx, classId);
+  const status = String(statusInput || "").trim().toUpperCase();
+  if (!CLASS_STATUS_VALUES.has(status)) throw new HttpError(400, "Invalid class status.");
+  if (status === "COMPLETE") {
+    const validation = await validateClassClosure(ctx, classId);
+    if (!validation.canClose) {
+      throw new HttpError(409, validation.missing.map((item) => item.message).join(" "));
+    }
+  }
+  await prisma.trainingClass.update({ where: { id: classId }, data: { status, ...(["COMPLETE", "CANCELLED"].includes(status) ? { registrationEnabled: false } : {}) } });
+  await writeAudit(ctx, "class.status.updated", "TrainingClass", classId, { status });
+  return getClass(ctx, classId);
+}
+
+
+export async function approveTrainingSheet(ctx: AuthContext, classId: string) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId, true);
+  if (row.status === "CANCELLED" || row.rmsStatus === "RMS_ENTERED") throw new HttpError(409, "This Training Sheet cannot be approved for RMS entry.");
+  if (row.rmsStatus === "AWAITING_ENTRY") return getClass(ctx, classId);
+  const validation = await validateClassClosure(ctx, classId);
+  if (!validation.canClose) throw new HttpError(409, validation.missing.map((item) => item.message).join(" "));
+  await prisma.trainingClass.update({ where: { id: classId }, data: { status: "COMPLETE", rmsStatus: "AWAITING_ENTRY", instructorApprovedAt: new Date(), instructorApprovedById: ctx.userId, registrationEnabled: false } });
+  await writeAudit(ctx, "training_sheet.instructor_approved", "TrainingClass", classId, { status: "COMPLETE", rmsStatus: "AWAITING_ENTRY" });
+  return getClass(ctx, classId);
+}
+
+export async function markClassEnteredIntoRms(ctx: AuthContext, classId: string, input: { reference?: string; note?: string }) {
+  assertPermission(ctx, "classes.write");
+  const row = await canAccessClass(ctx, classId, true);
+  if (row.rmsStatus === "RMS_ENTERED") return getClass(ctx, classId);
+  if (row.rmsStatus !== "AWAITING_ENTRY") throw new HttpError(409, "Training Sheet is not awaiting RMS entry.");
+  const reference = input.reference?.trim().slice(0, 180) || null;
+  const note = input.note?.trim().slice(0, 4000) || "";
+  await prisma.trainingClass.update({ where: { id: classId }, data: { rmsStatus: "RMS_ENTERED", rmsEnteredAt: new Date(), rmsEnteredById: ctx.userId, rmsReference: reference, rmsEntryNote: note } });
+  await writeAudit(ctx, "training_sheet.rms_entered", "TrainingClass", classId, { reference });
+  return getClass(ctx, classId);
+}
+
+/** The creating instructor owns follow-up until RMS entry is confirmed.
+ * This deliberately includes draft, active, closed and approved training sheets.
+ * The existing RMS action queue remains a distinct officer workflow.
+ */
+export async function listInstructorTrainingAttention(ctx: AuthContext) {
+  assertPermission(ctx, "classes.read");
+  const rows = await prisma.trainingClass.findMany({
+    where: {
+      departmentId: ctx.departmentId,
+      OR: [{ createdById: ctx.userId }, { proctors: { some: { userId: ctx.userId } } }],
+      rmsStatus: { not: "RMS_ENTERED" },
+      status: { not: "CANCELLED" },
+    },
+    orderBy: { startsAt: "desc" },
+    select: {
+      id: true, title: true, status: true, rmsStatus: true,
+      startsAt: true, instructorApprovedAt: true,
+    },
+  });
+  return rows;
+}
+
+export async function listRmsActionQueue(ctx: AuthContext) {
+  assertPermission(ctx, "classes.read");
+  return prisma.trainingClass.findMany({ where: { departmentId: ctx.departmentId, status: "COMPLETE", rmsStatus: "AWAITING_ENTRY" }, orderBy: { startsAt: "desc" }, select: { id: true, title: true, startsAt: true, trainingCategory: true, creditHours: true, status: true, rmsStatus: true, instructorApprovedAt: true } });
+}
