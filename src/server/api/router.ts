@@ -1,4 +1,355 @@
-YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×o8é:-jZ.¶›­–)Ş³V–×÷'B¢26Æ7476–væÖVçEv÷&¶fÆ÷rg&öÒ$÷6W'fW"÷6W'f–6W2ö6Æ72Ö76–væÖVçB×v÷&¶fÆ÷r#°¦–×÷'B²&—6ÖÒg&öÒ$÷6W'fW"öF"#°¦–×÷'B²6ÆV%6W76–öä6öö¶–RÂvWE&WVW7E6W76–öâÂ&WV—&TFW'FÖVçE6W76–öâÂ6–vå6W76–öâÒg&öÒ$÷6W'fW"÷6W76–öâ#°¦–×÷'B²†æFÆTW'&÷"Â§6öäW'&÷"Â§6öäö²Òg&öÒ$÷6W'fW"ö‡GG#°¦–×÷'B¢2WF‚g&öÒ$÷6W'fW"÷6W'f–6W2öWF‚#°¦–×÷'B¢2ÖVÖ&W'2g&öÒ$÷6W'fW"÷6W'f–6W2öÖVÖ&W'2#°¦–×÷'B¢2F6¶&öö·2g&öÒ$÷6W'fW"÷6W'f–6W2÷F6¶&öö·2#°¦–×÷'B¢2F6¶&öö´’g&öÒ$÷6W'fW"÷6W'f–6W2÷F6¶&öö²Ö’#°¦–×÷'B¢276–væÖVçG2g&öÒ$÷6W'fW"÷6W'f–6W2ö76–væÖVçG2#°¦–×÷'B¢26¶–ÆÄWf–FVæ6TWV—fÆVæ6–W2g&öÒ$÷6W'fW"÷6W'f–6W2÷6¶–ÆÂÖWf–FVæ6RÖWV—fÆVæ6–W2#°¦–×÷'B¢27&VFVçF–Ç2g&öÒ$÷6W'fW"÷6W'f–6W2ö7&VFVçF–Ç2#°¦–×÷'B¢2F6†&ö&Bg&öÒ$÷6W'fW"÷6W'f–6W2öF6†&ö&B#°¦–×÷'B¢2&W÷'G2g&öÒ$÷6W'fW"÷6W'f–6W2÷&W÷'G2#°¦–×÷'B¢2FW'FÖVçBg&öÒ$÷6W'fW"÷6W'f–6W2öFW'FÖVçB#°¦–×÷'B¢2ÖVÖ&W$g&öÒ$÷6W'fW"÷6W'f–6W2öÖVÖ&W$#°¦–×÷'B¢2–æ&÷‚g&öÒ$÷6W'fW"÷6W'f–6W2ö–æ&÷‚#°¦–×÷'B¢26Æ76W2g&öÒ$÷6W'fW"÷6W'f–6W2ö6Æ76W2#°¦–×÷'B¢2WfÇVF÷'2g&öÒ$÷6W'fW"÷6W'f–6W2öWfÇVF÷'2#°¦–×÷'B¢2G&–æ–ætW‡V7FF–öç2g&öÒ$÷6W'fW"÷6W'f–6W2÷G&–æ–ærÖW‡V7FF–öç2#°¦–×÷'B¢2G&–æ–æu6†VWEFV×ÆFW2g&öÒ$÷6W'fW"÷6W'f–6W2÷G&–æ–ær×6†VWB×FV×ÆFW2#°¦–×÷'B¢2G&–æ–æu6†VWD6ö×öæVçG2g&öÒ$÷6W'fW"÷6W'f–6W2÷G&–æ–ær×6†VWBÖ6ö×öæVçG2#°¦–×÷'B¢26¶–ÆÄ6†V6¶Æ—7G2g&öÒ$÷6W'fW"÷6W'f–6W2÷6¶–ÆÂÖ6†V6¶Æ—7G2#°¦–×÷'B¢2G&–æ–æt6ÆVçWg&öÒ$÷6W'fW"÷6W'f–6W2÷G&–æ–ærÖ6ÆVçW#°¦–×÷'B¢2Öö&–ÆU&VfW&Væ6W2g&öÒ$÷6W'fW"÷6W'f–6W2öÖö&–ÆR×&VfW&Væ6W2#°¦–×÷'B¢2VÆ–f–6F–öç2g&öÒ$÷6W'fW"÷6W'f–6W2÷VÆ–f–6F–öç2#°¦–×÷'B¢2v÷&µVWVRg&öÒ$÷6W'fW"÷6W'f–6W2÷v÷&²×VWVR#°¦–×÷'B²7F—f—G•FW‡BÒg&öÒ$öÆ–"ö7F—f—G’#°¦–×÷'B²'6TÖWFFFÒg&öÒ$÷6W'fW"ö‡GG#°¦–×÷'B²æd—FV×4f÷%&öÆRÒg&öÒ$÷6W'fW"÷W&Ö—76–öç2#°¦–×÷'B²F6´&öö´GFW7FF–öå&V6÷&BÒg&öÒ$öÆ–"÷F6¶&öö²ÖGFW7FF–öâ#°¦–×÷'BG—R²&öÆRÒg&öÒ$öÆ–"ö6öç7FçG2#°¦–×÷'B²—4FW'FÖVçD–çf—FT÷$¦ö–å&Vv—7G&F–öâÂ—4÷Vä66÷VçD7&VF–öäf–Æ&ÆRÒg&öÒ$öÆ–"ö66÷VçBÖ66W72#° ¦gVæ7F–öâÖF6‚‡Fƒ¢7G&–æuµÒÂGFW&ã¢7G&–ær’°¢6öç7B'G2ÒGFW&âç7Æ—B‚"ò"’æf–ÇFW"„&ööÆVâ“°¢–b‡'G2æÆVæwF‚ÓÒF‚æÆVæwF‚’&WGW&âçVÆÃ°¢6öç7B&×3¢&V6÷&CÇ7G&–ærÂ7G&–æsâÒ·Ó°¢f÷"†ÆWB’Ò²’Â'G2æÆVæwFƒ²’²²’°¢–b‡'G5¶•Òç7F'G5v—F‚‚#¢"’’&×5·'G5¶•Òç6Æ–6Rƒ•ÒÒFV6öFUU$”6ö×öæVçB‡F…¶•Ò“°¢VÇ6R–b‡'G5¶•ÒÓÒF…¶•Ò’&WGW&âçVÆÃ°¢Ğ¢&WGW&â&×3°§Ğ ¦7–æ2gVæ7F–öâ&VD&öG’‡&W¢&WVW7B’°¢G'’°¢&WGW&âv—B&Wæ§6öâ‚“°¢Ò6F6‚°¢&WGW&â·Ó°¢Ğ§Ğ ¦W‡÷'B7–æ2gVæ7F–öâ†æFÆT’‡&W¢&WVW7BÂFƒ¢7G&–æuµÒ’°¢G'’°¢6öç7BÖWF†öBÒ&WæÖWF†öC°¢6öç7BW&ÂÒæWrU$Â‡&WçW&Â“°¢6öç7BÒö&¦V7Bæg&öÔVçG&–W2‡W&Âç6V&6…&×2æVçG&–W2‚’“°¢6öç7BV&Æ–46Æ72ÒÖF6‚‡F‚Â'V&Æ–2ö6Æ76W2ó§Fö¶Vâ"“°¢–b‡V&Æ–46Æ72bbÖWF†öBÓÓÒ$tUB"’&WGW&â§6öäö²†v—B6Æ76W2ævWEV&Æ–46Æ75&Vv—7G&F–öâ‡V&Æ–46Æ72çFö¶Vâ’“°¢–b‡V&Æ–46Æ72bbÖWF†öBÓÓÒ%õ5B"’°¢6öç7B6÷W&6RÒ&Wæ†VFW'2ævWB‚'‚ÖæbÖ6Æ–VçBÖ6öææV7F–öâÖ—"’ÇÂ&Wæ†VFW'2ævWB‚'‚Öf÷'v&FVBÖf÷""“òç7Æ—B‚"Â"•³ÓòçG&–Ò‚’ÇÂ'Væ¶æ÷vâ#°¢&WGW&â§6öäö²†v—B6Æ76W2ç&Vv—7FW$wVW7E7GVFVçB‡V&Æ–46Æ72çFö¶VâÂv—B&VD&öG’‡&W’Â6÷W&6R’Â#“°¢Ğ ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&WF‚öÆöv–â"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢6öç7B&W7VÇBÒv—BWF‚æÆöv–â†&öG’æVÖ–ÂÇÂ""Â&öG’ç77v÷&BÇÂ""“°¢&WGW&â§6öäö²‡&W7VÇB“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&WF‚öÖÆöv–â"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢6öç7B&W7VÇBÒv—BWF‚æÆöv–â†&öG’æVÖ–ÂÇÂ""Â&öG’ç77v÷&BÇÂ""“°¢6öç7BFö¶VâÒv—B6–vå6W76–öâ‡&W7VÇBç6W76–öâ“°¢&WGW&â§6öäö²‡²ââç&W7VÇBÂFö¶VâÒ“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&WF‚öFW'FÖVçBÖ6öFR"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²†v—BWF‚çfÆ–FFTFW'FÖVçD¦ö–ä6öFR†&öG’æ¦ö–ä6öFRÇÂ""’“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&WF‚÷&Vv—7FW""’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢–b‚—4FW'FÖVçD–çf—FT÷$¦ö–å&Vv—7G&F–öâ†&öG’’bb—4÷Vä66÷VçD7&VF–öäf–Æ&ÆR‚’’°¢&WGW&â§6öäW'&÷"‚$÷Vâ66÷VçB7&VF–öâ†2VæFVBâ7V&Ö—Bâ66÷VçB&WVW7Bf÷"66W72â"ÂC2“°¢Ğ¢6öç7B&W7VÇBÒv—BWF‚ç&Vv—7FW"†&öG’“°¢&WGW&â§6öäö²‡&W7VÇB“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&WF‚ö×&Vv—7FW""’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢–b‚—4FW'FÖVçD–çf—FT÷$¦ö–å&Vv—7G&F–öâ†&öG’’bb—4÷Vä66÷VçD7&VF–öäf–Æ&ÆR‚’’°¢&WGW&â§6öäW'&÷"‚$÷Vâ66÷VçB7&VF–öâ†2VæFVBâ7V&Ö—Bâ66÷VçB&WVW7Bf÷"66W72â"ÂC2“°¢Ğ¢6öç7B&W7VÇBÒv—BWF‚ç&Vv—7FW"†&öG’“°¢6öç7BFö¶VâÒ&W7VÇBç6W76–öâòv—B6–vå6W76–öâ‡&W7VÇBç6W76–öâ’¢çVÆÃ°¢&WGW&â§6öäö²‡²ââç&W7VÇBÂFö¶VâÒ“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&WF‚öÆöv÷WB"’’°¢v—B6ÆV%6W76–öä6öö¶–R‚“°¢&WGW&â§6öäö²‡²ö³¢G'VRÒ“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&WF‚÷vV"×6–væ–â÷&WVW7B"’’°¢&WGW&â§6öäö²†v—BWF‚æ7&VFUvV%6–vä–å&WVW7B‚’Â#“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&WF‚÷vV"×6–væ–âö6öç7VÖR"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²†v—BWF‚æ6öç7VÖUvV%6–vä–å&WVW7B†&öG’ç&WVW7D–BÇÂ""Â&öG’æ'&÷w6W%6V7&WBÇÂ""’“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&WF‚÷vV"×6–væ–âö&÷fR"’’°¢6öç7B6W76–öâÒv—BvWE&WVW7E6W76–öâ‡&W“°¢–b‚6W76–öâ’&WGW&â§6öäW'&÷"‚$WF†VçF–6F–öâ&WV—&VBâ"ÂC“°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²†v—BWF‚æ&÷fUvV%6–vä–å&WVW7B†6W76–öâÂ&öG’ç&WVW7D–BÇÂ""Â&öG’æ&÷fÅFö¶VâÇÂ""’“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&WF‚öÖR"’’°¢6öç7B6W76–öâÒv—BvWE&WVW7E6W76–öâ‡&W“°¢–b‚6W76–öâ’&WGW&â§6öäW'&÷"‚$WF†VçF–6F–öâ&WV—&VBâ"ÂC“°¢6öç7B7G‚Ò6W76–öâæFW'FÖVçD–Bòv—B&WV—&TFW'FÖVçE6W76–öâ‡6W76–öâ’¢çVÆÃ°¢òò6W76–öâ&ö÷G7G&×W7Bv÷&²f÷"WfW'’7F—fR&öÆRÂ–æ6ÇVF–ærÖVÖ&W'2æBWfÇVF÷'2à¢òòF†RFW'FÖVçBFÖ–æ—7G&F–öâVæGö–çB&WV—&W2FW'FÖVçBç&VBæB—2æ÷@¢òò&÷&–FR†W&S²öæÇ’fWF6‚F†RfVGW&RfÆw2f÷"F†—2WF†VçF–6FVBFW'FÖVçBà¢6öç7BfVGW&W2Ò7G‚òv—B&—6ÖæFW'FÖVçBæf–æEVæ—VR‡°¢v†W&S¢²–C¢7G‚æFW'FÖVçD–BÒÀ¢6VÆV7C¢²Væ&ÆVDfVGW&W4§6öã¢G'VRÒÀ¢Ò’¢çVÆÃ°¢6öç7BVæ&ÆVBÒfVGW&W2ò¥4ôâç'6R†fVGW&W2æVæ&ÆVDfVGW&W4§6öâÇÂ%µÒ"’27G&–æuµÒ¢µÓ°¢6öç7BæbÒ7G‚òæd—FV×4f÷%&öÆR†7G‚ç&öÆR’¢²&F6†&ö&B"Â'6WGF–æw2%Ó°¢6öç7BfVGW&Tæc¢&V6÷&CÇ7G&–ærÂ7G&–æsâÒ²6Æ76W3¢$4Ä54U2"Â'6¶–ÆÂÖÖ7FW'’#¢%E$”ä”äuôt2"Â6W'F–f–6F–öç3¢$5$TDTåD”Å2"Â&W÷'G3¢%$Uõ%E2"Ó°¢&WGW&â§6öäö²‡²ââç6W76–öâÂâââ†7G‚ò²&öÆS¢7G‚ç&öÆRÂ&æ³¢7G‚ç&æ²ÂFW'FÖVçDæÖS¢7G‚æFW'FÖVçDæÖRÒ¢·Ò’Âæc¢æbæf–ÇFW"†¶W’ÓâfVGW&Tæe¶¶W•ÒÇÂVæ&ÆVBæ–æ6ÇVFW2†fVGW&Tæe¶¶W•Ò’’ÂVæ&ÆVDfVGW&W3¢Væ&ÆVBÒ“°¢Ğ ¢6öç7B6W76–öâÒv—BvWE&WVW7E6W76–öâ‡&W“°¢–b‚6W76–öâ’&WGW&â§6öäW'&÷"‚$WF†VçF–6F–öâ&WV—&VBâ"ÂC“° ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&FW'FÖVçG2"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢6öç7B7&VFVBÒv—BWF‚æ7&VFTFW'FÖVçB‡6W76–öâçW6W$–BÂ&öG’“°¢&WGW&â§6öäö²†7&VFVBÂ#“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&¦ö–â"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢6öç7B&W7VÇBÒv—BFW'FÖVçBæ¦ö–ä'”6öFR‡6W76–öâçW6W$–BÂ&öG’æ¦ö–ä6öFRÇÂ""Â&öG’ç6†–gBÇÂ""“°¢&WGW&â§6öäö²‡&W7VÇB“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&–çf—FF–öç2ö66WB"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢6öç7B&W7VÇBÒv—BFW'FÖVçBæ66WD–çf—FF–öâ‡6W76–öâçW6W$–BÂ&öG’çFö¶VâÇÂ""“°¢&WGW&â§6öäö²‡&W7VÇB“°¢Ğ¢–b†ÖWF†öBÓÓÒ%D4‚"bbÖF6‚‡F‚Â&66÷VçB"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢6öç7BWFFVBÒv—BFW'FÖVçBçWFFT66÷VçB‡6W76–öâçW6W$–BÂ&öG’“°¢&WGW&â§6öäö²‡²–C¢WFFVBæ–BÂæÖS¢WFFVBææÖRÂVÖ–Ã¢WFFVBæVÖ–ÂÂ†öæS¢WFFVBç†öæRÒ“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&66÷VçB"’’°¢&WGW&â§6öäö²†v—BFW'FÖVçBævWD66÷VçB‡6W76–öâçW6W$–B’“°¢Ğ ¢6öç7B7G‚Òv—B&WV—&TFW'FÖVçE6W76–öâ‡6W76–öâ“° ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â'G&–æ–ærÖ6ÆVçW"’’°¢&WGW&â§6öäö²†v—BG&–æ–æt6ÆVçWæÆ—7EG&–æ–æt6ÆVçW—FV×2†7G‚’“°¢Ğ¢–b†ÖWF†öBÓÓÒ$DTÄUDR"bbÖF6‚‡F‚Â'G&–æ–ærÖ6ÆVçW"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²†v—BG&–æ–æt6ÆVçWæFVÆWFUG&–æ–æt6ÆVçW—FVÒ†7G‚Â7G&–ær†&öG’çG—RÇÂ""’2G&–æ–æt6ÆVçWä6ÆVçWG—RÂ7G&–ær†&öG’æ–BÇÂ""’’“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&VF—BÖ†—7F÷'’"’’&WGW&â§6öäö²†v—BG&–æ–æt6ÆVçWæÆ—7DVF—D†—7F÷'’†7G‚’“°¢6öç7BG&–æ–æu&V6÷fW'’ÒÖF6‚‡F‚Â'G&–æ–ærÖ6ÆVçW÷&W7F÷&Ró¦–B"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bbG&–æ–æu&V6÷fW'’’&WGW&â§6öäö²†v—BG&–æ–æt6ÆVçWç&W7F÷&UG&–æ–æt6ÆVçW—FVÒ†7G‚ÂG&–æ–æu&V6÷fW'’æ–B’“° ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&×’Ö7&VFVçF–Ç2"’’°¢&WGW&â§6öäö²†v—B7&VFVçF–Ç2æÆ—7D×”7&VFVçF–Ç2†7G‚’“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&×’Ö7&VFVçF–Ç2"’’°¢&WGW&â§6öäö²†v—B7&VFVçF–Ç2çW6W'D×”7&VFVçF–Â†7G‚Âv—B&VD&öG’‡&W’’Â#“°¢Ğ ¢6öç7B6Æ75&Vv—7G&F–öâÒÖF6‚‡F‚Â&ö6Æ76W2÷&Vv—7FW"ó§Fö¶Vâ"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bb6Æ75&Vv—7G&F–öâ’°¢&WGW&â§6öäö²†v—B6Æ76W2ç&Vv—7FW$FW'FÖVçDÖVÖ&W"†7G‚Â6Æ75&Vv—7G&F–öâçFö¶Vâ’Â#“°¢Ğ ¢òò6ö×æ–öâ&öFÖVæGö–çG2âF†W6R&R–çFVçF–öæÆÇ’66÷VBFòF†P¢òòWF†VçF–6FVBÖVÖ&W"w2÷vâÖVÖ&W'6†—æBæWfW"W‡÷6R÷F†W"ÖVÖ&W'2÷ ¢òòF†RW6W"w2&—fFRÂFWf–6RÖÆö6Â6&VW"&öBFFà¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&ö76–væÖVçG2"’’°¢&WGW&â§6öäö²†v—BÖVÖ&W$æÆ—7D×”76–væÖVçG2†7G‚’“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷v÷&²×VWVR"’’°¢&WGW&â§6öäö²†v—Bv÷&µVWVRævWEv÷&µVWVR†7G‚’“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷6¶–ÆÂÖÖ7FW'’"’’°¢&WGW&â§6öäö²†v—BÖVÖ&W$æÆ—7D×•6¶–ÆÄÖ7FW'’†7G‚’“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&öWfÇVF÷'2"’’°¢&WGW&â§6öäö²†v—BÖVÖ&W$æÆ—7D×”WfÇVF÷'2†7G‚’“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷6–vâÖöfg2"’’°¢&WGW&â§6öäö²†v—B76–væÖVçG2æÆ—7E6–väöfeVWVR†7G‚Â²ââçÂf–Ws¢çf–WrÇÂ&æVVG5öÖR"Ò’“°¢Ğ¢6öç7B6–väöfbÒÖF6‚‡F‚Â&÷6–vâÖöfg2ó¦–B"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bb6–väöfb’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢–b†&öG’ç&W7VÇBÓÓÒ$$õdTB"bb&öG’æGFW7FVBÓÒG'VR’°¢&WGW&â§6öäW'&÷"‚$6öæf—&ÒF†RVÆV7G&öæ–2GFW7FF–öâ&Vf÷&R&÷f–ærF†—2&WV—&VÖVçBâ"ÂC“°¢Ğ¢6öç7Bæ÷FW2Ğ¢&öG’ç&W7VÇBÓÓÒ$$õdTB ¢ò°¢7G&–ær†&öG’ææ÷FW2ÇÂ""’çG&–Ò‚’À¢F6´&öö´GFW7FF–öå&V6÷&B‡²&Wf–WvW$æÖS¢7G‚ææÖRÂ&Wf–WvW%&öÆS¢7G‚ç&öÆRÒ’À¢Ğ¢æf–ÇFW"„&ööÆVâ¢æ¦ö–â‚%ÆåÆâ"¢¢&öG’ææ÷FW3°¢6öç7B6–væVBÒv—B76–væÖVçG2ç&Wf–Wu6–väöfb†7G‚Â6–väöfbæ–BÂ²ââæ&öG’Âæ÷FW2Ò“°¢&WGW&â§6öäö²‡²ââç6–væVBÂGFW7FVC¢&öG’ç&W7VÇBÓÓÒ$$õdTB"Â6–væVD'”æÖS¢7G‚ææÖRÒ“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&ö–æ&÷‚"’’&WGW&â§6öäö²†v—B–æ&÷‚ævWD–æ&÷‚†7G‚’“°¢6öç7B–æ&÷…&VBÒÖF6‚‡F‚Â&ö–æ&÷‚ó¦–B÷&VB"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bb–æ&÷…&VB’&WGW&â§6öäö²†v—B–æ&÷‚æÖ&µ&VB†7G‚Â–æ&÷…&VBæ–B’“°¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&ö–æ&÷‚÷&VBÖÆÂ"’’&WGW&â§6öäö²†v—B–æ&÷‚æÖ&´ÆÅ&VB†7G‚’“°¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&÷W6‚ÖFWf–6W2"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²†v—B–æ&÷‚ç&Vv—7FW$FWf–6R†7G‚Â&öG’’Â#“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&÷W6‚ÖFWf–6W2÷Vç&Vv—7FW""’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²†v—B–æ&÷‚çVç&Vv—7FW$FWf–6R†7G‚Â&öG’çFö¶VâÇÂ""’“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&ö6W'F–f–6F–öç2÷6†&–ær"’’°¢&WGW&â§6öäö²†v—BÖVÖ&W$æÆ—7D×•6†&VD6W'F–f–6F–öç2†7G‚’“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&ö6W'F–f–6F–öç2÷6†&–ær"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²†v—BÖVÖ&W$ç7–æ4×•6†&VD6W'F–f–6F–öç2†7G‚Â&öG’æ6W'F–f–6F–öç2’“°¢Ğ¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&ö7F—f—F–W2÷6†&–ær"’’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²†v—BÖVÖ&W$ç7–æ4×•6†&VD7F—f—F–W2†7G‚Â&öG’æ7F—f—F–W2’“°¢Ğ¢6öç7BWf–FVæ6RÒÖF6‚‡F‚Â&ö76–væÖVçG2ó¦–B÷G&–æ–ærÖWf–FVæ6R"“°¢–b†ÖWF†öBÓÓÒ$tUB"bbWf–FVæ6R’°¢6öç7BFWF–ÂÒv—B76–væÖVçG2ævWD76–væÖVçDFWF–Â†7G‚ÂWf–FVæ6Ræ–B“°¢–b†7G‚æÖVÖ&W'6†—–BÓÒFWF–ÂæÖVÖ&W$–B’&WGW&â§6öäW'&÷"‚$öæÇ’F†R76–væVBÖVÖ&W"Ö’W6RÖö&–ÆRWf–FVæ6Râ"ÂC2“°¢&WGW&â§6öäö²‡²76–væÖVçD–C¢Wf–FVæ6Ræ–BÂ—FV×3¢FWF–Âç&VÆFVDWf–FVæ6RÒ“°¢Ğ¢6öç7B76–væÖVçBÒÖF6‚‡F‚Â&ö76–væÖVçG2ó¦–B"“°¢–b†ÖWF†öBÓÓÒ$tUB"bb76–væÖVçB’°¢&WGW&â§6öäö²†v—BÖVÖ&W$ævWD×”76–væÖVçB†7G‚Â76–væÖVçBæ–B’“°¢Ğ¢6öç7B7V&Ö—BÒÖF6‚‡F‚Â&ö76–væÖVçG2ó¦–B÷&WV—&VÖVçG2ó§&WV—&VÖVçD–B÷7V&Ö—B"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bb7V&Ö—B’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²€¢v—BÖVÖ&W$ç7V&Ö—E&WV—&VÖVçB†7G‚Â7V&Ö—Bæ–BÂ7V&Ö—Bç&WV—&VÖVçD–BÂ°¢ÖVÖ&W$æ÷FW3¢&öG’æÖVÖ&W$æ÷FW2À¢Wf–FVæ6TFW67&—F–öã¢&öG’æWf–FVæ6TFW67&—F–öâÀ¢Wf–FVæ6UG—S¢&öG’æWf–FVæ6UG—RÀ¢6Æ–VçE&WVW7D–C¢&öG’æ6Æ–VçE&WVW7D–BÀ¢WfÇVF÷$–C¢&öG’æWfÇVF÷$–BÀ¢6†V6¶VE7FW–G3¢&öG’æ6†V6¶VE7FW–G2À¢ÖVÖ&W$GFW7FVC¢&öG’æÖVÖ&W$GFW7FVBÀ¢6Æ756¶–ÆÅ&W7VÇD–C¢&öG’æ6Æ756¶–ÆÅ&W7VÇD–BÀ¢Ò’À¢“°¢Ğ ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷VÆ–f–6F–öç2"’’&WGW&â§6öäö²†v—BVÆ–f–6F–öç2æ×•VÆ–f–6F–öç2†7G‚’“°¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&öFW'FÖVçB×VÆ–f–6F–öç2"’’&WGW&â§6öäö²†v—BVÆ–f–6F–öç2æFW'FÖVçEVÆ–f–6F–öç4f÷$†7G‚’“°¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&ö6W'F–f–6F–öç2"’’&WGW&â§6öäö²†v—B7&VFVçF–Ç2æÆ—7D×”7&VFVçF–Ç2†7G‚’“°¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&ö6W'F–f–6F–öç2"’’&WGW&â§6öäö²†v—B7&VFVçF–Ç2çW6W'D×”7&VFVçF–Â†7G‚Âv—B&VD&öG’‡&W’’Â#“°¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&öæ÷F–f–6F–öâ×&VfW&Væ6W2"’’&WGW&â§6öäö²†v—BÖö&–ÆU&VfW&Væ6W2ævWDæ÷F–f–6F–öå&VfW&Væ6W2†7G‚’“°¢–b†ÖWF†öBÓÓÒ%D4‚"bbÖF6‚‡F‚Â&öæ÷F–f–6F–öâ×&VfW&Væ6W2"’’&WGW&â§6öäö²†v—BÖö&–ÆU&VfW&Væ6W2çWFFTæ÷F–f–6F–öå&VfW&Væ6W2†7G‚Âv—B&VD&öG’‡&W’’“°¢òòÖö&–ÆR–ç7G'V7F÷'2W6RF†R6ÖR6Æ72WF†÷&—¦F–öâÂw&F–æræBVF—@¢òò6W'f–6W22FW6·F÷&F†W"F†â7&VF–ær6V6öæB&V6÷&B7—7FVÒà¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2"’’&WGW&â§6öäö²†v—B6Æ76W2æÆ—7D6Æ76W2†7G‚Â’“°¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2÷6WGW"’’&WGW&â§6öäö²†v—B6Æ76W2ævWD6Æ756WGW†7G‚’“°¢–b†ÖWF†öBÓÓÒ%õ5B"bbÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2"’’&WGW&â§6öäö²†v—B6Æ76W2æ7&VFT6Æ72†7G‚Âv—B&VD&öG’‡&W’’Â#“°¢6öç7B&Vv—7G&F–öäÖævRÒÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ó¦–B÷&Vv—7G&F–öâ"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bb&Vv—7G&F–öäÖævR’°¢6öç7B&öG’Òv—B&VD&öG’‡&W“°¢&WGW&â§6öäö²†v—B6Æ76W2æÖævT6Æ75&Vv—7G&F–öâ†7G‚Â&Vv—7G&F–öäÖævRæ–BÂ&öG’æ7F–öâ’“°¢Ğ¢6öç7B&÷7FW$ÖVÖ&W"ÒÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ó¦–B÷&÷7FW"ó¦Vç&öÆÆÖVçD–B"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bb&÷7FW$ÖVÖ&W"’°¢&WGW&â§6öäö²†v—B6Æ76W2çWFFTVç&öÆÆÖVçB†7G‚Â&÷7FW$ÖVÖ&W"æ–BÂ&÷7FW$ÖVÖ&W"æVç&öÆÆÖVçD–BÂv—B&VD&öG’‡&W’’“°¢Ğ¢6öç7B&÷7FW%6¶–ÆÂÒÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ó¦–B÷&÷7FW"ó¦Vç&öÆÆÖVçD–B÷6¶–ÆÇ2ó§&WV—&VÖVçD–B"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bb&÷7FW%6¶–ÆÂ’°¢&WGW&â§6öäö²†v—B6Æ76W2ç&V6÷&E6¶–ÆÅ&W7VÇB†7G‚Â&÷7FW%6¶–ÆÂæ–BÂ&÷7FW%6¶–ÆÂæVç&öÆÆÖVçD–BÂ&÷7FW%6¶–ÆÂç&WV—&VÖVçD–BÂv—B&VD&öG’‡&W’’“°¢Ğ¢6öç7B6Æ756¶–ÆÇ4&F6‚ÒÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ó¦–B÷6¶–ÆÇ2ö&F6‚"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bb6Æ756¶–ÆÇ4&F6‚’°¢&WGW&â§6öäö²†v—B6Æ76W2ç&V6÷&E6¶–ÆÅ&W7VÇG4&F6‚†7G‚Â6Æ756¶–ÆÇ4&F6‚æ–BÂv—B&VD&öG’‡&W’’“°¢Ğ¢6öç7BWfÇVF–öå6WGWÒÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ó¦–BöWfÇVF–öâ×6WGW"“°¢–b†ÖWF†öBÓÓÒ%D4‚"bbWfÇVF–öå6WGW’°¢&WGW&â§6öäö²†v—B6Æ76W2çWFFT6Æ74WfÇVF–öå6WGW†7G‚ÂWfÇVF–öå6WGWæ–BÂv—B&VD&öG’‡&W’’“°¢Ğ¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷G&–æ–ær×6†VWB×FV×ÆFW2"’’&WGW&â§6öäö²†v—BG&–æ–æu6†VWEFV×ÆFW2æÆ—7EG&–æ–æu6†VWEFV×ÆFW2†7G‚ÂfÇ6R’“°¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷G&–æ–ær×6†VWBÖ6ö×öæVçG2"’’&WGW&â§6öäö²†v—BG&–æ–æu6†VWD6ö×öæVçG2æÆ—7EG&–æ–æu6†VWD6ö×öæVçG2†7G‚ÂfÇ6R’“°¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ö×’ÖGFVçF–öâ"’’&WGW&â§6öäö²†v—B6Æ76W2æÆ—7D–ç7G'V7F÷%G&–æ–ætGFVçF–öâ†7G‚’“°¢–b†ÖWF†öBÓÓÒ$tUB"bbÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2÷&×2Ö7F–öç2"’’&WGW&â§6öäö²†v—B6Æ76W2æÆ—7E&×47F–öåVWVR†7G‚’“°¢6öç7BG&–æ–æu6†VWBÒÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ó¦–B"“°¢–b†ÖWF†öBÓÓÒ$tUB"bbG&–æ–æu6†VWB’&WGW&â§6öäö²†v—B6Æ76W2ævWD6Æ72†7G‚ÂG&–æ–æu6†VWBæ–B’“°¢6öç7BG&–æ–ætFö7VÖVçFF–öâÒÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ó¦–BöFö7VÖVçFF–öâ"“°¢–b†ÖWF†öBÓÓÒ%D4‚"bbG&–æ–ætFö7VÖVçFF–öâ’&WGW&â§6öäö²†v—B6Æ76W2çWFFT6Æ74Fö7VÖVçFF–öâ†7G‚ÂG&–æ–ætFö7VÖVçFF–öâæ–BÂv—B&VD&öG’‡&W’’“°¢6öç7BG&–æ–æt&÷fRÒÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ó¦–Bö&÷fR"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bbG&–æ–æt&÷fR’&WGW&â§6öäö²†v—B6Æ76W2æ&÷fUG&–æ–æu6†VWB†7G‚ÂG&–æ–æt&÷fRæ–B’“°¢6öç7BG&–æ–æu&×2ÒÖF6‚‡F‚Â&÷G&–æ–ær×6†VWG2ó¦–B÷&×2ÖVçFW&VB"“°¢–b†ÖWF†öBÓÓÒ%õ5B"bbG&–æ–æu&×2’&WGW&â§6öäö²†v—B6Æ76W2æß8êÚ$z{-®éÜj×nOk(await trainingSheetComponents.listTrainingSheetComponents(ctx, q.archived === "all"));
+import * as classAssignmentWorkflow from "@/server/services/class-assignment-workflow";
+import { prisma } from "@/server/db";
+import { clearSessionCookie, getRequestSession, requireDepartmentSession, signSession } from "@/server/session";
+import { handleError, jsonError, jsonOk } from "@/server/http";
+import * as auth from "@/server/services/auth";
+import * as members from "@/server/services/members";
+import * as taskbooks from "@/server/services/taskbooks";
+import * as taskbookAi from "@/server/services/taskbook-ai";
+import * as assignments from "@/server/services/assignments";
+import * as skillEvidenceEquivalencies from "@/server/services/skill-evidence-equivalencies";
+import * as credentials from "@/server/services/credentials";
+import * as dashboard from "@/server/services/dashboard";
+import * as reports from "@/server/services/reports";
+import * as department from "@/server/services/department";
+import * as memberApp from "@/server/services/memberApp";
+import * as inbox from "@/server/services/inbox";
+import * as classes from "@/server/services/classes";
+import * as evaluators from "@/server/services/evaluators";
+import * as trainingExpectations from "@/server/services/training-expectations";
+import * as trainingSheetTemplates from "@/server/services/training-sheet-templates";
+import * as trainingSheetComponents from "@/server/services/training-sheet-components";
+import * as skillChecklists from "@/server/services/skill-checklists";
+import * as trainingCleanup from "@/server/services/training-cleanup";
+import * as mobilePreferences from "@/server/services/mobile-preferences";
+import * as qualifications from "@/server/services/qualifications";
+import * as workQueue from "@/server/services/work-queue";
+import { activityText } from "@/lib/activity";
+import { parseMetadata } from "@/server/http";
+import { navItemsForRole } from "@/server/permissions";
+import { taskBookAttestationRecord } from "@/lib/taskbook-attestation";
+import type { Role } from "@/lib/constants";
+import { isDepartmentInviteOrJoinRegistration, isOpenAccountCreationAvailable } from "@/lib/account-access";
+
+function match(path: string[], pattern: string) {
+  const parts = pattern.split("/").filter(Boolean);
+  if (parts.length !== path.length) return null;
+  const params: Record<string, string> = {};
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].startsWith(":")) params[parts[i].slice(1)] = decodeURIComponent(path[i]);
+    else if (parts[i] !== path[i]) return null;
+  }
+  return params;
+}
+
+async function readBody(req: Request) {
+  try {
+    return await req.json();
+  } catch {
+    return {};
+  }
+}
+
+export async function handleApi(req: Request, path: string[]) {
+  try {
+    const method = req.method;
+    const url = new URL(req.url);
+    const q = Object.fromEntries(url.searchParams.entries());
+    const publicClass = match(path, "public/classes/:token");
+    if (publicClass && method === "GET") return jsonOk(await classes.getPublicClassRegistration(publicClass.token));
+    if (publicClass && method === "POST") {
+      const source = req.headers.get("x-nf-client-connection-ip") || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+      return jsonOk(await classes.registerGuestStudent(publicClass.token, await readBody(req), source), 201);
+    }
+
+    if (method === "POST" && match(path, "auth/login")) {
+      const body = await readBody(req);
+      const result = await auth.login(body.email || "", body.password || "");
+      return jsonOk(result);
+    }
+    if (method === "POST" && match(path, "auth/app-login")) {
+      const body = await readBody(req);
+      const result = await auth.login(body.email || "", body.password || "");
+      const token = await signSession(result.session);
+      return jsonOk({ ...result, token });
+    }
+    if (method === "POST" && match(path, "auth/department-code")) {
+      const body = await readBody(req);
+      return jsonOk(await auth.validateDepartmentJoinCode(body.joinCode || ""));
+    }
+    if (method === "POST" && match(path, "auth/register")) {
+      const body = await readBody(req);
+      if (!isDepartmentInviteOrJoinRegistration(body) && !isOpenAccountCreationAvailable()) {
+        return jsonError("Open account creation has ended. Submit an account request for access.", 403);
+      }
+      const result = await auth.register(body);
+      return jsonOk(result);
+    }
+    if (method === "POST" && match(path, "auth/app-register")) {
+      const body = await readBody(req);
+      if (!isDepartmentInviteOrJoinRegistration(body) && !isOpenAccountCreationAvailable()) {
+        return jsonError("Open account creation has ended. Submit an account request for access.", 403);
+      }
+      const result = await auth.register(body);
+      const token = result.session ? await signSession(result.session) : null;
+      return jsonOk({ ...result, token });
+    }
+    if (method === "POST" && match(path, "auth/logout")) {
+      await clearSessionCookie();
+      return jsonOk({ ok: true });
+    }
+    if (method === "POST" && match(path, "auth/web-signin/request")) {
+      return jsonOk(await auth.createWebSignInRequest(), 201);
+    }
+    if (method === "POST" && match(path, "auth/web-signin/consume")) {
+      const body = await readBody(req);
+      return jsonOk(await auth.consumeWebSignInRequest(body.requestId || "", body.browserSecret || ""));
+    }
+    if (method === "POST" && match(path, "auth/web-signin/approve")) {
+      const appSession = await getRequestSession(req);
+      if (!appSession) return jsonError("Authentication required.", 401);
+      const body = await readBody(req);
+      return jsonOk(await auth.approveWebSignInRequest(appSession, body.requestId || "", body.approvalToken || ""));
+    }
+    if (method === "GET" && match(path, "auth/me")) {
+      const session = await getRequestSession(req);
+      if (!session) return jsonError("Authentication required.", 401);
+      const ctx = session.departmentId ? await requireDepartmentSession(session) : null;
+      // Session bootstrap must work for every active role, including members and evaluators.
+      // The department administration endpoint requires department.read and is not
+      // appropriate here; only fetch the feature flags for this authenticated department.
+      const features = ctx ? await prisma.department.findUnique({
+        where: { id: ctx.departmentId },
+        select: { enabledFeaturesJson: true },
+      }) : null;
+      const enabled = features ? JSON.parse(features.enabledFeaturesJson || "[]") as string[] : [];
+      const nav = ctx ? navItemsForRole(ctx.role) : ["dashboard", "settings"];
+      const featureNav: Record<string, string> = { classes: "CLASSES", "skill-mastery": "TRAINING_GAPS", certifications: "CREDENTIALS", reports: "REPORTS" };
+      return jsonOk({ ...session, ...(ctx ? { role: ctx.role, rank: ctx.rank, departmentName: ctx.departmentName } : {}), nav: nav.filter(key => !featureNav[key] || enabled.includes(featureNav[key])), enabledFeatures: enabled });
+    }
+
+    const session = await getRequestSession(req);
+    if (!session) return jsonError("Authentication required.", 401);
+
+    if (method === "POST" && match(path, "departments")) {
+      const body = await readBody(req);
+      const created = await auth.createDepartment(session.userId, body);
+      return jsonOk(created, 201);
+    }
+    if (method === "POST" && match(path, "join")) {
+      const body = await readBody(req);
+      const result = await department.joinByCode(session.userId, body.joinCode || "", body.shift || "");
+      return jsonOk(result);
+    }
+    if (method === "POST" && match(path, "invitations/accept")) {
+      const body = await readBody(req);
+      const result = await department.acceptInvitation(session.userId, body.token || "");
+      return jsonOk(result);
+    }
+    if (method === "PATCH" && match(path, "account")) {
+      const body = await readBody(req);
+      const updated = await department.updateAccount(session.userId, body);
+      return jsonOk({ id: updated.id, name: updated.name, email: updated.email, phone: updated.phone });
+    }
+    if (method === "GET" && match(path, "account")) {
+      return jsonOk(await department.getAccount(session.userId));
+    }
+
+    const ctx = await requireDepartmentSession(session);
+
+    if (method === "GET" && match(path, "training-cleanup")) {
+      return jsonOk(await trainingCleanup.listTrainingCleanupItems(ctx));
+    }
+    if (method === "DELETE" && match(path, "training-cleanup")) {
+      const body = await readBody(req);
+      return jsonOk(await trainingCleanup.deleteTrainingCleanupItem(ctx, String(body.type || "") as trainingCleanup.CleanupType, String(body.id || "")));
+    }
+    if (method === "GET" && match(path, "audit-history")) return jsonOk(await trainingCleanup.listAuditHistory(ctx));
+    const trainingRecovery = match(path, "training-cleanup/restore/:id");
+    if (method === "POST" && trainingRecovery) return jsonOk(await trainingCleanup.restoreTrainingCleanupItem(ctx, trainingRecovery.id));
+
+    if (method === "GET" && match(path, "my-credentials")) {
+      return jsonOk(await credentials.listMyCredentials(ctx));
+    }
+    if (method === "POST" && match(path, "my-credentials")) {
+      return jsonOk(await credentials.upsertMyCredential(ctx, await readBody(req)), 201);
+    }
+
+    const appClassRegistration = match(path, "app/classes/register/:token");
+    if (method === "POST" && appClassRegistration) {
+      return jsonOk(await classes.registerDepartmentMember(ctx, appClassRegistration.token), 201);
+    }
+
+    // Companion Roadmap app endpoints. These are intentionally scoped to the
+    // authenticated member's own membership and never expose other members or
+    // the user's private, device-local Career Road data.
+    if (method === "GET" && match(path, "app/assignments")) {
+      return jsonOk(await memberApp.listMyAssignments(ctx));
+    }
+    if (method === "GET" && match(path, "app/work-queue")) {
+      return jsonOk(await workQueue.getWorkQueue(ctx));
+    }
+    if (method === "GET" && match(path, "app/skill-mastery")) {
+      return jsonOk(await memberApp.listMySkillMastery(ctx));
+    }
+    if (method === "GET" && match(path, "app/evaluators")) {
+      return jsonOk(await memberApp.listMyEvaluators(ctx));
+    }
+    if (method === "GET" && match(path, "app/sign-offs")) {
+      return jsonOk(await assignments.listSignOffQueue(ctx, { ...q, view: q.view || "needs_me" }));
+    }
+    const appSignOff = match(path, "app/sign-offs/:id");
+    if (method === "POST" && appSignOff) {
+      const body = await readBody(req);
+      if (body.result === "APPROVED" && body.attested !== true) {
+        return jsonError("Confirm the electronic attestation before approving this requirement.", 400);
+      }
+      const notes =
+        body.result === "APPROVED"
+          ? [
+              String(body.notes || "").trim(),
+              taskBookAttestationRecord({ reviewerName: ctx.name, reviewerRole: ctx.role }),
+            ]
+              .filter(Boolean)
+              .join("\n\n")
+          : body.notes;
+      const signed = await assignments.reviewSignOff(ctx, appSignOff.id, { ...body, notes });
+      return jsonOk({ ...signed, attested: body.result === "APPROVED", signedByName: ctx.name });
+    }
+    if (method === "GET" && match(path, "app/inbox")) return jsonOk(await inbox.getInbox(ctx));
+    const inboxRead = match(path, "app/inbox/:id/read");
+    if (method === "POST" && inboxRead) return jsonOk(await inbox.markRead(ctx, inboxRead.id));
+    if (method === "POST" && match(path, "app/inbox/read-all")) return jsonOk(await inbox.markAllRead(ctx));
+    if (method === "POST" && match(path, "app/push-devices")) {
+      const body = await readBody(req);
+      return jsonOk(await inbox.registerDevice(ctx, body), 201);
+    }
+    if (method === "POST" && match(path, "app/push-devices/unregister")) {
+      const body = await readBody(req);
+      return jsonOk(await inbox.unregisterDevice(ctx, body.token || ""));
+    }
+    if (method === "GET" && match(path, "app/certifications/sharing")) {
+      return jsonOk(await memberApp.listMySharedCertifications(ctx));
+    }
+    if (method === "POST" && match(path, "app/certifications/sharing")) {
+      const body = await readBody(req);
+      return jsonOk(await memberApp.syncMySharedCertifications(ctx, body.certifications));
+    }
+    if (method === "POST" && match(path, "app/activities/sharing")) {
+      const body = await readBody(req);
+      return jsonOk(await memberApp.syncMySharedActivities(ctx, body.activities));
+    }
+    const appEvidence = match(path, "app/assignments/:id/training-evidence");
+    if (method === "GET" && appEvidence) {
+      const detail = await assignments.getAssignmentDetail(ctx, appEvidence.id);
+      if (ctx.membershipId !== detail.memberId) return jsonError("Only the assigned member may use mobile evidence.", 403);
+      return jsonOk({ assignmentId: appEvidence.id, items: detail.relatedEvidence });
+    }
+    const appAssignment = match(path, "app/assignments/:id");
+    if (method === "GET" && appAssignment) {
+      return jsonOk(await memberApp.getMyAssignment(ctx, appAssignment.id));
+    }
+    const appSubmit = match(path, "app/assignments/:id/requirements/:requirementId/submit");
+    if (method === "POST" && appSubmit) {
+      const body = await readBody(req);
+      return jsonOk(
+        await memberApp.submitRequirement(ctx, appSubmit.id, appSubmit.requirementId, {
+          memberNotes: body.memberNotes,
+          evidenceDescription: body.evidenceDescription,
+          evidenceType: body.evidenceType,
+          clientRequestId: body.clientRequestId,
+          evaluatorId: body.evaluatorId,
+          checkedStepIds: body.checkedStepIds,
+          memberAttested: body.memberAttested,
+          classSkillResultId: body.classSkillResultId,
+        }),
+      );
+    }
+
+    if (method === "GET" && match(path, "app/qualifications")) return jsonOk(await qualifications.myQualifications(ctx));
+    if (method === "GET" && match(path, "app/department-qualifications")) return jsonOk(await qualifications.departmentQualificationsForApp(ctx));
+    if (method === "GET" && match(path, "app/certifications")) return jsonOk(await credentials.listMyCredentials(ctx));
+    if (method === "POST" && match(path, "app/certifications")) return jsonOk(await credentials.upsertMyCredential(ctx, await readBody(req)), 201);
+    if (method === "GET" && match(path, "app/notification-preferences")) return jsonOk(await mobilePreferences.getNotificationPreferences(ctx));
+    if (method === "PATCH" && match(path, "app/notification-preferences")) return jsonOk(await mobilePreferences.updateNotificationPreferences(ctx, await readBody(req)));
+    // Mobile instructors use the same class authorization, grading and audit
+    // services as desktop rather than creating a second record system.
+    if (method === "GET" && match(path, "app/training-sheets")) return jsonOk(await classes.listClasses(ctx, q));
+    if (method === "GET" && match(path, "app/training-sheets/setup")) return jsonOk(await classes.getClassSetup(ctx));
+    if (method === "POST" && match(path, "app/training-sheets")) return jsonOk(await classes.createClass(ctx, await readBody(req)), 201);
+    const appRegistrationManage = match(path, "app/training-sheets/:id/registration");
+    if (method === "POST" && appRegistrationManage) {
+      const body = await readBody(req);
+      return jsonOk(await classes.manageClassRegistration(ctx, appRegistrationManage.id, body.action));
+    }
+    const appRosterMember = match(path, "app/training-sheets/:id/roster/:enrollmentId");
+    if (method === "POST" && appRosterMember) {
+      return jsonOk(await classes.updateEnrollment(ctx, appRosterMember.id, appRosterMember.enrollmentId, await readBody(req)));
+    }
+    const appRosterSkill = match(path, "app/training-sheets/:id/roster/:enrollmentId/skills/:requirementId");
+    if (method === "POST" && appRosterSkill) {
+      return jsonOk(await classes.recordSkillResult(ctx, appRosterSkill.id, appRosterSkill.enrollmentId, appRosterSkill.requirementId, await readBody(req)));
+    }
+    const appClassSkillsBatch = match(path, "app/training-sheets/:id/skills/batch");
+    if (method === "POST" && appClassSkillsBatch) {
+      return jsonOk(await classes.recordSkillResultsBatch(ctx, appClassSkillsBatch.id, await readBody(req)));
+    }
+    const appEvaluationSetup = match(path, "app/training-sheets/:id/evaluation-setup");
+    if (method === "PATCH" && appEvaluationSetup) {
+      return jsonOk(await classes.updateClassEvaluationSetup(ctx, appEvaluationSetup.id, await readBody(req)));
+    }
+    if (method === "GET" && match(path, "app/training-sheet-templates")) return jsonOk(await trainingSheetTemplates.listTrainingSheetTemplates(ctx, false));
+    if (method === "GET" && match(path, "app/training-sheet-components")) return jsonOk(await trainingSheetComponents.listTrainingSheetComponents(ctx, false));
+    if (method === "GET" && match(path, "app/training-sheets/my-attention")) return jsonOk(await classes.listInstructorTrainingAttention(ctx));
+    if (method === "GET" && match(path, "app/training-sheets/rms-actions")) return jsonOk(await classes.listRmsActionQueue(ctx));
+    const appTrainingSheet = match(path, "app/training-sheets/:id");
+    if (method === "GET" && appTrainingSheet) return jsonOk(await classes.getClass(ctx, appTrainingSheet.id));
+    const appTrainingDocumentation = match(path, "app/training-sheets/:id/documentation");
+    if (method === "PATCH" && appTrainingDocumentation) return jsonOk(await classes.updateClassDocumentation(ctx, appTrainingDocumentation.id, await readBody(req)));
+    const appTrainingApprove = match(path, "app/training-sheets/:id/approve");
+    if (method === "POST" && appTrainingApprove) return jsonOk(await classes.approveTrainingSheet(ctx, appTrainingApprove.id));
+    const appTrainingRms = match(path, "app/training-sheets/:id/rms-entered");
+    if (method === "POST" && appTrainingRms) return jsonOk(await classes.markClassEnteredIntoRms(ctx, appTrainingRms.id, await readBody(req)));
+
+    if (method === "GET" && match(path, "qualification-roles")) return jsonOk(await qualifications.listRoles(ctx));
+    if (method === "POST" && match(path, "qualification-roles")) return jsonOk(await qualifications.createRole(ctx, await readBody(req)), 201);
+    const qualificationAuth = match(path, "members/:membershipId/qualifications/:roleId");
+    if (method === "PATCH" && qualificationAuth) return jsonOk(await qualifications.setAuthorization(ctx, qualificationAuth.membershipId, qualificationAuth.roleId, await readBody(req)));
+
+    if (method === "GET" && match(path, "dashboard")) return jsonOk(await dashboard.getDashboard(ctx));
+    if (method === "GET" && match(path, "inbox")) return jsonOk(await inbox.getInbox(ctx));
+    const portalInboxRead = match(path, "inbox/:id/read");
+    if (method === "POST" && portalInboxRead) return jsonOk(await inbox.markRead(ctx, portalInboxRead.id));
+    if (method === "POST" && match(path, "inbox/read-all")) return jsonOk(await inbox.markAllRead(ctx));
+
+    if (method === "GET" && match(path, "evaluator-management/candidates")) {
+      return jsonOk(await evaluators.listEvaluatorCandidates(ctx));
+    }
+    if (method === "POST" && match(path, "evaluator-management")) {
+      const body = await readBody(req);
+      return jsonOk(await evaluators.addEvaluator(ctx, body.membershipId, body.approvalLevel), 201);
+    }
+    if (method === "GET" && match(path, "evaluator-management")) {
+      return jsonOk(await evaluators.listEvaluatorManagement(ctx));
+    }
+    const evaluatorStatus = match(path, "evaluator-management/:membershipId");
+    if (method === "DELETE" && evaluatorStatus) {
+      return jsonOk(await evaluators.removeEvaluator(ctx, evaluatorStatus.membershipId));
+    }
+    if (method === "PATCH" && evaluatorStatus) {
+      return jsonOk(await evaluators.updateEvaluator(ctx, evaluatorStatus.membershipId, await readBody(req)));
+    }
+    const evaluatorReassign = match(path, "evaluator-management/:userId/reassign");
+    if (method === "POST" && evaluatorReassign) {
+      const body = await readBody(req);
+      return jsonOk(await evaluators.reassignEvaluator(ctx, evaluatorReassign.userId, body.newEvaluatorId));
+    }
+
+    if (method === "GET" && match(path, "training-sheet-templates")) {
+      return jsonOk(await trainingSheetTemplates.listTrainingSheetTemplates(ctx, q.archived === "all"));
+    }
+    if (method === "GET" && match(path, "training-sheet-components")) {
+      return jsonOk(await trainingSheetComponents.listTrainingSheetComponents(ctx, q.archived === "all"));
     }
     if (method === "GET" && match(path, "skill-checklists")) return jsonOk(await skillChecklists.listSkillChecklists(ctx, q.archived === "all"));
     if (method === "POST" && match(path, "skill-checklists")) return jsonOk(await skillChecklists.saveSkillChecklist(ctx, await readBody(req)), 201);
