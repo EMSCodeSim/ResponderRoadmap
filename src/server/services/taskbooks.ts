@@ -61,7 +61,7 @@ function mapRequirement(requirement: Record<string, unknown>) {
 export function templateKindFilter(kind?: string) {
   if (kind === "ASSIGNMENT") return "TRAINING_TASK";
   if (kind === "ALL") return undefined;
-  return { not: "TRAINING_TASK" };
+  return { notIn: ["TRAINING_TASK", "SKILL_CHECKLIST"] };
 }
 
 export async function listTaskBooks(ctx: AuthContext, query: { q?: string; category?: string; status?: string; kind?: string } = {}) {
