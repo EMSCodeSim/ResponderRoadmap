@@ -356,6 +356,28 @@ export async function trainingHoursReport(ctx: AuthContext, rawYear?: string) {
     include: {
       createdBy: true,
       proctors: { include: { user: true } },
+      checklistVersion: {
+        include: {
+          sections: {
+            orderBy: { sortOrder: "asc" },
+            include: { requirements: { orderBy: { sortOrder: "asc" } } },
+          },
+        },
+      },
+      trainingStations: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          proctor: true,
+          checklistVersion: {
+            include: {
+              sections: {
+                orderBy: { sortOrder: "asc" },
+                include: { requirements: { orderBy: { sortOrder: "asc" } } },
+              },
+            },
+          },
+        },
+      },
       roster: {
         where: { attendance: "PRESENT", membershipId: { not: null } },
         include: { membership: { include: { user: true } } },
@@ -704,6 +726,32 @@ export async function classTrainingSheetReport(ctx: AuthContext, classId: string
   const instructors = training.proctors.map((item) => item.user.name);
   const instructor = instructors.length ? instructors.join(", ") : training.createdBy.name;
 
+  const stationSections = (version: typeof training.checklistVersion) =>
+    version.sections.map((section) => ({
+      id: section.id,
+      title: section.title,
+      description: section.description,
+      requirements: section.requirements.map((requirement) => ({
+        id: requirement.id,
+        title: requirement.title,
+        description: requirement.description,
+        instructions: requirement.instructions,
+      })),
+    }));
+  const stations = training.trainingStations.length
+    ? training.trainingStations.map((station) => ({
+        id: station.id,
+        title: station.title,
+        proctor: station.proctor?.name || null,
+        sections: stationSections(station.checklistVersion),
+      }))
+    : [{
+        id: training.id,
+        title: "Station 1",
+        proctor: instructors.length ? instructors.join(", ") : null,
+        sections: stationSections(training.checklistVersion),
+      }];
+
   const rows = training.roster.map((enrollment) => ({
     enrollmentId: enrollment.id,
     membershipId: enrollment.membershipId,
@@ -742,6 +790,7 @@ export async function classTrainingSheetReport(ctx: AuthContext, classId: string
       creditHours,
       instructor,
     },
+    stations,
     summary: {
       roster: rows.length,
       present: rows.filter((row) => row.attendance === "PRESENT").length,
