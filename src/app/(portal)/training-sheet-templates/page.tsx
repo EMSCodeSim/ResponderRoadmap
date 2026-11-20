@@ -388,7 +388,7 @@ export default function TrainingSheetTemplatesPage() {
             ) : !selectedCeSystemId && form.topic !== "EMS" ? (
               <section className="rounded-lg border border-navy-200 p-4">
                 <h3 className="font-semibold">Custom CE credit categories</h3>
-                <p className="mt-1 text-xs text-navy-600">Add the categories instructors can choose from. They assign hours on the training sheet.</p>
+                <p className="mt-1 text-xs text-navy-600">Add the CE categories instructors can use for this training topic. They assign hours on each Training Sheet.</p>
                 <div className="mt-3 space-y-3">
                   {form.ceCredits.map((allocation, index) => <div key={"custom-ce-credit-" + index} className="flex gap-2 rounded-lg border border-navy-200 p-3">
                     <Input aria-label={"CE category " + (index + 1)} maxLength={80} value={allocation.category} placeholder="e.g. HazMat Operations, Driver Training" onChange={(event) => setForm((current) => ({ ...current, ceCredits: current.ceCredits.map((item, itemIndex) => itemIndex === index ? { ...item, category: event.target.value } : item) }))} />
