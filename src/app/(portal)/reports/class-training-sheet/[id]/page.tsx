@@ -99,6 +99,7 @@ export default function ClassTrainingSheetPage() {
         <Link href={`/classes/${sheet.training.id}`} className="text-sm font-semibold text-fire">← Back to training</Link>
       </div>
 
+      <div className="no-print">
       <PageHeader
         kicker="Digital training sheet"
         title={sheet.training.title}
@@ -112,6 +113,7 @@ export default function ClassTrainingSheetPage() {
           </div>
         }
       />
+      </div>
 
       {sheet.summary.unmarked > 0 ? (
         <Card className="no-print mb-4 border-warn/40 bg-warn/5 p-4">
