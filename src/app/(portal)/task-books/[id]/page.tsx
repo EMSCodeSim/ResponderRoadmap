@@ -305,7 +305,7 @@ export default function TaskBookBuilderPage() {
     [title, sections],
   );
 
-  async function saveDraft(): Promise<boolean> {
+  async function saveDraft(quiet = false): Promise<boolean> {
     setBusy(true);
     setError(null);
     try {
@@ -331,7 +331,7 @@ export default function TaskBookBuilderPage() {
           })),
         }),
       });
-      setMessage("Draft saved.");
+      setMessage(quiet ? "Draft autosaved." : "Draft saved.");
       setDirty(false);
       await load();
       return true;
@@ -342,6 +342,16 @@ export default function TaskBookBuilderPage() {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (!dirty || draftLocked || busy) return;
+    const timer = window.setTimeout(() => {
+      void saveDraft(true);
+    }, 1800);
+    return () => window.clearTimeout(timer);
+    // Autosave follows every editable draft field. saveDraft reloads the canonical server version after a successful save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, draftLocked, busy, title, description, category, intendedPosition, estimatedDurationDays, rmsCategory, rmsCode, rmsDefaultHours, rmsNarrative, rmsIncludeSkillDates, sections]);
 
   async function publish(force = false) {
     setBusy(true);
@@ -621,7 +631,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               </>
             ) : (
               <>
-                <Button variant="secondary" onClick={saveDraft} disabled={busy}>
+                <Button variant="secondary" onClick={() => void saveDraft()} disabled={busy}>
                   Save draft
                 </Button>
                 <Button onClick={() => setReviewOpen(true)} disabled={busy}>
@@ -639,7 +649,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
           <Link className="mt-3 inline-flex min-h-11 items-center rounded-md bg-navy-900 px-4 text-sm font-semibold text-white" href={`/classes?quick=1&sourceTaskBookId=${encodeURIComponent(book.id)}&sourceTaskBookTitle=${encodeURIComponent(title)}`}>Create Training Sheet from Task Book</Link>
         </div>
       ) : null}
-      {dirty ? <p className="mb-3 text-sm font-semibold text-warn">Unsaved changes. Save before leaving this page.</p> : null}
+      {dirty ? <p className="mb-3 text-sm font-semibold text-warn">Changes pending · autosaving after you pause.</p> : null}
       <Flash message={error} tone="danger" />
       <div className="mb-3">
         <Flash message={message} tone="current" />
@@ -666,9 +676,11 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
       </div>
 
       <nav aria-label={`${recordLabel} builder steps`} className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-navy-200 bg-white p-3 text-sm font-semibold">
-        <a href="#book-requirements" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">1. Add & edit skills</a>
-        {!draftLocked ? <button type="button" onClick={() => setReviewOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">2. Review & publish</button> : <span className="px-3 py-2 text-navy-500">2. Published</span>}
-        {draftLocked && book.status === "ACTIVE" ? <button type="button" onClick={() => setAssignOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">3. Assign members</button> : <span className="rounded-md bg-navy-50 px-3 py-2 text-navy-500">3. Assign members after publishing</span>}
+        <a href="#book-details" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">1. Basics</a>
+        <a href="#book-requirements" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">2. Requirements</a>
+        <span className="rounded-md bg-navy-100 px-3 py-2 text-navy-800">3. Approval rules</span>
+        {!draftLocked ? <button type="button" onClick={() => setReviewOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">4. Review & publish</button> : <span className="px-3 py-2 text-navy-500">4. Published</span>}
+        {draftLocked && book.status === "ACTIVE" ? <button type="button" onClick={() => setAssignOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">Assign members</button> : null}
       </nav>
       <div className="grid gap-4 xl:grid-cols-[240px_1fr_340px]">
         <Card id="book-details" className="p-3">
