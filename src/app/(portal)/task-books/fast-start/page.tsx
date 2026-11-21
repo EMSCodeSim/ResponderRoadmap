@@ -10,17 +10,17 @@ type Starter = { id: string; title: string; description: string; category: strin
 type Book = { id: string; title: string; status: string; version: string };
 type Draft = { title: string; description: string; category: string; intendedPosition: string; estimatedDurationDays: number | null; sections: Array<{ title: string; description: string; sortOrder: number; requirements: Array<Record<string, unknown>> }> };
 const sources: Array<{ id: FastStartSource; title: string; detail: string }> = [
-  { id: "template", title: "Starter template", detail: "Use an existing structure with skills and requirements." },
-  { id: "existing", title: "Copy department book", detail: "Preserve the original book and assigned members." },
-  { id: "pdf", title: "Import a PDF", detail: "AI converts an existing document into an editable draft." },
-  { id: "ai", title: "Describe with AI", detail: "Generate an editable starting draft from your goals." },
-  { id: "blank", title: "Start manually", detail: "Create sections and paste requirement titles in bulk." },
+  { id: "blank", title: "Start Blank", detail: "Create sections and add requirements yourself." },
+  { id: "ai", title: "Generate with AI", detail: "Draft a Task Book from a Training Officer prompt, then edit in the builder." },
+  { id: "template", title: "Use Template", detail: "Start from a starter structure with skills and requirements." },
+  { id: "existing", title: "Duplicate Existing Task Book", detail: "Copy a department book. Original assignments stay unchanged." },
+  { id: "pdf", title: "Import a File", detail: "PDF, Word (.docx), Excel (.xlsx), CSV, TXT, or Markdown. AI creates an editable draft." },
 ];
-function pdfBase64(file: File): Promise<string> {
+function fileBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
-    reader.onerror = () => reject(new Error("Unable to read the PDF."));
+    reader.onerror = () => reject(new Error("Unable to read the file."));
     reader.readAsDataURL(file);
   });
 }
@@ -35,6 +35,8 @@ export default function FastStartPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Department Custom");
+  const [intendedPosition, setIntendedPosition] = useState("");
+  const [estimatedDurationDays, setEstimatedDurationDays] = useState("");
   const [sectionTitles, setSectionTitles] = useState("Orientation");
   const [requirements, setRequirements] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -46,9 +48,38 @@ export default function FastStartPage() {
 
   useEffect(() => {
     Promise.all([api<Starter[]>("task-books/starters"), api<Book[]>("task-books")])
-      .then(([available, department]) => { setStarters(available); setBooks(department); })
+      .then(([available, department]) => {
+        setStarters(available);
+        setBooks(department);
+        const requestedId = new URLSearchParams(window.location.search).get("starter") || "";
+        const requested = available.find((item) => item.id === requestedId);
+        if (requested) {
+          setSource("template");
+          setStarterId(requested.id);
+          setTitle(requested.title);
+          setDescription(requested.description);
+          setCategory(requested.category);
+        }
+      })
       .catch((err: unknown) => setLoadingError(err instanceof Error ? err.message : "Unable to load your available templates."));
   }, []);
+
+  async function importDraft(file: File): Promise<Draft> {
+    type ImportResponse = Draft | { _poll: string; status: string };
+    const response = await api<ImportResponse>("task-books/ai/import-pdf", {
+      method: "POST",
+      body: JSON.stringify({ filename: file.name, fileData: await fileBase64(file), notes: `${notes}\\nPreserve source content. Do not invent requirements or standards.` }),
+    });
+    if (!("_poll" in response)) return response;
+    let token = response._poll;
+    for (let attempt = 0; attempt < 90; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const next = await api<ImportResponse>(`task-books/ai/import-pdf?job=${encodeURIComponent(token)}`);
+      if (!("_poll" in next)) return next;
+      token = next._poll;
+    }
+    throw new Error("The import is taking longer than expected. Please retry later.");
+  }
 
   async function create() {
     if (busy) return;
@@ -64,22 +95,21 @@ export default function FastStartPage() {
       } else {
         let payload: Record<string, unknown>;
         if (source === "template") {
-          payload = { title: title.trim(), description, category, starterId };
+          payload = { title: title.trim(), description, category, intendedPosition, estimatedDurationDays: estimatedDurationDays ? Number(estimatedDurationDays) : null, starterId };
         } else if (source === "blank") {
-          payload = { title: title.trim(), description, category, sections: blankDraftSections(sectionTitles, requirements) };
+          payload = { title: title.trim(), description, category, intendedPosition, estimatedDurationDays: estimatedDurationDays ? Number(estimatedDurationDays) : null, sections: blankDraftSections(sectionTitles, requirements) };
         } else {
           let draft: Draft;
           if (source === "ai") {
             draft = await api<Draft>("task-books/ai/draft", { method: "POST", body: JSON.stringify({ prompt: `${prompt.trim()}\n\nCreate a draft for human review. Do not invent official standards, department policies, or approvals.` }) });
           } else {
-            draft = await api<Draft>("task-books/ai/import-pdf", { method: "POST", body: JSON.stringify({ filename: pdf!.name, fileData: await pdfBase64(pdf!), notes: `${notes}\nPreserve source content. Do not invent requirements or standards.` }) });
+            draft = await importDraft(pdf!);
           }
           payload = { title: draft.title, description: draft.description, category: draft.category || "Department Custom", intendedPosition: draft.intendedPosition, estimatedDurationDays: draft.estimatedDurationDays, sections: draft.sections };
         }
         const result = await api<{ id: string }>("task-books", { method: "POST", body: JSON.stringify(payload) });
         id = result.id;
       }
-      // The existing editor owns review, publishing, versioning and assignment. Never auto-publish here.
       router.push(`/task-books/${encodeURIComponent(id)}`);
     } catch (err) {
       setError(err instanceof ApiError || err instanceof Error ? err.message : "Unable to create the draft.");
@@ -88,24 +118,46 @@ export default function FastStartPage() {
     }
   }
 
+  const similarBooks = title.trim().length < 3 ? [] : books.filter((item) => {
+    const requested = title.trim().toLowerCase();
+    const existing = item.title.trim().toLowerCase();
+    return existing === requested || existing.includes(requested) || requested.includes(existing);
+  }).slice(0, 3);
+
   return <div className="space-y-5">
-    <PageHeader kicker="Task Books" title="Create a Task Book" description="Choose a starting point, create an editable draft, then review and publish before assigning members." />
+    <PageHeader kicker="Task Books" title="Create a Task Book" description="Set the purpose, build the requirements, confirm approval rules, then preview and publish." />
     <nav aria-label="Task Book creation stages" className="flex flex-wrap gap-2 rounded-lg border border-navy-200 bg-white p-3 text-sm font-semibold">
-      <span className="rounded bg-fire px-3 py-2 text-white">1. Choose & create</span>
-      <span className="rounded bg-navy-100 px-3 py-2 text-navy-600">2. Review requirements</span>
-      <span className="rounded bg-navy-100 px-3 py-2 text-navy-600">3. Publish</span>
-      <span className="rounded bg-navy-100 px-3 py-2 text-navy-600">4. Assign</span>
+      <span className="rounded bg-fire px-3 py-2 text-white">1. Basics & starting point</span>
+      <span className="rounded bg-navy-100 px-3 py-2 text-navy-600">2. Requirements</span>
+      <span className="rounded bg-navy-100 px-3 py-2 text-navy-600">3. Approval rules</span>
+      <span className="rounded bg-navy-100 px-3 py-2 text-navy-600">4. Review & publish</span>
     </nav>
-    <p className="text-sm text-navy-600">Target: a usable draft in approximately 15 minutes. Actual time depends on document length and required review. Nothing is published or assigned automatically.</p>
+    <p className="text-sm text-navy-600">Templates are editable copies. Nothing is published or assigned until you approve it.</p>
     <Flash message={loadingError || error} tone="danger" />
-    <Card className="p-5"><h2 className="display text-xl font-bold">Choose how to start</h2><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{sources.map((item) => <button key={item.id} type="button" disabled={busy} aria-pressed={source === item.id} onClick={() => { setSource(item.id); setError(null); }} className={`min-h-28 rounded-lg border p-4 text-left ${source === item.id ? "border-fire bg-fire-soft" : "border-navy-200 bg-white hover:border-fire"}`}><span className="block font-bold">{item.title}</span><span className="mt-2 block text-sm text-navy-600">{item.detail}</span></button>)}</div></Card>
-    <Card className="max-w-4xl p-5"><h2 className="display text-xl font-bold">Prepare your draft</h2>
+    <Card className="p-5">
+      <div className="kicker">STEP 1 · STARTING POINT</div>
+      <h2 className="display mt-1 text-xl font-bold">Choose how to create your Task Book</h2>
+      <p className="mt-1 text-sm text-navy-600">All five methods are available. Templates are a good starting point, but choose what works for your department.</p>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {sources.map((item) => <button key={item.id} type="button" disabled={busy} aria-pressed={source === item.id} onClick={() => { setSource(item.id); setError(null); }} className={`min-h-24 rounded-lg border p-4 text-left ${source === item.id ? "border-fire bg-fire-soft" : "border-navy-200 bg-white hover:border-fire"}`}>
+          <span className="block font-bold">{item.title}{item.id === "template" ? " · Recommended" : ""}</span>
+          <span className="mt-2 block text-sm text-navy-600">{item.detail}</span>
+        </button>)}
+      </div>
+    </Card>
+    <Card className="max-w-4xl p-5"><h2 className="display text-xl font-bold">{source === "template" ? "Choose a Task Book template" : "Prepare your Task Book draft"}</h2>
       {source === "template" ? <div className="mt-4 space-y-3"><p className="text-sm text-navy-600">Select a starter. Its sections and requirements are copied into a new editable version.</p>{starters.length ? <div className="grid gap-2 md:grid-cols-2">{starters.map((item) => <button key={item.id} type="button" aria-pressed={starterId === item.id} onClick={() => { setStarterId(item.id); setTitle(item.title); setDescription(item.description); setCategory(item.category); }} className={`rounded-lg border p-3 text-left ${starterId === item.id ? "border-fire bg-fire-soft" : "border-navy-200"}`}><span className="block font-semibold">{item.title}</span><span className="mt-1 block text-xs text-navy-600">{item.sectionCount} sections · {item.requirementCount} requirements</span></button>)}</div> : <p className="text-sm text-navy-500">No starter templates loaded. Check the error above or choose another method.</p>}</div> : null}
       {source === "existing" ? <div className="mt-4 space-y-2">{books.length ? books.map((item) => <button key={item.id} type="button" aria-pressed={existingId === item.id} onClick={() => setExistingId(item.id)} className={`block w-full rounded-lg border p-3 text-left ${existingId === item.id ? "border-fire bg-fire-soft" : "border-navy-200"}`}><span className="font-semibold">{item.title}</span><span className="ml-2 text-xs text-navy-500">v{item.version} · {item.status}</span></button>) : <p className="text-sm text-navy-500">No department books are available to copy.</p>}<p className="text-sm text-navy-600">The original and all existing assignments remain unchanged. Rename the copy in the editor.</p></div> : null}
-      {(source === "template" || source === "blank") ? <div className="mt-4 space-y-4"><Field label="Task Book title"><Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Probationary Firefighter" /></Field><Field label="Description (optional)"><TextArea value={description} onChange={(event) => setDescription(event.target.value)} rows={3}/></Field>{source === "blank" ? <><Field label="Sections · one per line"><TextArea value={sectionTitles} onChange={(event) => setSectionTitles(event.target.value)} rows={4}/></Field><Field label="First-section requirements · one per line" hint="Optional; add or edit instructions and evaluation criteria in the next step."><TextArea value={requirements} onChange={(event) => setRequirements(event.target.value)} rows={6} placeholder="Inspect PPE\nComplete daily apparatus check"/></Field></> : null}</div> : null}
+      {(source === "template" || source === "blank") ? <div className="mt-4 space-y-4">
+        <Field label="Task Book name"><Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Probationary Firefighter" /></Field>
+        {similarBooks.length ? <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><div className="font-bold">A similar Task Book already exists</div><p className="mt-1">Review before creating a duplicate: {similarBooks.map((item) => item.title).join(", ")}.</p><button type="button" className="mt-2 font-semibold text-fire underline" onClick={() => { setSource("existing"); setExistingId(similarBooks[0].id); }}>Copy the existing Task Book instead</button></div> : null}
+        <div className="grid gap-4 md:grid-cols-2"><Field label="Intended role or position" hint="Optional; helps explain who this Task Book is for."><Input value={intendedPosition} onChange={(event) => setIntendedPosition(event.target.value)} placeholder="Probationary Firefighter" /></Field><Field label="Recommended completion time" hint="Optional number of days."><Input type="number" min="1" value={estimatedDurationDays} onChange={(event) => setEstimatedDurationDays(event.target.value)} placeholder="180" /></Field></div>
+        <Field label="Purpose and outcome (optional)"><TextArea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} placeholder="Describe what successful completion demonstrates." /></Field>
+        {source === "blank" ? <><Field label="Sections · one per line"><TextArea value={sectionTitles} onChange={(event) => setSectionTitles(event.target.value)} rows={4}/></Field><Field label="First-section requirements · one per line" hint="Optional; add or edit instructions and evaluation criteria in the next step."><TextArea value={requirements} onChange={(event) => setRequirements(event.target.value)} rows={6} placeholder="Inspect PPE\nComplete daily apparatus check"/></Field></> : null}
+      </div> : null}
       {source === "ai" ? <div className="mt-4"><Field label="Describe your Task Book" hint="Specify audience, duration, skills and local requirements. Review AI output before publishing."><TextArea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={8} placeholder="Create a 6-month probationary firefighter Task Book with station orientation, PPE, hose and EMS skills."/></Field></div> : null}
-      {source === "pdf" ? <div className="mt-4 space-y-4"><Field label="Existing Task Book PDF" hint="Maximum 10 MB. Imported content needs human verification."><Input type="file" accept=".pdf,application/pdf" onChange={(event: ChangeEvent<HTMLInputElement>) => setPdf(event.target.files?.[0] || null)}/></Field>{pdf ? <p className="text-sm text-navy-600">Selected: {pdf.name} · {(pdf.size / 1024 / 1024).toFixed(1)} MB</p> : null}<Field label="Import instructions (optional)"><TextArea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="Preserve our existing section order and evaluator checklists."/></Field></div> : null}
-      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-navy-100 pt-4"><Button disabled={busy} onClick={() => void create()}>{busy ? "Creating draft…" : source === "existing" ? "Copy & review draft" : "Create draft & review"}</Button><span className="text-xs text-navy-500">Next: review each requirement, save, publish, and assign using the existing editor.</span></div>
+      {source === "pdf" ? <div className="mt-4 space-y-4"><Field label="Existing Task Book file" hint="PDF, Word (.docx), Excel (.xlsx), CSV, TXT, or Markdown. Maximum 4 MB. AI imports require configuration and human review."><Input type="file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md" onChange={(event: ChangeEvent<HTMLInputElement>) => setPdf(event.target.files?.[0] || null)}/></Field>{pdf ? <p className="text-sm text-navy-600">Selected: {pdf.name} · {(pdf.size / 1024 / 1024).toFixed(1)} MB</p> : null}<Field label="Import instructions (optional)"><TextArea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="Preserve our existing section order and evaluator checklists."/></Field></div> : null}
+      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-navy-100 pt-4"><Button disabled={busy} onClick={() => void create()}>{busy ? "Creating draft…" : source === "existing" ? "Copy & review" : "Continue to requirements"}</Button><span className="text-xs text-navy-500">Your draft will autosave in the builder. Nothing is assigned until you publish and choose members.</span></div>
     </Card>
   </div>;
 }
