@@ -216,6 +216,7 @@ export default function TaskBookBuilderPage() {
   const [evaluators, setEvaluators] = useState<Array<{ id: string; name: string }>>([]);
   const [assignForm, setAssignForm] = useState({ membershipIds: [] as string[], dueDate: "", evaluatorId: "", supervisorId: "", notes: "" });
   const snapshot = useRef("");
+  const assignQueryHandled = useRef(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -266,6 +267,13 @@ export default function TaskBookBuilderPage() {
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  useEffect(() => {
+    if (assignQueryHandled.current || book?.status !== "ACTIVE") return;
+    if (new URLSearchParams(window.location.search).get("assign") !== "1") return;
+    assignQueryHandled.current = true;
+    setAssignOpen(true);
+  }, [book?.status]);
 
   useEffect(() => {
     function onLeave(event: BeforeUnloadEvent) {
