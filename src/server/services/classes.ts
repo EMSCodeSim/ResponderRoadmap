@@ -1282,11 +1282,37 @@ export async function updateClassDocumentation(
   const existingCeCredits = JSON.parse(row.ceCreditsJson || "[]") as Array<{ category?: string }>;
   let templateCeCredits: Array<{ category?: string }> = [];
   try { templateCeCredits = template ? JSON.parse(template.ceCreditsJson || "[]") : []; } catch {}
-  const allowedCustomCategories = new Set(
-    (template ? templateCeCredits : existingCeCredits)
-      .map((item) => String(item.category || "").trim())
-      .filter(Boolean),
-  );
+  const ceComponents = await prisma.trainingSheetComponentTemplate.findMany({
+    where: { departmentId: ctx.departmentId, kind: "EMS_CE_LIST", archived: false },
+    select: { dataJson: true },
+  });
+  const componentCategories = ceComponents.flatMap((component) => {
+    const data = parseJsonObject(component.dataJson);
+    const groups = Array.isArray(data.ceGroups)
+      ? data.ceGroups as Array<{ name?: string; categories?: string[] }>
+      : [];
+    const grouped = groups.flatMap((group) =>
+      (group.categories || [])
+        .map((category) => {
+          const name = String(group.name || "").trim();
+          const item = String(category || "").trim();
+          return item ? (name ? `${name} — ${item}` : item).slice(0, 80) : "";
+        })
+        .filter(Boolean),
+    );
+    const legacy = Array.isArray(data.ceCredits)
+      ? (data.ceCredits as Array<{ category?: string }>).flatMap((item) => {
+          const category = String(item.category || "").trim();
+          return category ? [category, `EMS — ${category}`.slice(0, 80)] : [];
+        })
+      : [];
+    return [...grouped, ...legacy];
+  });
+  const allowedCustomCategories = new Set([
+    ...existingCeCredits.map((item) => String(item.category || "").trim()).filter(Boolean),
+    ...templateCeCredits.map((item) => String(item.category || "").trim()).filter(Boolean),
+    ...componentCategories,
+  ]);
   const ceCredits = input.ceCredits === undefined ? normalizeCeCredits(existingCeCredits, allowedCustomCategories) : normalizeCeCredits(input.ceCredits, allowedCustomCategories);
   if (template && ceCredits.some((item) => !allowedCustomCategories.has(item.category))) {
     throw new HttpError(400, "Choose a training credit category from the selected Training Sheet template.");
