@@ -62,6 +62,7 @@ type WorkQueueItem = {
 type WorkQueue = { items: WorkQueueItem[]; count: number };
 
 type InstructorClass = { id: string; title: string; startsAt: string; endsAt?: string | null; location?: string | null; status: string; rosterCount: number; presentCount: number; completeCount: number; href: string };
+type DepartmentClass = { id: string; title: string; startsAt: string; location: string; status: string; rosterCount: number; completeCount: number };
 
 type Dashboard = {
   personal?: boolean;
@@ -181,18 +182,18 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         kicker="Home"
-        title={data.instructor ? "My Training Events" : data.personal ? "My Training" : "Home"}
+        title={data.instructor ? "My Training Events" : data.personal ? "My Training" : "Training Command Center"}
         description={
           data.instructor
             ? "Teach, take attendance, evaluate skills, and finish the training record."
               : data.personal
               ? "Your next training step, Task Books, Assignments, and evaluations waiting for review."
-              : "Review what needs attention and follow up on department training below."
+              : "See the department’s priorities, readiness, training needs, and next actions in one place."
         }
         actions={
           data.instructor ? <Link href="/classes?quick=1"><Button>Create Training</Button></Link> : data.personal ? undefined : (
             <>
-              <Link href="/training"><Button variant="secondary">Training & Classes</Button></Link>
+              <Link href="/classes?quick=1"><Button>Create Training</Button></Link>
               <Link href={createTaskBookPath()}><Button>Create Task Book</Button></Link>
               <Link href={createAssignmentPath()}><Button variant="secondary">Create Assignment</Button></Link>
             </>
@@ -200,25 +201,132 @@ export default function DashboardPage() {
         }
       />
 
-      <CanonicalWorkQueue queue={workQueue} />
-
       {data.instructor ? (
-        <InstructorHome data={data} />
+        <><CanonicalWorkQueue queue={workQueue} /><InstructorHome data={data} /></>
       ) : data.personal ? (
-        <MemberHome data={data} />
+        <><CanonicalWorkQueue queue={workQueue} /><MemberHome data={data} /></>
       ) : (
-        <>
-          <ActivationChecklist data={data} />
-          <ShiftTrainingHours />
-          <div className="mb-6">
-            {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
-            <EvaluatorCoverage coverage={data.evaluatorCoverage} />
-          </div>
-        </>
+        <TrainingOfficerHome data={data} workQueue={workQueue} />
       )}
 
     </div>
   );
+}
+
+function TrainingOfficerHome({ data, workQueue }: { data: Dashboard; workQueue: WorkQueue | null }) {
+  const priorityRank: Record<WorkQueueItem["priority"], number> = { URGENT: 0, HIGH: 1, NORMAL: 2 };
+  const topPriority = workQueue?.items
+    .slice()
+    .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])[0];
+  const readiness = data.departmentReadiness;
+  const readinessPercent = readiness?.assigned
+    ? Math.round((readiness.ready / readiness.assigned) * 100)
+    : data.summary.readinessPercent ?? 0;
+
+  return <div className="space-y-6">
+    <ActivationChecklist data={data} />
+
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
+      <Card className={`p-6 ${topPriority?.priority === "URGENT" ? "border-red-300 bg-red-50/40" : "border-fire/30"}`}>
+        <div className="kicker">DO THIS NEXT</div>
+        {topPriority ? <>
+          <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="display text-3xl font-bold text-navy-950">{topPriority.title}</h2>
+              <p className="mt-2 max-w-2xl text-navy-600">{topPriority.reason}</p>
+              <p className="mt-2 text-sm font-semibold text-navy-500">Owner: {topPriority.owner}</p>
+            </div>
+            <Badge tone={topPriority.priority === "URGENT" ? "danger" : topPriority.priority === "HIGH" ? "warn" : "neutral"}>{topPriority.priority.toLowerCase()}</Badge>
+          </div>
+          <Link href={topPriority.href} className="mt-5 inline-flex min-h-11 items-center rounded-md bg-fire px-5 py-2 text-sm font-bold text-white hover:bg-fire/90">{topPriority.actionLabel} →</Link>
+        </> : <>
+          <h2 className="display mt-2 text-3xl font-bold text-navy-950">You’re caught up</h2>
+          <p className="mt-2 text-navy-600">No approvals, evaluations, Training Sheets, or RMS entries need immediate action.</p>
+        </>}
+      </Card>
+
+      <Card className="p-5">
+        <div className="kicker">DEPARTMENT AT A GLANCE</div>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <DashboardMetric label="Active members" value={data.summary.activeMembers} href="/members" />
+          <DashboardMetric label="Readiness" value={`${readinessPercent}%`} href="/qualifications" />
+          <DashboardMetric label="Credential issues" value={data.summary.certificateIssues ?? data.summary.expiringSoon} href="/certifications" tone="danger" />
+          <DashboardMetric label="Awaiting review" value={data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff} href="/evaluate" tone="warn" />
+        </div>
+      </Card>
+    </section>
+
+    <CanonicalWorkQueue queue={workQueue} />
+
+    <section className="grid items-start gap-6 xl:grid-cols-2">
+      <DepartmentReadinessSnapshot data={data} />
+      <UpcomingTrainingHome />
+    </section>
+
+    <TrainingGapsHome />
+
+    <section className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+      {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
+      <div className="space-y-6">
+        <WorkInProgress taskBooks={data.taskBookProgress} />
+        <EvaluatorCoverage coverage={data.evaluatorCoverage} />
+      </div>
+    </section>
+
+    <section>
+      <div className="mb-3">
+        <div className="kicker">TRENDS</div>
+        <h2 className="display mt-1 text-2xl font-bold">Training activity by shift</h2>
+      </div>
+      <ShiftTrainingHours />
+    </section>
+  </div>;
+}
+
+function DashboardMetric({ label, value, href, tone = "default" }: { label: string; value: string | number; href: string; tone?: "default" | "warn" | "danger" }) {
+  const color = tone === "danger" && Number(value) > 0 ? "text-red-700" : tone === "warn" && Number(value) > 0 ? "text-amber-700" : "text-navy-950";
+  return <Link href={href} className="rounded-lg border border-navy-200 bg-navy-50/60 p-3 hover:border-fire">
+    <div className={`text-2xl font-bold ${color}`}>{value}</div>
+    <div className="mt-1 text-xs font-semibold uppercase tracking-wide text-navy-500">{label}</div>
+  </Link>;
+}
+
+function UpcomingTrainingHome() {
+  const [rows, setRows] = useState<DepartmentClass[] | null>(null);
+  useEffect(() => {
+    api<DepartmentClass[]>("classes").then(setRows).catch(() => setRows([]));
+  }, []);
+  const now = Date.now();
+  const upcoming = (rows ?? [])
+    .filter((row) => !["COMPLETE", "CANCELLED"].includes(row.status) && new Date(row.startsAt).getTime() >= now)
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+    .slice(0, 3);
+  return <Card className="p-5">
+    <div className="flex items-start justify-between gap-3">
+      <div><div className="kicker">UPCOMING TRAINING</div><h2 className="display mt-1 text-xl font-bold">What’s scheduled next</h2></div>
+      <Link href="/classes" className="text-sm font-semibold text-fire underline">View calendar →</Link>
+    </div>
+    {rows === null ? <p className="mt-4 text-sm text-navy-500">Loading scheduled training…</p> : upcoming.length ? <ul className="mt-4 divide-y divide-navy-100">
+      {upcoming.map((item) => <li key={item.id} className="py-3 first:pt-0 last:pb-0">
+        <Link href={`/classes/${item.id}`} className="group flex items-center justify-between gap-4">
+          <span><span className="block font-bold text-navy-950 group-hover:text-fire">{item.title}</span><span className="mt-1 block text-sm text-navy-500">{new Date(item.startsAt).toLocaleString()}{item.location ? ` · ${item.location}` : ""}</span></span>
+          <span className="shrink-0 text-sm font-semibold text-navy-600">{item.rosterCount} enrolled</span>
+        </Link>
+      </li>)}
+    </ul> : <div className="mt-4 rounded-lg border border-navy-200 bg-navy-50 p-4 text-sm text-navy-600">No upcoming training is scheduled. <Link href="/classes?quick=1" className="font-semibold text-fire underline">Create an event</Link>.</div>}
+  </Card>;
+}
+
+function WorkInProgress({ taskBooks }: { taskBooks: Dashboard["taskBookProgress"] }) {
+  const active = taskBooks.filter((item) => item.assignedMembers > item.complete).sort((a, b) => b.waitingSignOff - a.waitingSignOff || b.overdue - a.overdue).slice(0, 3);
+  return <Card className="p-5">
+    <div className="flex items-start justify-between gap-3"><div><div className="kicker">WORK IN PROGRESS</div><h2 className="display mt-1 text-xl font-bold">Active Task Books</h2></div><Link href="/task-book-progress" className="text-sm font-semibold text-fire underline">View all →</Link></div>
+    {active.length ? <ul className="mt-4 space-y-4">{active.map((item) => <li key={item.id}>
+      <div className="flex items-center justify-between gap-3"><span className="font-semibold text-navy-950">{item.title}</span><span className="text-sm text-navy-500">{item.averageProgress}%</span></div>
+      <div className="mt-2"><ProgressBar value={item.averageProgress} /></div>
+      <div className="mt-1 text-xs text-navy-500">{item.assignedMembers} assigned · {item.waitingSignOff} waiting sign-off · {item.overdue} overdue</div>
+    </li>)}</ul> : <p className="mt-4 text-sm text-navy-500">No active Task Books are assigned.</p>}
+  </Card>;
 }
 
 function DepartmentReadinessSnapshot({ data }: { data: Dashboard }) {
@@ -614,36 +722,32 @@ function EvaluatorCoverage({ coverage }: { coverage?: NonNullable<Dashboard["eva
 
 function PeopleToFollowUp({ rows }: { rows: NonNullable<Dashboard["memberProgress"]> }) {
   const people = rows
-    .filter((row) => row.recentSharedActivity || row.overdue > 0 || row.stalledDays >= 30 || row.status === "Needs Attention" || row.evaluationEscalated)
+    .filter((row) => row.overdue > 0 || row.stalledDays >= 30 || row.status === "Needs Attention" || row.evaluationEscalated)
     .sort((a, b) => {
-      const sharedDifference = new Date(b.recentSharedActivity?.timestamp ?? 0).getTime() - new Date(a.recentSharedActivity?.timestamp ?? 0).getTime();
-      return sharedDifference || b.overdue - a.overdue || b.stalledDays - a.stalledDays;
+      return b.overdue - a.overdue || b.stalledDays - a.stalledDays;
     })
-    .slice(0, 8);
+    .slice(0, 6);
 
   return <Card className="mt-6 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <div className="kicker">PEOPLE · Recent activity and follow-up</div>
-        <h2 className="display mt-1 text-2xl font-bold">People</h2>
-        <p className="mt-1 text-sm text-navy-500">See department-shared Quick Add activity and members who need training follow-up.</p>
+        <div className="kicker">MEMBERS NEEDING ACTION</div>
+        <h2 className="display mt-1 text-2xl font-bold">Who needs follow-up</h2>
+        <p className="mt-1 text-sm text-navy-500">Members with overdue work, stalled progress, or evaluations past the response target.</p>
       </div>
       <Link href="/members" className="text-sm font-semibold text-fire underline">Open Members →</Link>
     </div>
 
     {people.length === 0 ? (
-      <div className="mt-4 rounded-md border border-navy-200 bg-navy-50 p-4 text-sm text-navy-600">No recent shared activity or individual follow-up is recorded.</div>
+      <div className="mt-4 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900">No members currently need individual follow-up.</div>
     ) : (
       <ul className="mt-4 divide-y divide-navy-100 rounded-md border border-navy-200 bg-white px-4">
         {people.map((row) => {
           const needsFollowUp = row.overdue > 0 || row.stalledDays >= 30 || row.status === "Needs Attention" || row.evaluationEscalated;
-          const shared = row.recentSharedActivity;
           return (
           <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div>
               <Link href={row.href} className="font-semibold text-navy-950 hover:text-fire hover:underline">{row.name}</Link>
-              {shared ? <div className="mt-1 text-sm font-medium text-navy-700">Shared {shared.title}{shared.category && shared.category !== shared.title ? ` (${shared.category})` : ""}</div> : null}
-              {shared ? <div className="mt-1 text-xs text-navy-500">Quick Add · {relativeTime(shared.timestamp)}</div> : null}
               {needsFollowUp ? <div className="mt-2 text-sm font-medium text-navy-700">{followUpSummary(row).count} item{followUpSummary(row).count === 1 ? "" : "s"} need attention</div> : null}
               {needsFollowUp ? <div className="mt-1 text-xs text-navy-600">{followUpSummary(row).detail}</div> : null}
             </div>
