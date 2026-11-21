@@ -91,6 +91,7 @@ type Book = {
   description: string;
   category: string;
   status: string;
+  templateKind?: string;
   intendedPosition?: string;
   estimatedDurationDays?: number | null;
   workingVersion: {
@@ -101,6 +102,7 @@ type Book = {
   } | null;
   versions: Array<{ id: string; version: string; status: string }>;
   review?: { issues: QualityIssue[]; sectionCount: number; requirementCount: number; ready: boolean };
+  rmsConfig?: { category: string; code: string; defaultHours: number | null; narrative: string; includeSkillDates: boolean };
 };
 
 function uid() {
@@ -188,6 +190,11 @@ export default function TaskBookBuilderPage() {
   const [category, setCategory] = useState("Department Custom");
   const [intendedPosition, setIntendedPosition] = useState("");
   const [estimatedDurationDays, setEstimatedDurationDays] = useState("");
+  const [rmsCategory, setRmsCategory] = useState("");
+  const [rmsCode, setRmsCode] = useState("");
+  const [rmsDefaultHours, setRmsDefaultHours] = useState("");
+  const [rmsNarrative, setRmsNarrative] = useState("");
+  const [rmsIncludeSkillDates, setRmsIncludeSkillDates] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [selectedReq, setSelectedReq] = useState<string | null>(null);
@@ -199,9 +206,11 @@ export default function TaskBookBuilderPage() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [aiToolBusy, setAiToolBusy] = useState(false);
+  const [aiAction, setAiAction] = useState("improve");
   const [aiReviewText, setAiReviewText] = useState("");
   const [dirty, setDirty] = useState(false);
   const [editorTab, setEditorTab] = useState<"basics" | "evaluation" | "signoff" | "standards">("basics");
+  const [advancedEditing, setAdvancedEditing] = useState(false);
   const [quickEntry, setQuickEntry] = useState("");
   const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [evaluators, setEvaluators] = useState<Array<{ id: string; name: string }>>([]);
@@ -234,6 +243,11 @@ export default function TaskBookBuilderPage() {
     setCategory(data.category);
     setIntendedPosition(data.intendedPosition || "");
     setEstimatedDurationDays(data.estimatedDurationDays ? String(data.estimatedDurationDays) : "");
+    setRmsCategory(data.rmsConfig?.category || "");
+    setRmsCode(data.rmsConfig?.code || "");
+    setRmsDefaultHours(data.rmsConfig?.defaultHours == null ? "" : String(data.rmsConfig.defaultHours));
+    setRmsNarrative(data.rmsConfig?.narrative || "");
+    setRmsIncludeSkillDates(data.rmsConfig?.includeSkillDates === true);
     const mapped = mapSections(data);
     setSections(mapped);
     setSelectedSection((current) => mapped.some((section) => section.clientId === current) ? current : mapped[0]?.clientId || null);
@@ -291,7 +305,7 @@ export default function TaskBookBuilderPage() {
     [title, sections],
   );
 
-  async function saveDraft() {
+  async function saveDraft(quiet = false): Promise<boolean> {
     setBusy(true);
     setError(null);
     try {
@@ -303,6 +317,7 @@ export default function TaskBookBuilderPage() {
           category,
           intendedPosition,
           estimatedDurationDays: estimatedDurationDays ? Number(estimatedDurationDays) : null,
+          rmsConfig: { category: rmsCategory, code: rmsCode, defaultHours: rmsDefaultHours ? Number(rmsDefaultHours) : null, narrative: rmsNarrative, includeSkillDates: rmsIncludeSkillDates },
         }),
       });
       await api(`task-books/${params.id}/draft`, {
@@ -316,25 +331,39 @@ export default function TaskBookBuilderPage() {
           })),
         }),
       });
-      setMessage("Draft saved.");
+      setMessage(quiet ? "Draft autosaved." : "Draft saved.");
       setDirty(false);
       await load();
+      return true;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to save.");
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
+  useEffect(() => {
+    if (!dirty || draftLocked || busy) return;
+    const timer = window.setTimeout(() => {
+      void saveDraft(true);
+    }, 1800);
+    return () => window.clearTimeout(timer);
+    // Autosave follows every editable draft field. saveDraft reloads the canonical server version after a successful save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, draftLocked, busy, title, description, category, intendedPosition, estimatedDurationDays, rmsCategory, rmsCode, rmsDefaultHours, rmsNarrative, rmsIncludeSkillDates, sections]);
+
   async function publish(force = false) {
     setBusy(true);
     setError(null);
     try {
-      await saveDraft();
+      const saved = await saveDraft();
+      if (!saved) return; // Never publish a stale version when draft persistence fails.
       await api(`task-books/${params.id}/publish`, { method: "POST", body: JSON.stringify({ force }) });
       setMessage("Published. Existing assignments stay on the version they were given.");
       setReviewOpen(false);
       await load();
+      setAssignOpen(true); // Continue directly to member assignment after publishing.
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to publish.");
     } finally {
@@ -482,6 +511,50 @@ Instructions: ${currentReq.instructions}`);
     }
   }
 
+  async function applyRequirementAi() {
+    if (aiAction === "checklist") return generateChecklistWithAi();
+    if (aiAction === "improve") return improveRequirementWithAi();
+    if (!currentReq || !current) return;
+    setAiToolBusy(true);
+    setError(null);
+    try {
+      const draft = await askTaskBookAi(
+        aiAction === "missing"
+          ? `Suggest missing requirements for this Fire/EMS Task Book section. Return one section titled "${current.title}" with 3-6 additional requirements the Training Officer may have omitted. Do not invent official standards.\n\nTask Book: ${title}\nExisting tasks: ${current.requirements.map((req) => req.title).join("; ")}`
+          : `Rewrite one Fire/EMS Task Book requirement more clearly. Return exactly one section with exactly one requirement. Keep the operational intent. ${aiAction === "criteria" ? "Focus on measurable evaluation criteria and evaluationSteps." : "Use plain field language."} Do not invent standards.\n\nTask Book: ${title}\nSection: ${current.title}\nTask: ${currentReq.title}\nDescription: ${currentReq.description}\nInstructions: ${currentReq.instructions}`,
+      );
+      if (aiAction === "missing") {
+        const added = (draft.sections[0]?.requirements || []).map((item, index) => ({
+          ...blankRequirement(current.requirements.length + index),
+          title: String(item.title || "Untitled requirement"),
+          description: String(item.description || ""),
+          instructions: String(item.instructions || ""),
+        }));
+        if (!added.length) throw new Error("AI did not return additional requirements.");
+        setSections((items) => items.map((section) => (section.clientId === current.clientId ? { ...section, requirements: [...section.requirements, ...added] } : section)));
+        markDirty();
+        setMessage("AI suggested missing requirements. Review, edit, or delete them before saving.");
+        return;
+      }
+      const suggestion = draft.sections[0]?.requirements[0];
+      if (!suggestion) throw new Error("AI did not return a usable requirement.");
+      updateReq({
+        title: suggestion.title || currentReq.title,
+        description: suggestion.description || currentReq.description,
+        instructions: suggestion.instructions || currentReq.instructions,
+        objectives: Array.isArray(suggestion.objectives) ? suggestion.objectives.filter((x): x is string => typeof x === "string") : currentReq.objectives,
+        evaluationSteps: Array.isArray(suggestion.evaluationSteps)
+          ? suggestion.evaluationSteps.map((step, index) => ({ id: typeof step?.id === "string" ? step.id : `ai-step-${index}-${uid()}`, text: typeof step?.text === "string" ? step.text : "" })).filter((step) => step.text)
+          : currentReq.evaluationSteps,
+      });
+      setMessage("AI updated this draft requirement. Review before saving or publishing.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "AI assistance is temporarily unavailable. You can continue manually.");
+    } finally {
+      setAiToolBusy(false);
+    }
+  }
+
   async function reviewBookWithAi() {
     setAiToolBusy(true);
     setError(null);
@@ -523,22 +596,28 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
     }
   }
 
-  if (!book) return <p className="text-navy-500">Loading Task Book…</p>;
+  if (!book) return <p className="text-navy-500">Loading record…</p>;
+  const isAssignment = book.templateKind === "TRAINING_TASK";
+  const recordLabel = isAssignment ? "Assignment" : "Task Book";
 
   return (
     <div>
       <PageHeader
-        kicker="Task Book builder"
-        title={title || "Untitled Task Book"}
-        description="TASK BOOK → Sections → Tasks → Evaluation criteria → Evidence → Sign-off. Publishing freezes this version."
+        kicker={`${recordLabel} builder`}
+        title={title || `Untitled ${recordLabel}`}
+        description={isAssignment
+          ? "Build short-term or recurring work with the same requirements, evidence, evaluation, and approval workflow used by Task Books."
+          : "Add skills, review the requirements, publish the Task Book, then assign members. Advanced settings are available when needed."}
         actions={
           <>
-            <Button variant="secondary" onClick={() => setPreview("member")}>
-              Preview as Member
-            </Button>
-            <Button variant="secondary" onClick={() => setPreview("evaluator")}>
-              Preview as Evaluator
-            </Button>
+            <details className="relative inline-block align-middle">
+              <summary className="cursor-pointer rounded-md border border-navy-200 px-3 py-2 text-sm font-semibold text-navy-800">More tools</summary>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setPreview("member")}>Preview as Member</Button>
+                <Button variant="secondary" onClick={() => setPreview("evaluator")}>Preview as Evaluator</Button>
+                {!draftLocked ? <Button variant="secondary" onClick={reviewBookWithAi} disabled={busy || aiToolBusy}>{aiToolBusy ? "AI working…" : "AI Review"}</Button> : null}
+              </div>
+            </details>
             {draftLocked ? (
               <>
                 <Button variant="secondary" onClick={() => api(`task-books/${params.id}/new-version`, { method: "POST" }).then(load)}>
@@ -552,11 +631,8 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               </>
             ) : (
               <>
-                <Button variant="secondary" onClick={saveDraft} disabled={busy}>
+                <Button variant="secondary" onClick={() => void saveDraft()} disabled={busy}>
                   Save draft
-                </Button>
-                <Button variant="secondary" onClick={reviewBookWithAi} disabled={busy || aiToolBusy}>
-                  {aiToolBusy ? "AI working…" : "AI Review"}
                 </Button>
                 <Button onClick={() => setReviewOpen(true)} disabled={busy}>
                   Review & publish
@@ -566,7 +642,14 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
           </>
         }
       />
-      {dirty ? <p className="mb-3 text-sm font-semibold text-warn">Unsaved changes. Save before leaving this page.</p> : null}
+      {!isAssignment && book.status === "ACTIVE" ? (
+        <div className="mb-4 rounded-lg border border-navy-200 bg-navy-50 p-4">
+          <h2 className="font-semibold text-navy-900">Record this Task Book work as training</h2>
+          <p className="mt-1 text-sm text-navy-600">Start a Training Sheet with the Task Book title and reference already filled in. Review attendance, evaluations, and hours before giving credit.</p>
+          <Link className="mt-3 inline-flex min-h-11 items-center rounded-md bg-navy-900 px-4 text-sm font-semibold text-white" href={`/classes?quick=1&sourceTaskBookId=${encodeURIComponent(book.id)}&sourceTaskBookTitle=${encodeURIComponent(title)}`}>Create Training Sheet from Task Book</Link>
+        </div>
+      ) : null}
+      {dirty ? <p className="mb-3 text-sm font-semibold text-warn">Changes pending · autosaving after you pause.</p> : null}
       <Flash message={error} tone="danger" />
       <div className="mb-3">
         <Flash message={message} tone="current" />
@@ -575,7 +658,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
         <Card className="mb-4 border-fire/30 bg-fire-soft/40 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="kicker text-fire">AI Task Book Review</div>
+              <div className="kicker text-fire">AI {recordLabel} Review</div>
               <h2 className="display mt-1 text-2xl font-bold text-navy-900">Review suggestions</h2>
             </div>
             <Button variant="ghost" onClick={() => setAiReviewText("")}>Close</Button>
@@ -592,14 +675,16 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
         ))}
       </div>
 
-      <nav aria-label="Task Book builder steps" className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-navy-200 bg-white p-3 text-sm font-semibold">
-        <a href="#book-details" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">1. Details</a>
+      <nav aria-label={`${recordLabel} builder steps`} className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-navy-200 bg-white p-3 text-sm font-semibold">
+        <a href="#book-details" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">1. Basics</a>
         <a href="#book-requirements" className="rounded-md bg-navy-100 px-3 py-2 text-navy-800 hover:bg-navy-200">2. Requirements</a>
-        {!draftLocked ? <button type="button" onClick={() => setReviewOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">3. Review & publish</button> : <span className="px-3 py-2 text-navy-500">Published version</span>}
+        <span className="rounded-md bg-navy-100 px-3 py-2 text-navy-800">3. Approval rules</span>
+        {!draftLocked ? <button type="button" onClick={() => setReviewOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">4. Review & publish</button> : <span className="px-3 py-2 text-navy-500">4. Published</span>}
+        {draftLocked && book.status === "ACTIVE" ? <button type="button" onClick={() => setAssignOpen(true)} className="rounded-md bg-fire px-3 py-2 text-white hover:bg-fire-dark">Assign members</button> : null}
       </nav>
       <div className="grid gap-4 xl:grid-cols-[240px_1fr_340px]">
         <Card id="book-details" className="p-3">
-          <Field label="Task Book name">
+          <Field label={`${recordLabel} name`}>
             <Input value={title} onChange={(e) => { setTitle(e.target.value); markDirty(); }} disabled={draftLocked} />
           </Field>
           <div className="mt-3">
@@ -612,7 +697,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
             </Field>
           </div>
           <details className="mt-3 rounded-md border border-navy-200 p-3">
-            <summary className="cursor-pointer text-sm font-semibold text-navy-700">More Task Book details</summary>
+            <summary className="cursor-pointer text-sm font-semibold text-navy-700">More {recordLabel} details</summary>
             <div className="mt-3">
             <Field label="Intended position">
               <Input value={intendedPosition} onChange={(e) => { setIntendedPosition(e.target.value); markDirty(); }} disabled={draftLocked} />
@@ -628,6 +713,17 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               <TextArea value={description} onChange={(e) => { setDescription(e.target.value); markDirty(); }} disabled={draftLocked} />
             </Field>
           </div>
+          </details>
+          <details className="mt-3 rounded-md border border-navy-200 p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-navy-700">RMS completion setup</summary>
+            <p className="mt-2 text-xs text-navy-500">These defaults create a one-page RMS handoff after the Task Book is fully approved.</p>
+            <div className="mt-3 space-y-3">
+              <Field label="RMS course/category"><Input value={rmsCategory} onChange={(e) => { setRmsCategory(e.target.value); markDirty(); }} disabled={draftLocked} placeholder="Driver Operator Training" /></Field>
+              <Field label="RMS code"><Input value={rmsCode} onChange={(e) => { setRmsCode(e.target.value); markDirty(); }} disabled={draftLocked} placeholder="DO-1" /></Field>
+              <Field label="Default completion hours" hint="Leave blank to total hours logged on requirements."><Input type="number" min="0" max="1000" step="0.25" value={rmsDefaultHours} onChange={(e) => { setRmsDefaultHours(e.target.value); markDirty(); }} disabled={draftLocked} /></Field>
+              <Field label="Standard RMS completion narrative" hint="Leave blank to generate a completion narrative automatically."><TextArea rows={4} value={rmsNarrative} onChange={(e) => { setRmsNarrative(e.target.value); markDirty(); }} disabled={draftLocked} placeholder="Member completed all required Task Book skills and evaluations." /></Field>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={rmsIncludeSkillDates} onChange={(e) => { setRmsIncludeSkillDates(e.target.checked); markDirty(); }} disabled={draftLocked} /> Include individual skill completion dates in the RMS handoff</label>
+            </div>
           </details>
           <div className="kicker mt-4 mb-2">Sections</div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionDrag}>
@@ -712,9 +808,12 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               </Field>
               {!draftLocked ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => addRequirement()}>
-                    Add task
+                  <Button onClick={() => addRequirement()}>
+                    + Add skill
                   </Button>
+                  <details className="rounded-md border border-navy-200 px-3 py-2">
+                    <summary className="cursor-pointer text-sm font-semibold">Section options</summary>
+                    <div className="mt-2 flex flex-wrap gap-2">
                   <Button
                     variant="secondary"
                     onClick={() => {
@@ -739,15 +838,17 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                   >
                     Remove section
                   </Button>
+                    </div>
+                  </details>
                 </div>
               ) : null}
               <div className="mt-4">
-                <Field label="Quick entry" hint="Paste titles from a paper Task Book. Press Add titles — details can wait.">
+                <Field label="Add several skills at once" hint="Paste one skill per line from a paper Task Book. You can edit the details afterward.">
                   <TextArea value={quickEntry} disabled={draftLocked} onChange={(e) => setQuickEntry(e.target.value)} placeholder={"Operate apparatus in emergency response\nPerform hydrant connection\nLead patient assessment"} />
                 </Field>
                 {!draftLocked ? (
                   <Button variant="secondary" className="mt-2" onClick={applyQuickEntry} disabled={!quickEntry.trim()}>
-                    Add titles
+                    Add skills
                   </Button>
                 ) : null}
               </div>
@@ -808,19 +909,29 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
             <div className="space-y-3">
               {!draftLocked ? (
                 <div className="rounded-md border border-fire/30 bg-fire-soft/40 p-3">
-                  <div className="text-xs font-bold uppercase tracking-wide text-fire">AI task tools</div>
+                  <div className="text-xs font-bold uppercase tracking-wide text-fire">Ask AI</div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={improveRequirementWithAi} disabled={aiToolBusy || !currentReq.title.trim()}>
-                      {aiToolBusy ? "AI working…" : "Improve This Task"}
-                    </Button>
-                    <Button variant="secondary" onClick={generateChecklistWithAi} disabled={aiToolBusy || !currentReq.title.trim()}>
-                      Generate Evaluation Checklist
+                    <Select aria-label="AI assistance" value={aiAction} onChange={(event) => setAiAction(event.target.value)} className="min-w-52">
+                      <option value="improve">Improve Requirement</option>
+                      <option value="criteria">Create Evaluation Criteria</option>
+                      <option value="checklist">Create Checklist</option>
+                      <option value="rewrite">Rewrite Clearly</option>
+                      <option value="missing">Suggest Missing Items</option>
+                    </Select>
+                    <Button variant="secondary" onClick={() => void applyRequirementAi()} disabled={aiToolBusy || !currentReq.title.trim()}>
+                      {aiToolBusy ? "AI working…" : "Apply to draft"}
                     </Button>
                   </div>
-                  <p className="mt-2 text-xs text-navy-500">Suggestions update the draft only. Review before saving or publishing.</p>
+                  <p className="mt-2 text-xs text-navy-500">Suggestions update the draft only. Review before saving or publishing. Core editing still works if AI is unavailable.</p>
                 </div>
               ) : null}
-              <div className="flex flex-wrap gap-1">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Button variant="secondary" onClick={() => { setAdvancedEditing((open) => !open); setEditorTab("basics"); }}>
+                  {advancedEditing ? "Hide advanced settings" : "Evaluation, sign-off & advanced settings"}
+                </Button>
+                <span className="text-xs text-navy-500">Start with the skill title, description and instructions.</span>
+              </div>
+              {advancedEditing ? <div className="flex flex-wrap gap-1">
                 {(["basics", "evaluation", "signoff", "standards"] as const).map((tab) => (
                   <button
                     key={tab}
@@ -831,7 +942,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                     {tab === "signoff" ? "Sign-off" : tab[0].toUpperCase() + tab.slice(1)}
                   </button>
                 ))}
-              </div>
+              </div> : null}
               {editorTab === "basics" ? (
                 <>
                   <Field label="Task title">
@@ -852,6 +963,23 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                   </Field>
                   <Field label="Detailed instructions">
                     <TextArea value={currentReq.instructions} disabled={draftLocked} onChange={(e) => updateReq({ instructions: e.target.value })} />
+                  </Field>
+                  <Field label="Reference title" hint="Optional. Name the webpage, policy, or video members should use.">
+                    <Input
+                      value={currentReq.referenceDocument}
+                      disabled={draftLocked}
+                      placeholder="Example: Master stream setup video"
+                      onChange={(e) => updateReq({ referenceDocument: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Reference URL" hint="Optional. Add a YouTube video or other web resource for this task.">
+                    <Input
+                      type="url"
+                      value={currentReq.referenceUrl}
+                      disabled={draftLocked}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      onChange={(e) => updateReq({ referenceUrl: e.target.value })}
+                    />
                   </Field>
                   <Field label="Objectives" hint="What the member must demonstrate. Spaces and new objectives are kept as you type.">
                     <div className="space-y-2">
@@ -951,8 +1079,26 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Repetitions required" hint="Each attempt keeps its own date, evaluator, notes, and result.">
-                    <Input type="number" min={1} value={currentReq.repetitionsRequired} disabled={draftLocked} onChange={(e) => updateReq({ repetitionsRequired: Number(e.target.value) })} />
+                  <Field label="Performances required" hint="Every performance needs its own evaluator signature, and each one must be signed on a different calendar day.">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={currentReq.repetitionsRequired}
+                      disabled={draftLocked}
+                      onChange={(e) => {
+                        const repetitionsRequired = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                        updateReq({
+                          repetitionsRequired,
+                          ...(repetitionsRequired > 1
+                            ? {
+                                evaluatorSignOffRequired: true,
+                                approvalPath: ["EVALUATOR", ...currentReq.approvalPath.filter((level) => level !== "EVALUATOR")],
+                              }
+                            : {}),
+                        });
+                      }}
+                    />
                   </Field>
                   <Field label="Evaluation steps" hint="Evaluators mark Meets / Needs Improvement / Not Performed on each step.">
                     <div className="space-y-2">
@@ -1042,8 +1188,13 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
               {editorTab === "signoff" ? (
                 <>
                   <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={currentReq.evaluatorSignOffRequired} disabled={draftLocked} onChange={(e) => updateReq({ evaluatorSignOffRequired: e.target.checked })} />
-                    Evaluator sign-off required
+                    <input
+                      type="checkbox"
+                      checked={currentReq.evaluatorSignOffRequired || currentReq.repetitionsRequired > 1}
+                      disabled={draftLocked || currentReq.repetitionsRequired > 1}
+                      onChange={(e) => updateReq({ evaluatorSignOffRequired: e.target.checked })}
+                    />
+                    Evaluator sign-off required{currentReq.repetitionsRequired > 1 ? " (required for each performance)" : ""}
                   </label>
                   <Field label="Approval path" hint="Each level keeps name, role, date, result, and comments.">
                     <div className="space-y-1">
@@ -1051,8 +1202,8 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                         <label key={level} className="flex items-center gap-2 text-sm">
                           <input
                             type="checkbox"
-                            disabled={draftLocked}
-                            checked={currentReq.approvalPath.includes(level)}
+                            disabled={draftLocked || (currentReq.repetitionsRequired > 1 && level === "EVALUATOR")}
+                            checked={currentReq.approvalPath.includes(level) || (currentReq.repetitionsRequired > 1 && level === "EVALUATOR")}
                             onChange={(e) => {
                               const next = e.target.checked
                                 ? [...currentReq.approvalPath, level]
@@ -1129,9 +1280,6 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
                       Add standards reference
                     </Button>
                   ) : null}
-                  <Field label="Reference document (legacy text)">
-                    <Input value={currentReq.referenceDocument} disabled={draftLocked} onChange={(e) => updateReq({ referenceDocument: e.target.value })} />
-                  </Field>
                 </>
               ) : null}
               {!draftLocked ? (
@@ -1253,7 +1401,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
         ))}
       </Modal>
 
-      <Modal open={reviewOpen} title="Task Book review" onClose={() => setReviewOpen(false)} wide>
+      <Modal open={reviewOpen} title={`${recordLabel} review`} onClose={() => setReviewOpen(false)} wide>
         <p className="text-sm text-navy-500">
           {review.sectionCount} sections · {review.requirementCount} requirements
         </p>
@@ -1282,7 +1430,7 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
         </div>
       </Modal>
 
-      <Modal open={assignOpen} title="Assign Task Book" onClose={() => setAssignOpen(false)} wide>
+      <Modal open={assignOpen} title={`Assign ${recordLabel}`} onClose={() => setAssignOpen(false)} wide>
         <div className="grid max-h-64 gap-1 overflow-auto md:grid-cols-2">
           {members.map((member) => (
             <label key={member.id} className="flex items-center gap-2 text-sm">
@@ -1321,10 +1469,10 @@ ${JSON.stringify({ title, intendedPosition, estimatedDurationDays, sections: com
       </Modal>
 
       <div className="mt-4">
-        <Link href="/task-books" className="text-sm font-semibold text-navy-600" onClick={(event) => {
+        <Link href={isAssignment ? "/assignment-library" : "/task-books"} className="text-sm font-semibold text-navy-600" onClick={(event) => {
           if (dirty && !confirm("Leave without saving this draft?")) event.preventDefault();
         }}>
-          Back to library
+          Back to {isAssignment ? "Assignment Library" : "Task Book Library"}
         </Link>
       </div>
     </div>
