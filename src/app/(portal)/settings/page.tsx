@@ -11,8 +11,9 @@ type DepartmentAdminOverview = {
   pendingApprovals: number;
   openInvitations: number;
   credentialReviews: number;
+  missingExpirationDates: number;
   expiringCredentials: number;
-  approvalItems: Array<{ id: string; title: string; detail: string; href: string; kind: "member" | "credential" | "evaluation" }>;
+  approvalItems: Array<{ id: string; title: string; detail: string; href: string; kind: "member" | "credential" | "credential-date" | "evaluation" }>;
   setupChecks: Array<{ label: string; detail: string; href: string; done: boolean }>;
 };
 type AdminDepartment = { name: string; timezone: string; agencyType: string };
@@ -21,7 +22,7 @@ type AdminEnrollment = {
   invitations: Array<{ status: string }>;
   pendingMembers: Array<{ id: string; name: string; email: string; joinedAt: string }>;
 };
-type AdminCredential = { id: string; memberId: string; memberName: string; credentialName: string; verificationStatus: string; health: string };
+type AdminCredential = { id: string; memberId: string; memberName: string; credentialName: string; expirationDate: string | null; doesNotExpire: boolean; verificationStatus: string; health: string };
 type AdminDashboard = { today?: { signOffs: Array<{ id: string; memberName: string; requirementTitle: string; taskBookTitle: string; href: string }>; signOffTotal: number } };
 type AdminExpectation = { active: boolean };
 type AdminTaskBook = { status: string };
@@ -92,6 +93,13 @@ export default function SettingsPage() {
             href: `/members/${credential.memberId}?tab=certifications`,
             kind: "credential" as const,
           })),
+          ...departmentCredentials.credentials.filter((credential) => !credential.doesNotExpire && !credential.expirationDate).map((credential) => ({
+            id: `credential-date-${credential.id}`,
+            title: `${credential.credentialName} needs an expiration date`,
+            detail: `${credential.memberName} · add a date or explicitly mark Does not expire`,
+            href: `/members/${credential.memberId}?tab=certifications`,
+            kind: "credential-date" as const,
+          })),
           ...(dashboard.today?.signOffs || []).map((signOff) => ({
             id: `evaluation-${signOff.id}`,
             title: `${signOff.requirementTitle} needs sign-off`,
@@ -111,6 +119,7 @@ export default function SettingsPage() {
           pendingApprovals: enrollment.pendingMembers.length,
           openInvitations: enrollment.invitations.filter((invitation) => invitation.status === "PENDING").length,
           credentialReviews: departmentCredentials.credentials.filter((credential) => credential.verificationStatus === "PENDING").length,
+          missingExpirationDates: departmentCredentials.credentials.filter((credential) => !credential.doesNotExpire && !credential.expirationDate).length,
           expiringCredentials: departmentCredentials.credentials.filter((credential) => credential.health === "expiring").length,
           approvalItems,
           setupChecks: [
@@ -213,7 +222,7 @@ export default function SettingsPage() {
     { key: "task-books", href: "/training-cleanup", title: "Content cleanup", detail: "Remove eligible test records" },
   ].filter((item) => nav.includes(item.key));
   const setupReadyCount = adminOverview?.setupChecks.filter((check) => check.done).length ?? 0;
-  const attentionCount = adminOverview ? adminOverview.pendingApprovals + adminOverview.credentialReviews + (adminOverview.approvalItems.filter((item) => item.kind === "evaluation").length) : 0;
+  const attentionCount = adminOverview ? adminOverview.pendingApprovals + adminOverview.credentialReviews + adminOverview.missingExpirationDates + (adminOverview.approvalItems.filter((item) => item.kind === "evaluation").length) : 0;
 
   return <div>
     <PageHeader
@@ -243,7 +252,7 @@ export default function SettingsPage() {
           {adminOverviewError ? <p className="mt-3 rounded-md bg-amber-50 p-3 text-sm text-amber-900">{adminOverviewError}</p> : null}
           {!adminOverview && !adminOverviewError ? <p className="mt-3 text-sm text-navy-500">Loading department status…</p> : null}
           {adminOverview ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Link href="/enrollment" className="rounded-lg border border-navy-200 bg-white p-4 hover:border-fire hover:bg-navy-50">
                 <span className="text-sm text-navy-500">Member approvals</span>
                 <strong className="display mt-1 block text-3xl font-bold text-navy-950">{adminOverview.pendingApprovals}</strong>
@@ -258,6 +267,11 @@ export default function SettingsPage() {
                 <span className="text-sm text-navy-500">Credential reviews</span>
                 <strong className="display mt-1 block text-3xl font-bold text-navy-950">{adminOverview.credentialReviews}</strong>
                 <span className="mt-1 block text-sm text-navy-600">{adminOverview.credentialReviews ? "Member credentials to verify" : "No credentials awaiting review"}</span>
+              </Link>
+              <Link href="/certifications?window=missing" className={`rounded-lg border bg-white p-4 hover:border-fire hover:bg-navy-50 ${adminOverview.missingExpirationDates ? "border-red-300" : "border-navy-200"}`}>
+                <span className="text-sm text-navy-500">Missing expiration dates</span>
+                <strong className={`display mt-1 block text-3xl font-bold ${adminOverview.missingExpirationDates ? "text-red-700" : "text-navy-950"}`}>{adminOverview.missingExpirationDates}</strong>
+                <span className="mt-1 block text-sm text-navy-600">{adminOverview.missingExpirationDates ? "Add a date or mark Does not expire" : "Every credential has an expiration decision"}</span>
               </Link>
               <Link href="/certifications?window=60" className="rounded-lg border border-navy-200 bg-white p-4 hover:border-fire hover:bg-navy-50">
                 <span className="text-sm text-navy-500">Expiring in 60 days</span>
@@ -278,7 +292,7 @@ export default function SettingsPage() {
                           <span className="block font-semibold text-navy-900">{item.title}</span>
                           <span className="mt-1 block text-sm text-navy-500">{item.detail}</span>
                         </span>
-                        <Badge tone={item.kind === "member" ? "warn" : "neutral"}>{item.kind === "member" ? "Join request" : item.kind === "credential" ? "Credential" : "Skill sign-off"}</Badge>
+                        <Badge tone={item.kind === "member" || item.kind === "credential-date" ? "warn" : "neutral"}>{item.kind === "member" ? "Join request" : item.kind === "credential-date" ? "Missing date" : item.kind === "credential" ? "Credential" : "Skill sign-off"}</Badge>
                       </Link>
                     </li>
                   ))}
