@@ -243,15 +243,20 @@ export async function getDashboard(ctx: AuthContext) {
   }
   for (const [key, group] of credentialGroups) {
     const rows = group.map((credential) => ({ credential, status: credentialStatus(credential.expirationDate, undefined, credential.doesNotExpire) }));
-    if (rows.some((row) => row.status.health === "current")) continue;
-    const issue = rows.find((row) => row.status.health === "expired")
-      ?? rows.find((row) => !row.credential.doesNotExpire && !row.credential.expirationDate)
-      ?? rows.find((row) => row.status.health === "expiring");
+    // A current duplicate must never hide a separate record whose expiration
+    // choice was never completed. Missing dates require an explicit correction:
+    // add the date or affirm that the certification does not expire.
+    const missingDate = rows.find((row) => !row.credential.doesNotExpire && !row.credential.expirationDate);
+    const issue = missingDate
+      ?? (rows.some((row) => row.status.health === "current")
+        ? undefined
+        : rows.find((row) => row.status.health === "expired")
+          ?? rows.find((row) => row.status.health === "expiring"));
     if (!issue) continue;
-    const reason = issue.status.health === "expired"
-      ? issue.status.label
-      : !issue.credential.expirationDate
-        ? "Expiration date missing"
+    const reason = !issue.credential.doesNotExpire && !issue.credential.expirationDate
+      ? "Needs expiration date or Does not expire selection"
+      : issue.status.health === "expired"
+        ? issue.status.label
         : issue.status.label;
     addCertificateAttention({
       memberId: issue.credential.membershipId,
