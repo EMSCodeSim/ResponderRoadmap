@@ -77,7 +77,17 @@ export async function listTaskBooks(ctx: AuthContext, query: { q?: string; categ
     include: {
       owner: true,
       versions: {
-        include: { _count: { select: { assignments: true } } },
+        include: {
+          _count: { select: { assignments: true } },
+          sections: { select: { _count: { select: { requirements: true } } } },
+          assignments: {
+            select: {
+              status: true,
+              dueDate: true,
+              completions: { select: { status: true } },
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -88,6 +98,8 @@ export async function listTaskBooks(ctx: AuthContext, query: { q?: string; categ
       const published = book.versions.find((version) => version.status === "PUBLISHED");
       const latest = published ?? book.versions[0];
       const assigned = book.versions.reduce((sum, version) => sum + version._count.assignments, 0);
+      const assignments = book.versions.flatMap((version) => version.assignments);
+      const now = Date.now();
       return {
         id: book.id,
         title: book.title,
@@ -96,6 +108,12 @@ export async function listTaskBooks(ctx: AuthContext, query: { q?: string; categ
         status: book.status,
         version: latest?.version ?? "—",
         assignedMembers: assigned,
+        completedMembers: assignments.filter((assignment) => assignment.status === "COMPLETE").length,
+        overdueMembers: assignments.filter((assignment) => assignment.status !== "COMPLETE" && assignment.dueDate && assignment.dueDate.getTime() < now).length,
+        awaitingReview: assignments.filter((assignment) => assignment.completions.some((completion) => completion.status === "SUBMITTED")).length,
+        sectionCount: latest?.sections.length ?? 0,
+        requirementCount: latest?.sections.reduce((sum, section) => sum + section._count.requirements, 0) ?? 0,
+        versionCount: book.versions.length,
         lastUpdated: book.updatedAt,
         ownerName: book.owner.name,
         estimatedDurationDays: book.estimatedDurationDays,
