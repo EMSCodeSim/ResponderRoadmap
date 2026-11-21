@@ -82,7 +82,7 @@ export default function TrainingComponentsPage() {
     <Flash message={error} tone="danger" /><Flash message={message} tone="current" />
     <div className="mb-5 grid gap-3 md:grid-cols-3">
       {([ ["GRADING", "Training systems", "Create and manage department scoring options"], ["EMS_CE_LIST", "CE category", "Create grouped categories that match your department RMS"] ] as const).map(([value, title, description]) => <button type="button" key={value} onClick={() => { reset(); setKind(value); }} className={`min-h-24 rounded-xl border p-4 text-left ${kind === value ? "border-fire bg-fire text-white" : "border-navy-200 bg-white"}`}><span className="block font-bold">{title}</span><span className={`mt-1 block text-sm ${kind === value ? "text-white/80" : "text-navy-600"}`}>{description}</span></button>)}
-      <Link href="/task-books/fast-start?returnTo=%2Ftraining-sheet-templates%2Fcomponents" className="min-h-24 rounded-xl border border-navy-200 bg-white p-4 text-left hover:bg-navy-50"><span className="block font-bold">Skill checklists</span><span className="mt-1 block text-sm text-navy-600">Create and publish a checklist for any Training Sheet.</span></Link>
+      <Link href="/training-sheet-templates/components/checklists" className="min-h-24 rounded-xl border border-navy-200 bg-white p-4 text-left hover:bg-navy-50"><span className="block font-bold">Skill checklists</span><span className="mt-1 block text-sm text-navy-600">Create and publish standalone checklists for Training Sheets.</span></Link>
     </div>
     {(kind === "EMS_CE_LIST" || showGradingBuilder) ? <Card className="mb-6 p-5">
       <h2 className="text-lg font-bold">{editingId ? "Edit saved component" : `Create ${kind === "GRADING" ? "training system" : "CE category set"}`}</h2>
