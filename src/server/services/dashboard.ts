@@ -255,9 +255,7 @@ export async function getDashboard(ctx: AuthContext) {
     if (!issue) continue;
     const reason = !issue.credential.doesNotExpire && !issue.credential.expirationDate
       ? "Needs expiration date or Does not expire selection"
-      : issue.status.health === "expired"
-        ? issue.status.label
-        : issue.status.label;
+      : issue.status.label;
     addCertificateAttention({
       memberId: issue.credential.membershipId,
       memberName: issue.credential.membership.user.name,
