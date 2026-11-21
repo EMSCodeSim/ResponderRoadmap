@@ -2,8 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { api, ApiError } from "@/lib/api";
-import { Badge, Button, Card, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
+import { api } from "@/lib/api";
+import { Badge, Button, EmptyState, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
 import { EMS_CE_CATEGORIES, emsCreditSummary } from "@/lib/ems-ce-categories";
 import { TrainingRecordDeleteButton, useTrainingCleanup } from "@/components/training-library-actions";
@@ -327,19 +327,39 @@ export default function ClassesPage() {
     const matchesStatus = sheetFilter === "all" || (sheetFilter === "approved" && Boolean(row.instructorApprovedAt)) || (sheetFilter === "complete" && row.status === "COMPLETE") || (sheetFilter === "pending" && row.status !== "COMPLETE") || (sheetFilter === "rms-entered" && row.rmsStatus === "RMS_ENTERED") || (sheetFilter === "rms-needed" && row.rmsStatus !== "RMS_ENTERED" && row.status !== "CANCELLED");
     return matchesSearch && matchesStatus;
   }).sort((a, b) => sort === "oldest" ? new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime() : new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime()), [rows, search, sort, sheetFilter]);
+  const openSheetCount = rows.filter((row) => !["COMPLETE", "CANCELLED"].includes(row.status)).length;
+  const actionNeededCount = rows.filter((row) => row.status !== "CANCELLED" && (
+    row.status !== "COMPLETE" || !row.instructorApprovedAt || row.rmsStatus !== "RMS_ENTERED"
+  )).length;
+
+  function sheetAction(row: ClassRow) {
+    if (row.status === "DRAFT") return "Continue setup";
+    if (row.status !== "COMPLETE") return "Open training";
+    if (!row.instructorApprovedAt) return "Review & approve";
+    if (row.rmsStatus !== "RMS_ENTERED") return "Complete RMS handoff";
+    return "View record";
+  }
 
 
   return (
     <div>
       <PageHeader
-        kicker="Training delivery"
-        title="Training Sheets"
-        description="Manage classes, drills, attendance, QR rosters, evaluations, training sheets, and RMS handoff."
-        actions={<div className="flex flex-wrap gap-2"><Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold text-navy-900 hover:bg-navy-50">Training templates</Link>{setup ? <><Button onClick={() => openTraining(true)} className="md:hidden">Quick training</Button><Button onClick={() => openTraining(false)}>Create training</Button></> : null}</div>}
+        kicker="Training Sheet library"
+        title="Department Training Sheets"
+        description="Create, continue, review, and complete department Training Sheets using the same clear library format as Task Books."
       />
       <Flash message={error} tone="danger" />
       {setup ? <button type="button" onClick={() => openTraining(true)} className="fixed bottom-20 right-4 z-40 flex min-h-14 items-center rounded-full bg-fire px-5 text-sm font-bold text-white shadow-lg md:hidden" aria-label="Create quick training sheet">+ Quick training</button> : null}
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Training Sheet library summary">
+        <div className="rounded-lg border border-navy-200 bg-white p-3"><div className="text-xs text-navy-600">Training Sheets</div><div className="text-xl font-bold text-navy-900">{rows.length}</div></div>
+        <div className="rounded-lg border border-navy-200 bg-white p-3"><div className="text-xs text-navy-600">Open</div><div className="text-xl font-bold text-navy-900">{openSheetCount}</div><div className="text-xs text-navy-500">Draft or in progress</div></div>
+        <div className="col-span-2 rounded-lg border border-navy-200 bg-white p-3 sm:col-span-1"><div className="text-xs text-navy-600">Need action</div><div className={`text-xl font-bold ${actionNeededCount ? "text-amber-700" : "text-navy-900"}`}>{actionNeededCount}</div><div className="text-xs text-navy-500">Closeout, approval, or RMS</div></div>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {setup ? <Button onClick={() => openTraining(false)}>Create Training Sheet</Button> : null}
+        <Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 px-4 text-sm font-semibold text-navy-900">Manage templates</Link>
+      </div>
+      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_190px_210px]">
         <Input aria-label="Search training events" placeholder="Search class or training sheet…" value={search} onChange={(event) => setSearch(event.target.value)} />
         <Select aria-label="Sort training events by date" value={sort} onChange={(event) => setSort(event.target.value)}>
           <option value="newest">Newest first</option>
@@ -354,47 +374,50 @@ export default function ClassesPage() {
           <option value="rms-entered">Entered into RMS</option>
         </Select>
       </div>
-      <div className="mb-2 text-sm text-navy-500">{visibleRows.length} of {rows.length} training sheets</div>
+      <div className="mb-2 text-xs text-navy-600" aria-live="polite">Showing {visibleRows.length} of {rows.length} Training Sheets</div>
       <p className="mb-3 text-xs text-navy-600">Training completed, instructor approved, and entered into RMS are separate milestones. Only the RMS entry confirms the department’s official RMS record.</p>
-      <div className="space-y-2 md:hidden">
-        {visibleRows.map(row => <article key={row.id} className="rounded-lg border border-navy-200 bg-white p-4">
-          <Link href={`/classes/${row.id}`} className="block rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
-            <div className="flex items-start justify-between gap-2"><span className="font-semibold text-navy-900">{row.title}</span><span className="text-xs text-navy-500">{formatDate(row.startsAt)}</span></div>
-            <div className="mt-2 text-xs text-navy-600">Roster {row.completeCount}/{row.rosterCount}</div>
-            <div className="mt-2 flex flex-wrap gap-2"><Badge tone={row.status === "COMPLETE" ? "current" : "info"}>{row.status === "COMPLETE" ? "Training completed" : "Training not completed"}</Badge><Badge tone={row.instructorApprovedAt ? "current" : "warn"}>{row.instructorApprovedAt ? "Instructor approved" : "Instructor not approved"}</Badge><Badge tone={row.rmsStatus === "RMS_ENTERED" ? "current" : "warn"}>{row.rmsStatus === "RMS_ENTERED" ? "Entered into RMS" : "Not entered into RMS"}</Badge></div>
-            <div className="mt-3 text-sm font-semibold text-fire">Open / edit →</div>
-          </Link>
-          {canManage && cleanup.trainingSheets.some((item) => item.id === row.id) ? <div className="mt-3 border-t border-navy-100 pt-3"><TrainingRecordDeleteButton id={row.id} title={row.title} type="TRAINING_SHEET" detail="This unfinished Training Sheet has no attendance or evaluation results." onRemoved={() => { setRows((current) => current.filter((item) => item.id !== row.id)); void refreshCleanup(); }} /></div> : null}
-        </article>)}
-        {visibleRows.length === 0 ? <p className="py-5 text-center text-sm text-navy-500">No matching training sheets.</p> : null}
-      </div>
-      <div className="hidden overflow-x-auto rounded-lg border border-navy-200 bg-white md:block">
-        <table className="w-full min-w-[880px] text-left text-sm">
-          <thead className="bg-navy-50 text-navy-700"><tr>
-            <th className="px-4 py-3 font-semibold">Date</th>
-            <th className="px-4 py-3 font-semibold">Training event</th>
-            <th className="px-4 py-3 font-semibold">Roster</th>
-            <th className="px-4 py-3 font-semibold">Training</th>
-            <th className="px-4 py-3 font-semibold">Instructor</th>
-            <th className="px-4 py-3 font-semibold">RMS status</th>
-            <th className="px-4 py-3 font-semibold">Record</th>
-          </tr></thead>
-          <tbody className="divide-y divide-navy-100">
-            {visibleRows.map((row) => (
-              <tr key={row.id} className="hover:bg-navy-50/60">
-                <td className="whitespace-nowrap px-4 py-3">{formatDate(row.startsAt)}</td>
-                <td className="px-4 py-3"><Link href={`/classes/${row.id}`} className="font-semibold text-navy-900 hover:text-fire hover:underline">{row.title}</Link><div className="text-xs text-navy-500">{row.trainingCategory.replaceAll("_", " ")}{row.location ? ` · ${row.location}` : ""}</div></td>
-                <td className="whitespace-nowrap px-4 py-3">{row.completeCount}/{row.rosterCount}</td>
-                <td className="px-4 py-3"><Badge tone={row.status === "COMPLETE" ? "current" : row.status === "ACTIVE" ? "info" : "neutral"}>{row.status === "COMPLETE" ? "Completed" : row.status === "ACTIVE" ? "In progress" : row.status === "DRAFT" ? "Draft" : row.status === "CANCELLED" ? "Cancelled" : row.status}</Badge></td>
-                <td className="px-4 py-3"><Badge tone={row.instructorApprovedAt ? "current" : "warn"}>{row.instructorApprovedAt ? "Approved" : "Not approved"}</Badge></td>
-                <td className="px-4 py-3"><Badge tone={row.rmsStatus === "RMS_ENTERED" ? "current" : row.rmsStatus === "ACTIONS_NEEDED" ? "warn" : "neutral"}>{row.rmsStatus === "RMS_ENTERED" ? "Entered into RMS" : row.rmsStatus === "ACTIONS_NEEDED" ? "Action needed" : "Not ready"}</Badge></td>
-                <td className="px-4 py-3"><div className="flex items-center gap-2"><Link href={`/classes/${row.id}`} className="font-semibold text-fire underline">Open / edit</Link>{canManage && cleanup.trainingSheets.some((item) => item.id === row.id) ? <TrainingRecordDeleteButton id={row.id} title={row.title} type="TRAINING_SHEET" detail="This unfinished Training Sheet has no attendance or evaluation results." onRemoved={() => { setRows((current) => current.filter((item) => item.id !== row.id)); void refreshCleanup(); }} /> : null}</div></td>
-              </tr>
-            ))}
-            {visibleRows.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-navy-500">{rows.length === 0 ? "No training events yet." : "No training events match these filters."}</td></tr> : null}
-          </tbody>
-        </table>
-      </div>
+      {rows.length === 0 ? (
+        <EmptyState title="Create your first Training Sheet" body="Start a class, drill, or attendance record. Add a checklist only when skills need to be evaluated." action={setup ? <Button onClick={() => openTraining(false)}>Create Training Sheet</Button> : undefined} />
+      ) : visibleRows.length === 0 ? (
+        <EmptyState title="No matching Training Sheets" body="Try a different search or status filter." action={<Button variant="secondary" onClick={() => { setSearch(""); setSheetFilter("all"); }}>Clear filters</Button>} />
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {visibleRows.map((row) => {
+            const needsAction = row.status !== "CANCELLED" && (row.status !== "COMPLETE" || !row.instructorApprovedAt || row.rmsStatus !== "RMS_ENTERED");
+            return <article key={row.id} className="rounded-lg border border-navy-200 bg-white p-5 hover:border-navy-300 hover:shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <Link href={`/classes/${row.id}`} className="min-w-0 flex-1 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-fire">
+                  <div className="text-lg font-bold text-navy-950">{row.title}</div>
+                  <div className="mt-1 text-xs text-navy-500">{formatDate(row.startsAt)} · {row.trainingCategory.replaceAll("_", " ")}{row.location ? ` · ${row.location}` : ""}</div>
+                </Link>
+                <Badge tone={row.status === "COMPLETE" ? "current" : row.status === "ACTIVE" ? "info" : row.status === "CANCELLED" ? "neutral" : "warn"}>{row.status === "COMPLETE" ? "Completed" : row.status === "ACTIVE" ? "In progress" : row.status === "DRAFT" ? "Draft" : row.status === "CANCELLED" ? "Cancelled" : row.status}</Badge>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2 rounded-lg bg-navy-50 p-3 text-center">
+                <div><div className="font-bold text-navy-950">{row.rosterCount}</div><div className="text-[11px] text-navy-500">Roster</div></div>
+                <div><div className="font-bold text-navy-950">{row.completeCount}</div><div className="text-[11px] text-navy-500">Ready</div></div>
+                <div><div className={`font-bold ${row.rosterCount - row.completeCount > 0 ? "text-amber-700" : "text-navy-950"}`}>{Math.max(0, row.rosterCount - row.completeCount)}</div><div className="text-[11px] text-navy-500">Need results</div></div>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <div className={`rounded-md border p-2 text-xs ${row.status === "COMPLETE" ? "border-green-200 bg-green-50 text-green-900" : "border-navy-200 text-navy-700"}`}><div className="font-bold">1 · Training</div><div>{row.status === "COMPLETE" ? "Completed" : "Not completed"}</div></div>
+                <div className={`rounded-md border p-2 text-xs ${row.instructorApprovedAt ? "border-green-200 bg-green-50 text-green-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}><div className="font-bold">2 · Instructor</div><div>{row.instructorApprovedAt ? "Approved" : "Approval needed"}</div></div>
+                <div className={`rounded-md border p-2 text-xs ${row.rmsStatus === "RMS_ENTERED" ? "border-green-200 bg-green-50 text-green-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}><div className="font-bold">3 · RMS</div><div>{row.rmsStatus === "RMS_ENTERED" ? "Entered" : "Not entered"}</div></div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-navy-500">
+                <span>{row.checklistTitle || "Attendance-only sheet"}</span>
+                {row.checklistVersion ? <span>v{row.checklistVersion}</span> : null}
+                {row.creditHours > 0 ? <span>{row.creditHours} training hr</span> : null}
+                {row.proctors.length ? <span>{row.proctors.join(", ")}</span> : null}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-navy-100 pt-3">
+                <Link href={`/classes/${row.id}`} className="inline-flex min-h-10 items-center rounded-md bg-fire px-3 text-sm font-semibold text-white">{sheetAction(row)}</Link>
+                <Link href={`/reports/class-training-sheet/${row.id}`} className="inline-flex min-h-10 items-center rounded-md border border-navy-200 px-3 text-sm font-semibold text-navy-900">Print / RMS sheet</Link>
+                {needsAction ? <span className="text-xs font-semibold text-amber-700">Needs action</span> : <span className="text-xs font-semibold text-green-700">Record complete</span>}
+                {canManage && cleanup.trainingSheets.some((item) => item.id === row.id) ? <TrainingRecordDeleteButton id={row.id} title={row.title} type="TRAINING_SHEET" detail="This unfinished Training Sheet has no attendance or evaluation results." onRemoved={() => { setRows((current) => current.filter((item) => item.id !== row.id)); void refreshCleanup(); }} /> : null}
+              </div>
+            </article>;
+          })}
+        </div>
+      )}
 
       <Modal open={open} title={quickMode ? "Quick training — field entry" : "Create digital training sheet"} onClose={() => setOpen(false)} wide>
         <form onSubmit={create} className="space-y-5">
