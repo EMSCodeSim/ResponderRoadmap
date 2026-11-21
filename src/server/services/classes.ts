@@ -1282,10 +1282,10 @@ export async function updateClassDocumentation(
   const existingCeCredits = JSON.parse(row.ceCreditsJson || "[]") as Array<{ category?: string }>;
   let templateCeCredits: Array<{ category?: string }> = [];
   try { templateCeCredits = template ? JSON.parse(template.ceCreditsJson || "[]") : []; } catch {}
-  const ceComponents = await prisma.trainingSheetComponentTemplate.findMany({
+  const ceComponents = await prisma.trainingSheetComponentTemplate?.findMany({
     where: { departmentId: ctx.departmentId, kind: "EMS_CE_LIST", archived: false },
     select: { dataJson: true },
-  });
+  }) ?? [];
   const componentCategories = ceComponents.flatMap((component) => {
     const data = parseJsonObject(component.dataJson);
     const groups = Array.isArray(data.ceGroups)
