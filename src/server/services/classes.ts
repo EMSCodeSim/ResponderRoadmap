@@ -1309,7 +1309,7 @@ export async function updateClassDocumentation(
     return [...grouped, ...legacy];
   });
   const allowedCustomCategories = new Set([
-    ...existingCeCredits.map((item) => String(item.category || "").trim()).filter(Boolean),
+    ...(template ? [] : existingCeCredits.map((item) => String(item.category || "").trim()).filter(Boolean)),
     ...templateCeCredits.map((item) => String(item.category || "").trim()).filter(Boolean),
     ...componentCategories,
   ]);
