@@ -1317,8 +1317,11 @@ export async function updateClassDocumentation(
   if (template && ceCredits.some((item) => !allowedCustomCategories.has(item.category))) {
     throw new HttpError(400, "Choose a training credit category from the selected Training Sheet template.");
   }
-  const allocatedHours = ceCredits.reduce((sum, item) => sum + item.hours, 0);
-  const creditHours = allocatedHours > 0 ? allocatedHours : input.creditHours === undefined ? row.creditHours : Number(input.creditHours);
+  // Training duration and CE allocations are separate. Preserve the class
+  // duration entered at closeout even when EMS CE hours are allocated.
+  const creditHours = input.creditHours === undefined
+    ? row.creditHours
+    : Number(input.creditHours);
   if (!Number.isFinite(creditHours) || creditHours < 0 || creditHours > 24) {
     throw new HttpError(400, "Credit hours must be between 0 and 24.");
   }
