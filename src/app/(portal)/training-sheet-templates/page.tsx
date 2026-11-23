@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
-import { EMS_CE_CATEGORIES } from "@/lib/ems-ce-categories";
 import { getPrebuiltTrainingSystem, PREBUILT_TRAINING_SYSTEMS } from "@/lib/training-systems";
 import { Badge, Button, Card, Field, Flash, Input, PageHeader, Select, TextArea } from "@/components/ui";
 
@@ -366,32 +365,13 @@ export default function TrainingSheetTemplatesPage() {
                 </div>)}
               </div> : null}
             </section>
-            {!selectedCeSystemId && form.topic === "EMS" ? (
+            {!selectedCeSystemId ? (
               <section className="rounded-lg border border-navy-200 p-4">
-                <h3 className="font-semibold">Select EMS CE categories</h3>
-                <p className="mt-1 text-xs text-navy-600">Choose which NREMT categories instructors can use. They assign the hours on each training sheet.</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {Object.keys(EMS_CE_CATEGORIES).map((category) => {
-                    const selected = form.ceCredits.some((item) => item.category === category);
-                    return <label key={category} className="flex min-h-12 items-center gap-3 rounded-lg border border-navy-200 p-3 font-semibold">
-                      <input type="checkbox" checked={selected} onChange={(event) => setForm((current) => {
-                        const ceCredits = event.target.checked
-                          ? [...current.ceCredits, { category, hours: 0 }]
-                          : current.ceCredits.filter((item) => item.category !== category);
-                        return { ...current, ceCredits };
-                      })} />
-                      {category}
-                    </label>;
-                  })}
-                </div>
-              </section>
-            ) : !selectedCeSystemId && form.topic !== "EMS" ? (
-              <section className="rounded-lg border border-navy-200 p-4">
-                <h3 className="font-semibold">Custom CE credit categories</h3>
-                <p className="mt-1 text-xs text-navy-600">Add the CE categories instructors can use for this training topic. They assign hours on each Training Sheet.</p>
+                <h3 className="font-semibold">{form.topic === "EMS" ? "EMS CE categories" : "Custom CE credit categories"}</h3>
+                <p className="mt-1 text-xs text-navy-600">Add the CE categories instructors can use for this training topic. EMS categories can match your state or department requirements. Instructors assign the hours on each Training Sheet.</p>
                 <div className="mt-3 space-y-3">
                   {form.ceCredits.map((allocation, index) => <div key={"custom-ce-credit-" + index} className="flex gap-2 rounded-lg border border-navy-200 p-3">
-                    <Input aria-label={"CE category " + (index + 1)} maxLength={80} value={allocation.category} placeholder="e.g. HazMat Operations, Driver Training" onChange={(event) => setForm((current) => ({ ...current, ceCredits: current.ceCredits.map((item, itemIndex) => itemIndex === index ? { ...item, category: event.target.value } : item) }))} />
+                    <Input aria-label={"CE category " + (index + 1)} maxLength={80} value={allocation.category} placeholder={form.topic === "EMS" ? "e.g. Airway, Cardiology, Local / State" : "e.g. Fire Operations, Driver Training"} onChange={(event) => setForm((current) => ({ ...current, ceCredits: current.ceCredits.map((item, itemIndex) => itemIndex === index ? { ...item, category: event.target.value } : item) }))} />
                     <Button type="button" variant="secondary" onClick={() => setForm((current) => ({ ...current, ceCredits: current.ceCredits.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</Button>
                   </div>)}
                 </div>
