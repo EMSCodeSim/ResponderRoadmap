@@ -1383,14 +1383,16 @@ export async function approveTrainingSheet(ctx: AuthContext, classId: string) {
   const row = await canAccessClass(ctx, classId, true);
   if (row.status === "CANCELLED" || row.rmsStatus === "RMS_ENTERED") throw new HttpError(409, "This Training Sheet cannot be approved for RMS entry.");
   if (row.rmsStatus === "AWAITING_ENTRY") {
-    if (row.instructorApprovedAt) return getClass(ctx, classId);
-    const approvedAt = new Date();
+    if (row.instructorApprovedAt && row.status === "COMPLETE") {
+      return getClass(ctx, classId);
+    }
+    const approvedAt = row.instructorApprovedAt || new Date();
     await prisma.trainingClass.update({
       where: { id: classId },
       data: {
         status: "COMPLETE",
         instructorApprovedAt: approvedAt,
-        instructorApprovedById: ctx.userId,
+        instructorApprovedById: row.instructorApprovedById || ctx.userId,
         registrationEnabled: false,
       },
     });
