@@ -387,6 +387,7 @@ export async function createClass(
       registrationToken: input.selfRegistration ? randomBytes(32).toString("hex") : null,
       registrationEnabled: input.selfRegistration === true,
       customFieldsJson,
+      requiredFieldsJson: template?.requiredFieldsJson || "[]",
       createdById: ctx.userId,
       roster: { create: memberIds.map((membershipId) => ({ membershipId })) },
       proctors: { create: proctorIds.map((userId) => ({ userId })) },
@@ -480,6 +481,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
   const row = await prisma.trainingClass.findUnique({
     where: { id: classId },
     include: {
+      department: { select: { trainingSheetRequiredFieldsJson: true } },
       checklistVersion: {
         include: {
           template: true,
@@ -526,6 +528,11 @@ export async function getClass(ctx: AuthContext, classId: string) {
     rmsEnteredById: row.rmsEnteredById,
     notes: row.notes,
     customFields: JSON.parse(row.customFieldsJson || "[]"),
+    departmentRequiredFields: parseJsonArray(row.department.trainingSheetRequiredFieldsJson).map((item) => String(item).toUpperCase()),
+    requiredFields: [...new Set([
+      ...parseJsonArray(row.department.trainingSheetRequiredFieldsJson),
+      ...parseJsonArray(row.requiredFieldsJson),
+    ].map((item) => String(item).toUpperCase()))],
     registrationEnabled: row.registrationEnabled,
     registrationToken: hasPermission(ctx.role, "classes.write") ? row.registrationToken : null,
     checklistTitle: row.checklistVersion?.template.title || "Attendance-only training",
@@ -1192,7 +1199,10 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
   });
   if (!row) throw new HttpError(404, "Class not found.");
 
-  const requiredFields = new Set(parseJsonArray(row.department.trainingSheetRequiredFieldsJson).map((item) => String(item).toUpperCase()));
+  const requiredFields = new Set([
+    ...parseJsonArray(row.department.trainingSheetRequiredFieldsJson),
+    ...parseJsonArray(row.requiredFieldsJson),
+  ].map((item) => String(item).toUpperCase()));
   const missing: Array<{ code: string; message: string; action: string }> = [];
   const gradingConfig = parseJsonObject(row.gradingConfigJson);
   const add = (code: string, message: string, action: string) => missing.push({ code, message, action });
@@ -1329,7 +1339,11 @@ export async function updateClassDocumentation(
     where: { id: classId },
     data: {
       startsAt, endsAt, creditHours, trainingCategory, ceCreditsJson: JSON.stringify(ceCredits),
-      ...(template ? { templateName: template.name, templateRevision: template.revision } : {}),
+      ...(template ? {
+        templateName: template.name,
+        templateRevision: template.revision,
+        requiredFieldsJson: template.requiredFieldsJson || "[]",
+      } : {}),
       ...(input.location === undefined ? {} : { location: String(input.location).trim().slice(0, 180) }),
       ...(input.station === undefined ? {} : { station: String(input.station).trim().slice(0, 80) }),
       ...(input.shift === undefined ? {} : { shift: String(input.shift).trim().slice(0, 40) }),
@@ -1368,7 +1382,24 @@ export async function approveTrainingSheet(ctx: AuthContext, classId: string) {
   assertPermission(ctx, "classes.write");
   const row = await canAccessClass(ctx, classId, true);
   if (row.status === "CANCELLED" || row.rmsStatus === "RMS_ENTERED") throw new HttpError(409, "This Training Sheet cannot be approved for RMS entry.");
-  if (row.rmsStatus === "AWAITING_ENTRY") return getClass(ctx, classId);
+  if (row.rmsStatus === "AWAITING_ENTRY") {
+    if (row.instructorApprovedAt) return getClass(ctx, classId);
+    const approvedAt = new Date();
+    await prisma.trainingClass.update({
+      where: { id: classId },
+      data: {
+        status: "COMPLETE",
+        instructorApprovedAt: approvedAt,
+        instructorApprovedById: ctx.userId,
+        registrationEnabled: false,
+      },
+    });
+    await writeAudit(ctx, "training_sheet.instructor_approval_repaired", "TrainingClass", classId, {
+      status: "COMPLETE",
+      rmsStatus: "AWAITING_ENTRY",
+    });
+    return getClass(ctx, classId);
+  }
   const validation = await validateClassClosure(ctx, classId);
   if (!validation.canClose) throw new HttpError(409, validation.missing.map((item) => item.message).join(" "));
   await prisma.trainingClass.update({ where: { id: classId }, data: { status: "COMPLETE", rmsStatus: "AWAITING_ENTRY", instructorApprovedAt: new Date(), instructorApprovedById: ctx.userId, registrationEnabled: false } });
@@ -1377,6 +1408,9 @@ export async function approveTrainingSheet(ctx: AuthContext, classId: string) {
 }
 
 export async function markClassEnteredIntoRms(ctx: AuthContext, classId: string, input: { reference?: string; note?: string }) {
+  if (ctx.role !== "DEPARTMENT_ADMINISTRATOR") {
+    throw new HttpError(403, "Only a department administrator can record RMS entry.");
+  }
   assertPermission(ctx, "classes.write");
   const row = await canAccessClass(ctx, classId, true);
   if (row.rmsStatus === "RMS_ENTERED") return getClass(ctx, classId);
