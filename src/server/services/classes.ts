@@ -509,7 +509,7 @@ export async function getClass(ctx: AuthContext, classId: string) {
     classType: row.classType,
     trainingCategory: row.trainingCategory,
     creditHours: row.creditHours,
-    ceCredits: normalizeCeCredits(JSON.parse(row.ceCreditsJson || "[]"), row.trainingCategory !== "EMS" ? new Set(JSON.parse(row.ceCreditsJson || "[]").map((item: { category?: string }) => String(item.category || ""))) : new Set()),
+    ceCredits: normalizeCeCredits(JSON.parse(row.ceCreditsJson || "[]"), new Set(JSON.parse(row.ceCreditsJson || "[]").map((item: { category?: string }) => String(item.category || "")))),
     gradingConfig: parseJsonObject(row.gradingConfigJson),
     templateName: row.templateName,
     templateRevision: row.templateRevision,
