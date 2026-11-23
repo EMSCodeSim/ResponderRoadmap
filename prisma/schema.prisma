@@ -503,6 +503,8 @@ model TrainingClass {
   registrationToken      String?         @unique
   registrationEnabled    Boolean         @default(false)
   customFieldsJson       String          @default("[]")
+  /// Required closeout fields copied from the selected template at creation.
+  requiredFieldsJson     String          @default("[]")
   notes                  String          @default("")
   createdById            String
   createdBy              User            @relation("ClassCreator", fields: [createdById], references: [id])
