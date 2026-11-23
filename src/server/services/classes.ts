@@ -1410,8 +1410,8 @@ export async function approveTrainingSheet(ctx: AuthContext, classId: string) {
 }
 
 export async function markClassEnteredIntoRms(ctx: AuthContext, classId: string, input: { reference?: string; note?: string }) {
-  if (ctx.role !== "DEPARTMENT_ADMINISTRATOR") {
-    throw new HttpError(403, "Only a department administrator can record RMS entry.");
+  if (!["TRAINING_OFFICER", "DEPARTMENT_ADMINISTRATOR"].includes(ctx.role)) {
+    throw new HttpError(403, "Only an authorized department administrator can record RMS entry.");
   }
   assertPermission(ctx, "classes.write");
   const row = await canAccessClass(ctx, classId, true);
