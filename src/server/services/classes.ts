@@ -60,7 +60,7 @@ function parseDate(value: unknown, field: string, required = false) {
   return date;
 }
 
-function parseJsonArray(value: string) {
+function parseJsonArray(value: string | null | undefined) {
   try {
     const parsed = JSON.parse(value || "[]");
     return Array.isArray(parsed) ? parsed : [];
@@ -195,7 +195,7 @@ export async function getClassSetup(ctx: AuthContext) {
     prisma.department.findUniqueOrThrow({ where: { id: ctx.departmentId }, select: { trainingSheetRequiredFieldsJson: true } }),
   ]);
   return {
-    requiredFields: parseJsonArray(department.trainingSheetRequiredFieldsJson),
+    requiredFields: parseJsonArray(department?.trainingSheetRequiredFieldsJson),
     checklists: versions.map((version) => ({
       id: version.id,
       title: version.template.title,
@@ -528,9 +528,9 @@ export async function getClass(ctx: AuthContext, classId: string) {
     rmsEnteredById: row.rmsEnteredById,
     notes: row.notes,
     customFields: JSON.parse(row.customFieldsJson || "[]"),
-    departmentRequiredFields: parseJsonArray(row.department.trainingSheetRequiredFieldsJson).map((item) => String(item).toUpperCase()),
+    departmentRequiredFields: parseJsonArray(row.department?.trainingSheetRequiredFieldsJson).map((item) => String(item).toUpperCase()),
     requiredFields: [...new Set([
-      ...parseJsonArray(row.department.trainingSheetRequiredFieldsJson),
+      ...parseJsonArray(row.department?.trainingSheetRequiredFieldsJson),
       ...parseJsonArray(row.requiredFieldsJson),
     ].map((item) => String(item).toUpperCase()))],
     registrationEnabled: row.registrationEnabled,
@@ -1200,7 +1200,7 @@ export async function validateClassClosure(ctx: AuthContext, classId: string) {
   if (!row) throw new HttpError(404, "Class not found.");
 
   const requiredFields = new Set([
-    ...parseJsonArray(row.department.trainingSheetRequiredFieldsJson),
+    ...parseJsonArray(row.department?.trainingSheetRequiredFieldsJson),
     ...parseJsonArray(row.requiredFieldsJson),
   ].map((item) => String(item).toUpperCase()));
   const missing: Array<{ code: string; message: string; action: string }> = [];
