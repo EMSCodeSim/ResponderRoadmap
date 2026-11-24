@@ -47,6 +47,28 @@ for (const [openApiPath, methods] of Object.entries(contract.paths)) {
 }
 
 const failures = [];
+
+// Batch grading is safety-critical: verify more than route-name compatibility.
+// Keep the mobile payload and server handler aligned when either app evolves.
+const batchRoute = "app/training-sheets/\${Uri.encodeComponent(classId)}/skills/batch";
+const batchClientIndex = client.indexOf(batchRoute);
+const batchClientSource = batchClientIndex < 0 ? "" : client.slice(batchClientIndex, batchClientIndex + 260);
+if (batchClientIndex < 0 || !batchClientSource.includes("'requirementId': requirementId") || !batchClientSource.includes("'results': results")) {
+  failures.push("Flutter batch grading must POST requirementId and results to the training-sheet batch endpoint.");
+}
+const classService = fs.readFileSync(path.join(repoRoot, "src/server/services/classes.ts"), "utf8");
+const batchHandlerIndex = classService.indexOf("export async function recordSkillResultsBatch(");
+const batchHandler = batchHandlerIndex < 0 ? "" : classService.slice(batchHandlerIndex, batchHandlerIndex + 5500);
+for (const required of [
+  "assertApprovedEvaluator(ctx)",
+  "results.length < 1 || results.length > 200",
+  "new Set(resultKeys).size !== resultKeys.length",
+  "item.attendance !== \"PRESENT\"",
+  "prisma.$transaction(",
+  "writeAudit(ctx, \"class.skill_result.batch_recorded\"",
+]) {
+  if (!batchHandler.includes(required)) failures.push(`Batch grading server safeguard missing: ${required}`);
+}
 let operationCount = 0;
 for (const { method, path: expectedPath } of declaredOperations) {
   const backendPath = expectedPath.replace(/\{[^}]+\}/g, (part) => `:${part.slice(1, -1)}`);
