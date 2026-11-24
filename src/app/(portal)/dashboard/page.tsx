@@ -695,7 +695,7 @@ function PeopleToFollowUp({ rows }: { rows: NonNullable<Dashboard["memberProgres
     })
     .slice(0, 6);
 
-  return <Card className="mt-6 p-5">
+  return <Card className="p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <div className="kicker">MEMBERS NEEDING ACTION</div>
