@@ -67,14 +67,13 @@ export async function listTrainingCleanupItems(ctx: AuthContext) {
     }
   }
 
-  const trainingSheets = classes.filter((row) => ["DRAFT", "ACTIVE"].includes(row.status) && row.rmsStatus === "NOT_READY" && row.roster.every((entry) =>
-    entry.attendance === "REGISTERED" && entry.finalResult === "PENDING" && entry.writtenScore == null && entry.ccfScore == null && entry.skillResults.length === 0,
-  )).map((row) => ({
+  const trainingSheets = classes.filter((row) => ["DRAFT", "ACTIVE"].includes(row.status)).map((row) => ({
     id: row.id,
     title: row.title,
-    detail: `${row.status.toLowerCase()} · ${row.roster.length} ungraded roster entries`,
+    detail: `${row.status.toLowerCase()} · ${row.roster.length} roster entries · ${row.roster.reduce((sum, entry) => sum + entry.skillResults.length, 0)} skill evaluations`,
     createdAt: row.createdAt,
   }));
+
   const completedTrainingSheets = classes.filter((row) => ["COMPLETE", "CANCELLED"].includes(row.status)).map((row) => ({
     id: row.id,
     title: row.title,
