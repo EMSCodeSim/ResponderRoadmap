@@ -170,7 +170,7 @@ export function activeMemberCapForPlan(plan: string | null | undefined): number 
   const id = String(plan || "").trim().toUpperCase();
   // Live-test departments remain uncapped; saved plan definitions are kept
   // for future use without displaying public pricing during testing.
-  if (id === "FREE") return null;
+  if (id === "FREE") return 5;
   if (id === "STATION") return 25;
   if (id === "FOUNDING") return 75;
   return null;
