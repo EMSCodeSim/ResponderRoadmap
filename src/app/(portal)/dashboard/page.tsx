@@ -250,6 +250,14 @@ function TrainingOfficerHome({ data, workQueue }: { data: Dashboard; workQueue: 
 
     <CanonicalWorkQueue queue={workQueue} />
 
+    <section>
+      <div className="mb-3">
+        <div className="kicker">TRENDS</div>
+        <h2 className="display mt-1 text-2xl font-bold">Training activity by shift</h2>
+      </div>
+      <ShiftTrainingHours />
+    </section>
+
     <UpcomingTrainingHome />
 
     <TrainingGapsHome />
@@ -262,13 +270,6 @@ function TrainingOfficerHome({ data, workQueue }: { data: Dashboard; workQueue: 
       </div>
     </section>
 
-    <section>
-      <div className="mb-3">
-        <div className="kicker">TRENDS</div>
-        <h2 className="display mt-1 text-2xl font-bold">Training activity by shift</h2>
-      </div>
-      <ShiftTrainingHours />
-    </section>
   </div>;
 }
 
