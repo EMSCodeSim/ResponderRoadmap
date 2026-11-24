@@ -668,7 +668,7 @@ export async function getDashboard(ctx: AuthContext) {
       followUpTotal: followUpAll.length,
       dueSoon,
       dueSoonTotal: dueSoonAll.length,
-      certificates: certificateAttention.slice(0, 8),
+      certificates: certificateAttention,
       certificateTotal: certificateAttention.length,
     },
     attention,

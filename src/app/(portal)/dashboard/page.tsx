@@ -50,7 +50,7 @@ type WorkItem = {
 
 type WorkQueueItem = {
   id: string;
-  kind: "MEMBER_APPROVAL" | "ROLE_APPROVAL" | "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY";
+  kind: "MEMBER_APPROVAL" | "ROLE_APPROVAL" | "ASSIGNMENT" | "EVALUATION" | "TRAINING_SHEET" | "RMS_ENTRY" | "CREDENTIAL";
   priority: "URGENT" | "HIGH" | "NORMAL";
   title: string;
   reason: string;
@@ -213,7 +213,30 @@ export default function DashboardPage() {
 
 function TrainingOfficerHome({ data, workQueue }: { data: Dashboard; workQueue: WorkQueue | null }) {
   const priorityRank: Record<WorkQueueItem["priority"], number> = { URGENT: 0, HIGH: 1, NORMAL: 2 };
-  const topPriority = workQueue?.items
+  const now = Date.now();
+  const credentialItems: WorkQueueItem[] = (data.today?.certificates ?? [])
+    .filter((item) => item.reason !== "Required certificate missing")
+    .map((item) => {
+      const dueAt = item.dueDate ? new Date(item.dueDate).getTime() : null;
+      const expired = dueAt !== null && dueAt < now;
+      const dueWithin30Days = dueAt !== null && dueAt <= now + 30 * 86_400_000;
+      const needsDate = !item.dueDate;
+      return {
+        id: `credential:${item.memberId}:${item.taskBookTitle}`,
+        kind: "CREDENTIAL",
+        priority: expired ? "URGENT" : needsDate || dueWithin30Days ? "HIGH" : "NORMAL",
+        title: item.taskBookTitle,
+        reason: `${item.memberName} · ${item.reason || (needsDate ? "Needs expiration date" : "Certificate needs review")}`,
+        owner: "Training Officer",
+        actionLabel: needsDate ? "Add expiration date" : "Review certificate",
+        href: item.href,
+      };
+    });
+  const homeQueue: WorkQueue = {
+    items: [...(workQueue?.items ?? []), ...credentialItems],
+    count: (workQueue?.items.length ?? 0) + credentialItems.length,
+  };
+  const topPriority = homeQueue.items
     .slice()
     .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])[0];
   return <div className="space-y-6">
@@ -248,7 +271,7 @@ function TrainingOfficerHome({ data, workQueue }: { data: Dashboard; workQueue: 
       </Card>
     </section>
 
-    <CanonicalWorkQueue queue={workQueue} />
+    <CanonicalWorkQueue queue={homeQueue} />
 
     <section>
       <div className="mb-3">
@@ -328,6 +351,7 @@ function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
     { kind: "ASSIGNMENT", title: "Follow up" },
     { kind: "TRAINING_SHEET", title: "Training Sheets to complete" },
     { kind: "RMS_ENTRY", title: "Enter in RMS" },
+    { kind: "CREDENTIAL", title: "Certificate issues" },
   ];
   const groupedItems = categories
     .map((category) => ({
