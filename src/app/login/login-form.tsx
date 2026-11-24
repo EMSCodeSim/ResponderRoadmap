@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { BrandLockup } from "@/components/brand";
 import { Button, Field, Flash, Input } from "@/components/ui";
-import { OPEN_ACCOUNT_CREATION_END_LABEL } from "@/lib/account-access";
 
 export default function LoginForm({ accountCreationOpen }: { accountCreationOpen: boolean }) {
   const router = useRouter();
