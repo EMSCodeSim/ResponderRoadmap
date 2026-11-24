@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { BrandLockup } from "@/components/brand";
 import { Button, Field, Flash, Input } from "@/components/ui";
-import { OPEN_ACCOUNT_CREATION_END_LABEL } from "@/lib/account-access";
 
 export default function LoginForm({ accountCreationOpen }: { accountCreationOpen: boolean }) {
   const router = useRouter();
@@ -110,7 +109,7 @@ export default function LoginForm({ accountCreationOpen }: { accountCreationOpen
           <div className="mt-8 border-t border-navy-200 pt-6">
             <p className="text-sm text-navy-500">
               {accountCreationOpen
-                ? `New to Responder Roadmap? Account creation is free through ${OPEN_ACCOUNT_CREATION_END_LABEL}.`
+                ? "New to Responder Roadmap? Create a free account for up to five active members."
                 : "New departments now begin with an account request."}
             </p>
             <Link

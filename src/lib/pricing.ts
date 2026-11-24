@@ -170,7 +170,7 @@ export function activeMemberCapForPlan(plan: string | null | undefined): number 
   const id = String(plan || "").trim().toUpperCase();
   // Live-test departments remain uncapped; saved plan definitions are kept
   // for future use without displaying public pricing during testing.
-  if (id === "FREE") return null;
+  if (id === "FREE") return 5;
   if (id === "STATION") return 25;
   if (id === "FOUNDING") return 75;
   return null;
@@ -178,7 +178,7 @@ export function activeMemberCapForPlan(plan: string | null | undefined): number 
 
 export function planCapacityMessage(plan: string | null | undefined) {
   const cap = activeMemberCapForPlan(plan);
-  if (cap === 5) return "This department's current plan includes five active members. Contact support for help.";
+  if (cap === 5) return "This free account includes up to five active members. Email EMSCodeSim@gmail.com to upgrade your account.";
   if (cap === 25) return "This department's current plan includes 25 active members. Contact support to discuss capacity.";
   if (cap === 75) return "This department's current plan includes 75 active members. Contact support to discuss capacity.";
   return "This department does not have an active-member cap.";
