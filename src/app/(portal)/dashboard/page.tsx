@@ -84,10 +84,8 @@ type Dashboard = {
     membersAssigned?: number;
     averageCompletion?: number;
     currentMembers?: number;
-    readinessPercent?: number;
     pendingJoinRequests?: number;
   };
-  departmentReadiness?: { configuredRoleCount: number; unconfiguredRoleCount: number; ready: number; attention: number; notReady: number; assigned: number };
   evaluatorCoverage?: { approvedEvaluatorCount: number; pendingCount: number; escalatedCount: number; escalationHours: number; oldestPendingAt: string | null };
   today?: {
     joinRequests: TodayItem[];
@@ -188,7 +186,7 @@ export default function DashboardPage() {
             ? "Teach, take attendance, evaluate skills, and finish the training record."
               : data.personal
               ? "Your next training step, Task Books, Assignments, and evaluations waiting for review."
-              : "See the department’s priorities, readiness, training needs, and next actions in one place."
+              : "See the department’s priorities, training needs, and next actions in one place."
         }
         actions={
           data.instructor ? <Link href="/classes?quick=1"><Button>Create Training</Button></Link> : data.personal ? undefined : (
@@ -218,11 +216,6 @@ function TrainingOfficerHome({ data, workQueue }: { data: Dashboard; workQueue: 
   const topPriority = workQueue?.items
     .slice()
     .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])[0];
-  const readiness = data.departmentReadiness;
-  const readinessPercent = readiness?.assigned
-    ? Math.round((readiness.ready / readiness.assigned) * 100)
-    : data.summary.readinessPercent ?? 0;
-
   return <div className="space-y-6">
     <ActivationChecklist data={data} />
 
@@ -249,7 +242,6 @@ function TrainingOfficerHome({ data, workQueue }: { data: Dashboard; workQueue: 
         <div className="kicker">DEPARTMENT AT A GLANCE</div>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <DashboardMetric label="Active members" value={data.summary.activeMembers} href="/members" />
-          <DashboardMetric label="Readiness" value={`${readinessPercent}%`} href="/qualifications" />
           <DashboardMetric label="Credential issues" value={data.summary.certificateIssues ?? data.summary.expiringSoon} href="/certifications" tone="danger" />
           <DashboardMetric label="Awaiting review" value={data.summary.awaitingEvaluation ?? data.summary.awaitingSignOff} href="/evaluate" tone="warn" />
         </div>
@@ -258,10 +250,7 @@ function TrainingOfficerHome({ data, workQueue }: { data: Dashboard; workQueue: 
 
     <CanonicalWorkQueue queue={workQueue} />
 
-    <section className="grid items-start gap-6 xl:grid-cols-2">
-      <DepartmentReadinessSnapshot data={data} />
-      <UpcomingTrainingHome />
-    </section>
+    <UpcomingTrainingHome />
 
     <TrainingGapsHome />
 
@@ -327,28 +316,6 @@ function WorkInProgress({ taskBooks }: { taskBooks: Dashboard["taskBookProgress"
       <div className="mt-1 text-xs text-navy-500">{item.assignedMembers} assigned · {item.waitingSignOff} waiting sign-off · {item.overdue} overdue</div>
     </li>)}</ul> : <p className="mt-4 text-sm text-navy-500">No active Task Books are assigned.</p>}
   </Card>;
-}
-
-function DepartmentReadinessSnapshot({ data }: { data: Dashboard }) {
-  const readiness = data.departmentReadiness;
-  if (!readiness || readiness.configuredRoleCount === 0) return null;
-  return (
-    <Card className="mb-6 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="kicker">KNOW · Department Readiness</div>
-          <h2 className="display mt-1 text-xl font-bold">Where your department stands</h2>
-          <p className="mt-1 text-sm text-navy-600">Based on department-defined role requirements and approvals, not an automatic competency decision.</p>
-        </div>
-        <Link href="/qualifications" className="text-sm font-semibold text-fire underline">View approved roles →</Link>
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="rounded-md bg-navy-50 p-3"><div className="text-2xl font-bold">{readiness.ready}</div><div className="text-sm text-navy-600">Ready</div></div>
-        <div className="rounded-md bg-navy-50 p-3"><div className="text-2xl font-bold">{readiness.attention}</div><div className="text-sm text-navy-600">Needs review</div></div>
-        <div className="rounded-md bg-navy-50 p-3"><div className="text-2xl font-bold">{readiness.notReady}</div><div className="text-sm text-navy-600">Not ready</div></div>
-      </div>
-    </Card>
-  );
 }
 
 function CanonicalWorkQueue({ queue }: { queue: WorkQueue | null }) {
