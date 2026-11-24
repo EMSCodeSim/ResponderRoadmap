@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { BrandMark } from "@/components/brand";
 import { Button, Field, Flash, Input, Select } from "@/components/ui";
-import { isOpenAccountCreationAvailable, OPEN_ACCOUNT_CREATION_END_LABEL } from "@/lib/account-access";
+import { isOpenAccountCreationAvailable } from "@/lib/account-access";
 
 function RegisterContent() {
   const router = useRouter();
@@ -128,7 +128,7 @@ function RegisterContent() {
           <>
             <div className="kicker">Free account creation</div>
             <h1 className="display mt-1 text-4xl font-bold">Create your department account</h1>
-            <p className="mt-3 text-sm text-navy-500">Create a department account free through {OPEN_ACCOUNT_CREATION_END_LABEL}. No credit card is required.</p>
+            <p className="mt-3 text-sm text-navy-500">Create a department account free for up to five active members. No credit card is required. Email <a className="font-semibold text-fire underline" href="mailto:EMSCodeSim@gmail.com?subject=ResponderRoadmap%20Account%20Upgrade">EMSCodeSim@gmail.com</a> when you need to upgrade.</p>
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <Flash message={error} tone="danger" />
               <Field label="Organization or department name"><Input value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} minLength={2} maxLength={180} required placeholder="Your fire department or training company" /></Field>
