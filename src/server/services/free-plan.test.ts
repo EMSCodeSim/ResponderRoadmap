@@ -15,11 +15,11 @@ function transaction(plan: string, active: number) {
 }
 
 describe("plan active-member allowance", () => {
-  it("does not cap live-test organizations labeled FREE", async () => {
-    const { tx, lock, count } = transaction("FREE", 100);
-    await expect(assertFreeCapacity(tx, "department-1")).resolves.toBeUndefined();
+  it("caps free organizations at five active members", async () => {
+    const { tx, lock, count } = transaction("FREE", 5);
+    await expect(assertFreeCapacity(tx, "department-1")).rejects.toMatchObject({\n      status: 409,\n      message: expect.stringContaining("EMSCodeSim@gmail.com"),\n    });
     expect(lock).toHaveBeenCalledOnce();
-    expect(count).not.toHaveBeenCalled();
+    expect(count).toHaveBeenCalledOnce();
   });
 
   it("caps Station at 25 active members", async () => {
