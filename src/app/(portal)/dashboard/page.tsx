@@ -258,16 +258,15 @@ function TrainingOfficerHome({ data, workQueue }: { data: Dashboard; workQueue: 
       <ShiftTrainingHours />
     </section>
 
+    {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
+
     <UpcomingTrainingHome />
 
     <TrainingGapsHome />
 
-    <section className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-      {data.memberProgress ? <PeopleToFollowUp rows={data.memberProgress} /> : null}
-      <div className="space-y-6">
-        <WorkInProgress taskBooks={data.taskBookProgress} />
-        <EvaluatorCoverage coverage={data.evaluatorCoverage} />
-      </div>
+    <section className="space-y-6">
+      <WorkInProgress taskBooks={data.taskBookProgress} />
+      <EvaluatorCoverage coverage={data.evaluatorCoverage} />
     </section>
 
   </div>;
@@ -674,7 +673,7 @@ function InstructorHome({ data }: { data: Dashboard }) {
 function EvaluatorCoverage({ coverage }: { coverage?: NonNullable<Dashboard["evaluatorCoverage"]> }) {
   if (!coverage) return null;
   const needsAttention = coverage.approvedEvaluatorCount <= 1 || coverage.pendingCount > 0 || coverage.escalatedCount > 0;
-  return <Card className="mt-6 p-5">
+  return <Card className="p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <div className="kicker">Evaluation flow</div>
