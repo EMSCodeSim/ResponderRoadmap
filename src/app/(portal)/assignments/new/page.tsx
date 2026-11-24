@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { AI_UNAVAILABLE_MESSAGE } from "@/lib/ai-safety";
@@ -28,6 +28,15 @@ type AiDraft = {
   equipment: string[];
   estimatedMinutes: number | null;
 };
+type ImportedDraft = { title: string; description?: string; intendedPosition?: string; estimatedDurationDays?: number | null; sections: Array<{ title: string; description?: string; requirements: Array<{ title?: string; description?: string; evaluationSteps?: string[]; repetitionsRequired?: number; estimatedMinutes?: number }> }> };
+function fileBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
+    reader.onerror = () => reject(new Error("Unable to read the file."));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function CreateAssignmentPage() {
   const router = useRouter();
@@ -35,6 +44,9 @@ export default function CreateAssignmentPage() {
   const [role, setRole] = useState<string | null>(null);
   const [mode, setMode] = useState<"manual" | "ai">("manual");
   const [prompt, setPrompt] = useState("");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importNotes, setImportNotes] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +126,41 @@ export default function CreateAssignmentPage() {
     }
   }
 
+  async function importAssignmentFile() {
+    if (!importFile || importBusy) return;
+    setImportBusy(true);
+    setError(null);
+    try {
+      type ImportResponse = ImportedDraft | { _poll: string; status: string };
+      const request = { method: "POST", body: JSON.stringify({ filename: importFile.name, fileData: await fileBase64(importFile), notes: `${importNotes}\nConvert source material into one editable training Assignment. Preserve source facts; do not invent standards, policies, or approvals.` }) };
+      let result = await api<ImportResponse>("task-books/ai/import-pdf", request);
+      let token = "_poll" in result ? result._poll : "";
+      for (let attempt = 0; token && attempt < 90; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        result = await api<ImportResponse>(`task-books/ai/import-pdf?job=${encodeURIComponent(token)}`);
+        token = "_poll" in result ? result._poll : "";
+      }
+      if (token || "_poll" in result) throw new Error("The import is taking longer than expected. Please retry later.");
+      const draft = result as ImportedDraft;
+      const requirements = draft.sections.flatMap((section) => section.requirements || []);
+      const checklist = requirements.map((item) => item.title || item.description || "").filter(Boolean);
+      setForm((current) => ({ ...current,
+        title: draft.title || current.title,
+        description: draft.description || current.description,
+        instructions: [draft.sections.map((section) => `${section.title}${section.description ? `\n${section.description}` : ""}`).join("\n\n"), current.instructions].filter(Boolean).join("\n\n"),
+        objectives: draft.sections.map((section) => section.title).filter(Boolean).join("\n") || current.objectives,
+        checklistItems: checklist.length ? checklist.slice(0, 20) : current.checklistItems,
+        evaluationSteps: requirements.flatMap((item) => item.evaluationSteps || []).join("\n") || current.evaluationSteps,
+        repetitionsRequired: String(Math.max(1, ...requirements.map((item) => Number(item.repetitionsRequired) || 1))),
+        estimatedMinutes: String(requirements.reduce((sum, item) => sum + (Number(item.estimatedMinutes) || 0), 0) || current.estimatedMinutes || ""),
+      }));
+      setMode("manual");
+      setMessage("File imported into the Assignment draft. Review and edit every field before assigning.");
+    } catch (err) {
+      setError(err instanceof ApiError || err instanceof Error ? err.message : "Unable to import this file.");
+    } finally { setImportBusy(false); }
+  }
+
   async function submit() {
     if (!form.title.trim()) {
       setError("Enter an Assignment title.");
@@ -186,6 +233,15 @@ export default function CreateAssignmentPage() {
       <div className="mb-4"><button type="button" onClick={() => setMode(mode === "ai" ? "manual" : "ai")} className="min-h-11 rounded-md border border-navy-200 bg-white px-4 text-sm font-semibold text-navy-800 hover:border-fire">{mode === "ai" ? "Hide AI draft" : "Help me write this with AI (optional)"}</button></div>
       {mode === "ai" ? (
         <Card className="mb-5 p-5">
+          <h2 className="text-sm font-bold text-navy-900">Import an existing training document</h2>
+          <p className="mt-1 text-xs text-navy-600">PDF, Word, Excel, CSV, TXT, or Markdown, up to 4 MB. AI creates an editable draft for your review.</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <Field label="Training document"><Input type="file" accept=".pdf,.docx,.xlsx,.csv,.txt,.md" onChange={(event: ChangeEvent<HTMLInputElement>) => setImportFile(event.target.files?.[0] || null)} /></Field>
+            <Field label="Import instructions (optional)"><Input value={importNotes} onChange={(event) => setImportNotes(event.target.value)} placeholder="Preserve existing checklist and evaluation steps" /></Field>
+          </div>
+          {importFile ? <p className="mt-2 text-xs text-navy-600">Selected: {importFile.name} · {(importFile.size / 1024 / 1024).toFixed(1)} MB</p> : null}
+          <div className="mt-3"><Button variant="secondary" onClick={() => void importAssignmentFile()} disabled={importBusy || !importFile || importFile.size > 4 * 1024 * 1024}>{importBusy ? "Importing…" : "Import file into draft"}</Button></div>
+          <div className="my-4 border-t border-navy-100" />
           <Field label="Describe the Assignment" hint="AI creates a draft only. You review and assign.">
             <TextArea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={6} placeholder="Create a 30-minute company drill for three firefighters covering first-due residential fire operations." />
           </Field>
