@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
+    { url: "https://responderroadmap.com/ems-career-log-app", changeFrequency: "monthly", priority: 0.9 },
     {
       url: "https://responderroadmap.com/",
       changeFrequency: "weekly",

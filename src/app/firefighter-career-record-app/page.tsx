@@ -144,7 +144,7 @@ export default function FirefighterCareerRecordPage() {
             </div>
           </div>
         </section>
-      </main>
+      <section className="mx-auto max-w-6xl px-5 py-10"><h2 className="text-2xl font-bold">Training and career resources</h2><div className="mt-4 flex flex-wrap gap-5"><Link className="underline" href="/ems-career-log-app">EMT and paramedic career log</Link><a className="underline" href="https://fireopssim.com/drill-library.html">Free firefighter drills</a><a className="underline" href="https://emscodesim.com/ems-training-library.html">Free EMS training</a></div></section></main>
       <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-8 text-sm text-white/50">
         <span>© {new Date().getFullYear()} Responder Roadmap</span>
         <Link href="/" className="hover:text-white">Home</Link>
