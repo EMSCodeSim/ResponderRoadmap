@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
+import { fireOpsDrills, getFireOpsChecklist } from "@/lib/fireops-drills";
 import { Badge, Button, Card, Flash, Input, PageHeader, TextArea } from "@/components/ui";
 
 type Checklist = { id: string; title: string; description: string; status: string; revision: number; archived: boolean; sections: Array<{ id: string; title: string; items: Array<{ id: string; title: string; instructions?: string; evaluationSteps?: string[] }> }> };
@@ -11,6 +12,7 @@ const emptySections = (): EditableSection[] => [{ id: `section-${Date.now()}`, t
 
 export default function SkillChecklistsPage() {
   const [rows, setRows] = useState<Checklist[]>([]);
+  const [fireOpsId, setFireOpsId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [sections, setSections] = useState<EditableSection[]>(emptySections());
@@ -42,7 +44,7 @@ export default function SkillChecklistsPage() {
   return <div>
     <PageHeader kicker="Training templates" title="Skill checklists" description="Create and manage reusable skills checklists independently. Use these for training sheets and class packages." actions={<Link href="/training-sheet-templates/components" className="inline-flex min-h-11 items-center rounded-md border border-navy-300 bg-white px-4 py-2 text-sm font-semibold">Back to components</Link>} />
     <Flash message={error} tone="danger" /><Flash message={message} tone="current" />
-    <Card className="mb-6 p-5"><h2 className="text-lg font-bold">{editingId ? "Edit checklist" : "Create a skill checklist"}</h2><form onSubmit={save} className="mt-4 space-y-4">
+    <Card className="mb-4 p-4"><h2 className="font-bold">Import FireOpsSim practice checklist</h2><p className="text-sm">Review and edit all criteria before saving. Safety checks are practice criteria, not automatic critical-failure rules.</p><select aria-label="FireOpsSim drill" className="my-2 w-full rounded border p-2" value={fireOpsId} onChange={e=>setFireOpsId(e.target.value)}><option value="">Choose drill…</option>{fireOpsDrills.map(d=><option key={d.id} value={d.id}>{d.title}</option>)}</select><Button type="button" disabled={!fireOpsId || busy} onClick={()=>{const draft=getFireOpsChecklist(fireOpsId);if(!draft)return;if((editingId || title.trim()) && !window.confirm("Replace the unsaved checklist editor contents?"))return;setEditingId(null);setTitle(draft.title);setDescription(draft.description);setSections(draft.sections);setMessage("Imported for review. Edit and save to publish.");}}>Load editable checklist</Button></Card><Card className="mb-6 p-5"><h2 className="text-lg font-bold">{editingId ? "Edit checklist" : "Create a skill checklist"}</h2><form onSubmit={save} className="mt-4 space-y-4">
       <Input aria-label="Checklist name" required maxLength={120} placeholder="Checklist name" value={title} onChange={(e) => setTitle(e.target.value)} />
       <TextArea aria-label="Description" rows={2} maxLength={1000} placeholder="Description or use notes for evaluators" value={description} onChange={(e) => setDescription(e.target.value)} />
       {sections.map((section, si) => <section key={section.id} className="rounded-lg border border-navy-200 p-4"><div className="flex gap-2"><Input aria-label={`Section ${si + 1} name`} required placeholder="Section name" value={section.title} onChange={(e) => setSections((all) => all.map((s, i) => i === si ? { ...s, title: e.target.value } : s))} />{sections.length > 1 ? <Button type="button" variant="secondary" onClick={() => setSections((all) => all.filter((_, i) => i !== si))}>Remove section</Button> : null}</div>
