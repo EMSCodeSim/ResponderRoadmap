@@ -1,0 +1,12 @@
+import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
+const files = ["department-drills","department-drills-expansion","research-drills","station-drills"];
+const strings = (v: unknown): v is string[] => Array.isArray(v) && v.length <= 100 && v.every(x=>typeof x==="string" && x.length<=3000);
+export async function GET() {
+ try {
+ const documents = await Promise.all(files.map(async name=>{const r=await fetch("https://fireopssim.com/data/"+name+".json",{next:{revalidate:900},signal:AbortSignal.timeout(8000),redirect:"error"});if(!r.ok)throw new Error("Source unavailable");const raw=await r.text();if(raw.length>2000000)throw new Error("Source too large");return JSON.parse(raw);}));
+ const ids=new Set<string>();const drills=[];const criteria:Record<string,{performance:string[];criticalErrors:string[]}> = Object.create(null);
+ for(const doc of documents){if(!Array.isArray(doc.drills)||!doc.drills.length)throw new Error("Invalid source");for(const d of doc.drills){if(!d||typeof d.id!=="string"||! /^[a-z0-9-]{1,100}$/.test(d.id)||ids.has(d.id)||typeof d.title!=="string"||!d.title.trim()||d.title.length>300||typeof d.category!=="string"||typeof d.goal!=="string"||!Array.isArray(d.minutes)||!d.minutes.length||!d.minutes.every((n:unknown)=>typeof n==="number"&&Number.isFinite(n)&&n>0&&n<=1440)||!strings(d.objectives)||!strings(d.equipment)||!strings(d.performance)||!d.performance.length||!strings(d.criticalErrors))throw new Error("Invalid drill");ids.add(d.id);if(ids.size>2000)throw new Error("Too many drills");drills.push({id:d.id,title:d.title,category:d.category,minutes:d.minutes,notes:[ "FireOpsSim drill: "+d.title+" ("+d.id+")","Source: https://fireopssim.com/drill-library.html?q="+encodeURIComponent(d.title),"Suggested duration: "+d.minutes.join("/")+" minutes (record actual time separately).",d.goal,"Objectives: "+d.objectives.join("; "),"Equipment: "+d.equipment.join("; "),"Practice criteria: "+d.performance.join("; "),"Safety: "+d.criticalErrors.join("; "),"Review local procedures before use. No credit or evaluation is automatically awarded."].join("\n")});criteria[d.id]={performance:d.performance,criticalErrors:d.criticalErrors};}}
+ return NextResponse.json({drills,criteria,source:"live"},{headers:{"Cache-Control":"public, max-age=300, s-maxage=900"}});
+ } catch {return NextResponse.json({error:"Catalog temporarily unavailable"},{status:503});}
+}
