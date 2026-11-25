@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { fireOpsDrills, getFireOpsDrill } from "@/lib/fireops-drills";
 import { Badge, Button, EmptyState, Field, Flash, Input, Modal, PageHeader, Select, TextArea } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
 import { EMS_CE_CATEGORIES, emsCreditSummary } from "@/lib/ems-ce-categories";
@@ -98,6 +99,8 @@ export default function ClassesPage() {
   const [fireCeMode, setFireCeMode] = useState(false);
   const [fireCredits, setFireCredits] = useState<Record<string, number>>({});
   const [form, setForm] = useState(emptyForm);
+  const [fireOpsId, setFireOpsId] = useState("");
+  const fireOpsOpened = useRef(false);
   const [stationChecklistIds, setStationChecklistIds] = useState<string[]>([]);
   const [stationProctors, setStationProctors] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
@@ -203,6 +206,28 @@ export default function ClassesPage() {
       proctorUserIds: template.proctorUserIds,
     });
   }, [setup, templates]);
+
+  useEffect(() => {
+    if (!setup || fireOpsOpened.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("fireopsDrill");
+    if (!id) return;
+    fireOpsOpened.current = true;
+    if (params.has("template") || params.has("sourceTaskBookId") || params.has("quick") || params.has("mode")) {
+      setError("Open the FireOpsSim drill without another training source.");
+      return;
+    }
+    importFireOps(id);
+  }, [setup]);
+
+  function importFireOps(id: string) {
+    const drill = getFireOpsDrill(id);
+    if (!setup || !drill) { setError("FireOpsSim drill not found in the current catalog."); return; }
+    openTraining(false);
+    setShowAdvancedSetup(true);
+    setForm(current => ({ ...current, title: drill.title.slice(0, 160), notes: drill.notes, creditHours: "" }));
+    setError(null);
+  }
 
   function toggle(key: "membershipIds" | "proctorUserIds", id: string) {
     const values = form[key];
@@ -357,6 +382,7 @@ export default function ClassesPage() {
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {setup ? <Button onClick={() => openTraining(false)}>Create Training Sheet</Button> : null}
+        {setup ? <div className="flex flex-wrap items-center gap-2"><Select aria-label="Select FireOpsSim drill" value={fireOpsId} onChange={e => setFireOpsId(e.target.value)}><option value="">Choose FireOpsSim drill…</option>{fireOpsDrills.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}</Select><Button disabled={!fireOpsId} onClick={() => importFireOps(fireOpsId)}>Import drill</Button></div> : null}
         <Link href="/training-sheet-templates" className="inline-flex min-h-11 items-center rounded-md border border-navy-200 px-4 text-sm font-semibold text-navy-900">Manage templates</Link>
       </div>
       <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_190px_210px]">
