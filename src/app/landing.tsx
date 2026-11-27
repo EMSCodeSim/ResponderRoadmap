@@ -414,7 +414,7 @@ export function LandingPage() {
             </article>
           </div>
         </section>
-      </main>
+      <section className="mx-auto max-w-6xl px-5 py-10 sm:px-8"><h2 className="text-2xl font-semibold">Plan your 2027 department training</h2><p className="mt-3 text-white/70">Free 52-week fire and EMS training plan with printable evaluation criteria. No account required.</p><a className="mt-4 inline-block rounded-lg border border-white/30 px-4 py-3 font-semibold text-white" href="https://fireopssim.com/2027-department-training-starter-kit.html?source=responderroadmap">Get the free 2027 Department Training Starter Kit</a></section></main>
 
       <footer className="border-t border-white/[0.08]">
         <div className="mx-auto flex max-w-6xl flex-col justify-between gap-5 px-5 py-8 text-[13px] text-white/45 sm:px-8 md:flex-row md:items-center">
